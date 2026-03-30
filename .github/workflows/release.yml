@@ -1,0 +1,108 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  DW_CLI_VERSION: "1.0.36"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            dw_asset: Windows
+            dw_dir: windows
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            dw_asset: macOS
+            dw_dir: macos
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            dw_asset: macOS
+            dw_dir: macos
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            dw_asset: Linux
+            dw_dir: linux
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Download DataWeave CLI
+        shell: bash
+        run: |
+          mkdir -p src-tauri/resources/dw-cli/${{ matrix.dw_dir }}
+          cd src-tauri/resources/dw-cli/${{ matrix.dw_dir }}
+          gh release download "v${DW_CLI_VERSION}" \
+            --repo mulesoft/data-weave-cli \
+            --pattern "dw-${DW_CLI_VERSION}-${{ matrix.dw_asset }}"
+          mv "dw-${DW_CLI_VERSION}-${{ matrix.dw_asset }}" dw-cli.zip
+          unzip dw-cli.zip
+          rm dw-cli.zip
+          # Ensure binary is executable
+          chmod +x bin/dw* 2>/dev/null || true
+          echo "--- DW CLI contents ---"
+          ls -R .
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      # Linux dependencies for Tauri
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'DataWeave Studio ${{ github.ref_name }}'
+          releaseBody: |
+            ### Downloads
+            - **Windows**: `.exe` (NSIS installer) or `.msi`
+            - **macOS**: `.dmg`
+            - **Linux**: `.AppImage` or `.deb`
+
+            Bundled with DataWeave CLI v${{ env.DW_CLI_VERSION }}.
+          releaseDraft: true
+          prerelease: false
+          args: --target ${{ matrix.target }}

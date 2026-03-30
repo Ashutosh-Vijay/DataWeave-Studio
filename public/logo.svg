@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <!-- Main cyan-purple gradient -->
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00D4FF"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+
+    <!-- Horizontal gradient for curves (left=cyan, right=purple) -->
+    <linearGradient id="hgrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00D4FF"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+
+    <!-- Center background glow -->
+    <radialGradient id="bgCenter" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1A0D4E" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#080C18" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Subtle dot grid -->
+    <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="11" cy="11" r="1.1" fill="#ffffff" opacity="0.045"/>
+    </pattern>
+
+    <!-- Clip for rounded bg -->
+    <clipPath id="clip">
+      <rect width="400" height="400" rx="80"/>
+    </clipPath>
+
+    <!-- Soft glow: nodes & curves -->
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Strong glow: center diamond -->
+    <filter id="strongGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="9" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Arrowhead marker -->
+    <marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,1 L0,6 L7,3.5 z" fill="#6B8FF0" opacity="0.9"/>
+    </marker>
+  </defs>
+
+  <!-- BACKGROUND -->
+  <rect width="400" height="400" rx="80" fill="#080C18"/>
+  <rect width="400" height="400" fill="url(#dots)" clip-path="url(#clip)"/>
+  <ellipse cx="200" cy="200" rx="175" ry="175" fill="url(#bgCenter)"/>
+
+  <!-- LEFT INPUT NODES -->
+  <circle cx="86" cy="140" r="17" fill="#080C18" stroke="url(#grad)" stroke-width="2.5" filter="url(#glow)"/>
+  <circle cx="86" cy="140" r="8"  fill="url(#grad)" filter="url(#glow)"/>
+
+  <circle cx="86" cy="200" r="17" fill="#080C18" stroke="url(#grad)" stroke-width="2.5" filter="url(#glow)"/>
+  <circle cx="86" cy="200" r="8"  fill="url(#grad)" filter="url(#glow)"/>
+
+  <circle cx="86" cy="260" r="17" fill="#080C18" stroke="url(#grad)" stroke-width="2.5" filter="url(#glow)"/>
+  <circle cx="86" cy="260" r="8"  fill="url(#grad)" filter="url(#glow)"/>
+
+  <!-- CURVES: LEFT NODES to DIAMOND -->
+  <path d="M103,140 C141,140 150,180 171,187"
+        stroke="url(#hgrad)" stroke-width="2.3" fill="none"
+        stroke-linecap="round" filter="url(#glow)" marker-end="url(#arrow)"/>
+
+  <path d="M103,200 C128,200 142,200 155,200"
+        stroke="url(#hgrad)" stroke-width="2.3" fill="none"
+        stroke-linecap="round" filter="url(#glow)" marker-end="url(#arrow)"/>
+
+  <path d="M103,260 C141,260 150,220 171,213"
+        stroke="url(#hgrad)" stroke-width="2.3" fill="none"
+        stroke-linecap="round" filter="url(#glow)" marker-end="url(#arrow)"/>
+
+  <!-- CENTER DIAMOND -->
+  <polygon points="200,158 242,200 200,242 158,200"
+           fill="#0D1022" stroke="url(#grad)" stroke-width="2.8"
+           filter="url(#strongGlow)"/>
+  <polygon points="200,172 228,200 200,228 172,200"
+           fill="url(#grad)" opacity="0.11"/>
+  <text x="200" y="200"
+        text-anchor="middle" dominant-baseline="middle"
+        font-family="'SF Mono','Fira Code','Consolas',monospace"
+        font-weight="900" font-size="29" letter-spacing="2.5"
+        fill="url(#grad)" filter="url(#glow)">DW</text>
+
+  <!-- CURVES: DIAMOND to RIGHT NODES -->
+  <path d="M229,187 C249,172 265,140 297,140"
+        stroke="url(#hgrad)" stroke-width="2.3" fill="none"
+        stroke-linecap="round" filter="url(#glow)" marker-end="url(#arrow)"/>
+
+  <path d="M245,200 C261,200 277,200 297,200"
+        stroke="url(#hgrad)" stroke-width="2.3" fill="none"
+        stroke-linecap="round" filter="url(#glow)" marker-end="url(#arrow)"/>
+
+  <path d="M229,213 C249,228 265,260 297,260"
+        stroke="url(#hgrad)" stroke-width="2.3" fill="none"
+        stroke-linecap="round" filter="url(#glow)" marker-end="url(#arrow)"/>
+
+  <!-- RIGHT OUTPUT NODES -->
+  <circle cx="314" cy="140" r="17" fill="#080C18" stroke="url(#grad)" stroke-width="2.5" filter="url(#glow)"/>
+  <circle cx="314" cy="140" r="8"  fill="url(#grad)" filter="url(#glow)"/>
+
+  <circle cx="314" cy="200" r="17" fill="#080C18" stroke="url(#grad)" stroke-width="2.5" filter="url(#glow)"/>
+  <circle cx="314" cy="200" r="8"  fill="url(#grad)" filter="url(#glow)"/>
+
+  <circle cx="314" cy="260" r="17" fill="#080C18" stroke="url(#grad)" stroke-width="2.5" filter="url(#glow)"/>
+  <circle cx="314" cy="260" r="8"  fill="url(#grad)" filter="url(#glow)"/>
+</svg>
