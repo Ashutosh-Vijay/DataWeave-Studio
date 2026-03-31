@@ -224,42 +224,43 @@ interface MultipartPart {
 }
 
 function generateMultipartScript(payload: string, hints: string[]): string {
-  // The payload for multipart is stored as JSON describing the parts
-  let parts: MultipartPart[];
+  // Payload is JSON describing the multipart parts.
+  // Generate a script that reads the JSON and outputs multipart/form-data.
+  let parsed: { parts: Record<string, { headers: Record<string, string>; content: string }> };
   try {
-    parts = JSON.parse(payload);
+    parsed = JSON.parse(payload);
   } catch {
-    return buildScript('multipart/form-data', hints, 'payload');
+    return buildScript('application/json', hints, 'payload');
   }
 
-  if (!Array.isArray(parts) || parts.length === 0) {
-    return buildScript('multipart/form-data', hints, 'payload');
+  const partNames = Object.keys(parsed.parts || {});
+  if (partNames.length === 0) {
+    return buildScript('application/json', hints, 'payload');
   }
 
-  // Generate MuleSoft-style multipart DW
-  const partEntries = parts.map((part) => {
+  // Generate MuleSoft-style multipart DW output from JSON input
+  const partEntries = partNames.map((name) => {
+    const part = parsed.parts[name];
+    const ct = part.headers?.['Content-Type'] || 'text/plain';
+    const filename = part.headers?.filename;
     const partLines: string[] = [];
-    partLines.push(`    ${safeKey(part.name)}: {`);
+    partLines.push(`    ${safeKey(name)}: {`);
     partLines.push(`      headers: {`);
-    partLines.push(`        "Content-Type": "${part.contentType}"`);
-    if (part.filename) {
+    partLines.push(`        "Content-Type": "${ct}"`);
+    if (filename) {
       partLines.push(`        , "Content-Disposition": {`);
       partLines.push(`            "type": "form-data",`);
-      partLines.push(`            "name": "${part.name}",`);
-      partLines.push(`            "filename": "${part.filename}"`);
+      partLines.push(`            "name": "${name}",`);
+      partLines.push(`            "filename": "${filename}"`);
       partLines.push(`        }`);
     }
     partLines.push(`      },`);
-    if (part.isFile) {
-      partLines.push(`      content: payload.parts.${safeDot(part.name)}.content`);
-    } else {
-      partLines.push(`      content: "${escDW(part.value)}"`);
-    }
+    partLines.push(`      content: payload.parts.${safeDot(name)}.content`);
     partLines.push(`    }`);
     return partLines.join('\n');
   });
 
-  const body = `{\n  parts: {\n${partEntries.join(',\n')}\n  }\n}`;
+  const body = `// Input is JSON — output constructs multipart/form-data\n{\n  parts: {\n${partEntries.join(',\n')}\n  }\n}`;
   return buildScript('multipart/form-data', hints, body);
 }
 
@@ -303,9 +304,6 @@ function singularize(word: string): string {
   return 'item';
 }
 
-function escDW(str: string): string {
-  return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-}
 
 // ========================================================
 // Curl parser
@@ -397,10 +395,13 @@ function parseCurl(curl: string): CurlImportResult {
   let generatedScript: string;
 
   if (formParts.length > 0) {
-    // Multipart form data
-    payloadMimeType = 'multipart/form-data';
+    // Multipart form data — store as JSON since the DW CLI can't parse
+    // multipart without real MIME boundaries. The generated script shows
+    // how to construct the multipart output from JSON input.
+    payloadMimeType = 'application/json';
     payload = generateMultipartPayload(formParts);
-    generatedScript = generateDWScript(payload, payloadMimeType, queryParams, headers);
+    const mpHints = buildHintComments(queryParams, headers);
+    generatedScript = generateMultipartScript(payload, mpHints);
   } else if (payloadMimeType === 'application/x-www-form-urlencoded') {
     payload = rawPayload;
     generatedScript = generateDWScript(payload, payloadMimeType, queryParams, headers);
