@@ -10,41 +10,68 @@ Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor.
 
 ## Preview
 
-![Salesforce Query mode with parameter binding](docs/screenshots/1.png)
-![Secure Properties Tool — offline encrypt/decrypt](docs/screenshots/2.png)
-![Transform mode with multipart output](docs/screenshots/3.png)
+![Main screen — script editor, context panel, and output](docs/screenshots/main_screen.png)
+*Main screen — DataWeave script editor, full context panel (attributes, vars, config), and live output*
+
+![Salesforce Query mode with parameter binding](docs/screenshots/soql.png)
+*Salesforce Query mode — write SOQL with `:param` binding, see the exact final query rendered instantly*
+
+![cURL importer — auto-fills payload, headers, and generates a DW transform](docs/screenshots/cURL_importer.png)
+*cURL importer — paste any cURL command, auto-fills payload and headers, generates a matching DW transform*
+
+![Secure Properties Tool — offline encrypt/decrypt](docs/screenshots/secure_properties.png)
+*Offline Secure Properties Tool — encrypt/decrypt values locally using AES-CBC, nothing sent to any server*
 
 ---
 
 ## Why?
 
 DataWeave testing today is painful:
-- Anypoint Studio is heavy, slow to start, and overkill for a quick transformation test
-- The online playground lacks full execution context — no vars, no config properties, no real headers
-- Debugging real-world payloads with large JSON or nested structures is clunky
 
-DataWeave Studio fixes that.
+- **Anypoint Studio** is 2GB, Eclipse-based, and takes minutes to start. Testing a single DataWeave script requires deploying an entire Mule app locally.
+- **The online playground** lacks full execution context — no `vars`, no config properties, no real headers — and hangs or crashes on large payloads.
+- **The VSCode DataWeave extension** requires a specific folder structure (`src/main/dw/inputs/`), a separate file for every input — payload, attributes, vars, each written by hand — and switches between panes just to see output. High friction for something you do dozens of times a day.
+
+DataWeave Studio fixes all of it — one window, everything from a UI, no file management.
+
+---
+
+## 3 Things No Other Tool Does
+
+**1. Test with your real secure config — offline, nothing sent anywhere**
+Paste your actual `secure-config.yaml` (with `![Base64Encrypted...]` values), provide your encryption key at runtime. Your script runs with real decrypted values. The key is never saved to disk. No other DataWeave tool supports this — everywhere else you're forced to manually decrypt and hardcode values, or spin up the full Mule runtime.
+
+**2. See your final SOQL/SQL query before it hits the connector**
+Write your DataWeave SOQL builder script, run it, see the exact rendered query. No Salesforce connection, no API calls, no guessing. Catch mistakes before they hit prod.
+
+**3. Full Mule message context from a UI — zero files**
+Set `attributes.method`, `attributes.headers`, `attributes.queryParams`, `vars`, config properties, and encrypted secure config values entirely from the UI. No JSON files, no folder structures, no context switching.
 
 ---
 
 ## Who is this for?
 
 - MuleSoft developers tired of opening Anypoint Studio just to test a script
-- Engineers working with production payloads, secure configs, and real Mule message context
-- Anyone building or debugging DataWeave outside a full Mule app
+- Engineers using the VSCode extension but fed up with maintaining input folders and hand-written JSON files just to set `vars` or `attributes`
+- Anyone who needs to test scripts that reference `${secure::key}` values without running the full stack
+- Anyone building or debugging DataWeave with real production payloads, headers, and config
 
 ---
 
 ## vs. The Alternatives
 
-| Feature | Anypoint Studio | Online Playground | DataWeave Studio |
-|---|---|---|---|
-| Startup | Minutes | Instant | Instant |
-| Offline | Yes | No | Yes |
-| Full Context (vars, attrs, headers) | Yes | Limited | Yes |
-| Config YAML (`${key}`, `![encrypted]`) | Yes | No | Yes |
-| Secure property decryption | Yes | No | Yes |
-| Footprint | 2GB+ | N/A | ~150MB |
+| Feature | Anypoint Studio | Online Playground | VSCode Extension | DataWeave Studio |
+|---|---|---|---|---|
+| Startup | Minutes | Instant | Instant | Instant |
+| Offline | Yes | No | Yes | Yes |
+| Large payload support | Yes | Hangs/crashes | Yes | Yes |
+| Context (vars, attrs, headers) | Yes | Limited | Manual JSON files | UI — no files |
+| Config YAML (`${key}`) | Yes | No | No | Yes |
+| Secure config (`![encrypted]`) | Yes (full runtime) | No | No | Yes — offline |
+| SOQL/SQL query rendering | Yes (full runtime) | No | No | Yes — instant |
+| cURL import | No | No | No | Yes |
+| Workspace save/load | Yes | No | Partial | Yes |
+| Footprint | 2GB+ | N/A | Needs VSCode | ~150MB standalone |
 
 ---
 
@@ -67,12 +94,12 @@ The DataWeave CLI is bundled — no separate installation needed.
 ### Context & Config
 - **Full context panel** — set `attributes.method`, `headers`, `queryParams`, and `vars` from the UI
 - **Config properties (YAML)** — define `${key}` and `${secure::key}` properties just like MuleSoft's `config.yaml` / `secure-config.yaml`
-- **Secure property decryption** — decrypt `![encrypted]` values from production configs using AES-CBC (key never saved to disk)
+- **Secure property decryption** — paste your production `secure-config.yaml`, provide the key, and your script runs with real decrypted values. Key is never saved to disk.
 - **Offline Secure Properties Tool** — encrypt/decrypt values locally, without sending secrets to any server
 
 ### Workflow
 - **Named inputs** — add extra input streams as tabs alongside payload, accessible by name in DW scripts
-- **cURL importer** — paste a cURL command to auto-fill payload, headers, and generate a DW transform
+- **cURL importer** — copy a request from Postman or browser devtools, paste it, get a DataWeave transform template instantly
 - **Workspace management** — save/load `.dwstudio` files with full editor state
 - **Auto-run** — toggle live preview with 1.5s debounce
 
@@ -82,7 +109,7 @@ The DataWeave CLI is bundled — no separate installation needed.
 - **No payload size limit** — handles large Base64, nested JSON, XML, CSV locally
 
 ### Query Modes
-- **Salesforce Query mode** — SOQL editor with `:paramName` parameter binding
+- **Salesforce Query mode** — SOQL editor with `:paramName` binding, see the exact final query rendered before it hits Salesforce
 - **DB Query mode** — SQL editor with `:paramName` parameters (auto-quoting, simulated JDBC)
 
 ---
