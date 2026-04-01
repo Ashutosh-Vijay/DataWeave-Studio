@@ -50,13 +50,24 @@ fn clean_stderr(stderr: &str) -> String {
     let cleaned = ansi_re.replace_all(stderr, "");
 
     // Filter out Java WARNING lines (sun.misc.Unsafe deprecation noise)
-    cleaned
+    let result = cleaned
         .lines()
         .filter(|line| !line.starts_with("WARNING:"))
         .collect::<Vec<_>>()
         .join("\n")
         .trim()
-        .to_string()
+        .to_string();
+
+    // Add a helpful hint for unsupported output types
+    if result.contains("Unknown content type `application/java`") {
+        return format!(
+            "{}\n\nHint: `application/java` is only available inside a Mule runtime. \
+            Try `output application/json` instead — the DW CLI does not support Java object output.",
+            result
+        );
+    }
+
+    result
 }
 
 /// Strip the \\?\ extended-length path prefix that Windows/Rust canonicalize adds.
