@@ -162,6 +162,10 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
                   scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
                   overviewRulerLanes: 0,
                   placeholder: CONFIG_PLACEHOLDER,
+                  autoClosingBrackets: 'always',
+                  autoClosingQuotes: 'always',
+                  autoSurround: 'brackets',
+                  autoIndent: 'full',
                 }}
               />
             </div>
@@ -213,6 +217,10 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
                     scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
                     overviewRulerLanes: 0,
                     placeholder: SECURE_PLACEHOLDER,
+                    autoClosingBrackets: 'always',
+                    autoClosingQuotes: 'always',
+                    autoSurround: 'brackets',
+                    autoIndent: 'full',
                   }}
                 />
               </div>

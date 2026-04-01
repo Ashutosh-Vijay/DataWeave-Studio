@@ -39,6 +39,10 @@ export function QueryEditor({ query, onChange, language }: QueryEditorProps) {
             wordWrap: 'on',
             scrollBeyondLastLine: false,
             folding: true,
+            autoClosingBrackets: 'always',
+            autoClosingQuotes: 'always',
+            autoSurround: 'brackets',
+            autoIndent: 'full',
           }}
         />
       </div>

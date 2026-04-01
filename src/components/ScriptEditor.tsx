@@ -165,6 +165,10 @@ export function ScriptEditor({ code, onChange, onRun, errorLine, headerLabel, pa
             tabCompletion: 'on',
             acceptSuggestionOnEnter: 'on',
             snippetSuggestions: 'top',
+            autoClosingBrackets: 'always',
+            autoClosingQuotes: 'always',
+            autoSurround: 'brackets',
+            autoIndent: 'full',
           }}
         />
       </div>

@@ -184,6 +184,10 @@ export function PayloadTabs({
             wordWrap: 'on',
             scrollBeyondLastLine: false,
             folding: true,
+            autoClosingBrackets: 'always',
+            autoClosingQuotes: 'always',
+            autoSurround: 'brackets',
+            autoIndent: 'full',
           }}
         />
       </div>
