@@ -149,6 +149,61 @@ struct NamedInput {
     file_path: Option<String>,
 }
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MultipartPartData {
+    name: String,
+    value: String,
+    content_type: String,
+    is_file: bool,
+    file_path: Option<String>,
+    filename: Option<String>,
+}
+
+/// Build a proper multipart/form-data body and return (body_bytes, boundary)
+fn build_multipart_body(parts: &[MultipartPartData]) -> (Vec<u8>, String) {
+    let boundary = format!("dwstudio{}", chrono::Utc::now().timestamp_millis());
+    let mut body: Vec<u8> = Vec::new();
+
+    for part in parts {
+        // Opening boundary
+        body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+
+        // Content-Disposition
+        let filename = part.filename.as_deref()
+            .or_else(|| part.file_path.as_deref().map(|p| p.split('/').last().unwrap_or(p).split('\\').last().unwrap_or(p)));
+
+        if let Some(fname) = filename {
+            body.extend_from_slice(format!(
+                "Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"\r\n",
+                part.name, fname
+            ).as_bytes());
+        } else {
+            body.extend_from_slice(format!(
+                "Content-Disposition: form-data; name=\"{}\"\r\n",
+                part.name
+            ).as_bytes());
+        }
+
+        body.extend_from_slice(format!("Content-Type: {}\r\n\r\n", part.content_type).as_bytes());
+
+        if part.is_file {
+            if let Some(ref fp) = part.file_path {
+                if let Ok(file_bytes) = std::fs::read(fp) {
+                    body.extend_from_slice(&file_bytes);
+                }
+            }
+        } else {
+            body.extend_from_slice(part.value.as_bytes());
+        }
+
+        body.extend_from_slice(b"\r\n");
+    }
+
+    body.extend_from_slice(format!("--{}--\r\n", boundary).as_bytes());
+    (body, boundary)
+}
+
 /// Build the script header with input declarations for all provided inputs.
 fn build_full_script(
     user_script: &str,
@@ -279,6 +334,8 @@ pub async fn run_dataweave(
     classpath: Option<Vec<String>>,
     /// Execution timeout in milliseconds (0 = no timeout)
     timeout_ms: Option<u64>,
+    /// Multipart form-data parts — when provided, build a real multipart body
+    multipart_parts_json: Option<String>,
 ) -> Result<RunResult, String> {
     let start_time = Instant::now();
 
@@ -306,18 +363,35 @@ pub async fn run_dataweave(
         payload
     };
 
-    let full_script = build_full_script(&script, &payload_mime_type, has_attributes, has_vars, &named_inputs);
-
     let run_dir = create_run_dir()?;
 
-    let script_file = write_temp_file(&run_dir, "script.dwl", &full_script)?;
-
-    // Payload: use provided file path (binary) or write text content to temp file
-    let payload_file = if let Some(ref fp) = payload_file_path {
+    // Build real multipart body when parts are provided (must happen before build_full_script)
+    let multipart_mime_override: Option<String>;
+    let payload_file = if let Some(ref parts_json) = multipart_parts_json {
+        let parts: Vec<MultipartPartData> = serde_json::from_str(parts_json)
+            .map_err(|e| format!("Failed to parse multipart parts: {}", e))?;
+        if !parts.is_empty() {
+            let (body_bytes, boundary) = build_multipart_body(&parts);
+            multipart_mime_override = Some(format!("multipart/form-data; boundary={}", boundary));
+            let file_path = run_dir.join("payload_multipart.dat");
+            std::fs::write(&file_path, &body_bytes)
+                .map_err(|e| format!("Failed to write multipart payload: {}", e))?;
+            file_path
+        } else {
+            multipart_mime_override = None;
+            write_temp_file(&run_dir, "payload.dat", &effective_payload)?
+        }
+    } else if let Some(ref fp) = payload_file_path {
+        multipart_mime_override = None;
         std::path::PathBuf::from(fp)
     } else {
+        multipart_mime_override = None;
         write_temp_file(&run_dir, "payload.dat", &effective_payload)?
     };
+
+    let effective_payload_mime = multipart_mime_override.as_deref().unwrap_or(&payload_mime_type);
+    let full_script = build_full_script(&script, effective_payload_mime, has_attributes, has_vars, &named_inputs);
+    let script_file = write_temp_file(&run_dir, "script.dwl", &full_script)?;
 
     let mut cmd = Command::new(&dw_binary_path);
     cmd.arg("run");

@@ -241,6 +241,11 @@ function App() {
     const resolvedScript = await substitutePropertiesAsync(workspace.script, configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings);
     const resolvedPayload = await substitutePropertiesAsync(workspace.payload, configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings);
 
+    const multipartPartsJson =
+      workspace.payloadMimeType === 'multipart/form-data' && workspace.multipartParts.length > 0
+        ? JSON.stringify(workspace.multipartParts)
+        : undefined;
+
     await runner.run(
       resolvedScript,
       resolvedPayload,
@@ -251,8 +256,9 @@ function App() {
       workspace.payloadFilePath,
       workspace.classpath,
       workspace.timeoutMs,
+      multipartPartsJson,
     );
-  }, [workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, workspace.payloadFilePath, workspace.classpath, workspace.timeoutMs, runner, encryptionKey]);
+  }, [workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, workspace.payloadFilePath, workspace.classpath, workspace.timeoutMs, workspace.multipartParts, runner, encryptionKey]);
 
   // Keep refs in sync for auto-run (avoids stale closures and infinite loops)
   handleRunRef.current = handleRun;
@@ -262,6 +268,9 @@ function App() {
     workspace.setPayload(result.payload);
     workspace.setPayloadMimeType(result.payloadMimeType);
     workspace.setScript(result.generatedScript);
+    if (result.multipartParts) {
+      workspace.setMultipartParts(result.multipartParts);
+    }
     workspace.setContext({
       ...workspace.context,
       method: result.method,
@@ -505,6 +514,8 @@ function App() {
                 payloadMimeType={workspace.payloadMimeType}
                 payloadFilePath={workspace.payloadFilePath}
                 onPayloadFilePathChange={workspace.setPayloadFilePath}
+                multipartParts={workspace.multipartParts}
+                onMultipartPartsChange={workspace.setMultipartParts}
                 namedInputs={workspace.namedInputs}
                 onNamedInputsChange={workspace.setNamedInputs}
               />

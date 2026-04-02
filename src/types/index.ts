@@ -27,6 +27,15 @@ export interface ContextState {
   encryptionSettings?: EncryptionSettings;
 }
 
+export interface MultipartPart {
+  name: string;
+  value: string;
+  contentType: string;
+  isFile: boolean;
+  filePath?: string;
+  filename?: string;
+}
+
 export interface NamedInput {
   name: string;
   content: string;
@@ -45,6 +54,7 @@ export interface SingleTransform {
   classpath?: string[];
   timeoutMs?: number;
   payloadFilePath?: string;
+  multipartParts?: MultipartPart[];
 }
 
 export interface WorkspaceFile {

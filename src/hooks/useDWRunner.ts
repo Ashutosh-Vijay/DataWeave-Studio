@@ -33,6 +33,7 @@ interface UseDWRunnerReturn {
     payloadFilePath?: string | null,
     classpath?: string[],
     timeoutMs?: number,
+    multipartPartsJson?: string,
   ) => Promise<void>;
 }
 
@@ -77,6 +78,7 @@ export function useDWRunner(): UseDWRunnerReturn {
       payloadFilePath?: string | null,
       classpath?: string[],
       timeoutMs?: number,
+      multipartPartsJson?: string,
     ) => {
       setIsRunning(true);
       setError(null);
@@ -96,6 +98,7 @@ export function useDWRunner(): UseDWRunnerReturn {
           payloadFilePath: payloadFilePath ?? null,
           classpath: classpath ?? [],
           timeoutMs: timeoutMs ?? 0,
+          multipartPartsJson: multipartPartsJson ?? null,
         });
 
         if (result.error) {

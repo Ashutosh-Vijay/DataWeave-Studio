@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { WorkspaceFile, ContextState, MimeType, NamedInput } from '../types';
+import { WorkspaceFile, ContextState, MimeType, NamedInput, MultipartPart } from '../types';
 
 const DEFAULT_CONTEXT: ContextState = {
   method: 'GET',
@@ -36,6 +36,7 @@ interface UseWorkspaceReturn {
   payload: string;
   payloadMimeType: MimeType;
   payloadFilePath: string | null;
+  multipartParts: MultipartPart[];
   nodeLabel: string;
   context: ContextState;
   namedInputs: NamedInput[];
@@ -47,6 +48,7 @@ interface UseWorkspaceReturn {
   setPayload: (payload: string) => void;
   setPayloadMimeType: (mime: MimeType) => void;
   setPayloadFilePath: (path: string | null) => void;
+  setMultipartParts: (parts: MultipartPart[]) => void;
   setNodeLabel: (label: string) => void;
   setContext: (ctx: ContextState) => void;
   setNamedInputs: (inputs: NamedInput[]) => void;
@@ -74,6 +76,7 @@ export function useWorkspace(): UseWorkspaceReturn {
   const [classpath, setClasspathState] = useState<string[]>([]);
   const [timeoutMs, setTimeoutMsState] = useState(30000);
   const [payloadFilePath, setPayloadFilePathState] = useState<string | null>(null);
+  const [multipartParts, setMultipartPartsState] = useState<MultipartPart[]>([]);
   const [isDirty, setIsDirty] = useState(false);
   const [currentFile, setCurrentFile] = useState<string | null>(null);
 
@@ -91,6 +94,7 @@ export function useWorkspace(): UseWorkspaceReturn {
   const setClasspath = useCallback((cp: string[]) => { setClasspathState(cp); setIsDirty(true); }, []);
   const setTimeoutMs = useCallback((ms: number) => { setTimeoutMsState(ms); setIsDirty(true); }, []);
   const setPayloadFilePath = useCallback((path: string | null) => { setPayloadFilePathState(path); setIsDirty(true); }, []);
+  const setMultipartParts = useCallback((parts: MultipartPart[]) => { setMultipartPartsState(parts); setIsDirty(true); }, []);
 
   const setScript = useCallback((val: string) => {
     scriptsByLabel.current[currentLabel.current] = val;
@@ -126,6 +130,7 @@ export function useWorkspace(): UseWorkspaceReturn {
         classpath,
         timeoutMs,
         payloadFilePath: payloadFilePath ?? undefined,
+        multipartParts,
       },
       context,
     };
@@ -134,7 +139,7 @@ export function useWorkspace(): UseWorkspaceReturn {
     const filename = path.split(/[/\\]/).pop() || '';
     setCurrentFile(filename);
     return path;
-  }, [projectName, script, payload, payloadMimeType, nodeLabel, namedInputs, queryTemplate, classpath, timeoutMs, payloadFilePath, context]);
+  }, [projectName, script, payload, payloadMimeType, nodeLabel, namedInputs, queryTemplate, classpath, timeoutMs, payloadFilePath, multipartParts, context]);
 
   const loadWorkspace = useCallback(async (filename: string) => {
     const ws = await invoke<WorkspaceFile>('load_workspace', { filename });
@@ -156,6 +161,7 @@ export function useWorkspace(): UseWorkspaceReturn {
     setClasspathState(ws.singleTransform.classpath || []);
     setTimeoutMsState(ws.singleTransform.timeoutMs ?? 30000);
     setPayloadFilePathState(ws.singleTransform.payloadFilePath ?? null);
+    setMultipartPartsState(ws.singleTransform.multipartParts || []);
     setContext(ws.context);
     setCurrentFile(filename);
     setIsDirty(false);
@@ -187,6 +193,7 @@ export function useWorkspace(): UseWorkspaceReturn {
     setClasspathState([]);
     setTimeoutMsState(30000);
     setPayloadFilePathState(null);
+    setMultipartPartsState([]);
     setContext(DEFAULT_CONTEXT);
     setCurrentFile(null);
     setIsDirty(false);
@@ -198,6 +205,7 @@ export function useWorkspace(): UseWorkspaceReturn {
     payload,
     payloadMimeType,
     payloadFilePath,
+    multipartParts,
     nodeLabel,
     context,
     namedInputs,
@@ -209,6 +217,7 @@ export function useWorkspace(): UseWorkspaceReturn {
     setPayload: wrapSetter(setPayload),
     setPayloadMimeType: wrapSetter(setPayloadMimeType),
     setPayloadFilePath,
+    setMultipartParts,
     setNodeLabel,
     setContext: wrapSetter(setContext),
     setNamedInputs: wrapSetter(setNamedInputs),

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Editor, { BeforeMount } from '@monaco-editor/react';
 import { open } from '@tauri-apps/plugin-dialog';
-import { NamedInput, MIME_OPTIONS, MimeType } from '../types';
+import { NamedInput, MIME_OPTIONS, MimeType, MultipartPart } from '../types';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
 
@@ -34,6 +34,8 @@ interface PayloadTabsProps {
   payloadMimeType: string;
   payloadFilePath?: string | null;
   onPayloadFilePathChange?: (path: string | null) => void;
+  multipartParts: MultipartPart[];
+  onMultipartPartsChange: (parts: MultipartPart[]) => void;
   namedInputs: NamedInput[];
   onNamedInputsChange: (inputs: NamedInput[]) => void;
 }
@@ -44,6 +46,8 @@ export function PayloadTabs({
   payloadMimeType,
   payloadFilePath,
   onPayloadFilePathChange,
+  multipartParts,
+  onMultipartPartsChange,
   namedInputs,
   onNamedInputsChange,
 }: PayloadTabsProps) {
@@ -197,6 +201,138 @@ export function PayloadTabs({
         </div>
       )}
 
+      {/* Multipart form-data parts builder */}
+      {isPayloadTab && payloadMimeType === 'multipart/form-data' && (
+        <div className="flex-1 overflow-auto p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-content-faint uppercase tracking-wide">Parts</span>
+            <button
+              onClick={() => onMultipartPartsChange([
+                ...multipartParts,
+                { name: `part${multipartParts.length + 1}`, value: '', contentType: 'text/plain', isFile: false },
+              ])}
+              className="text-[10px] text-[#00a0df] hover:text-[#00c8ff] cursor-pointer"
+            >+ Add Part</button>
+          </div>
+
+          {multipartParts.length === 0 && (
+            <div className="text-[10px] text-content-ghost italic py-2">No parts yet — add text or file parts</div>
+          )}
+
+          {multipartParts.map((part, i) => (
+            <div key={i} className="bg-surface-section border border-line-secondary rounded-lg p-2 space-y-1.5">
+              <div className="flex items-center gap-2">
+                {/* Name */}
+                <input
+                  type="text"
+                  value={part.name}
+                  onChange={(e) => {
+                    const updated = [...multipartParts];
+                    updated[i] = { ...part, name: e.target.value.replace(/[^a-zA-Z0-9_-]/g, '') };
+                    onMultipartPartsChange(updated);
+                  }}
+                  placeholder="name"
+                  className="flex-1 bg-surface-input border border-line rounded px-2 py-1 text-[11px] font-mono text-content focus:border-[#00a0df] focus:outline-none"
+                />
+                {/* Text/File toggle */}
+                <button
+                  onClick={() => {
+                    const updated = [...multipartParts];
+                    updated[i] = { ...part, isFile: !part.isFile, filePath: undefined, value: '' };
+                    onMultipartPartsChange(updated);
+                  }}
+                  className={`px-2 py-1 text-[10px] rounded border cursor-pointer transition-colors ${
+                    part.isFile
+                      ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
+                      : 'bg-[#00a0df]/10 text-[#00a0df] border-[#00a0df]/30'
+                  }`}
+                >
+                  {part.isFile ? 'File' : 'Text'}
+                </button>
+                {/* Content-Type */}
+                <input
+                  type="text"
+                  value={part.contentType}
+                  onChange={(e) => {
+                    const updated = [...multipartParts];
+                    updated[i] = { ...part, contentType: e.target.value };
+                    onMultipartPartsChange(updated);
+                  }}
+                  placeholder="text/plain"
+                  className="w-32 bg-surface-input border border-line rounded px-2 py-1 text-[10px] text-content-muted focus:border-[#00a0df] focus:outline-none"
+                />
+                {/* Remove */}
+                <button
+                  onClick={() => onMultipartPartsChange(multipartParts.filter((_, j) => j !== i))}
+                  className="text-content-ghost hover:text-red-400 cursor-pointer text-xs px-1"
+                >✕</button>
+              </div>
+
+              {part.isFile ? (
+                <div className="flex items-center gap-2">
+                  {part.filePath ? (
+                    <>
+                      <span className="flex-1 text-[10px] font-mono text-green-400 truncate">{part.filePath.split(/[/\\]/).pop()}</span>
+                      <button
+                        onClick={async () => {
+                          const selected = await open({ multiple: false, directory: false });
+                          if (selected) {
+                            const fp = typeof selected === 'string' ? selected : selected[0];
+                            const updated = [...multipartParts];
+                            updated[i] = { ...part, filePath: fp, filename: fp.split(/[/\\]/).pop() };
+                            onMultipartPartsChange(updated);
+                          }
+                        }}
+                        className="text-[10px] text-[#00a0df] border border-[#00a0df]/30 rounded px-2 py-0.5 cursor-pointer hover:bg-[#00a0df]/10"
+                      >Change</button>
+                      <button
+                        onClick={() => {
+                          const updated = [...multipartParts];
+                          updated[i] = { ...part, filePath: undefined, filename: undefined };
+                          onMultipartPartsChange(updated);
+                        }}
+                        className="text-[10px] text-content-ghost hover:text-red-400 cursor-pointer"
+                      >Clear</button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        const selected = await open({ multiple: false, directory: false });
+                        if (selected) {
+                          const fp = typeof selected === 'string' ? selected : selected[0];
+                          const updated = [...multipartParts];
+                          updated[i] = { ...part, filePath: fp, filename: fp.split(/[/\\]/).pop() };
+                          onMultipartPartsChange(updated);
+                        }
+                      }}
+                      className="text-[10px] text-[#00a0df] border border-[#00a0df]/30 rounded px-2 py-1 cursor-pointer hover:bg-[#00a0df]/10"
+                    >Pick File...</button>
+                  )}
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  value={part.value}
+                  onChange={(e) => {
+                    const updated = [...multipartParts];
+                    updated[i] = { ...part, value: e.target.value };
+                    onMultipartPartsChange(updated);
+                  }}
+                  placeholder="value"
+                  className="w-full bg-surface-input border border-line rounded px-2 py-1 text-[11px] font-mono text-content focus:border-[#00a0df] focus:outline-none"
+                />
+              )}
+            </div>
+          ))}
+
+          {multipartParts.length > 0 && (
+            <div className="text-[9px] text-content-ghost pt-1">
+              Real multipart body sent to DW CLI — access via <code className="text-content-faint">payload.parts.name.content</code>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Binary file picker for payload tab */}
       {isPayloadTab && payloadMimeType === 'application/octet-stream' && (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 p-4">
@@ -249,8 +385,9 @@ export function PayloadTabs({
         </div>
       )}
 
-      {/* Text editor for non-binary tabs */}
+      {/* Text editor for non-binary, non-multipart tabs */}
       {!(isPayloadTab && payloadMimeType === 'application/octet-stream') &&
+       !(isPayloadTab && payloadMimeType === 'multipart/form-data') &&
        !(!isPayloadTab && activeInput && activeInput.mimeType === 'application/octet-stream') && (
         <div className="flex-1">
           <Editor

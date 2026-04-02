@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { KeyValuePair, MimeType } from '../types';
+import { KeyValuePair, MimeType, MultipartPart } from '../types';
 
 export interface CurlImportResult {
   method: string;
@@ -8,6 +8,7 @@ export interface CurlImportResult {
   payload: string;
   payloadMimeType: MimeType;
   generatedScript: string;
+  multipartParts?: MultipartPart[];
 }
 
 // ========================================================
@@ -215,7 +216,7 @@ function generateFormUrlEncodedScript(payload: string, hints: string[]): string 
 
 // --- Multipart Form Data ---
 
-interface MultipartPart {
+interface LocalMultipartPart {
   name: string;
   value: string;
   filename: string | null;
@@ -223,66 +224,26 @@ interface MultipartPart {
   isFile: boolean;
 }
 
-function generateMultipartScript(payload: string, hints: string[]): string {
-  // Payload is JSON describing the multipart parts.
-  // Generate a script that reads the JSON and outputs multipart/form-data.
-  let parsed: { parts: Record<string, { headers: Record<string, string>; content: string }> };
-  try {
-    parsed = JSON.parse(payload);
-  } catch {
-    return buildScript('application/json', hints, 'payload');
+function generateMultipartScript(payload: string, hints: string[], partNames?: string[]): string {
+  // Use provided part names, or extract from JSON payload if present
+  let names: string[] = partNames || [];
+
+  if (names.length === 0 && payload.trim()) {
+    try {
+      const parsed: { parts: Record<string, unknown> } = JSON.parse(payload);
+      names = Object.keys(parsed.parts || {});
+    } catch { /* skip */ }
   }
 
-  const partNames = Object.keys(parsed.parts || {});
-  if (partNames.length === 0) {
-    return buildScript('application/json', hints, 'payload');
+  if (names.length === 0) {
+    return buildScript('application/json', hints, 'payload // multipart — add parts in the payload tab');
   }
 
-  // Generate MuleSoft-style multipart DW output from JSON input
-  const partEntries = partNames.map((name) => {
-    const part = parsed.parts[name];
-    const ct = part.headers?.['Content-Type'] || 'text/plain';
-    const filename = part.headers?.filename;
-    const partLines: string[] = [];
-    partLines.push(`    ${safeKey(name)}: {`);
-    partLines.push(`      headers: {`);
-    partLines.push(`        "Content-Type": "${ct}"`);
-    if (filename) {
-      partLines.push(`        , "Content-Disposition": {`);
-      partLines.push(`            "type": "form-data",`);
-      partLines.push(`            "name": "${name}",`);
-      partLines.push(`            "filename": "${filename}"`);
-      partLines.push(`        }`);
-    }
-    partLines.push(`      },`);
-    partLines.push(`      content: payload.parts.${safeDot(name)}.content`);
-    partLines.push(`    }`);
-    return partLines.join('\n');
-  });
-
-  const body = `// Input is JSON — output constructs multipart/form-data\n{\n  parts: {\n${partEntries.join(',\n')}\n  }\n}`;
-  return buildScript('multipart/form-data', hints, body);
-}
-
-function generateMultipartPayload(parts: MultipartPart[]): string {
-  // Store as JSON so the payload editor can display/edit it
-  return JSON.stringify(
-    {
-      parts: Object.fromEntries(
-        parts.map((p) => [
-          p.name,
-          p.isFile
-            ? {
-                headers: { 'Content-Type': p.contentType, filename: p.filename },
-                content: `<${p.filename || 'file'} data>`,
-              }
-            : { headers: { 'Content-Type': p.contentType }, content: p.value },
-        ])
-      ),
-    },
-    null,
-    2
+  const fields = names.map(name =>
+    `  ${safeKey(name)}: payload.parts.${safeDot(name)}.content`
   );
+  const body = `{\n${fields.join(',\n')}\n}`;
+  return buildScript('application/json', hints, body);
 }
 
 // ========================================================
@@ -315,7 +276,7 @@ function parseCurl(curl: string): CurlImportResult {
   const headers: KeyValuePair[] = [];
   const queryParams: KeyValuePair[] = [];
   let rawPayload = '';
-  const formParts: MultipartPart[] = [];
+  const formParts: LocalMultipartPart[] = [];
 
   const normalized = curl.replace(/\\\s*\n/g, ' ').replace(/\\\s*$/gm, ' ').trim();
   const withoutCurl = normalized.replace(/^curl\s+/i, '');
@@ -395,13 +356,11 @@ function parseCurl(curl: string): CurlImportResult {
   let generatedScript: string;
 
   if (formParts.length > 0) {
-    // Multipart form data — store as JSON since the DW CLI can't parse
-    // multipart without real MIME boundaries. The generated script shows
-    // how to construct the multipart output from JSON input.
-    payloadMimeType = 'application/json';
-    payload = generateMultipartPayload(formParts);
+    // Real multipart — payload builder will construct the body at run time
+    payloadMimeType = 'multipart/form-data';
+    payload = '';
     const mpHints = buildHintComments(queryParams, headers);
-    generatedScript = generateMultipartScript(payload, mpHints);
+    generatedScript = generateMultipartScript('', mpHints, formParts.map(p => p.name));
   } else if (payloadMimeType === 'application/x-www-form-urlencoded') {
     payload = rawPayload;
     generatedScript = generateDWScript(payload, payloadMimeType, queryParams, headers);
@@ -421,10 +380,21 @@ function parseCurl(curl: string): CurlImportResult {
     generatedScript = generateDWScript(payload, payloadMimeType, queryParams, headers);
   }
 
-  return { method, headers, queryParams, payload, payloadMimeType, generatedScript };
+  const multipartParts: MultipartPart[] | undefined = formParts.length > 0
+    ? formParts.map(p => ({
+        name: p.name,
+        value: p.isFile ? '' : p.value,
+        contentType: p.contentType,
+        isFile: p.isFile,
+        filename: p.filename ?? undefined,
+        // filePath left undefined — user needs to pick actual file
+      }))
+    : undefined;
+
+  return { method, headers, queryParams, payload, payloadMimeType, generatedScript, multipartParts };
 }
 
-function parseFormPart(formStr: string): MultipartPart {
+function parseFormPart(formStr: string): LocalMultipartPart {
   // Format: name=value or name=@filepath or name=@filepath;type=mime
   const eqIdx = formStr.indexOf('=');
   if (eqIdx < 0) {
@@ -486,7 +456,7 @@ function guessContentType(filename: string): string {
 
 function detectMimeType(
   headers: KeyValuePair[],
-  formParts: MultipartPart[],
+  formParts: LocalMultipartPart[],
   rawPayload: string,
 ): MimeType {
   if (formParts.length > 0) return 'multipart/form-data';
