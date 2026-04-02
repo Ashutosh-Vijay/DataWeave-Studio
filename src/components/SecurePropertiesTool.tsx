@@ -16,6 +16,7 @@ interface SecurePropertiesToolProps {
 
 export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
+  const mouseDownOnBackdrop = useRef(false);
   const [mode, setMode] = useState<'encrypt' | 'decrypt'>('encrypt');
   const [input, setInput] = useState('');
   const [key, setKey] = useState('');
@@ -88,7 +89,8 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
   return (
     <div
       ref={backdropRef}
-      onClick={(e) => { if (e.target === backdropRef.current) onClose(); }}
+      onMouseDown={(e) => { mouseDownOnBackdrop.current = e.target === backdropRef.current; }}
+      onMouseUp={(e) => { if (mouseDownOnBackdrop.current && e.target === backdropRef.current) onClose(); mouseDownOnBackdrop.current = false; }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
     >
       <div className="bg-surface-sidebar border border-[#00a0df]/30 rounded-xl shadow-2xl shadow-[#00a0df]/10 w-[520px] max-w-[90vw] overflow-hidden">
@@ -121,7 +123,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
           {/* Mode toggle */}
           <div className="flex gap-1 bg-surface-input rounded-lg p-1">
             <button
-              onClick={() => { setMode('encrypt'); setOutput(''); setError(''); }}
+              onClick={() => { setMode('encrypt'); setInput(''); setOutput(''); setError(''); }}
               className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
                 mode === 'encrypt'
                   ? 'bg-[#00a0df]/20 text-[#00a0df] border border-[#00a0df]/30'
@@ -131,7 +133,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
               Encrypt
             </button>
             <button
-              onClick={() => { setMode('decrypt'); setOutput(''); setError(''); }}
+              onClick={() => { setMode('decrypt'); setInput(''); setOutput(''); setError(''); }}
               className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
                 mode === 'decrypt'
                   ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
