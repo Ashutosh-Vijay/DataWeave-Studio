@@ -247,9 +247,12 @@ function App() {
       workspace.payloadMimeType,
       attributesJson,
       varsJson,
-      namedInputsJson
+      namedInputsJson,
+      workspace.payloadFilePath,
+      workspace.classpath,
+      workspace.timeoutMs,
     );
-  }, [workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, runner, encryptionKey]);
+  }, [workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, workspace.payloadFilePath, workspace.classpath, workspace.timeoutMs, runner, encryptionKey]);
 
   // Keep refs in sync for auto-run (avoids stale closures and infinite loops)
   handleRunRef.current = handleRun;
@@ -454,6 +457,10 @@ function App() {
           onNodeLabelChange={workspace.setNodeLabel}
           payloadMimeType={workspace.payloadMimeType}
           onPayloadMimeTypeChange={workspace.setPayloadMimeType}
+          classpath={workspace.classpath}
+          onClasspathChange={workspace.setClasspath}
+          timeoutMs={workspace.timeoutMs}
+          onTimeoutMsChange={workspace.setTimeoutMs}
           onCurlImport={handleCurlImport}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -496,6 +503,8 @@ function App() {
                 payload={workspace.payload}
                 onPayloadChange={(val) => workspace.setPayload(val || '')}
                 payloadMimeType={workspace.payloadMimeType}
+                payloadFilePath={workspace.payloadFilePath}
+                onPayloadFilePathChange={workspace.setPayloadFilePath}
                 namedInputs={workspace.namedInputs}
                 onNamedInputsChange={workspace.setNamedInputs}
               />

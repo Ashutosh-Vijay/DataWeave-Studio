@@ -9,6 +9,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(WarmupState {
             ready: Mutex::new(false),
             error: Mutex::new(None),
@@ -43,6 +44,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             dw_runner::run_dataweave,
+            dw_runner::migrate_dataweave,
+            dw_runner::save_output_file,
             dw_runner::is_warmed_up,
             dw_runner::get_warmup_status,
             workspace::save_workspace,

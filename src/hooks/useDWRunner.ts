@@ -29,7 +29,10 @@ interface UseDWRunnerReturn {
     payloadMimeType: string,
     attributesJson: string,
     varsJson: string,
-    namedInputsJson: string
+    namedInputsJson: string,
+    payloadFilePath?: string | null,
+    classpath?: string[],
+    timeoutMs?: number,
   ) => Promise<void>;
 }
 
@@ -43,20 +46,16 @@ export function useDWRunner(): UseDWRunnerReturn {
   const [isWarmedUp, setIsWarmedUp] = useState(false);
   const [cliError, setCliError] = useState<string | null>(null);
 
-  // Poll for warm-up status, then check for errors
   useEffect(() => {
     const check = async () => {
       try {
         const status = await invoke<WarmupStatus>('get_warmup_status');
         if (status.ready) {
           setIsWarmedUp(true);
-          if (status.error) {
-            setCliError(status.error);
-          }
+          if (status.error) setCliError(status.error);
           return;
         }
       } catch {
-        // Fallback to simple check if get_warmup_status not available
         try {
           const ready = await invoke<boolean>('is_warmed_up');
           if (ready) { setIsWarmedUp(true); return; }
@@ -74,7 +73,10 @@ export function useDWRunner(): UseDWRunnerReturn {
       payloadMimeType: string,
       attributesJson: string,
       varsJson: string,
-      namedInputsJson: string
+      namedInputsJson: string,
+      payloadFilePath?: string | null,
+      classpath?: string[],
+      timeoutMs?: number,
     ) => {
       setIsRunning(true);
       setError(null);
@@ -91,6 +93,9 @@ export function useDWRunner(): UseDWRunnerReturn {
           attributesJson,
           varsJson,
           namedInputsJson,
+          payloadFilePath: payloadFilePath ?? null,
+          classpath: classpath ?? [],
+          timeoutMs: timeoutMs ?? 0,
         });
 
         if (result.error) {
@@ -98,9 +103,7 @@ export function useDWRunner(): UseDWRunnerReturn {
           setErrorLine(result.error_line);
           setErrorColumn(result.error_column);
         }
-        if (result.output) {
-          setOutput(result.output);
-        }
+        if (result.output) setOutput(result.output);
         setExecutionTimeMs(result.execution_time_ms);
       } catch (e: unknown) {
         setError(String(e));

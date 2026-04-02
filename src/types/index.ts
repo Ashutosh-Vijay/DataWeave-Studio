@@ -31,6 +31,8 @@ export interface NamedInput {
   name: string;
   content: string;
   mimeType: MimeType;
+  /** Absolute path to a binary file — when set, content is ignored */
+  filePath?: string;
 }
 
 export interface SingleTransform {
@@ -40,6 +42,9 @@ export interface SingleTransform {
   nodeLabel: string;
   namedInputs?: NamedInput[];
   queryTemplate?: string;
+  classpath?: string[];
+  timeoutMs?: number;
+  payloadFilePath?: string;
 }
 
 export interface WorkspaceFile {
@@ -77,7 +82,8 @@ export type MimeType =
   | 'multipart/form-data'
   | 'application/java'
   | 'application/dw'
-  | 'application/flatfile';
+  | 'application/flatfile'
+  | 'application/octet-stream';
 
 export const MIME_OPTIONS: { label: string; value: MimeType }[] = [
   { label: 'JSON', value: 'application/json' },
@@ -89,6 +95,7 @@ export const MIME_OPTIONS: { label: string; value: MimeType }[] = [
   { label: 'Java Object', value: 'application/java' },
   { label: 'DataWeave', value: 'application/dw' },
   { label: 'Flat File', value: 'application/flatfile' },
+  { label: 'Binary', value: 'application/octet-stream' },
 ];
 
 // === HTTP method options ===

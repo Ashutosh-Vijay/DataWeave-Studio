@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Editor, { BeforeMount } from '@monaco-editor/react';
+import { open } from '@tauri-apps/plugin-dialog';
 import { NamedInput, MIME_OPTIONS, MimeType } from '../types';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
@@ -31,6 +32,8 @@ interface PayloadTabsProps {
   payload: string;
   onPayloadChange: (val: string | undefined) => void;
   payloadMimeType: string;
+  payloadFilePath?: string | null;
+  onPayloadFilePathChange?: (path: string | null) => void;
   namedInputs: NamedInput[];
   onNamedInputsChange: (inputs: NamedInput[]) => void;
 }
@@ -39,6 +42,8 @@ export function PayloadTabs({
   payload,
   onPayloadChange,
   payloadMimeType,
+  payloadFilePath,
+  onPayloadFilePathChange,
   namedInputs,
   onNamedInputsChange,
 }: PayloadTabsProps) {
@@ -72,6 +77,29 @@ export function PayloadTabs({
   const removeInput = (index: number) => {
     onNamedInputsChange(namedInputs.filter((_, i) => i !== index));
     setActiveTab(0);
+  };
+
+  const pickPayloadFile = async () => {
+    const selected = await open({ multiple: false, directory: false });
+    if (selected && onPayloadFilePathChange) {
+      onPayloadFilePathChange(typeof selected === 'string' ? selected : selected[0]);
+    }
+  };
+
+  const clearPayloadFile = () => {
+    if (onPayloadFilePathChange) onPayloadFilePathChange(null);
+  };
+
+  const pickInputFile = async (index: number) => {
+    const selected = await open({ multiple: false, directory: false });
+    if (selected) {
+      const fp = typeof selected === 'string' ? selected : selected[0];
+      updateInput(index, 'filePath' as keyof NamedInput, fp);
+    }
+  };
+
+  const clearInputFile = (index: number) => {
+    updateInput(index, 'filePath' as keyof NamedInput, '');
   };
 
   const isPayloadTab = effectiveTab === 0;
@@ -169,28 +197,83 @@ export function PayloadTabs({
         </div>
       )}
 
-      {/* Editor */}
-      <div className="flex-1">
-        <Editor
-          height="100%"
-          language={mimeToLanguage(currentMime)}
-          theme={editorTheme}
-          beforeMount={handleBeforeMount}
-          value={currentContent}
-          onChange={handleEditorChange}
-          options={{
-            minimap: { enabled: false },
-            fontSize: 14,
-            wordWrap: 'on',
-            scrollBeyondLastLine: false,
-            folding: true,
-            autoClosingBrackets: 'always',
-            autoClosingQuotes: 'always',
-            autoSurround: 'brackets',
-            autoIndent: 'full',
-          }}
-        />
-      </div>
+      {/* Binary file picker for payload tab */}
+      {isPayloadTab && payloadMimeType === 'application/octet-stream' && (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 p-4">
+          <div className="text-content-faint text-xs text-center">Binary payload — select a file to pass to the script</div>
+          {payloadFilePath ? (
+            <div className="w-full space-y-2">
+              <div className="bg-surface-input border border-green-700/40 rounded px-3 py-2 text-xs font-mono text-green-400 break-all">
+                {payloadFilePath}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={pickPayloadFile} className="flex-1 px-3 py-1.5 text-xs bg-[#00a0df]/15 border border-[#00a0df]/30 text-[#00a0df] rounded cursor-pointer hover:bg-[#00a0df]/25 transition-colors">
+                  Change File
+                </button>
+                <button onClick={clearPayloadFile} className="px-3 py-1.5 text-xs border border-line-secondary text-content-faint rounded cursor-pointer hover:text-red-400 hover:border-red-700/40 transition-colors">
+                  Clear
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={pickPayloadFile} className="px-4 py-2 text-sm bg-[#00a0df]/15 border border-[#00a0df]/30 text-[#00a0df] rounded cursor-pointer hover:bg-[#00a0df]/25 transition-colors">
+              Pick File...
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Binary file picker for named input tab */}
+      {!isPayloadTab && activeInput && activeInput.mimeType === 'application/octet-stream' && (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 p-4">
+          <div className="text-content-faint text-xs text-center">Binary input — select a file</div>
+          {activeInput.filePath ? (
+            <div className="w-full space-y-2">
+              <div className="bg-surface-input border border-green-700/40 rounded px-3 py-2 text-xs font-mono text-green-400 break-all">
+                {activeInput.filePath}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => pickInputFile(activeInputIndex)} className="flex-1 px-3 py-1.5 text-xs bg-[#00a0df]/15 border border-[#00a0df]/30 text-[#00a0df] rounded cursor-pointer hover:bg-[#00a0df]/25 transition-colors">
+                  Change File
+                </button>
+                <button onClick={() => clearInputFile(activeInputIndex)} className="px-3 py-1.5 text-xs border border-line-secondary text-content-faint rounded cursor-pointer hover:text-red-400 hover:border-red-700/40 transition-colors">
+                  Clear
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => pickInputFile(activeInputIndex)} className="px-4 py-2 text-sm bg-[#00a0df]/15 border border-[#00a0df]/30 text-[#00a0df] rounded cursor-pointer hover:bg-[#00a0df]/25 transition-colors">
+              Pick File...
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Text editor for non-binary tabs */}
+      {!(isPayloadTab && payloadMimeType === 'application/octet-stream') &&
+       !(!isPayloadTab && activeInput && activeInput.mimeType === 'application/octet-stream') && (
+        <div className="flex-1">
+          <Editor
+            height="100%"
+            language={mimeToLanguage(currentMime)}
+            theme={editorTheme}
+            beforeMount={handleBeforeMount}
+            value={currentContent}
+            onChange={handleEditorChange}
+            options={{
+              minimap: { enabled: false },
+              fontSize: 14,
+              wordWrap: 'on',
+              scrollBeyondLastLine: false,
+              folding: true,
+              autoClosingBrackets: 'always',
+              autoClosingQuotes: 'always',
+              autoSurround: 'brackets',
+              autoIndent: 'full',
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

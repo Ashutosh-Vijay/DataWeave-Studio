@@ -45,11 +45,9 @@ fn parse_error_location(stderr: &str) -> (Option<u32>, Option<u32>) {
 
 /// Strip ANSI escape codes and Java warnings from stderr
 fn clean_stderr(stderr: &str) -> String {
-    // Remove ANSI escape codes
     let ansi_re = regex::Regex::new(r"\x1b\[[0-9;]*m").unwrap();
     let cleaned = ansi_re.replace_all(stderr, "");
 
-    // Filter out Java WARNING lines (sun.misc.Unsafe deprecation noise)
     let result = cleaned
         .lines()
         .filter(|line| !line.starts_with("WARNING:"))
@@ -58,7 +56,6 @@ fn clean_stderr(stderr: &str) -> String {
         .trim()
         .to_string();
 
-    // Add a helpful hint for unsupported output types
     if result.contains("Unknown content type `application/java`") {
         return format!(
             "{}\n\nHint: `application/java` is only available inside a Mule runtime. \
@@ -71,7 +68,6 @@ fn clean_stderr(stderr: &str) -> String {
 }
 
 /// Strip the \\?\ extended-length path prefix that Windows/Rust canonicalize adds.
-/// CreateProcessW can fail with ERROR_FILENAME_EXCED_RANGE (os error 206) on \\?\ paths.
 #[cfg(target_os = "windows")]
 fn strip_unc_prefix(path: std::path::PathBuf) -> std::path::PathBuf {
     let s = path.to_string_lossy();
@@ -88,7 +84,6 @@ fn strip_unc_prefix(path: std::path::PathBuf) -> std::path::PathBuf {
 }
 
 /// Hide the console window for child processes on Windows.
-/// Without this, every DW CLI invocation briefly flashes a CMD window.
 #[cfg(target_os = "windows")]
 fn hide_console_window(cmd: &mut Command) {
     use std::os::windows::process::CommandExt;
@@ -150,11 +145,11 @@ struct NamedInput {
     name: String,
     content: String,
     mime_type: String,
+    /// If set, read binary content from this file path instead of `content`
+    file_path: Option<String>,
 }
 
 /// Build the script header with input declarations for all provided inputs.
-/// The user's script may or may not include input declarations — we prepend
-/// them so the CLI knows the MIME types for each named input.
 fn build_full_script(
     user_script: &str,
     payload_mime: &str,
@@ -164,7 +159,6 @@ fn build_full_script(
 ) -> String {
     let mut header_lines: Vec<String> = Vec::new();
 
-    // Check what the user already declared
     let has_dw_header = user_script.lines().any(|l| l.trim().starts_with("%dw"));
     let has_separator = user_script.lines().any(|l| l.trim() == "---");
     let has_output = user_script.lines().any(|l| l.trim().starts_with("output "));
@@ -173,7 +167,6 @@ fn build_full_script(
         header_lines.push("%dw 2.0".to_string());
     }
 
-    // Check if user already declared input payload
     let has_payload_input = user_script.lines().any(|l| {
         let t = l.trim();
         t.starts_with("input payload") || t.starts_with("input  payload")
@@ -196,7 +189,6 @@ fn build_full_script(
         }
     }
 
-    // Named inputs
     for ni in named_inputs {
         let prefix = format!("input {}", ni.name);
         let already_declared = user_script.lines().any(|l| l.trim().starts_with(&prefix));
@@ -205,29 +197,21 @@ fn build_full_script(
         }
     }
 
-    // If user wrote just a body expression (no output, no ---), add them
-    // so scripts like just `"200"` or `{ hello: payload.msg }` work
     if !has_output && !has_separator {
         header_lines.push("output application/json".to_string());
         header_lines.push("---".to_string());
-    } else if !has_output {
-        // Has --- but no output: insert output before the separator
-        // (handled below in the merge logic)
     }
 
     if header_lines.is_empty() {
         return user_script.to_string();
     }
 
-    // Insert header lines right after %dw line (or at the very top if no %dw)
     let lines: Vec<&str> = user_script.lines().collect();
 
     if has_dw_header {
-        // Find the %dw line and insert after it
         let mut result = Vec::new();
         let mut inserted = false;
         for line in &lines {
-            // If user has --- but no output, inject output right before ---
             if !has_output && has_separator && !inserted && line.trim() == "---" {
                 for h in &header_lines {
                     result.push(h.clone());
@@ -245,7 +229,6 @@ fn build_full_script(
         }
         result.join("\n")
     } else {
-        // Prepend everything
         let mut result = header_lines;
         for line in &lines {
             result.push(line.to_string());
@@ -254,8 +237,7 @@ fn build_full_script(
     }
 }
 
-/// Write content to a temp file and return the path.
-/// Files are created in a dedicated subdirectory of the system temp dir.
+/// Write text content to a temp file and return the path.
 fn write_temp_file(run_dir: &std::path::Path, name: &str, content: &str) -> Result<std::path::PathBuf, String> {
     let file_path = run_dir.join(name);
     let mut file = std::fs::File::create(&file_path)
@@ -281,6 +263,7 @@ fn cleanup_run_dir(dir: &std::path::Path) {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// Run a DW script with optional classpath, timeout, and binary payload support.
 #[tauri::command]
 pub async fn run_dataweave(
     app: AppHandle,
@@ -290,6 +273,12 @@ pub async fn run_dataweave(
     attributes_json: String,
     vars_json: String,
     named_inputs_json: String,
+    /// Optional file path for binary payloads (skips writing payload string to temp file)
+    payload_file_path: Option<String>,
+    /// Classpath entries for custom DW modules and JARs (joined with OS path separator)
+    classpath: Option<Vec<String>>,
+    /// Execution timeout in milliseconds (0 = no timeout)
+    timeout_ms: Option<u64>,
 ) -> Result<RunResult, String> {
     let start_time = Instant::now();
 
@@ -298,7 +287,6 @@ pub async fn run_dataweave(
     let has_attributes = attributes_json.trim() != "{}" && !attributes_json.trim().is_empty();
     let has_vars = vars_json.trim() != "{}" && !vars_json.trim().is_empty();
 
-    // Parse named inputs
     let named_inputs: Vec<NamedInput> = if named_inputs_json.trim().is_empty() || named_inputs_json.trim() == "[]" {
         vec![]
     } else {
@@ -306,7 +294,6 @@ pub async fn run_dataweave(
             .map_err(|e| format!("Failed to parse named inputs: {}", e))?
     };
 
-    // Default empty payload to a safe value based on MIME type
     let effective_payload = if payload.trim().is_empty() {
         if payload_mime_type.contains("json") || payload_mime_type.contains("java") {
             "{}".to_string()
@@ -319,24 +306,23 @@ pub async fn run_dataweave(
         payload
     };
 
-    // Build the full script with input declarations
     let full_script = build_full_script(&script, &payload_mime_type, has_attributes, has_vars, &named_inputs);
 
-    // Write all inputs to temp files to avoid Windows command-line length limits
-    // (Windows CreateProcessW limit is ~32K chars; large payloads easily exceed this)
     let run_dir = create_run_dir()?;
 
     let script_file = write_temp_file(&run_dir, "script.dwl", &full_script)?;
-    let payload_file = write_temp_file(&run_dir, "payload.dat", &effective_payload)?;
+
+    // Payload: use provided file path (binary) or write text content to temp file
+    let payload_file = if let Some(ref fp) = payload_file_path {
+        std::path::PathBuf::from(fp)
+    } else {
+        write_temp_file(&run_dir, "payload.dat", &effective_payload)?
+    };
 
     let mut cmd = Command::new(&dw_binary_path);
     cmd.arg("run");
-    cmd.arg("-s"); // silent mode
-
-    // Script from file instead of positional argument
+    cmd.arg("-s");
     cmd.arg("-f").arg(&script_file);
-
-    // Inputs as file paths instead of inline values
     cmd.arg("-i").arg(format!("payload={}", payload_file.display()));
 
     if has_attributes {
@@ -348,10 +334,23 @@ pub async fn run_dataweave(
         cmd.arg("-i").arg(format!("vars={}", vars_file.display()));
     }
 
-    // Named inputs as files
     for (idx, ni) in named_inputs.iter().enumerate() {
-        let ni_file = write_temp_file(&run_dir, &format!("input_{}.dat", idx), &ni.content)?;
+        let ni_file = if let Some(ref fp) = ni.file_path {
+            std::path::PathBuf::from(fp)
+        } else {
+            write_temp_file(&run_dir, &format!("input_{}.dat", idx), &ni.content)?
+        };
         cmd.arg("-i").arg(format!("{}={}", ni.name, ni_file.display()));
+    }
+
+    // Classpath for custom modules and JARs
+    if let Some(ref cp_entries) = classpath {
+        let non_empty: Vec<&String> = cp_entries.iter().filter(|s| !s.is_empty()).collect();
+        if !non_empty.is_empty() {
+            let sep = if cfg!(target_os = "windows") { ";" } else { ":" };
+            let cp_str = non_empty.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(sep);
+            cmd.arg("-cp").arg(&cp_str);
+        }
     }
 
     hide_console_window(&mut cmd);
@@ -385,13 +384,50 @@ pub async fn run_dataweave(
             }
         })?;
 
-    let output = child.wait_with_output().map_err(|e| {
-        cleanup_run_dir(&run_dir);
-        e.to_string()
-    })?;
+    // Apply timeout via a killer thread
+    let effective_timeout = timeout_ms.unwrap_or(0);
+    let run_dir_clone = run_dir.clone();
 
-    // Clean up temp files
-    cleanup_run_dir(&run_dir);
+    let output = if effective_timeout > 0 {
+        // Use tokio timeout with spawn_blocking for the blocking wait
+        match tokio::time::timeout(
+            std::time::Duration::from_millis(effective_timeout),
+            tokio::task::spawn_blocking(move || child.wait_with_output()),
+        ).await {
+            Ok(Ok(Ok(out))) => {
+                cleanup_run_dir(&run_dir_clone);
+                out
+            }
+            Ok(Ok(Err(e))) => {
+                cleanup_run_dir(&run_dir_clone);
+                return Err(e.to_string());
+            }
+            Ok(Err(e)) => {
+                cleanup_run_dir(&run_dir_clone);
+                return Err(format!("Task join error: {}", e));
+            }
+            Err(_) => {
+                cleanup_run_dir(&run_dir_clone);
+                return Ok(RunResult {
+                    output: String::new(),
+                    error: Some(format!(
+                        "Script timed out after {}ms. Increase the timeout in Settings if your script needs more time.",
+                        effective_timeout
+                    )),
+                    execution_time_ms: effective_timeout,
+                    error_line: None,
+                    error_column: None,
+                });
+            }
+        }
+    } else {
+        let out = child.wait_with_output().map_err(|e| {
+            cleanup_run_dir(&run_dir);
+            e.to_string()
+        })?;
+        cleanup_run_dir(&run_dir);
+        out
+    };
 
     let execution_time_ms = start_time.elapsed().as_millis() as u64;
 
@@ -421,4 +457,53 @@ pub async fn run_dataweave(
             error_column,
         })
     }
+}
+
+/// Migrate a DW 1.0 script to DW 2.0 using the CLI's migrate subcommand.
+#[tauri::command]
+pub async fn migrate_dataweave(
+    app: AppHandle,
+    script: String,
+) -> Result<String, String> {
+    let dw_binary_path = resolve_dw_binary(&app)?;
+    let run_dir = create_run_dir()?;
+
+    let input_file = write_temp_file(&run_dir, "migrate_input.dwl", &script)?;
+    let output_file = run_dir.join("migrate_output.dwl");
+
+    let mut cmd = Command::new(&dw_binary_path);
+    cmd.arg("migrate")
+        .arg("-i").arg(&input_file)
+        .arg("-o").arg(&output_file)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    hide_console_window(&mut cmd);
+
+    let child = cmd.spawn()
+        .map_err(|e| format!("Failed to start DW migrate: {}", e))?;
+
+    let output = child.wait_with_output()
+        .map_err(|e| { cleanup_run_dir(&run_dir); e.to_string() })?;
+
+    if output.status.success() {
+        let result = std::fs::read_to_string(&output_file)
+            .unwrap_or_else(|_| String::from_utf8_lossy(&output.stdout).to_string());
+        cleanup_run_dir(&run_dir);
+        Ok(result)
+    } else {
+        let stderr = clean_stderr(&String::from_utf8_lossy(&output.stderr));
+        cleanup_run_dir(&run_dir);
+        Err(if stderr.is_empty() {
+            format!("Migration failed with exit code {}", output.status.code().unwrap_or(-1))
+        } else {
+            stderr
+        })
+    }
+}
+
+/// Save text content to a file at the given absolute path.
+#[tauri::command]
+pub fn save_output_file(path: String, content: String) -> Result<(), String> {
+    std::fs::write(&path, content)
+        .map_err(|e| format!("Failed to save file '{}': {}", path, e))
 }

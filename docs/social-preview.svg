@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00D4FF"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="hgrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00D4FF"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#080C18"/>
+      <stop offset="100%" stop-color="#0D1130"/>
+    </linearGradient>
+    <radialGradient id="bgCenter" cx="30%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#1A0D4E" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#080C18" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bgRight" cx="85%" cy="50%" r="40%">
+      <stop offset="0%" stop-color="#001A2E" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#080C18" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="14" cy="14" r="1.2" fill="#ffffff" opacity="0.04"/>
+    </pattern>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="strongGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="9" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="textGlow" x="-10%" y="-30%" width="120%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,1 L0,6 L7,3.5 z" fill="#6B8FF0" opacity="0.9"/>
+    </marker>
+    <clipPath id="logoClip">
+      <rect x="60" y="120" width="400" height="400" rx="80"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="640" fill="url(#bgGrad)"/>
+  <rect width="1280" height="640" fill="url(#dots)"/>
+  <ellipse cx="380" cy="320" rx="500" ry="400" fill="url(#bgCenter)"/>
+  <ellipse cx="1080" cy="320" rx="400" ry="380" fill="url(#bgRight)"/>
+
+  <!-- Divider line -->
+  <line x1="560" y1="100" x2="560" y2="540" stroke="url(#grad)" stroke-width="1" opacity="0.15"/>
+
+  <!-- LOGO (scaled 1x, centered vertically at x=60 y=120) -->
+  <!-- Background -->
+  <rect x="60" y="120" width="400" height="400" rx="80" fill="#080C18"/>
+  <rect x="60" y="120" width="400" height="400" fill="url(#dots)" clip-path="url(#logoClip)"/>
+  <ellipse cx="260" cy="320" rx="175" ry="175" fill="url(#bgCenter)"/>
+
+  <!-- Left nodes -->
+  <circle cx="146" cy="260" r="17" fill="#080C18" stroke="url(#grad)" stroke-width="2.5" filter="url(#glow)"/>
+  <circle cx="146" cy="260" r="8"  fill="url(#grad)" filter="url(#glow)"/>
+  <circle cx="146" cy="320" r="17" fill="#080C18" stroke="url(#grad)" stroke-width="2.5" filter="url(#glow)"/>
+  <circle cx="146" cy="320" r="8"  fill="url(#grad)" filter="url(#glow)"/>
+  <circle cx="146" cy="380" r="17" fill="#080C18" stroke="url(#grad)" stroke-width="2.5" filter="url(#glow)"/>
+  <circle cx="146" cy="380" r="8"  fill="url(#grad)" filter="url(#glow)"/>
+
+  <!-- Curves left to diamond -->
+  <path d="M163,260 C201,260 210,300 231,307" stroke="url(#hgrad)" stroke-width="2.3" fill="none" stroke-linecap="round" filter="url(#glow)" marker-end="url(#arrow)"/>
+  <path d="M163,320 C188,320 202,320 215,320" stroke="url(#hgrad)" stroke-width="2.3" fill="none" stroke-linecap="round" filter="url(#glow)" marker-end="url(#arrow)"/>
+  <path d="M163,380 C201,380 210,340 231,333" stroke="url(#hgrad)" stroke-width="2.3" fill="none" stroke-linecap="round" filter="url(#glow)" marker-end="url(#arrow)"/>
+
+  <!-- Center diamond -->
+  <polygon points="260,278 302,320 260,362 218,320" fill="#0D1022" stroke="url(#grad)" stroke-width="2.8" filter="url(#strongGlow)"/>
+  <polygon points="260,292 288,320 260,348 232,320" fill="url(#grad)" opacity="0.11"/>
+  <text x="260" y="320" text-anchor="middle" dominant-baseline="middle"
+        font-family="'SF Mono','Fira Code','Consolas',monospace"
+        font-weight="900" font-size="29" letter-spacing="2.5"
+        fill="url(#grad)" filter="url(#glow)">DW</text>
+
+  <!-- Curves diamond to right -->
+  <path d="M289,307 C309,292 325,260 357,260" stroke="url(#hgrad)" stroke-width="2.3" fill="none" stroke-linecap="round" filter="url(#glow)" marker-end="url(#arrow)"/>
+  <path d="M305,320 C321,320 337,320 357,320" stroke="url(#hgrad)" stroke-width="2.3" fill="none" stroke-linecap="round" filter="url(#glow)" marker-end="url(#arrow)"/>
+  <path d="M289,333 C309,348 325,380 357,380" stroke="url(#hgrad)" stroke-width="2.3" fill="none" stroke-linecap="round" filter="url(#glow)" marker-end="url(#arrow)"/>
+
+  <!-- Right nodes -->
+  <circle cx="374" cy="260" r="17" fill="#080C18" stroke="url(#grad)" stroke-width="2.5" filter="url(#glow)"/>
+  <circle cx="374" cy="260" r="8"  fill="url(#grad)" filter="url(#glow)"/>
+  <circle cx="374" cy="320" r="17" fill="#080C18" stroke="url(#grad)" stroke-width="2.5" filter="url(#glow)"/>
+  <circle cx="374" cy="320" r="8"  fill="url(#grad)" filter="url(#glow)"/>
+  <circle cx="374" cy="380" r="17" fill="#080C18" stroke="url(#grad)" stroke-width="2.5" filter="url(#glow)"/>
+  <circle cx="374" cy="380" r="8"  fill="url(#grad)" filter="url(#glow)"/>
+
+  <!-- RIGHT SIDE — Text -->
+  <!-- App name -->
+  <text x="620" y="255"
+        font-family="'SF Pro Display','Segoe UI','Helvetica Neue',sans-serif"
+        font-weight="700" font-size="72" letter-spacing="-1"
+        fill="url(#grad)" filter="url(#textGlow)">DataWeave</text>
+  <text x="620" y="340"
+        font-family="'SF Pro Display','Segoe UI','Helvetica Neue',sans-serif"
+        font-weight="300" font-size="72" letter-spacing="4"
+        fill="#ffffff" opacity="0.92">Studio</text>
+
+  <!-- Tagline -->
+  <text x="622" y="400"
+        font-family="'SF Pro Text','Segoe UI','Helvetica Neue',sans-serif"
+        font-weight="400" font-size="26" letter-spacing="0.3"
+        fill="#94A3B8">Run and debug DataWeave scripts locally.</text>
+  <text x="622" y="434"
+        font-family="'SF Pro Text','Segoe UI','Helvetica Neue',sans-serif"
+        font-weight="400" font-size="26" letter-spacing="0.3"
+        fill="#94A3B8">No Anypoint Studio. No browser limits.</text>
+
+  <!-- Built with chips -->
+  <rect x="622" y="470" width="110" height="32" rx="6" fill="#ffffff" opacity="0.06"/>
+  <text x="677" y="491" text-anchor="middle"
+        font-family="'SF Mono','Fira Code','Consolas',monospace"
+        font-size="13" fill="#00D4FF" opacity="0.9">Tauri v2</text>
+
+  <rect x="744" y="470" width="90" height="32" rx="6" fill="#ffffff" opacity="0.06"/>
+  <text x="789" y="491" text-anchor="middle"
+        font-family="'SF Mono','Fira Code','Consolas',monospace"
+        font-size="13" fill="#7C3AED" opacity="0.9">React</text>
+
+  <rect x="846" y="470" width="120" height="32" rx="6" fill="#ffffff" opacity="0.06"/>
+  <text x="906" y="491" text-anchor="middle"
+        font-family="'SF Mono','Fira Code','Consolas',monospace"
+        font-size="13" fill="#00D4FF" opacity="0.9">Monaco</text>
+
+  <rect x="978" y="470" width="80" height="32" rx="6" fill="#ffffff" opacity="0.06"/>
+  <text x="1018" y="491" text-anchor="middle"
+        font-family="'SF Mono','Fira Code','Consolas',monospace"
+        font-size="13" fill="#7C3AED" opacity="0.9">Rust</text>
+</svg>

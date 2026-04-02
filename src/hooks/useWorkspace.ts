@@ -35,18 +35,24 @@ interface UseWorkspaceReturn {
   script: string;
   payload: string;
   payloadMimeType: MimeType;
+  payloadFilePath: string | null;
   nodeLabel: string;
   context: ContextState;
   namedInputs: NamedInput[];
   queryTemplate: string;
+  classpath: string[];
+  timeoutMs: number;
   setProjectName: (name: string) => void;
   setScript: (script: string) => void;
   setPayload: (payload: string) => void;
   setPayloadMimeType: (mime: MimeType) => void;
+  setPayloadFilePath: (path: string | null) => void;
   setNodeLabel: (label: string) => void;
   setContext: (ctx: ContextState) => void;
   setNamedInputs: (inputs: NamedInput[]) => void;
   setQueryTemplate: (query: string) => void;
+  setClasspath: (cp: string[]) => void;
+  setTimeoutMs: (ms: number) => void;
   saveWorkspace: () => Promise<string>;
   loadWorkspace: (filename: string) => Promise<void>;
   listWorkspaces: () => Promise<string[]>;
@@ -65,6 +71,9 @@ export function useWorkspace(): UseWorkspaceReturn {
   const [context, setContext] = useState<ContextState>(DEFAULT_CONTEXT);
   const [namedInputs, setNamedInputs] = useState<NamedInput[]>([]);
   const [queryTemplate, setQueryTemplate] = useState('');
+  const [classpath, setClasspathState] = useState<string[]>([]);
+  const [timeoutMs, setTimeoutMsState] = useState(30000);
+  const [payloadFilePath, setPayloadFilePathState] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [currentFile, setCurrentFile] = useState<string | null>(null);
 
@@ -78,6 +87,10 @@ export function useWorkspace(): UseWorkspaceReturn {
 
   const wrapSetter = <T,>(setter: React.Dispatch<React.SetStateAction<T>>) =>
     (val: T) => { setter(val); setIsDirty(true); };
+
+  const setClasspath = useCallback((cp: string[]) => { setClasspathState(cp); setIsDirty(true); }, []);
+  const setTimeoutMs = useCallback((ms: number) => { setTimeoutMsState(ms); setIsDirty(true); }, []);
+  const setPayloadFilePath = useCallback((path: string | null) => { setPayloadFilePathState(path); setIsDirty(true); }, []);
 
   const setScript = useCallback((val: string) => {
     scriptsByLabel.current[currentLabel.current] = val;
@@ -110,6 +123,9 @@ export function useWorkspace(): UseWorkspaceReturn {
         nodeLabel,
         namedInputs,
         queryTemplate,
+        classpath,
+        timeoutMs,
+        payloadFilePath: payloadFilePath ?? undefined,
       },
       context,
     };
@@ -118,7 +134,7 @@ export function useWorkspace(): UseWorkspaceReturn {
     const filename = path.split(/[/\\]/).pop() || '';
     setCurrentFile(filename);
     return path;
-  }, [projectName, script, payload, payloadMimeType, nodeLabel, namedInputs, queryTemplate, context]);
+  }, [projectName, script, payload, payloadMimeType, nodeLabel, namedInputs, queryTemplate, classpath, timeoutMs, payloadFilePath, context]);
 
   const loadWorkspace = useCallback(async (filename: string) => {
     const ws = await invoke<WorkspaceFile>('load_workspace', { filename });
@@ -137,6 +153,9 @@ export function useWorkspace(): UseWorkspaceReturn {
     setNodeLabelState(ws.singleTransform.nodeLabel);
     setNamedInputs(ws.singleTransform.namedInputs || []);
     setQueryTemplate(ws.singleTransform.queryTemplate || '');
+    setClasspathState(ws.singleTransform.classpath || []);
+    setTimeoutMsState(ws.singleTransform.timeoutMs ?? 30000);
+    setPayloadFilePathState(ws.singleTransform.payloadFilePath ?? null);
     setContext(ws.context);
     setCurrentFile(filename);
     setIsDirty(false);
@@ -165,6 +184,9 @@ export function useWorkspace(): UseWorkspaceReturn {
     setNodeLabelState('Transform');
     setNamedInputs([]);
     setQueryTemplate('');
+    setClasspathState([]);
+    setTimeoutMsState(30000);
+    setPayloadFilePathState(null);
     setContext(DEFAULT_CONTEXT);
     setCurrentFile(null);
     setIsDirty(false);
@@ -175,18 +197,24 @@ export function useWorkspace(): UseWorkspaceReturn {
     script,
     payload,
     payloadMimeType,
+    payloadFilePath,
     nodeLabel,
     context,
     namedInputs,
     queryTemplate,
+    classpath,
+    timeoutMs,
     setProjectName: wrapSetter(setProjectName),
     setScript,
     setPayload: wrapSetter(setPayload),
     setPayloadMimeType: wrapSetter(setPayloadMimeType),
+    setPayloadFilePath,
     setNodeLabel,
     setContext: wrapSetter(setContext),
     setNamedInputs: wrapSetter(setNamedInputs),
     setQueryTemplate: wrapSetter(setQueryTemplate),
+    setClasspath,
+    setTimeoutMs,
     saveWorkspace,
     loadWorkspace,
     listWorkspaces,

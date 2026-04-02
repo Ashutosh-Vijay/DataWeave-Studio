@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import Editor, { BeforeMount } from '@monaco-editor/react';
+import { save } from '@tauri-apps/plugin-dialog';
+import { invoke } from '@tauri-apps/api/core';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
 
@@ -35,8 +37,24 @@ export function OutputPane({
   queryLanguage,
 }: OutputPaneProps) {
   const [copied, setCopied] = useState(false);
+  const [exported, setExported] = useState(false);
   const { isDark } = useTheme();
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
+
+  const handleExport = async () => {
+    const text = isQueryMode && queryResult ? queryResult.result : (output || error || '');
+    if (!text) return;
+    const ext = outputFormat === 'xml' ? 'xml' : outputFormat === 'json' ? 'json' : 'txt';
+    const path = await save({
+      defaultPath: `output.${ext}`,
+      filters: [{ name: 'Text files', extensions: [ext, 'txt'] }],
+    });
+    if (path) {
+      await invoke('save_output_file', { path, content: text });
+      setExported(true);
+      setTimeout(() => setExported(false), 2000);
+    }
+  };
 
   const handleCopy = async () => {
     const text = isQueryMode && queryResult ? queryResult.result : (error || output);
@@ -75,14 +93,21 @@ export function OutputPane({
             <option value="xml">XML</option>
             <option value="raw">Raw</option>
           </select>
-          {/* Copy button */}
           {hasContent && (
-            <button
-              onClick={handleCopy}
-              className="text-content-muted hover:text-content text-[10px] px-1.5 py-0.5 border border-line-secondary rounded transition-colors cursor-pointer"
-            >
-              {copied ? 'Copied!' : 'Copy'}
-            </button>
+            <>
+              <button
+                onClick={handleExport}
+                className="text-content-muted hover:text-content text-[10px] px-1.5 py-0.5 border border-line-secondary rounded transition-colors cursor-pointer"
+              >
+                {exported ? 'Saved!' : 'Export'}
+              </button>
+              <button
+                onClick={handleCopy}
+                className="text-content-muted hover:text-content text-[10px] px-1.5 py-0.5 border border-line-secondary rounded transition-colors cursor-pointer"
+              >
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </>
           )}
         </div>
       </div>

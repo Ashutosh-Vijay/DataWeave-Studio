@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { open } from '@tauri-apps/plugin-dialog';
 import { CurlImporter, CurlImportResult } from './CurlImporter';
 import { MIME_OPTIONS, NODE_LABELS, NODE_LABEL_COLORS, MimeType } from '../types';
 
@@ -18,6 +19,10 @@ interface SidebarProps {
   onNodeLabelChange: (label: string) => void;
   payloadMimeType: MimeType;
   onPayloadMimeTypeChange: (mime: MimeType) => void;
+  classpath: string[];
+  onClasspathChange: (cp: string[]) => void;
+  timeoutMs: number;
+  onTimeoutMsChange: (ms: number) => void;
   // cURL
   onCurlImport: (result: CurlImportResult) => void;
   // Collapse
@@ -39,6 +44,10 @@ export function Sidebar({
   onNodeLabelChange,
   payloadMimeType,
   onPayloadMimeTypeChange,
+  classpath,
+  onClasspathChange,
+  timeoutMs,
+  onTimeoutMsChange,
   onCurlImport,
   collapsed,
   onToggleCollapse,
@@ -249,6 +258,74 @@ export function Sidebar({
                 );
               })}
             </div>
+          </div>
+
+          {/* Timeout */}
+          <div className="space-y-1">
+            <label className="text-[10px] text-content-faint">Timeout (ms)</label>
+            <input
+              type="number"
+              min={0}
+              step={1000}
+              value={timeoutMs}
+              onChange={(e) => onTimeoutMsChange(Number(e.target.value))}
+              className="w-full bg-surface-elevated border border-line rounded px-2 py-1 text-xs text-content focus:border-[#00a0df] focus:outline-none"
+              title="0 = no timeout"
+            />
+            <div className="text-[9px] text-content-ghost">0 = no timeout</div>
+          </div>
+
+          {/* Classpath */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] text-content-faint">Classpath (modules / JARs)</label>
+              <div className="flex gap-1">
+                <button
+                  onClick={async () => {
+                    const selected = await open({ multiple: true, directory: true });
+                    if (selected) {
+                      const entries = Array.isArray(selected) ? selected : [selected];
+                      onClasspathChange([...classpath, ...entries.filter(e => !classpath.includes(e))]);
+                    }
+                  }}
+                  className="text-[9px] text-[#00a0df] hover:text-[#00c8ff] cursor-pointer"
+                  title="Add directory"
+                >Dir</button>
+                <span className="text-content-ghost text-[9px]">|</span>
+                <button
+                  onClick={async () => {
+                    const selected = await open({
+                      multiple: true,
+                      directory: false,
+                      filters: [{ name: 'JAR / DWL', extensions: ['jar', 'dwl'] }],
+                    });
+                    if (selected) {
+                      const entries = Array.isArray(selected) ? selected : [selected];
+                      onClasspathChange([...classpath, ...entries.filter(e => !classpath.includes(e))]);
+                    }
+                  }}
+                  className="text-[9px] text-[#00a0df] hover:text-[#00c8ff] cursor-pointer"
+                  title="Add JAR or .dwl file"
+                >JAR</button>
+              </div>
+            </div>
+            {classpath.length === 0 ? (
+              <div className="text-[9px] text-content-ghost italic">No entries — add dirs or JARs</div>
+            ) : (
+              <div className="space-y-0.5 max-h-24 overflow-y-auto">
+                {classpath.map((entry, i) => (
+                  <div key={i} className="flex items-center gap-1 group">
+                    <span className="flex-1 text-[9px] text-content-muted font-mono truncate" title={entry}>
+                      {entry.split(/[/\\]/).pop()}
+                    </span>
+                    <button
+                      onClick={() => onClasspathChange(classpath.filter((_, j) => j !== i))}
+                      className="text-content-ghost hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-[9px]"
+                    >✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
