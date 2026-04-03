@@ -179,7 +179,19 @@ licenses/               # Third-party licenses
 - DW CLI warmup takes a few seconds on first launch
 - Undo/redo is per-session and does not persist across workspace reloads
 - Config property autocomplete triggers on `$` — type `${` to see suggestions
-- `output application/java` is not supported by the DW CLI (Mule runtime only) — use `application/json` for logic testing
+
+**Mule runtime-only features are not available** — the app runs the standalone DW CLI, not a full Mule runtime. Functions and capabilities that only exist inside a deployed Mule app will not work:
+
+| Feature | Workaround in DataWeave Studio |
+|---|---|
+| `output application/java` | Use `application/json` for logic testing |
+| `p("key")` / `Mule.p("key")` property lookup | Use the **Config YAML** panel — `${key}` is substituted before each run |
+| `Mule.lookup("flowName", payload)` | No equivalent — extract the logic into a named input or separate script |
+| Connector-specific types (Salesforce `SObject`, DB `ResultSet`, etc.) | Pass a JSON mock of the data structure as payload |
+| `java!` interop / Java object output | Not supported outside a Mule runtime |
+| Custom Java modules via `%import java!` | Not supported — standard DW modules and JAR-based DW libraries work via classpath |
+
+> **Secure config (`![encrypted]`) is the one exception** — DataWeave Studio implements this itself using the same AES/CBC algorithm as `secure-properties-tool.jar`, so it works fully offline without the Mule runtime.
 
 ---
 
