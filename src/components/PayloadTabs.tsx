@@ -58,17 +58,6 @@ function mimeToLanguage(mime: string): string {
   return 'plaintext';
 }
 
-function mimeToLabel(mime: string): string {
-  if (mime.includes('json')) return 'JSON';
-  if (mime.includes('xml') && !mime.includes('multipart')) return 'XML';
-  if (mime.includes('csv')) return 'CSV';
-  if (mime.includes('form-urlencoded')) return 'Form';
-  if (mime.includes('multipart')) return 'Multipart';
-  if (mime.includes('flatfile')) return 'Flat File';
-  if (mime.includes('dw')) return 'DW';
-  if (mime.includes('java')) return 'Java';
-  return 'Text';
-}
 
 interface PayloadTabsProps {
   payload: string;
@@ -217,7 +206,6 @@ export function PayloadTabs({
           }`}
         >
           payload
-          <span className="text-content-ghost ml-1 text-[10px]">({mimeToLabel(payloadMimeType)})</span>
         </button>
 
         {/* Named input tabs */}
@@ -256,8 +244,34 @@ export function PayloadTabs({
           +
         </button>
 
-        {/* Load from file — shown on payload tab and named input tabs (not binary/multipart) */}
-        <div className="ml-auto flex items-center pr-2">
+        {/* Right side: MIME selector + Load file */}
+        <div className="ml-auto flex items-center gap-1 pr-2">
+          {/* Inline MIME type selector for active tab */}
+          {isPayloadTab && onPayloadMimeTypeChange && (
+            <select
+              value={payloadMimeType}
+              onChange={(e) => onPayloadMimeTypeChange(e.target.value as MimeType)}
+              className="bg-surface-panel border border-line-secondary rounded px-1 py-0.5 text-[10px] text-content-muted focus:outline-none cursor-pointer"
+              title="Payload MIME type"
+            >
+              {MIME_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          )}
+          {!isPayloadTab && activeInput && (
+            <select
+              value={activeInput.mimeType}
+              onChange={(e) => updateInput(activeInputIndex, 'mimeType', e.target.value as MimeType)}
+              className="bg-surface-panel border border-line-secondary rounded px-1 py-0.5 text-[10px] text-content-muted focus:outline-none cursor-pointer"
+              title="Input MIME type"
+            >
+              {MIME_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          )}
+          {/* Load file */}
           {isPayloadTab && payloadMimeType !== 'application/octet-stream' && payloadMimeType !== 'multipart/form-data' && (
             <button
               onClick={() => loadPayloadFromFile(onPayloadMimeTypeChange)}
