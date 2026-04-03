@@ -7,6 +7,33 @@ import { useTheme } from '../ThemeContext';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
+function contentTypeFromFilename(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  const map: Record<string, string> = {
+    json: 'application/json',
+    xml: 'application/xml',
+    csv: 'text/csv',
+    txt: 'text/plain',
+    html: 'text/html',
+    htm: 'text/html',
+    pdf: 'application/octet-stream',
+    png: 'application/octet-stream',
+    jpg: 'application/octet-stream',
+    jpeg: 'application/octet-stream',
+    gif: 'application/octet-stream',
+    webp: 'application/octet-stream',
+    zip: 'application/octet-stream',
+    gz: 'application/octet-stream',
+    doc: 'application/octet-stream',
+    docx: 'application/octet-stream',
+    xls: 'application/octet-stream',
+    xlsx: 'application/octet-stream',
+    mp4: 'application/octet-stream',
+    mp3: 'application/octet-stream',
+  };
+  return map[ext] || 'application/octet-stream';
+}
+
 function mimeToLanguage(mime: string): string {
   if (mime.includes('json') || mime.includes('java')) return 'json';
   if (mime.includes('xml') || mime.includes('multipart')) return 'xml';
@@ -238,7 +265,7 @@ export function PayloadTabs({
                 <button
                   onClick={() => {
                     const updated = [...multipartParts];
-                    updated[i] = { ...part, isFile: !part.isFile, filePath: undefined, value: '' };
+                    updated[i] = { ...part, isFile: !part.isFile, filePath: undefined, value: '', contentType: !part.isFile ? 'application/octet-stream' : 'text/plain' };
                     onMultipartPartsChange(updated);
                   }}
                   className={`px-2 py-1 text-[10px] rounded border cursor-pointer transition-colors ${
@@ -278,8 +305,9 @@ export function PayloadTabs({
                           const selected = await open({ multiple: false, directory: false });
                           if (selected) {
                             const fp = typeof selected === 'string' ? selected : selected[0];
+                            const fname = fp.split(/[/\\]/).pop() || fp;
                             const updated = [...multipartParts];
-                            updated[i] = { ...part, filePath: fp, filename: fp.split(/[/\\]/).pop() };
+                            updated[i] = { ...part, filePath: fp, filename: fname, contentType: contentTypeFromFilename(fname) };
                             onMultipartPartsChange(updated);
                           }
                         }}
@@ -300,8 +328,9 @@ export function PayloadTabs({
                         const selected = await open({ multiple: false, directory: false });
                         if (selected) {
                           const fp = typeof selected === 'string' ? selected : selected[0];
+                          const fname = fp.split(/[/\\]/).pop() || fp;
                           const updated = [...multipartParts];
-                          updated[i] = { ...part, filePath: fp, filename: fp.split(/[/\\]/).pop() };
+                          updated[i] = { ...part, filePath: fp, filename: fname, contentType: contentTypeFromFilename(fname) };
                           onMultipartPartsChange(updated);
                         }
                       }}
