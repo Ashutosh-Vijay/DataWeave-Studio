@@ -385,8 +385,14 @@ pub async fn run_dataweave(
         write_temp_file(&run_dir, "payload.dat", &effective_payload)?
     };
 
-    let effective_payload_mime = multipart_mime_override.as_deref().unwrap_or(&payload_mime_type);
-    let full_script = build_full_script(&script, effective_payload_mime, has_attributes, has_vars, &named_inputs);
+    // For the script input declaration use bare mime (no boundary param).
+    // The boundary is embedded in the raw multipart body file.
+    let script_mime = if let Some(ref m) = multipart_mime_override {
+        m.split(';').next().unwrap_or(m).trim().to_string()
+    } else {
+        payload_mime_type.clone()
+    };
+    let full_script = build_full_script(&script, &script_mime, has_attributes, has_vars, &named_inputs);
     let script_file = write_temp_file(&run_dir, "script.dwl", &full_script)?;
 
     let mut cmd = Command::new(&dw_binary_path);
