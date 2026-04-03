@@ -1,6 +1,5 @@
 import Editor, { useMonaco, BeforeMount } from '@monaco-editor/react';
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { dwTokensProvider } from '../dataweaveGrammar';
 import { registerDWCompletionProvider, DWCompletionContext } from '../dataweaveCompletions';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
@@ -24,22 +23,121 @@ interface ScriptEditorProps {
   };
 }
 
+/** Best-effort DW 1.0 → 2.0 source migration (client-side) */
+function migrateDW1to2(src: string): string {
+  const lines = src.split('\n');
+  const out: string[] = [];
+  const warnings: string[] = [];
+
+  for (let raw of lines) {
+    let line = raw;
+
+    // %dw 1.0 → %dw 2.0
+    line = line.replace(/^(\s*)%dw\s+1\.0\b/, '$1%dw 2.0');
+
+    // %input name mime → input name mime
+    line = line.replace(/^(\s*)%input\b/, '$1input');
+
+    // %output mime → output mime
+    line = line.replace(/^(\s*)%output\b/, '$1output');
+
+    // %var name = expr → var name = expr
+    line = line.replace(/^(\s*)%var\b/, '$1var');
+
+    // %namespace prefix = uri → (removed — DW 2.0 uses import)
+    if (/^\s*%namespace\b/.test(line)) {
+      out.push('// TODO: convert %namespace to import statement');
+      warnings.push('%namespace: convert manually to `import * from <namespace>`');
+      out.push(line.replace(/^\s*%namespace\b/, '// %namespace'));
+      continue;
+    }
+
+    // %function name(params) = body → fun name(params) = body
+    line = line.replace(/^(\s*)%function\b/, '$1fun');
+
+    // flowVars → vars
+    line = line.replace(/\bflowVars\b/g, 'vars');
+
+    // inboundProperties."http.method" → attributes.method (common case)
+    line = line.replace(/\binboundProperties\["http\.method"\]/g, 'attributes.method');
+    line = line.replace(/\binboundProperties\.'http\.method'/g, 'attributes.method');
+    // inboundProperties."header-name" → attributes.headers."header-name"
+    line = line.replace(/\binboundProperties\b/g, 'attributes.headers');
+
+    // outboundProperties → (no direct equivalent)
+    if (/\boutboundProperties\b/.test(line)) {
+      warnings.push('outboundProperties: no direct DW 2.0 equivalent — remove or pass as named input');
+    }
+
+    // sessionVars → (no direct equivalent)
+    if (/\bsessionVars\b/.test(line)) {
+      warnings.push('sessionVars: no direct DW 2.0 equivalent');
+    }
+
+    // when <cond> is → if (<cond> ==) — pattern match approximation
+    // "expr when condition otherwise alt" stays valid in DW 2.0 — no change needed
+
+    // as :string → as String  (type coercion syntax)
+    line = line.replace(/\bas\s+:string\b/gi, 'as String');
+    line = line.replace(/\bas\s+:number\b/gi, 'as Number');
+    line = line.replace(/\bas\s+:boolean\b/gi, 'as Boolean');
+    line = line.replace(/\bas\s+:date\b/gi, 'as Date');
+    line = line.replace(/\bas\s+:datetime\b/gi, 'as DateTime');
+    line = line.replace(/\bas\s+:localtime\b/gi, 'as LocalTime');
+    line = line.replace(/\bas\s+:localdatetime\b/gi, 'as LocalDateTime');
+    line = line.replace(/\bas\s+:time\b/gi, 'as Time');
+    line = line.replace(/\bas\s+:object\b/gi, 'as Object');
+    line = line.replace(/\bas\s+:array\b/gi, 'as Array');
+
+    // @(...) metadata annotation — warn
+    if (/@\(/.test(line)) {
+      warnings.push('@(...) metadata annotations: syntax may differ in DW 2.0');
+    }
+
+    // p("key") → Mule.p("key") or just keep — warn
+    if (/\bp\s*\(/.test(line) && !/\bapp\b/.test(line)) {
+      warnings.push('p("key"): use Mule.p("key") in DW 2.0 for property lookup');
+      line = line.replace(/\bp\s*\(\s*(".*?")\s*\)/g, 'Mule.p($1)');
+    }
+
+    // lookup("flowName", payload) → warn — no equivalent
+    if (/\blookup\s*\(/.test(line)) {
+      warnings.push('lookup(): not available in DW 2.0 standalone CLI');
+    }
+
+    out.push(line);
+  }
+
+  let result = out.join('\n');
+
+  if (warnings.length > 0) {
+    const header = warnings.map(w => `// ⚠ ${w}`).join('\n');
+    result = header + '\n' + result;
+  }
+
+  return result;
+}
+
 export function ScriptEditor({ code, onChange, onRun, errorLine, headerLabel, payload, payloadMimeType, contextData }: ScriptEditorProps) {
   const monaco = useMonaco();
   const { isDark } = useTheme();
   const editorRef = useRef<any>(null);
   const [migrateResult, setMigrateResult] = useState<{ output: string; error?: string } | null>(null);
-  const [isMigrating, setIsMigrating] = useState(false);
 
-  const handleMigrate = async () => {
-    setIsMigrating(true);
+  const handleMigrate = () => {
+    if (!code.trim()) {
+      setMigrateResult({ output: '', error: 'Script is empty.' });
+      return;
+    }
+    if (!/^\s*%dw\s+1\.0\b/m.test(code)) {
+      setMigrateResult({ output: '', error: 'Script does not appear to be DW 1.0 (missing `%dw 1.0`). No migration needed.' });
+      return;
+    }
     try {
-      const result = await invoke<string>('migrate_dataweave', { script: code });
+      const result = migrateDW1to2(code);
       setMigrateResult({ output: result });
     } catch (e) {
       setMigrateResult({ output: '', error: String(e) });
-    } finally {
-      setIsMigrating(false);
     }
   };
   const decorationsRef = useRef<string[]>([]);
@@ -156,11 +254,10 @@ export function ScriptEditor({ code, onChange, onRun, errorLine, headerLabel, pa
         <div className="flex items-center gap-2">
           <button
             onClick={handleMigrate}
-            disabled={isMigrating}
             title="Migrate DW 1.0 script to DW 2.0"
-            className="text-content-faint hover:text-amber-400 disabled:opacity-50 px-2 py-1 rounded text-xs transition-colors cursor-pointer border border-transparent hover:border-amber-500/30"
+            className="text-content-faint hover:text-amber-400 px-2 py-1 rounded text-xs transition-colors cursor-pointer border border-transparent hover:border-amber-500/30"
           >
-            {isMigrating ? 'Migrating...' : '1.0→2.0'}
+            1.0→2.0
           </button>
           <button
             onClick={onRun}

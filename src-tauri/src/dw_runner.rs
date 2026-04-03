@@ -328,13 +328,9 @@ pub async fn run_dataweave(
     attributes_json: String,
     vars_json: String,
     named_inputs_json: String,
-    /// Optional file path for binary payloads (skips writing payload string to temp file)
     payload_file_path: Option<String>,
-    /// Classpath entries for custom DW modules and JARs (joined with OS path separator)
     classpath: Option<Vec<String>>,
-    /// Execution timeout in milliseconds (0 = no timeout)
     timeout_ms: Option<u64>,
-    /// Multipart form-data parts — when provided, build a real multipart body
     multipart_parts_json: Option<String>,
 ) -> Result<RunResult, String> {
     let start_time = Instant::now();
@@ -533,46 +529,14 @@ pub async fn run_dataweave(
     }
 }
 
-/// Migrate a DW 1.0 script to DW 2.0 using the CLI's migrate subcommand.
+/// Placeholder — DW CLI does not expose a migrate subcommand.
+/// Migration is handled entirely in the frontend (TypeScript).
 #[tauri::command]
 pub async fn migrate_dataweave(
-    app: AppHandle,
-    script: String,
+    _app: AppHandle,
+    _script: String,
 ) -> Result<String, String> {
-    let dw_binary_path = resolve_dw_binary(&app)?;
-    let run_dir = create_run_dir()?;
-
-    let input_file = write_temp_file(&run_dir, "migrate_input.dwl", &script)?;
-    let output_file = run_dir.join("migrate_output.dwl");
-
-    let mut cmd = Command::new(&dw_binary_path);
-    cmd.arg("migrate")
-        .arg("-i").arg(&input_file)
-        .arg("-o").arg(&output_file)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    hide_console_window(&mut cmd);
-
-    let child = cmd.spawn()
-        .map_err(|e| format!("Failed to start DW migrate: {}", e))?;
-
-    let output = child.wait_with_output()
-        .map_err(|e| { cleanup_run_dir(&run_dir); e.to_string() })?;
-
-    if output.status.success() {
-        let result = std::fs::read_to_string(&output_file)
-            .unwrap_or_else(|_| String::from_utf8_lossy(&output.stdout).to_string());
-        cleanup_run_dir(&run_dir);
-        Ok(result)
-    } else {
-        let stderr = clean_stderr(&String::from_utf8_lossy(&output.stderr));
-        cleanup_run_dir(&run_dir);
-        Err(if stderr.is_empty() {
-            format!("Migration failed with exit code {}", output.status.code().unwrap_or(-1))
-        } else {
-            stderr
-        })
-    }
+    Err("migrate_not_supported".to_string())
 }
 
 /// Save text content to a file at the given absolute path.
