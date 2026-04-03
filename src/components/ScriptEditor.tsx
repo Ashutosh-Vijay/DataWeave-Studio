@@ -94,10 +94,9 @@ function migrateDW1to2(src: string): string {
       warnings.push('@(...) metadata annotations: syntax may differ in DW 2.0');
     }
 
-    // p("key") → Mule.p("key") or just keep — warn
+    // p("key") — not available in standalone DW CLI; use Config YAML + ${key} substitution
     if (/\bp\s*\(/.test(line) && !/\bapp\b/.test(line)) {
-      warnings.push('p("key"): use Mule.p("key") in DW 2.0 for property lookup');
-      line = line.replace(/\bp\s*\(\s*(".*?")\s*\)/g, 'Mule.p($1)');
+      warnings.push('p("key"): not available in DW CLI. Use ${key} / ${secure::key} placeholders with the Config YAML panel instead.');
     }
 
     // lookup("flowName", payload) → warn — no equivalent
