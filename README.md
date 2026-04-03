@@ -70,6 +70,10 @@ Set `attributes.method`, `attributes.headers`, `attributes.queryParams`, `vars`,
 | Secure config (`![encrypted]`) | Yes (full runtime) | No | No | Yes — offline |
 | SOQL/SQL query rendering | Yes (full runtime) | No | No | Yes — instant |
 | cURL import | No | No | No | Yes |
+| Multipart/form-data testing | Yes (full runtime) | No | No | Yes — visual builder |
+| DW 1.0 → 2.0 migration | Yes | No | No | Yes |
+| Load file as payload | Yes | No | Yes | Yes |
+| Resizable panels | Yes | No | Yes | Yes |
 | Workspace save/load | Yes | No | Partial | Yes |
 | Footprint | 2GB+ | N/A | Needs VSCode | ~150MB standalone |
 
@@ -97,16 +101,29 @@ The DataWeave CLI is bundled — no separate installation needed.
 - **Secure property decryption** — paste your production `secure-config.yaml`, provide the key, and your script runs with real decrypted values. Key is never saved to disk.
 - **Offline Secure Properties Tool** — encrypt/decrypt values locally, without sending secrets to any server
 
-### Workflow
+### Payload
+- **Inline MIME type selector** — switch payload type (JSON, XML, CSV, multipart, binary…) directly from the tab bar, no sidebar required
+- **Load file into payload** — pick any CSV, JSON, XML, or text file from disk and load it straight into the payload editor, auto-detecting the MIME type
+- **Multipart/form-data builder** — add parts visually (name, content-type, text value or file path); the real multipart body with MIME boundaries is constructed and passed to the DW CLI — no JSON mocking
+- **Binary payload support** — pick any binary file (`application/octet-stream`) as payload or as a named input part
 - **Named inputs** — add extra input streams as tabs alongside payload, accessible by name in DW scripts
-- **cURL importer** — copy a request from Postman or browser devtools, paste it, get a DataWeave transform template instantly
+
+### Workflow
+- **cURL importer** — copy a request from Postman or browser devtools, paste it, get a DataWeave transform template instantly; multipart `-F` fields are imported as visual parts
+- **DW 1.0 → 2.0 migration** — paste a DataWeave 1.0 script, click Migrate, review a diff overlay, and replace with one click; warns on Mule-only constructs that cannot be auto-migrated
 - **Workspace management** — save/load `.dwstudio` files with full editor state
+- **Export output** — save script output to any file via a native save dialog
 - **Auto-run** — toggle live preview with 1.5s debounce
 
 ### Editor
+- **Resizable panels** — drag to resize the script editor, payload area, context panel, and output pane both horizontally and vertically
 - **DataWeave script editor** with syntax highlighting, autocomplete, and error line highlighting
 - **Context-aware autocomplete** — suggests actual field names from your payload, vars, attributes, and config properties
 - **No payload size limit** — handles large Base64, nested JSON, XML, CSV locally
+
+### Advanced
+- **Custom classpath** — add directories or JARs so the DW CLI can resolve custom DW modules and libraries
+- **Execution timeout** — set a per-run timeout (in ms) to kill runaway scripts automatically
 
 ### Query Modes
 - **Salesforce Query mode** — SOQL editor with `:paramName` binding, see the exact final query rendered before it hits Salesforce
