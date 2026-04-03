@@ -551,3 +551,10 @@ pub fn save_output_file(path: String, content: String) -> Result<(), String> {
     std::fs::write(&path, content)
         .map_err(|e| format!("Failed to save file '{}': {}", path, e))
 }
+
+/// Read a text file from disk — used by the payload file loader.
+#[tauri::command]
+pub fn read_text_file(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read file '{}': {}", path, e))
+}

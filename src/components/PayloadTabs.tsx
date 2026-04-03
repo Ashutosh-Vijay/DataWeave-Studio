@@ -1,11 +1,26 @@
 import { useState } from 'react';
 import Editor, { BeforeMount } from '@monaco-editor/react';
 import { open } from '@tauri-apps/plugin-dialog';
+import { invoke } from '@tauri-apps/api/core';
 import { NamedInput, MIME_OPTIONS, MimeType, MultipartPart } from '../types';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
+
+function mimeFromExtension(filename: string): MimeType | null {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  const map: Record<string, MimeType> = {
+    json:  'application/json',
+    xml:   'application/xml',
+    csv:   'application/csv',
+    txt:   'text/plain',
+    dwl:   'application/dw',
+    ff:    'application/flatfile',
+    ffd:   'application/flatfile',
+  };
+  return map[ext] ?? null;
+}
 
 function contentTypeFromFilename(filename: string): string {
   const ext = filename.split('.').pop()?.toLowerCase() || '';
@@ -59,6 +74,7 @@ interface PayloadTabsProps {
   payload: string;
   onPayloadChange: (val: string | undefined) => void;
   payloadMimeType: string;
+  onPayloadMimeTypeChange?: (mime: MimeType) => void;
   payloadFilePath?: string | null;
   onPayloadFilePathChange?: (path: string | null) => void;
   multipartParts: MultipartPart[];
@@ -71,6 +87,7 @@ export function PayloadTabs({
   payload,
   onPayloadChange,
   payloadMimeType,
+  onPayloadMimeTypeChange,
   payloadFilePath,
   onPayloadFilePathChange,
   multipartParts,
@@ -131,6 +148,44 @@ export function PayloadTabs({
 
   const clearInputFile = (index: number) => {
     updateInput(index, 'filePath' as keyof NamedInput, '');
+  };
+
+  const loadPayloadFromFile = async (onMimeChange?: (mime: MimeType) => void) => {
+    const selected = await open({
+      multiple: false,
+      directory: false,
+      filters: [{ name: 'Data files', extensions: ['csv', 'json', 'xml', 'txt', 'dwl', 'ff', 'ffd'] }],
+    });
+    if (!selected) return;
+    const fp = typeof selected === 'string' ? selected : selected[0];
+    try {
+      const content = await invoke<string>('read_text_file', { path: fp });
+      onPayloadChange(content);
+      const fname = fp.split(/[/\\]/).pop() || fp;
+      const detectedMime = mimeFromExtension(fname);
+      if (detectedMime && onMimeChange) onMimeChange(detectedMime);
+    } catch (e) {
+      console.error('Failed to load file:', e);
+    }
+  };
+
+  const loadInputFromFile = async (index: number) => {
+    const selected = await open({
+      multiple: false,
+      directory: false,
+      filters: [{ name: 'Data files', extensions: ['csv', 'json', 'xml', 'txt', 'dwl', 'ff', 'ffd'] }],
+    });
+    if (!selected) return;
+    const fp = typeof selected === 'string' ? selected : selected[0];
+    try {
+      const content = await invoke<string>('read_text_file', { path: fp });
+      updateInput(index, 'content', content);
+      const fname = fp.split(/[/\\]/).pop() || fp;
+      const detectedMime = mimeFromExtension(fname);
+      if (detectedMime) updateInput(index, 'mimeType', detectedMime as string);
+    } catch (e) {
+      console.error('Failed to load file:', e);
+    }
   };
 
   const isPayloadTab = effectiveTab === 0;
@@ -200,6 +255,28 @@ export function PayloadTabs({
         >
           +
         </button>
+
+        {/* Load from file — shown on payload tab and named input tabs (not binary/multipart) */}
+        <div className="ml-auto flex items-center pr-2">
+          {isPayloadTab && payloadMimeType !== 'application/octet-stream' && payloadMimeType !== 'multipart/form-data' && (
+            <button
+              onClick={() => loadPayloadFromFile(onPayloadMimeTypeChange)}
+              className="text-[10px] text-content-faint hover:text-[#00a0df] px-2 py-1 rounded border border-transparent hover:border-[#00a0df]/30 transition-colors cursor-pointer"
+              title="Load file contents into editor (CSV, JSON, XML, TXT…)"
+            >
+              Load file
+            </button>
+          )}
+          {!isPayloadTab && activeInput && activeInput.mimeType !== 'application/octet-stream' && (
+            <button
+              onClick={() => loadInputFromFile(activeInputIndex)}
+              className="text-[10px] text-content-faint hover:text-[#00a0df] px-2 py-1 rounded border border-transparent hover:border-[#00a0df]/30 transition-colors cursor-pointer"
+              title="Load file contents into this input (CSV, JSON, XML, TXT…)"
+            >
+              Load file
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Settings bar for named inputs */}

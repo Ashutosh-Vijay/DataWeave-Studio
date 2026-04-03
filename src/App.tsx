@@ -512,6 +512,7 @@ function App() {
                 payload={workspace.payload}
                 onPayloadChange={(val) => workspace.setPayload(val || '')}
                 payloadMimeType={workspace.payloadMimeType}
+                onPayloadMimeTypeChange={workspace.setPayloadMimeType}
                 payloadFilePath={workspace.payloadFilePath}
                 onPayloadFilePathChange={workspace.setPayloadFilePath}
                 multipartParts={workspace.multipartParts}

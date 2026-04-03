@@ -46,6 +46,7 @@ pub fn run() {
             dw_runner::run_dataweave,
             dw_runner::migrate_dataweave,
             dw_runner::save_output_file,
+            dw_runner::read_text_file,
             dw_runner::is_warmed_up,
             dw_runner::get_warmup_status,
             workspace::save_workspace,
