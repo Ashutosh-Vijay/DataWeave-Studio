@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { ScriptEditor } from './components/ScriptEditor';
 import { PayloadTabs } from './components/PayloadTabs';
 import { OutputPane } from './components/OutputPane';
@@ -451,7 +452,7 @@ function App() {
 
       {/* Body: Sidebar + Main */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
+        {/* Sidebar — fixed, not resizable (has its own collapse) */}
         <Sidebar
           projectName={workspace.projectName}
           onProjectNameChange={workspace.setProjectName}
@@ -475,78 +476,106 @@ function App() {
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
 
-        {/* Main Editor Area */}
-        <main className="flex-1 flex overflow-hidden p-2 gap-2">
-          {/* Left: Query (optional) + Script + Payload */}
-          <div className="w-[42%] flex flex-col gap-2 min-h-0">
-            {isQueryMode && (
-              <div className="flex-[2] min-h-0">
-                <QueryEditor
-                  query={workspace.queryTemplate}
-                  onChange={(val) => workspace.setQueryTemplate(val || '')}
-                  language={queryLanguage}
-                />
-              </div>
-            )}
-            <div data-tour="script-editor" className={isQueryMode ? 'flex-[2] min-h-0' : 'flex-[3] min-h-0'}>
-              <ScriptEditor
-                code={workspace.script}
-                onChange={(val) => workspace.setScript(val || '')}
-                onRun={handleRun}
-                errorLine={runner.errorLine}
-                payload={workspace.payload}
-                payloadMimeType={workspace.payloadMimeType}
-                headerLabel={isQueryMode ? 'Parameters (DataWeave 2.0)' : undefined}
-                contextData={{
-                  vars: workspace.context.vars,
-                  headers: workspace.context.headers,
-                  queryParams: workspace.context.queryParams,
-                  namedInputs: workspace.namedInputs,
-                  configYaml: workspace.context.configYaml,
-                  secureConfigYaml: workspace.context.secureConfigYaml,
-                }}
-              />
-            </div>
-            <div data-tour="payload" className={isQueryMode ? 'flex-[1] min-h-0' : 'flex-[2] min-h-0'}>
-              <PayloadTabs
-                payload={workspace.payload}
-                onPayloadChange={(val) => workspace.setPayload(val || '')}
-                payloadMimeType={workspace.payloadMimeType}
-                onPayloadMimeTypeChange={workspace.setPayloadMimeType}
-                payloadFilePath={workspace.payloadFilePath}
-                onPayloadFilePathChange={workspace.setPayloadFilePath}
-                multipartParts={workspace.multipartParts}
-                onMultipartPartsChange={workspace.setMultipartParts}
-                namedInputs={workspace.namedInputs}
-                onNamedInputsChange={workspace.setNamedInputs}
-              />
-            </div>
-          </div>
+        {/* Main — three horizontal resizable columns */}
+        <main className="flex-1 overflow-hidden p-2">
+          <PanelGroup orientation="horizontal" className="h-full gap-0">
 
-          {/* Center: Context Panel */}
-          <div data-tour="context-panel" className="w-[20%] min-h-0">
-            <ContextPanel
-              context={workspace.context}
-              onChange={workspace.setContext}
-              encryptionKey={encryptionKey}
-              onEncryptionKeyChange={setEncryptionKey}
-            />
-          </div>
+            {/* Left column: Query + Script + Payload (vertical splits) */}
+            <Panel defaultSize={42} minSize={20} data-tour="script-editor">
+              <PanelGroup orientation="vertical" className="h-full">
+                {isQueryMode && (
+                  <>
+                    <Panel defaultSize={30} minSize={10}>
+                      <div className="h-full pb-1">
+                        <QueryEditor
+                          query={workspace.queryTemplate}
+                          onChange={(val) => workspace.setQueryTemplate(val || '')}
+                          language={queryLanguage}
+                        />
+                      </div>
+                    </Panel>
+                    <PanelResizeHandle className="h-1.5 flex items-center justify-center cursor-row-resize group">
+                      <div className="w-8 h-0.5 rounded-full bg-line-secondary group-hover:bg-[#00a0df]/50 transition-colors" />
+                    </PanelResizeHandle>
+                  </>
+                )}
+                <Panel defaultSize={isQueryMode ? 40 : 60} minSize={15}>
+                  <div className="h-full pb-1" data-tour="script-editor">
+                    <ScriptEditor
+                      code={workspace.script}
+                      onChange={(val) => workspace.setScript(val || '')}
+                      onRun={handleRun}
+                      errorLine={runner.errorLine}
+                      payload={workspace.payload}
+                      payloadMimeType={workspace.payloadMimeType}
+                      headerLabel={isQueryMode ? 'Parameters (DataWeave 2.0)' : undefined}
+                      contextData={{
+                        vars: workspace.context.vars,
+                        headers: workspace.context.headers,
+                        queryParams: workspace.context.queryParams,
+                        namedInputs: workspace.namedInputs,
+                        configYaml: workspace.context.configYaml,
+                        secureConfigYaml: workspace.context.secureConfigYaml,
+                      }}
+                    />
+                  </div>
+                </Panel>
+                <PanelResizeHandle className="h-1.5 flex items-center justify-center cursor-row-resize group">
+                  <div className="w-8 h-0.5 rounded-full bg-line-secondary group-hover:bg-[#00a0df]/50 transition-colors" />
+                </PanelResizeHandle>
+                <Panel defaultSize={isQueryMode ? 30 : 40} minSize={10}>
+                  <div className="h-full pt-1" data-tour="payload">
+                    <PayloadTabs
+                      payload={workspace.payload}
+                      onPayloadChange={(val) => workspace.setPayload(val || '')}
+                      payloadMimeType={workspace.payloadMimeType}
+                      onPayloadMimeTypeChange={workspace.setPayloadMimeType}
+                      payloadFilePath={workspace.payloadFilePath}
+                      onPayloadFilePathChange={workspace.setPayloadFilePath}
+                      multipartParts={workspace.multipartParts}
+                      onMultipartPartsChange={workspace.setMultipartParts}
+                      namedInputs={workspace.namedInputs}
+                      onNamedInputsChange={workspace.setNamedInputs}
+                    />
+                  </div>
+                </Panel>
+              </PanelGroup>
+            </Panel>
 
-          {/* Right: Output */}
-          <div data-tour="output" className="w-[38%] min-h-0">
-            <OutputPane
-              output={runner.output}
-              error={runner.error}
-              isRunning={runner.isRunning}
-              executionTimeMs={runner.executionTimeMs}
-              outputFormat={outputFormat}
-              onFormatChange={setOutputFormat}
-              queryResult={queryResult}
-              isQueryMode={isQueryMode}
-              queryLanguage={queryLanguage}
-            />
-          </div>
+            <PanelResizeHandle className="w-1.5 flex items-center justify-center cursor-col-resize group mx-1">
+              <div className="h-8 w-0.5 rounded-full bg-line-secondary group-hover:bg-[#00a0df]/50 transition-colors" />
+            </PanelResizeHandle>
+
+            {/* Center: Context Panel */}
+            <Panel defaultSize={20} minSize={10} data-tour="context-panel">
+              <ContextPanel
+                context={workspace.context}
+                onChange={workspace.setContext}
+                encryptionKey={encryptionKey}
+                onEncryptionKeyChange={setEncryptionKey}
+              />
+            </Panel>
+
+            <PanelResizeHandle className="w-1.5 flex items-center justify-center cursor-col-resize group mx-1">
+              <div className="h-8 w-0.5 rounded-full bg-line-secondary group-hover:bg-[#00a0df]/50 transition-colors" />
+            </PanelResizeHandle>
+
+            {/* Right: Output */}
+            <Panel defaultSize={38} minSize={15} data-tour="output">
+              <OutputPane
+                output={runner.output}
+                error={runner.error}
+                isRunning={runner.isRunning}
+                executionTimeMs={runner.executionTimeMs}
+                outputFormat={outputFormat}
+                onFormatChange={setOutputFormat}
+                queryResult={queryResult}
+                isQueryMode={isQueryMode}
+                queryLanguage={queryLanguage}
+              />
+            </Panel>
+
+          </PanelGroup>
         </main>
       </div>
 
