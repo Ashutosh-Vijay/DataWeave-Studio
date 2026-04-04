@@ -33,8 +33,8 @@ const STEPS: TourStep[] = [
     target: 'payload',
     title: 'Input Payload & Named Inputs',
     description:
-      'Set your input payload in the first tab. Click "+ Add" to create extra named inputs — they become accessible by name in your DW script, just like in MuleSoft flows.',
-    tip: 'Supports JSON, XML, CSV, Plain Text, and more.',
+      'Set your input payload in the first tab. Use the MIME selector in the tab bar to switch between JSON, XML, CSV, multipart/form-data, binary, and more. Load a file directly from disk, or build multipart requests with the visual parts builder. Click "+ Add" for extra named inputs.',
+    tip: 'Paste CSV, change MIME to text/csv, and run — no file needed.',
     placement: 'right',
   },
   {
@@ -49,15 +49,15 @@ const STEPS: TourStep[] = [
     target: 'output',
     title: 'Output',
     description:
-      'See your script results here after clicking Run. Supports JSON, XML, and raw output formatting. Errors show the exact line number in the script editor.',
+      'See your script results here after clicking Run. Supports JSON, XML, and raw output formatting. Errors show the exact line number in the script editor. Use the Export button to save output to a file.',
     placement: 'left',
   },
   {
     target: 'sidebar',
     title: 'Sidebar',
     description:
-      'Manage workspaces, switch between Transform / Salesforce Query / DB Query modes, change MIME types, and import cURL commands. Save with Ctrl+S.',
-    tip: 'Workspaces store everything: script, payload, context, query templates.',
+      'Manage workspaces, switch modes (Transform / SOQL / SQL), import cURL commands, and configure advanced options — custom classpath JARs and execution timeout. Save with Ctrl+S.',
+    tip: 'Workspaces store everything: script, payload, context, multipart parts, classpath, and more.',
     placement: 'right',
   },
   {

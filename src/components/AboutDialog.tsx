@@ -1,13 +1,48 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { check } from '@tauri-apps/plugin-updater';
+import { relaunch } from '@tauri-apps/plugin-process';
 
 interface AboutDialogProps {
   open: boolean;
   onClose: () => void;
+  appVersion?: string;
+  updateAvailable?: boolean;
+  onUpdateInstalled?: () => void;
 }
 
-export function AboutDialog({ open, onClose }: AboutDialogProps) {
+type UpdateStatus = 'idle' | 'update-available' | 'checking' | 'up-to-date' | 'downloading' | 'error';
+
+export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpdateInstalled }: AboutDialogProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
+
+  // If the background check already found an update, show it immediately
+  useEffect(() => {
+    if (open && updateAvailable) setUpdateStatus('update-available');
+  }, [open, updateAvailable]);
+
+  // Reset status when dialog closes
+  useEffect(() => {
+    if (!open) setUpdateStatus(updateAvailable ? 'update-available' : 'idle');
+  }, [open, updateAvailable]);
+
+  async function handleCheckForUpdates() {
+    setUpdateStatus('checking');
+    try {
+      const update = await check();
+      if (update?.available) {
+        setUpdateStatus('downloading');
+        await update.downloadAndInstall();
+        onUpdateInstalled?.();
+        await relaunch();
+      } else {
+        setUpdateStatus('up-to-date');
+      }
+    } catch {
+      setUpdateStatus('error');
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -19,6 +54,17 @@ export function AboutDialog({ open, onClose }: AboutDialogProps) {
   }, [open, onClose]);
 
   if (!open) return null;
+
+  const statusText = {
+    idle: 'Check if a newer version is available',
+    'update-available': 'A new version is ready to download!',
+    checking: 'Checking for updates…',
+    'up-to-date': "You're on the latest version",
+    downloading: 'Downloading and installing…',
+    error: 'Could not reach update server — check your connection',
+  }[updateStatus];
+
+  const isUpdating = updateStatus === 'checking' || updateStatus === 'downloading';
 
   return (
     <div
@@ -39,14 +85,15 @@ export function AboutDialog({ open, onClose }: AboutDialogProps) {
             </svg>
           </button>
           <div className="flex items-center gap-4">
-            {/* Logo — weave icon */}
             <div className="shrink-0 relative">
               <div className="absolute inset-0 rounded-xl bg-[#00a0df]/20 blur-lg" />
               <img src="/logo.svg" alt="DataWeave Studio" width="56" height="56" className="relative rounded-xl" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-content tracking-tight">DataWeave Studio</h2>
-              <div className="text-[11px] text-[#00a0df] font-medium mt-0.5">v1.0.0 — Desktop Edition</div>
+              <div className="text-[11px] text-[#00a0df] font-medium mt-0.5">
+                {appVersion ? `v${appVersion}` : '…'} — Desktop Edition
+              </div>
             </div>
           </div>
         </div>
@@ -58,14 +105,12 @@ export function AboutDialog({ open, onClose }: AboutDialogProps) {
             A local desktop app for MuleSoft developers to test DataWeave scripts without Anypoint Studio, browser limitations, or complex project setups. Supports context-aware autocomplete, named inputs, SOQL/SQL query modes, cURL import, and real-time execution.
           </p>
 
-          {/* Divider */}
           <div className="border-t border-line/50" />
 
           {/* Built by */}
           <div className="space-y-2">
             <div className="text-[10px] text-content-faint uppercase tracking-widest font-medium">Built by</div>
             <div className="flex items-center gap-3">
-              {/* Avatar placeholder with initials */}
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00a0df] to-[#0060a0] flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-[#00a0df]/20">
                 AV
               </div>
@@ -74,7 +119,6 @@ export function AboutDialog({ open, onClose }: AboutDialogProps) {
                 <div className="text-xs text-content-faint">MuleSoft Developer</div>
               </div>
             </div>
-            {/* Links — use Tauri opener to open in default browser */}
             <div className="flex gap-3 pt-1">
               <button
                 onClick={() => openUrl('https://github.com/Ashutosh-Vijay')}
@@ -97,14 +141,40 @@ export function AboutDialog({ open, onClose }: AboutDialogProps) {
             </div>
           </div>
 
-          {/* Divider */}
+          <div className="border-t border-line/50" />
+
+          {/* Update checker */}
+          <div className={`flex items-center justify-between gap-3 rounded-lg p-2.5 -mx-1 transition-colors ${
+            updateStatus === 'update-available' ? 'bg-green-500/10 border border-green-500/20' : ''
+          }`}>
+            <div className={`text-xs flex items-center gap-1.5 ${
+              updateStatus === 'update-available' ? 'text-green-400 font-medium' : 'text-content-faint'
+            }`}>
+              {updateStatus === 'update-available' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
+              )}
+              {statusText}
+            </div>
+            <button
+              onClick={handleCheckForUpdates}
+              disabled={isUpdating}
+              className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${
+                updateStatus === 'update-available'
+                  ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400 border-green-500/30'
+                  : 'bg-[#00a0df]/10 hover:bg-[#00a0df]/20 text-[#00a0df] border-[#00a0df]/20'
+              }`}
+            >
+              {isUpdating ? '…' : updateStatus === 'update-available' ? 'Update now' : 'Check for updates'}
+            </button>
+          </div>
+
           <div className="border-t border-line/50" />
 
           {/* Credits */}
           <div className="text-[10px] text-content-ghost space-y-1">
             <div>Built with Tauri v2, React, TypeScript & Monaco Editor</div>
             <div>DataWeave CLI by MuleSoft/Salesforce (BSD-3-Clause License)</div>
-            <div className="text-content-ghost opacity-70">Not affiliated with, endorsed by, or sponsored by MuleSoft or Salesforce.</div>
+            <div className="opacity-70">Not affiliated with, endorsed by, or sponsored by MuleSoft or Salesforce.</div>
           </div>
         </div>
       </div>

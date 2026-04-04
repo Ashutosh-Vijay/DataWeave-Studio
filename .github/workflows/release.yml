@@ -13,7 +13,17 @@ env:
   DW_CLI_VERSION: "1.0.36"
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete existing release if present
+        run: |
+          gh release delete "${{ github.ref_name }}" --repo "${{ github.repository }}" --yes 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build:
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
@@ -54,7 +64,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install frontend dependencies
@@ -71,14 +81,10 @@ jobs:
           mv "dw-${DW_CLI_VERSION}-${{ matrix.dw_asset }}" dw-cli.zip
           unzip dw-cli.zip
           rm dw-cli.zip
-          # Ensure binary is executable
           chmod +x bin/dw* 2>/dev/null || true
-          echo "--- DW CLI contents ---"
-          ls -R .
         env:
           GH_TOKEN: ${{ github.token }}
 
-      # Linux dependencies for Tauri
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
         run: |
@@ -90,9 +96,10 @@ jobs:
             patchelf
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v0.6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'DataWeave Studio ${{ github.ref_name }}'
@@ -105,6 +112,7 @@ jobs:
             Bundled with DataWeave CLI v${{ env.DW_CLI_VERSION }}.
           releaseDraft: true
           prerelease: false
+          updaterJsonPreferNsis: true
           args: --target ${{ matrix.target }}
 
   publish:
