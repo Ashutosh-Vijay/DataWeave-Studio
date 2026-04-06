@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getVersion } from '@tauri-apps/api/app';
+import { check } from '@tauri-apps/plugin-updater';
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { ScriptEditor } from './components/ScriptEditor';
 import { PayloadTabs } from './components/PayloadTabs';
@@ -18,7 +20,7 @@ import yaml from 'js-yaml';
 import { CurlImportResult } from './components/CurlImporter';
 import { decryptFlatMap, hasEncryptedValues, DEFAULT_ENCRYPTION_SETTINGS } from './cryptoUtils';
 
-const APP_VERSION = '1.0.0';
+// Version is loaded dynamically from tauri.conf.json at runtime
 
 /**
  * Substitute :paramName placeholders with values from a parameter map.
@@ -219,10 +221,26 @@ function App() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [secureToolOpen, setSecureToolOpen] = useState(false);
   const [showTour, setShowTour] = useState(() => shouldShowTour());
+  const [appVersion, setAppVersion] = useState('');
+  const [updateAvailable, setUpdateAvailable] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState('');
   const autoRunTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleRunRef = useRef<() => void>(() => {});
   const canRunRef = useRef(false);
+
+  // Load app version and silently check for updates on startup
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => {});
+    const timer = setTimeout(async () => {
+      try {
+        const update = await check();
+        if (update?.available) setUpdateAvailable(true);
+      } catch {
+        // Network unreachable or endpoint blocked — fail silently
+      }
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleRun = useCallback(async () => {
     const { configYaml, secureConfigYaml } = workspace.context;
@@ -333,7 +351,7 @@ function App() {
           {/* Logo mark */}
           <img src="/logo.svg" alt="" width="24" height="24" className="rounded" />
           <h1 className="font-semibold text-content text-sm tracking-tight">DataWeave Studio</h1>
-          <span className="text-[9px] px-1.5 py-0.5 bg-[#00a0df]/15 text-[#00a0df] border border-[#00a0df]/30 rounded font-medium">v{APP_VERSION}</span>
+          {appVersion && <span className="text-[9px] px-1.5 py-0.5 bg-[#00a0df]/15 text-[#00a0df] border border-[#00a0df]/30 rounded font-medium">v{appVersion}</span>}
         </div>
 
         {/* Center: project info with method + node label badges */}
@@ -381,10 +399,13 @@ function App() {
             {/* About */}
             <button
               onClick={() => setAboutOpen(true)}
-              className="text-content-faint hover:text-[#00a0df] transition-colors cursor-pointer p-1"
-              title="About DataWeave Studio"
+              className="relative text-content-faint hover:text-[#00a0df] transition-colors cursor-pointer p-1"
+              title={updateAvailable ? 'Update available — click to open About' : 'About DataWeave Studio'}
               aria-label="About DataWeave Studio"
             >
+              {updateAvailable && (
+                <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-green-400 border border-[var(--color-surface-header)]" />
+              )}
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
                 <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
@@ -580,7 +601,7 @@ function App() {
       </div>
 
       {/* About dialog */}
-      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
+      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} appVersion={appVersion} updateAvailable={updateAvailable} onUpdateInstalled={() => setUpdateAvailable(false)} />
 
       {/* Secure Properties Tool dialog */}
       <SecurePropertiesTool open={secureToolOpen} onClose={() => setSecureToolOpen(false)} />
