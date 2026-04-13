@@ -168,7 +168,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
                 type={showKey ? 'text' : 'password'}
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
-                placeholder="16, 24, or 32 characters for AES"
+                placeholder="Any length — MD5-derived key (MuleSoft compatible)"
                 className="flex-1 bg-surface-input border border-line-secondary rounded-lg px-3 py-2 text-sm text-content placeholder-content-ghost focus:border-[#00a0df]/50 focus:outline-none font-mono"
               />
               <button
@@ -178,9 +178,9 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
                 {showKey ? 'Hide' : 'Show'}
               </button>
             </div>
-            {key && ![16, 24, 32].includes(new TextEncoder().encode(key).length) && (
-              <span className="text-[10px] text-orange-400">
-                Key is {new TextEncoder().encode(key).length} chars — AES requires 16, 24, or 32
+            {key && (
+              <span className="text-[10px] text-content-ghost">
+                Key is {new TextEncoder().encode(key).length} chars — will be MD5-hashed to AES-128 (matches MuleSoft)
               </span>
             )}
           </div>
@@ -264,7 +264,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
 
           {/* Info footer */}
           <div className="text-[9px] text-content-ghost leading-relaxed space-y-0.5">
-            <div>Compatible with MuleSoft's <code className="text-content-faint">secure-properties-tool.jar</code> (AES/CBC).</div>
+            <div>Compatible with MuleSoft's <code className="text-content-faint">secure-properties-tool.jar</code> (AES/CBC, MD5 key derivation).</div>
             <div>All processing happens locally — nothing is sent to any server.</div>
           </div>
         </div>

@@ -79,17 +79,18 @@ function buildAttributesJson(
   if (queryParams.length > 0) {
     const qp: Record<string, string> = {};
     queryParams.forEach((p) => {
-      if (p.key) qp[p.key] = p.value;
+      // Skip rows with empty key or empty value (absent param ≠ empty-string param in DW)
+      if (p.key && p.value !== '') qp[p.key] = p.value;
     });
-    attrs.queryParams = qp;
+    if (Object.keys(qp).length > 0) attrs.queryParams = qp;
   }
 
   if (headers.length > 0) {
     const h: Record<string, string> = {};
     headers.forEach((p) => {
-      if (p.key) h[p.key] = p.value;
+      if (p.key && p.value !== '') h[p.key] = p.value;
     });
-    attrs.headers = h;
+    if (Object.keys(h).length > 0) attrs.headers = h;
   }
 
   return JSON.stringify(attrs);
@@ -99,7 +100,10 @@ function buildVarsJson(vars: VarEntry[]): string {
   const obj: Record<string, unknown> = {};
   vars.forEach((v) => {
     if (!v.key) return;
-    if (v.valueType === 'json') {
+    if (v.value.trim() === '') {
+      // Empty value → DataWeave null (avoids "cannot operate on empty string" errors)
+      obj[v.key] = null;
+    } else if (v.valueType === 'json') {
       try {
         obj[v.key] = JSON.parse(v.value);
       } catch {

@@ -527,6 +527,7 @@ export function PayloadTabs({
               autoClosingQuotes: 'always',
               autoSurround: 'brackets',
               autoIndent: 'full',
+              scrollbar: { alwaysConsumeMouseWheel: false },
             }}
           />
         </div>

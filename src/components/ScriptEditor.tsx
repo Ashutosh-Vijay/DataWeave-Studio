@@ -179,6 +179,52 @@ export function ScriptEditor({ code, onChange, onRun, errorLine, headerLabel, pa
     }
     monacoInstance.languages.setMonarchTokensProvider('dataweave', dwTokensProvider as any);
 
+    // Language config: bracket pairs, auto-close, auto-indent
+    monacoInstance.languages.setLanguageConfiguration('dataweave', {
+      brackets: [
+        ['{', '}'],
+        ['[', ']'],
+        ['(', ')'],
+      ],
+      autoClosingPairs: [
+        { open: '{', close: '}' },
+        { open: '[', close: ']' },
+        { open: '(', close: ')' },
+        { open: '"', close: '"', notIn: ['string'] },
+        { open: "'", close: "'", notIn: ['string'] },
+      ],
+      surroundingPairs: [
+        { open: '{', close: '}' },
+        { open: '[', close: ']' },
+        { open: '(', close: ')' },
+        { open: '"', close: '"' },
+        { open: "'", close: "'" },
+      ],
+      indentationRules: {
+        // Increase indent after: unclosed {, [, (, or a line ending with -> or =
+        increaseIndentPattern: /^.*(\{[^}"']*|\[[^\]"']*|\([^)"']*|->\s*|=\s*)$/,
+        decreaseIndentPattern: /^\s*[}\])].*$/,
+      },
+      onEnterRules: [
+        // Cursor between auto-closed pairs → indent inner line, outdent closing bracket
+        { beforeText: /\{$/, afterText: /^\s*\}/, action: { indentAction: monacoInstance.languages.IndentAction.IndentOutdent } },
+        { beforeText: /\[$/, afterText: /^\s*\]/, action: { indentAction: monacoInstance.languages.IndentAction.IndentOutdent } },
+        { beforeText: /\($/, afterText: /^\s*\)/, action: { indentAction: monacoInstance.languages.IndentAction.IndentOutdent } },
+
+        // DW lambda / transform operator: `payload map (item) ->`
+        // `fun myFun(x) ->`
+        { beforeText: /->\s*$/, action: { indentAction: monacoInstance.languages.IndentAction.Indent } },
+
+        // DW var/fun body: `var x =`  `fun f(a) =`
+        { beforeText: /=\s*$/, action: { indentAction: monacoInstance.languages.IndentAction.Indent } },
+
+        // Opening bracket with content still on the same line (no closing bracket yet)
+        { beforeText: /\{[^}]*$/, action: { indentAction: monacoInstance.languages.IndentAction.Indent } },
+        { beforeText: /\[[^\]]*$/, action: { indentAction: monacoInstance.languages.IndentAction.Indent } },
+        { beforeText: /\([^)]*$/, action: { indentAction: monacoInstance.languages.IndentAction.Indent } },
+      ],
+    });
+
     // Define custom theme
     defineDataWeaveTheme(monacoInstance);
   }, []);
@@ -290,6 +336,7 @@ export function ScriptEditor({ code, onChange, onRun, errorLine, headerLabel, pa
             autoClosingQuotes: 'always',
             autoSurround: 'brackets',
             autoIndent: 'full',
+            scrollbar: { alwaysConsumeMouseWheel: false },
           }}
         />
       </div>
