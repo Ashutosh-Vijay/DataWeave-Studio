@@ -16,6 +16,7 @@ import { useWorkspace } from './hooks/useWorkspace';
 import { useDWRunner } from './hooks/useDWRunner';
 import { useTheme } from './ThemeContext';
 import { KeyValuePair, VarEntry, METHOD_COLORS, NODE_LABEL_COLORS } from './types';
+import { Icons } from './components/Icons';
 import yaml from 'js-yaml';
 import { CurlImportResult } from './components/CurlImporter';
 import { decryptFlatMap, hasEncryptedValues, DEFAULT_ENCRYPTION_SETTINGS } from './cryptoUtils';
@@ -215,6 +216,60 @@ async function substitutePropertiesAsync(
   return substituteFromMaps(text, configFlat, secureFlat);
 }
 
+function IconBtn({
+  children,
+  onClick,
+  title,
+  active,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  title?: string;
+  active?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={`inline-flex items-center justify-center w-7 h-7 rounded-md transition-colors cursor-pointer ${
+        active
+          ? 'bg-surface-3 text-content'
+          : 'text-content-muted hover:text-content hover:bg-surface-2'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function StatusBar({
+  isReady,
+  appVersion,
+  dwVersion,
+}: {
+  isReady: boolean;
+  appVersion: string;
+  dwVersion?: string;
+}) {
+  return (
+    <div
+      className="h-[26px] shrink-0 flex items-center gap-3.5 px-3.5 bg-rail border-t border-line text-[11px] text-content-faint font-mono"
+    >
+      <span
+        className="inline-flex items-center gap-1.5"
+        style={{ color: isReady ? 'var(--accent)' : 'var(--warn)' }}
+      >
+        <Icons.Dot size={8} /> {isReady ? 'CLI ready' : 'Warming up'}
+      </span>
+      {dwVersion && <span>DW {dwVersion}</span>}
+      <span className="flex-1" />
+      <span>UTF-8</span>
+      <span>LF</span>
+      {appVersion && <span className="text-content-ghost">v{appVersion}</span>}
+    </div>
+  );
+}
+
 function App() {
   const workspace = useWorkspace();
   const runner = useDWRunner();
@@ -347,131 +402,142 @@ function App() {
   const nodeLabelColors = NODE_LABEL_COLORS[workspace.nodeLabel] || NODE_LABEL_COLORS.Transform;
 
   return (
-    <div className="h-screen w-screen bg-surface text-content flex flex-col font-sans select-none">
-      {/* Header */}
-      <header data-tour="header" className="h-11 border-b border-[#00a0df]/20 flex items-center px-4 bg-gradient-to-r from-[var(--header-from)] to-[var(--header-to)] shrink-0">
-        {/* Logo + title */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          {/* Logo mark */}
-          <img src="/logo.svg" alt="" width="24" height="24" className="rounded" />
-          <h1 className="font-semibold text-content text-sm tracking-tight">DataWeave Studio</h1>
-          {appVersion && <span className="text-[9px] px-1.5 py-0.5 bg-[#00a0df]/15 text-[#00a0df] border border-[#00a0df]/30 rounded font-medium">v{appVersion}</span>}
-        </div>
-
-        {/* Center: project info with method + node label badges */}
-        <div className="flex-1 flex justify-center">
-          <div className="flex items-center gap-2">
-            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide border ${methodColors.bg} ${methodColors.text} ${methodColors.border}`}>
-              {workspace.context.method}
-            </span>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${nodeLabelColors.bg} ${nodeLabelColors.text} ${nodeLabelColors.border}`}>
-              {workspace.nodeLabel}
-            </span>
-            <span className="text-sm text-content-secondary font-medium">{workspace.projectName}</span>
-            {workspace.isDirty && (
-              <span className="text-yellow-500 text-xs" title="Unsaved changes">*</span>
-            )}
+    <div className="h-screen w-screen bg-bg text-content flex flex-col font-sans select-none">
+      {/* Top bar — brand, breadcrumb, ⌘K search, run cluster */}
+      <header data-tour="header" className="h-11 flex items-center gap-3 px-3 bg-surface border-b border-line shrink-0">
+        {/* Brand mark */}
+        <div className="flex items-center justify-center w-11 shrink-0">
+          <div
+            className="w-[22px] h-[22px] rounded-md flex items-center justify-center font-mono font-extrabold text-[11px]"
+            style={{
+              background: 'linear-gradient(135deg, var(--accent), color-mix(in oklch, var(--accent) 60%, var(--violet)))',
+              color: 'var(--accent-ink)',
+            }}
+            title="DataWeave Studio"
+          >
+            dw
           </div>
         </div>
 
-        {/* Right side: help + about + theme + warmup + run */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1">
-            {/* Tour / Help */}
-            <button
-              onClick={() => setShowTour(true)}
-              className="text-content-faint hover:text-[#00a0df] transition-colors cursor-pointer p-1"
-              title="Show guided tour"
-              aria-label="Show guided tour"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94z"/>
-              </svg>
-            </button>
-            {/* Secure Properties Tool */}
-            <button
-              onClick={() => setSecureToolOpen(true)}
-              className="text-content-faint hover:text-yellow-400 transition-colors cursor-pointer p-1"
-              title="Secure Properties Tool (Encrypt/Decrypt)"
-              aria-label="Secure Properties Tool"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 1a4 4 0 0 0-4 4v3H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V5a4 4 0 0 0-4-4zm2 7H6V5a2 2 0 1 1 4 0v3z"/>
-              </svg>
-            </button>
-            {/* About */}
-            <button
-              onClick={() => setAboutOpen(true)}
-              className="relative text-content-faint hover:text-[#00a0df] transition-colors cursor-pointer p-1"
-              title={updateAvailable ? 'Update available — click to open About' : 'About DataWeave Studio'}
-              aria-label="About DataWeave Studio"
-            >
+        {/* Breadcrumb: method · node · project / file */}
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide border font-mono ${methodColors.bg} ${methodColors.text} ${methodColors.border}`}>
+            {workspace.context.method}
+          </span>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${nodeLabelColors.bg} ${nodeLabelColors.text} ${nodeLabelColors.border}`}>
+            {workspace.nodeLabel}
+          </span>
+          <span className="text-[13px] text-content-faint truncate">{workspace.projectName}</span>
+          {workspace.currentFile && (
+            <>
+              <span className="text-content-ghost">/</span>
+              <span className="text-[13px] text-content font-medium truncate">{workspace.currentFile.replace(/\.json$/, '')}</span>
+            </>
+          )}
+          {workspace.isDirty && (
+            <span className="text-warn text-base leading-none ml-0.5" title="Unsaved changes">•</span>
+          )}
+        </div>
+
+        <div className="flex-1" />
+
+        {/* ⌘K search stub (palette will wire up in Phase 2) */}
+        <div className="hidden md:flex items-center gap-2 h-7 px-2.5 bg-surface-2 border border-line rounded-md w-[280px] text-content-faint text-[12.5px] cursor-pointer hover:border-line-secondary transition-colors">
+          <Icons.Search size={13} />
+          <span className="flex-1 truncate">Search commands, files…</span>
+          <span className="font-mono text-[10.5px] px-1.5 py-0.5 rounded bg-surface-3 text-content-muted">⌘K</span>
+        </div>
+
+        <div className="flex-1" />
+
+        {/* Right cluster */}
+        <div className="flex items-center gap-1">
+          <IconBtn title="Show guided tour" onClick={() => setShowTour(true)}>
+            <Icons.Help size={15} />
+          </IconBtn>
+          <IconBtn title="Secure Properties Tool" onClick={() => setSecureToolOpen(true)}>
+            <Icons.Secure size={15} />
+          </IconBtn>
+          <IconBtn
+            title={updateAvailable ? 'Update available — open About' : 'About DataWeave Studio'}
+            onClick={() => setAboutOpen(true)}
+          >
+            <span className="relative inline-flex">
+              <Icons.Activity size={15} />
               {updateAvailable && (
-                <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-green-400 border border-[var(--color-surface-header)]" />
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-accent" />
               )}
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-              </svg>
-            </button>
-            {/* Theme toggle */}
-            <button
-              onClick={toggle}
-              className="text-content-faint hover:text-[#00a0df] transition-colors cursor-pointer p-1"
-              title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              aria-label="Toggle theme"
-            >
-              {isDark ? (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z"/>
-                </svg>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/>
-                </svg>
-              )}
-            </button>
-          </div>
+            </span>
+          </IconBtn>
+          <IconBtn title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggle}>
+            {isDark ? <Icons.Sun size={15} /> : <Icons.Moon size={15} />}
+          </IconBtn>
+
+          <div className="w-px h-4 bg-line mx-1" />
+
           {!runner.isWarmedUp && (
-            <div className="flex items-center gap-1.5 text-xs text-[#00a0df]">
-              <div className="w-3 h-3 rounded-full border-2 border-t-transparent border-[#00a0df] animate-spin" />
-              <span>Warming up...</span>
+            <div className="flex items-center gap-1.5 text-[11px] text-accent mr-1">
+              <div className="w-3 h-3 rounded-full border-2 border-t-transparent border-accent animate-spin" />
+              <span>Warming up…</span>
             </div>
           )}
-          <span data-tour="run-controls" className="text-[10px] text-content-ghost">Ctrl+Enter</span>
+
           <button
             onClick={() => setAutoRun(!autoRun)}
-            className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer border ${
+            data-tour="run-controls"
+            className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] font-medium border transition-colors cursor-pointer ${
               autoRun
-                ? 'bg-[#00a0df]/20 border-[#00a0df]/50 text-[#00a0df]'
-                : 'bg-transparent border-line-secondary text-content-faint hover:border-content-muted hover:text-content-secondary'
+                ? 'bg-accent-dim border-accent-border text-accent'
+                : 'bg-transparent border-line text-content-faint hover:border-line-secondary hover:text-content-secondary'
             }`}
             title="Auto-run: re-execute after 1.5s of inactivity"
           >
-            Auto
+            <Icons.Zap size={12} /> Auto
           </button>
           <button
             onClick={handleRun}
             disabled={!canRun}
-            className="bg-[#00a0df] hover:bg-[#0090c5] disabled:bg-line disabled:text-content-faint text-white px-4 py-1.5 rounded text-sm font-medium transition-colors cursor-pointer shadow-sm shadow-[#00a0df]/20"
+            className="inline-flex items-center gap-1.5 h-7 pl-2.5 pr-3 rounded-md text-[12.5px] font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+            style={{
+              background: 'var(--accent)',
+              color: 'var(--accent-ink)',
+            }}
+            onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = 'var(--accent-hover)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--accent)'; }}
+            title="Run (Ctrl+Enter)"
           >
-            {runner.isRunning ? 'Running...' : 'Run'}
+            <Icons.Play size={11} />
+            {runner.isRunning ? 'Running…' : 'Run'}
+            <span
+              className="font-mono text-[10px] px-1 py-0.5 rounded ml-0.5"
+              style={{
+                background: 'color-mix(in oklch, var(--accent-ink) 20%, transparent)',
+                color: 'color-mix(in oklch, var(--accent-ink) 80%, transparent)',
+              }}
+            >
+              ⌘↵
+            </span>
           </button>
         </div>
       </header>
 
       {/* CLI error banner */}
       {runner.cliError && (
-        <div className="bg-red-900/40 border-b border-red-800/50 px-4 py-2 flex items-center gap-3 shrink-0">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="#f87171" className="shrink-0">
-            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0-9.5a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 1.5 0v-3.5A.75.75 0 0 0 8 5.5zM8 12a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/>
-          </svg>
+        <div
+          className="px-4 py-2 flex items-center gap-3 shrink-0 border-b"
+          style={{
+            background: 'color-mix(in oklch, var(--err) 12%, transparent)',
+            borderColor: 'color-mix(in oklch, var(--err) 30%, transparent)',
+          }}
+        >
+          <span style={{ color: 'var(--err)' }} className="shrink-0 inline-flex">
+            <Icons.Dot size={10} />
+          </span>
           <div className="flex-1 min-w-0">
-            <span className="text-xs text-red-300 font-medium">DataWeave CLI unavailable</span>
-            <span className="text-xs text-red-400/70 ml-2">{runner.cliError}</span>
+            <span className="text-[12px] font-medium" style={{ color: 'var(--err)' }}>DataWeave CLI unavailable</span>
+            <span className="text-[12px] text-content-muted ml-2">{runner.cliError}</span>
           </div>
-          <span className="text-[10px] text-red-400/50 shrink-0">Scripts cannot be executed until this is resolved</span>
+          <span className="text-[10.5px] text-content-faint shrink-0">Scripts cannot be executed until this is resolved</span>
         </div>
       )}
 
@@ -502,7 +568,7 @@ function App() {
         />
 
         {/* Main — three horizontal resizable columns */}
-        <main className="flex-1 overflow-hidden p-2">
+        <main className="flex-1 overflow-hidden bg-bg">
           <PanelGroup orientation="horizontal" className="h-full gap-0">
 
             {/* Left column: Query + Script + Payload (vertical splits) */}
@@ -519,8 +585,8 @@ function App() {
                         />
                       </div>
                     </Panel>
-                    <PanelResizeHandle className="h-1.5 flex items-center justify-center cursor-row-resize group">
-                      <div className="w-8 h-0.5 rounded-full bg-line-secondary group-hover:bg-[#00a0df]/50 transition-colors" />
+                    <PanelResizeHandle className="h-px bg-line hover:bg-accent/50 transition-colors cursor-row-resize relative group">
+                      <div className="absolute left-1/2 -translate-x-1/2 -top-[1px] w-8 h-[3px] rounded bg-line group-hover:bg-accent transition-colors" />
                     </PanelResizeHandle>
                   </>
                 )}
@@ -546,7 +612,7 @@ function App() {
                   </div>
                 </Panel>
                 <PanelResizeHandle className="h-1.5 flex items-center justify-center cursor-row-resize group">
-                  <div className="w-8 h-0.5 rounded-full bg-line-secondary group-hover:bg-[#00a0df]/50 transition-colors" />
+                  <div className="w-8 h-0.5 rounded-full bg-line-secondary group-hover:bg-accent/50 transition-colors" />
                 </PanelResizeHandle>
                 <Panel defaultSize={isQueryMode ? 30 : 40} minSize={10}>
                   <div className="h-full pt-1" data-tour="payload">
@@ -567,8 +633,8 @@ function App() {
               </PanelGroup>
             </Panel>
 
-            <PanelResizeHandle className="w-1.5 flex items-center justify-center cursor-col-resize group mx-1">
-              <div className="h-8 w-0.5 rounded-full bg-line-secondary group-hover:bg-[#00a0df]/50 transition-colors" />
+            <PanelResizeHandle className="w-px bg-line hover:bg-accent/50 transition-colors cursor-col-resize relative group mx-1">
+              <div className="absolute top-1/2 -translate-y-1/2 -left-[1px] h-8 w-[3px] rounded bg-line group-hover:bg-accent transition-colors" />
             </PanelResizeHandle>
 
             {/* Center: Context Panel */}
@@ -581,8 +647,8 @@ function App() {
               />
             </Panel>
 
-            <PanelResizeHandle className="w-1.5 flex items-center justify-center cursor-col-resize group mx-1">
-              <div className="h-8 w-0.5 rounded-full bg-line-secondary group-hover:bg-[#00a0df]/50 transition-colors" />
+            <PanelResizeHandle className="w-px bg-line hover:bg-accent/50 transition-colors cursor-col-resize relative group mx-1">
+              <div className="absolute top-1/2 -translate-y-1/2 -left-[1px] h-8 w-[3px] rounded bg-line group-hover:bg-accent transition-colors" />
             </PanelResizeHandle>
 
             {/* Right: Output */}
@@ -603,6 +669,9 @@ function App() {
           </PanelGroup>
         </main>
       </div>
+
+      {/* Status bar */}
+      <StatusBar isReady={runner.isWarmedUp} appVersion={appVersion} />
 
       {/* About dialog */}
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} appVersion={appVersion} updateAvailable={updateAvailable} onUpdateInstalled={() => setUpdateAvailable(false)} />

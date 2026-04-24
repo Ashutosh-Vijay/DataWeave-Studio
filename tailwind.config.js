@@ -6,7 +6,13 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+      },
       colors: {
+        bg: 'var(--bg)',
+        rail: 'var(--rail)',
         surface: {
           DEFAULT: 'var(--surface)',
           panel: 'var(--surface-panel)',
@@ -15,6 +21,8 @@ export default {
           section: 'var(--surface-section)',
           sidebar: 'var(--surface-sidebar)',
           active: 'var(--surface-active)',
+          2: 'var(--surface-2)',
+          3: 'var(--surface-3)',
         },
         content: {
           DEFAULT: 'var(--content)',
@@ -28,6 +36,17 @@ export default {
           secondary: 'var(--line-secondary)',
           subtle: 'var(--line-subtle)',
         },
+        accent: {
+          DEFAULT: 'var(--accent)',
+          hover: 'var(--accent-hover)',
+          dim: 'var(--accent-dim)',
+          border: 'var(--accent-border)',
+          ink: 'var(--accent-ink)',
+        },
+        warn: 'var(--warn)',
+        err: 'var(--err)',
+        violet: 'var(--violet)',
+        cyan: 'var(--cyan)',
       },
     },
   },

@@ -48,3 +48,6 @@ src-tauri/resources/dw-cli/
 # Build artifacts / cached files
 latest_release.json
 AGENTS.md
+
+# Local design handoff reference (unpacked from Claude Design bundle)
+.design-spec/

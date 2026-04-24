@@ -4,6 +4,7 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
+import { Icons } from './Icons';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
@@ -71,92 +72,112 @@ export function OutputPane({
   const hasContent = output || error;
 
   return (
-    <div className="flex flex-col h-full border border-line rounded-md overflow-hidden bg-surface-panel">
+    <div className="flex flex-col h-full overflow-hidden bg-surface">
       {/* Header */}
-      <div className="bg-surface-elevated px-3 py-1.5 text-xs text-content-secondary font-medium border-b border-line flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span>{isQueryMode ? 'Query Result' : 'Output'}</span>
-          {executionTimeMs !== undefined && !isRunning && (
-            <span className="text-[10px] text-content-faint bg-line-subtle px-1.5 py-0.5 rounded">
-              {executionTimeMs}ms
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Format toggle */}
-          <select
-            value={outputFormat}
-            onChange={(e) => onFormatChange(e.target.value as 'json' | 'xml' | 'raw')}
-            className="bg-surface-panel border border-line-secondary rounded px-1.5 py-0.5 text-[10px] text-content-muted focus:outline-none cursor-pointer"
+      <div className="h-10 shrink-0 flex items-center gap-2 px-3.5 border-b border-line">
+        <span className="text-[12.5px] font-semibold text-content">{isQueryMode ? 'Query Result' : 'Output'}</span>
+        {executionTimeMs !== undefined && !isRunning && (
+          <span
+            className="inline-flex items-center gap-1 font-mono text-[10.5px] px-1.5 py-0.5 rounded text-accent"
+            style={{ background: 'var(--accent-dim)' }}
           >
-            <option value="json">JSON</option>
-            <option value="xml">XML</option>
-            <option value="raw">Raw</option>
-          </select>
-          {hasContent && (
-            <>
+            <Icons.Dot size={7} /> {executionTimeMs}ms
+          </span>
+        )}
+        <span className="flex-1" />
+
+        {/* Segmented format switch */}
+        <div className="flex items-center p-0.5 rounded-md bg-surface-2 border border-line-secondary">
+          {(['json', 'xml', 'raw'] as const).map((f) => {
+            const active = outputFormat === f;
+            return (
               <button
-                onClick={handleExport}
-                className="text-content-muted hover:text-content text-[10px] px-1.5 py-0.5 border border-line-secondary rounded transition-colors cursor-pointer"
+                key={f}
+                onClick={() => onFormatChange(f)}
+                className={`px-2 h-5 rounded-sm font-mono text-[11px] cursor-pointer transition-colors ${
+                  active ? 'text-content font-semibold bg-surface-3' : 'text-content-faint hover:text-content-secondary'
+                }`}
               >
-                {exported ? 'Saved!' : 'Export'}
+                {f}
               </button>
-              <button
-                onClick={handleCopy}
-                className="text-content-muted hover:text-content text-[10px] px-1.5 py-0.5 border border-line-secondary rounded transition-colors cursor-pointer"
-              >
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </>
-          )}
+            );
+          })}
         </div>
+
+        {hasContent && (
+          <>
+            <button
+              onClick={handleCopy}
+              title={copied ? 'Copied!' : 'Copy'}
+              className="inline-flex items-center justify-center w-7 h-7 rounded-md text-content-muted hover:text-content hover:bg-surface-2 transition-colors cursor-pointer"
+            >
+              {copied ? <Icons.Dot size={10} /> : <Icons.Copy size={13} />}
+            </button>
+            <button
+              onClick={handleExport}
+              title={exported ? 'Saved!' : 'Export'}
+              className="inline-flex items-center justify-center w-7 h-7 rounded-md text-content-muted hover:text-content hover:bg-surface-2 transition-colors cursor-pointer"
+            >
+              {exported ? <Icons.Dot size={10} /> : <Icons.Download size={13} />}
+            </button>
+          </>
+        )}
       </div>
 
       {/* Content area */}
       <div className="flex-1 relative">
         {/* Running overlay */}
         {isRunning && (
-          <div className="absolute inset-0 z-10 bg-black/50 flex items-center justify-center backdrop-blur-[1px]">
-            <div className="flex items-center space-x-2 text-white">
-              <div className="w-4 h-4 rounded-full border-2 border-t-transparent border-[#00a0df] animate-spin" />
-              <span className="text-sm">Executing...</span>
+          <div
+            className="absolute inset-0 z-10 flex items-center justify-center backdrop-blur-[1px]"
+            style={{ background: 'color-mix(in oklch, var(--bg) 55%, transparent)' }}
+          >
+            <div className="flex items-center space-x-2 text-content">
+              <div className="w-4 h-4 rounded-full border-2 border-t-transparent border-accent animate-spin" />
+              <span className="text-[12.5px]">Executing…</span>
             </div>
           </div>
         )}
 
         {error ? (
-          <div className="h-full overflow-auto bg-surface-panel p-4">
-            <div className="bg-red-900/20 border border-red-800/50 rounded p-3 mb-2">
-              <div className="text-red-400 text-xs font-medium mb-1">Error</div>
-              <pre className="text-red-300 text-xs font-mono whitespace-pre-wrap leading-relaxed">
+          <div className="h-full overflow-auto bg-surface p-4">
+            <div
+              className="rounded-md p-3 mb-2 border"
+              style={{
+                background: 'color-mix(in oklch, var(--err) 10%, transparent)',
+                borderColor: 'color-mix(in oklch, var(--err) 30%, transparent)',
+              }}
+            >
+              <div className="text-[11px] font-semibold mb-1.5 uppercase tracking-wide" style={{ color: 'var(--err)' }}>Error</div>
+              <pre className="text-[12px] font-mono whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--err)' }}>
                 {error}
               </pre>
             </div>
           </div>
         ) : isQueryMode && queryResult ? (
           /* Query mode: show substituted query + parameters */
-          <div className="h-full overflow-auto bg-surface-panel">
+          <div className="h-full overflow-auto bg-surface">
             {/* Final query */}
             <div className="border-b border-line">
-              <div className="px-3 py-1.5 text-[10px] text-content-faint uppercase tracking-wide bg-surface-section">
+              <div className="px-3.5 py-1.5 text-[10.5px] font-semibold text-content-faint uppercase tracking-[0.6px] bg-surface-2">
                 Final {queryLanguage} Query
               </div>
-              <pre className="px-4 py-3 text-sm font-mono text-blue-300 whitespace-pre-wrap leading-relaxed select-text">
+              <pre className="px-4 py-3 text-[12.5px] font-mono whitespace-pre-wrap leading-relaxed select-text" style={{ color: 'var(--cyan)' }}>
                 {queryResult.result}
               </pre>
             </div>
             {/* Parameters */}
             <div>
-              <div className="px-3 py-1.5 text-[10px] text-content-faint uppercase tracking-wide bg-surface-section">
+              <div className="px-3.5 py-1.5 text-[10.5px] font-semibold text-content-faint uppercase tracking-[0.6px] bg-surface-2">
                 Resolved Parameters
               </div>
               <div className="p-3 space-y-1">
                 {Object.entries(queryResult.params).map(([key, value]) => (
-                  <div key={key} className="flex items-baseline gap-2 text-xs font-mono">
-                    <span className="text-purple-400">:{key}</span>
+                  <div key={key} className="flex items-baseline gap-2 text-[12px] font-mono">
+                    <span style={{ color: 'var(--violet)' }}>:{key}</span>
                     <span className="text-content-ghost">=</span>
-                    <span className="text-green-400">{JSON.stringify(value)}</span>
-                    <span className="text-content-ghost text-[10px] italic">
+                    <span style={{ color: 'var(--accent)' }}>{JSON.stringify(value)}</span>
+                    <span className="text-content-ghost text-[10.5px] italic">
                       {value === null ? 'null' : typeof value === 'string' ? 'String' : typeof value === 'number' ? 'Number' : typeof value === 'boolean' ? 'Boolean' : typeof value}
                     </span>
                   </div>

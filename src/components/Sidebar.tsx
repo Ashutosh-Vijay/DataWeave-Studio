@@ -89,7 +89,7 @@ export function Sidebar({
   // Collapsed state: thin strip with toggle
   if (collapsed) {
     return (
-      <div data-tour="sidebar" className="w-10 shrink-0 bg-surface-sidebar border-r border-[#00a0df]/10 flex flex-col items-center py-2 gap-3">
+      <div data-tour="sidebar" className="w-10 shrink-0 bg-surface-sidebar border-r border-line-secondary flex flex-col items-center py-2 gap-3">
         <button
           onClick={onToggleCollapse}
           className="text-content-faint hover:text-content-secondary text-sm cursor-pointer"
@@ -103,7 +103,7 @@ export function Sidebar({
         {/* Quick save icon */}
         <button
           onClick={handleSave}
-          className="text-content-faint hover:text-[#00a0df] cursor-pointer"
+          className="text-content-faint hover:text-accent cursor-pointer"
           title="Save (Ctrl+S)"
           aria-label="Save workspace"
         >
@@ -119,10 +119,10 @@ export function Sidebar({
   }
 
   return (
-    <div data-tour="sidebar" className="w-56 shrink-0 bg-surface-sidebar border-r border-[#00a0df]/10 flex flex-col overflow-hidden">
+    <div data-tour="sidebar" className="w-56 shrink-0 bg-surface-sidebar border-r border-line-secondary flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-line-subtle">
-        <span className="text-xs font-medium text-[#00a0df]/70 uppercase tracking-wide">Explorer</span>
+        <span className="text-xs font-medium text-accent/70 uppercase tracking-wide">Explorer</span>
         <button
           onClick={onToggleCollapse}
           className="text-content-faint hover:text-content-secondary cursor-pointer"
@@ -144,7 +144,7 @@ export function Sidebar({
             type="text"
             value={projectName}
             onChange={(e) => onProjectNameChange(e.target.value)}
-            className="w-full bg-surface-elevated border border-line rounded px-2 py-1.5 text-xs text-content placeholder-content-ghost focus:border-[#00a0df] focus:outline-none"
+            className="w-full bg-surface-elevated border border-line rounded px-2 py-1.5 text-xs text-content placeholder-content-ghost focus:border-accent focus:outline-none"
             placeholder="Untitled"
           />
 
@@ -155,7 +155,7 @@ export function Sidebar({
             className={`w-full py-1.5 rounded text-xs font-medium transition-all cursor-pointer ${
               saveFlash
                 ? 'bg-emerald-600 text-white'
-                : 'bg-[#00a0df] hover:bg-[#0090c5] text-white disabled:opacity-50'
+                : 'bg-accent hover:bg-accent-hover text-white disabled:opacity-50'
             }`}
           >
             {saveFlash ? 'Saved!' : saving ? 'Saving...' : 'Save'}
@@ -180,7 +180,7 @@ export function Sidebar({
             <span className="text-[10px] text-content-faint uppercase tracking-wide">Workspaces</span>
             <button
               onClick={() => { onNew(); refreshFiles(); }}
-              className="text-[10px] text-[#00a0df] hover:text-[#00c8ff] cursor-pointer"
+              className="text-[10px] text-accent hover:text-accent-hover cursor-pointer"
             >
               + New
             </button>
@@ -195,7 +195,7 @@ export function Sidebar({
                   onClick={() => handleLoad(f)}
                   className={`flex items-center justify-between px-2 py-1.5 rounded cursor-pointer group text-xs transition-colors ${
                     f === currentFile
-                      ? 'bg-[#00a0df]/10 text-[#00a0df] border-l-2 border-[#00a0df]'
+                      ? 'bg-accent-dim text-accent border-l-2 border-accent'
                       : 'text-content-muted hover:bg-[var(--hover-overlay)] hover:text-content border-l-2 border-transparent'
                   }`}
                 >
@@ -269,7 +269,7 @@ export function Sidebar({
               step={1000}
               value={timeoutMs}
               onChange={(e) => onTimeoutMsChange(Number(e.target.value))}
-              className="w-full bg-surface-elevated border border-line rounded px-2 py-1 text-xs text-content focus:border-[#00a0df] focus:outline-none"
+              className="w-full bg-surface-elevated border border-line rounded px-2 py-1 text-xs text-content focus:border-accent focus:outline-none"
               title="0 = no timeout"
             />
             <div className="text-[9px] text-content-ghost">0 = no timeout</div>
@@ -288,7 +288,7 @@ export function Sidebar({
                       onClasspathChange([...classpath, ...entries.filter(e => !classpath.includes(e))]);
                     }
                   }}
-                  className="text-[9px] text-[#00a0df] hover:text-[#00c8ff] cursor-pointer"
+                  className="text-[9px] text-accent hover:text-accent-hover cursor-pointer"
                   title="Add directory"
                 >Dir</button>
                 <span className="text-content-ghost text-[9px]">|</span>
@@ -304,7 +304,7 @@ export function Sidebar({
                       onClasspathChange([...classpath, ...entries.filter(e => !classpath.includes(e))]);
                     }
                   }}
-                  className="text-[9px] text-[#00a0df] hover:text-[#00c8ff] cursor-pointer"
+                  className="text-[9px] text-accent hover:text-accent-hover cursor-pointer"
                   title="Add JAR or .dwl file"
                 >JAR</button>
               </div>

@@ -59,12 +59,15 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
   };
 
   return (
-    <div className="flex flex-col h-full border border-line rounded-md overflow-hidden bg-surface-panel">
-      <div className="bg-surface-elevated px-3 py-1.5 text-xs font-medium border-b border-line flex items-center gap-2">
-        <span className="text-content-secondary">Context</span>
-        <span className="text-[9px] text-content-faint">(attributes & vars)</span>
+    <div className="flex flex-col h-full overflow-hidden bg-surface">
+      <div className="h-[34px] shrink-0 flex items-end border-b border-line pl-3">
+        <span className="relative h-full inline-flex items-center px-3 text-[12.5px] font-semibold text-content">
+          Context
+          <span className="absolute left-2 right-2 -bottom-px h-0.5 rounded-sm bg-accent" />
+        </span>
+        <span className="ml-2 mb-2 text-[10.5px] text-content-faint">attributes · vars · config</span>
       </div>
-      <div className="flex-1 overflow-y-auto p-3 space-y-4">
+      <div className="flex-1 overflow-y-auto p-3.5 space-y-4">
         {/* HTTP Method — Postman-style colored pills */}
         <div className="space-y-1.5">
           <span className="text-xs font-medium text-content-muted uppercase tracking-wide">

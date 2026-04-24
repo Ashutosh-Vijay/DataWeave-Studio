@@ -2,109 +2,153 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ========= DataWeave Studio — Dusk / Paper design tokens =========
+   Redesign spec: warm-neutral surfaces (hue 80, chroma 0.004) + emerald accent.
+   Semantic variables so components re-skin automatically. */
+
 :root {
   color-scheme: dark;
-  --mulesoft-blue: #00a0df;
 
-  /* Surfaces */
-  --surface: #121212;
-  --surface-panel: #1e1e1e;
-  --surface-elevated: #2d2d2d;
-  --surface-input: #2a2a2a;
-  --surface-section: #252525;
-  --surface-sidebar: #1a1a2e;
-  --surface-active: #3d3d3d;
+  /* Brand accent (replaces MuleSoft blue). Emerald, consistent with Dusk spec. */
+  --accent: oklch(72% 0.15 158);
+  --accent-hover: oklch(78% 0.15 158);
+  --accent-dim: oklch(72% 0.15 158 / 0.14);
+  --accent-border: oklch(72% 0.15 158 / 0.32);
+  --accent-ink: oklch(14% 0.004 80); /* text on accent */
 
-  /* Header / dialog gradients */
-  --header-from: #1a1a2e;
-  --header-to: #1a1a1a;
-  --dialog-header-from: #0d1b2a;
-  --dialog-header-to: #1a2740;
+  /* Legacy alias — components still referencing MuleSoft blue resolve to accent */
+  --mulesoft-blue: oklch(72% 0.15 158);
 
-  /* Content (text) */
-  --content: #e5e7eb;
-  --content-secondary: #d1d5db;
-  --content-muted: #9ca3af;
-  --content-faint: #6b7280;
-  --content-ghost: #4b5563;
+  /* Surfaces — warm dark neutrals */
+  --bg:              oklch(14% 0.004 80);
+  --surface:         oklch(17% 0.004 80);  /* panels */
+  --surface-panel:   oklch(17% 0.004 80);
+  --surface-2:       oklch(20% 0.004 80);  /* inputs / elevated */
+  --surface-elevated:oklch(20% 0.004 80);
+  --surface-input:   oklch(20% 0.004 80);
+  --surface-section: oklch(17% 0.004 80);
+  --surface-3:       oklch(24% 0.004 80);  /* hover / active row */
+  --surface-active:  oklch(24% 0.004 80);
+  --rail:            oklch(12% 0.004 80);  /* icon rail / status bar */
+  --surface-sidebar: oklch(12% 0.004 80);
 
-  /* Lines (borders) */
-  --line: #374151;
-  --line-secondary: #4b5563;
-  --line-subtle: #1f2937;
+  /* Header keeps the surface tone — no gradient */
+  --header-from: oklch(17% 0.004 80);
+  --header-to:   oklch(17% 0.004 80);
+  --dialog-header-from: oklch(20% 0.004 80);
+  --dialog-header-to:   oklch(17% 0.004 80);
+
+  /* Lines */
+  --line:           oklch(26% 0.004 80);
+  --line-secondary: oklch(22% 0.004 80);
+  --line-subtle:    oklch(20% 0.004 80);
+
+  /* Text ladder */
+  --content:           oklch(96% 0 0);
+  --content-secondary: oklch(78% 0 0);
+  --content-muted:     oklch(60% 0 0);
+  --content-faint:     oklch(50% 0 0);
+  --content-ghost:     oklch(38% 0 0);
+
+  /* Semantic colors */
+  --warn:   oklch(80% 0.14 80);
+  --err:    oklch(68% 0.18 20);
+  --violet: oklch(72% 0.14 290);
+  --cyan:   oklch(75% 0.11 220);
 
   /* Scrollbar */
-  --scrollbar-thumb: #333;
-  --scrollbar-thumb-hover: #555;
+  --scrollbar-thumb: oklch(30% 0.004 80);
+  --scrollbar-thumb-hover: oklch(40% 0.004 80);
 
   /* Selection */
-  --selection-bg: rgba(0, 160, 223, 0.3);
-  --selection-text: #fff;
+  --selection-bg: oklch(72% 0.15 158 / 0.35);
+  --selection-text: oklch(100% 0 0);
 
   /* Hover overlay */
-  --hover-overlay: rgba(255, 255, 255, 0.05);
+  --hover-overlay: oklch(100% 0 0 / 0.05);
+
+  /* Typography stacks */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 .light {
   color-scheme: light;
 
-  --surface: #f5f5f5;
-  --surface-panel: #ffffff;
-  --surface-elevated: #e8e8e8;
-  --surface-input: #ffffff;
-  --surface-section: #f8f8f8;
-  --surface-sidebar: #f0f2f8;
-  --surface-active: #d4d4d4;
+  --accent: oklch(55% 0.15 158);
+  --accent-hover: oklch(50% 0.15 158);
+  --accent-dim: oklch(55% 0.15 158 / 0.10);
+  --accent-border: oklch(55% 0.15 158 / 0.35);
+  --accent-ink: oklch(100% 0 0);
+  --mulesoft-blue: oklch(55% 0.15 158);
 
-  --header-from: #f0f2f8;
-  --header-to: #e8ecf0;
-  --dialog-header-from: #e0eef8;
-  --dialog-header-to: #eaf0f6;
+  --bg:              oklch(98% 0.003 80);
+  --surface:         oklch(100% 0 0);
+  --surface-panel:   oklch(100% 0 0);
+  --surface-2:       oklch(97% 0.003 80);
+  --surface-elevated:oklch(97% 0.003 80);
+  --surface-input:   oklch(100% 0 0);
+  --surface-section: oklch(97% 0.003 80);
+  --surface-3:       oklch(94% 0.004 80);
+  --surface-active:  oklch(94% 0.004 80);
+  --rail:            oklch(96% 0.003 80);
+  --surface-sidebar: oklch(96% 0.003 80);
 
-  --content: #1f2937;
-  --content-secondary: #374151;
-  --content-muted: #6b7280;
-  --content-faint: #9ca3af;
-  --content-ghost: #d1d5db;
+  --header-from: oklch(100% 0 0);
+  --header-to:   oklch(100% 0 0);
+  --dialog-header-from: oklch(97% 0.003 80);
+  --dialog-header-to:   oklch(100% 0 0);
 
-  --line: #d1d5db;
-  --line-secondary: #e5e7eb;
-  --line-subtle: #f3f4f6;
+  --line:           oklch(90% 0.004 80);
+  --line-secondary: oklch(94% 0.003 80);
+  --line-subtle:    oklch(96% 0.003 80);
 
-  --scrollbar-thumb: #bbb;
-  --scrollbar-thumb-hover: #999;
+  --content:           oklch(20% 0 0);
+  --content-secondary: oklch(35% 0 0);
+  --content-muted:     oklch(50% 0 0);
+  --content-faint:     oklch(65% 0 0);
+  --content-ghost:     oklch(78% 0 0);
 
-  --selection-bg: rgba(0, 160, 223, 0.2);
-  --selection-text: #000;
+  --warn:   oklch(60% 0.15 80);
+  --err:    oklch(55% 0.18 20);
+  --violet: oklch(50% 0.15 290);
+  --cyan:   oklch(55% 0.12 220);
 
-  --hover-overlay: rgba(0, 0, 0, 0.05);
+  --scrollbar-thumb: oklch(80% 0.004 80);
+  --scrollbar-thumb-hover: oklch(70% 0.004 80);
+
+  --selection-bg: oklch(55% 0.15 158 / 0.25);
+  --selection-text: oklch(100% 0 0);
+
+  --hover-overlay: oklch(0% 0 0 / 0.04);
 }
 
 html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
-  background-color: var(--surface);
+  background-color: var(--bg);
   color: var(--content);
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.45;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code, pre, .font-mono, [class*="font-mono"] {
+  font-family: var(--font-mono);
 }
 
 /* Custom scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: 3px;
+  border-radius: 4px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover);
-}
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 
 /* Text selection */
 ::selection {
@@ -112,15 +156,14 @@ html, body, #root {
   color: var(--selection-text);
 }
 
-/* Focus ring for accessibility */
+/* Focus ring — accent-aware */
 :focus-visible {
-  outline: 1px solid var(--mulesoft-blue);
+  outline: 1px solid var(--accent);
   outline-offset: 1px;
 }
 
 /* ===== Splash Screen ===== */
 
-/* Logo gentle float animation */
 .splash-logo {
   animation: splashFloat 3s ease-in-out infinite;
 }
@@ -129,40 +172,35 @@ html, body, #root {
   50% { transform: translateY(-6px); }
 }
 
-/* Progress bar — flowing liquid/snake gradient */
 .splash-progress-bar {
   background: linear-gradient(
     90deg,
-    #00D4FF 0%,
-    #7C3AED 30%,
-    #00D4FF 50%,
-    #7C3AED 70%,
-    #00D4FF 100%
+    var(--accent) 0%,
+    var(--violet) 30%,
+    var(--accent) 50%,
+    var(--violet) 70%,
+    var(--accent) 100%
   );
   background-size: 200% 100%;
   animation: splashFlow 1.5s linear infinite;
   box-shadow:
-    0 0 8px rgba(0, 212, 255, 0.4),
-    0 0 20px rgba(124, 58, 237, 0.2);
+    0 0 8px color-mix(in oklch, var(--accent) 40%, transparent),
+    0 0 20px color-mix(in oklch, var(--violet) 20%, transparent);
 }
 @keyframes splashFlow {
   0% { background-position: 100% 0; }
   100% { background-position: -100% 0; }
 }
 
-/* Subtle floating particles */
 .splash-particles {
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(1px 1px at 10% 20%, rgba(0, 212, 255, 0.3) 0%, transparent 100%),
-    radial-gradient(1px 1px at 30% 70%, rgba(124, 58, 237, 0.3) 0%, transparent 100%),
-    radial-gradient(1px 1px at 50% 40%, rgba(0, 212, 255, 0.2) 0%, transparent 100%),
-    radial-gradient(1px 1px at 70% 80%, rgba(124, 58, 237, 0.2) 0%, transparent 100%),
-    radial-gradient(1px 1px at 90% 30%, rgba(0, 212, 255, 0.3) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 20% 50%, rgba(0, 212, 255, 0.15) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 60% 15%, rgba(124, 58, 237, 0.15) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 80% 60%, rgba(0, 212, 255, 0.15) 0%, transparent 100%);
+    radial-gradient(1px 1px at 10% 20%, color-mix(in oklch, var(--accent) 30%, transparent) 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 70%, color-mix(in oklch, var(--violet) 30%, transparent) 0%, transparent 100%),
+    radial-gradient(1px 1px at 50% 40%, color-mix(in oklch, var(--accent) 20%, transparent) 0%, transparent 100%),
+    radial-gradient(1px 1px at 70% 80%, color-mix(in oklch, var(--violet) 20%, transparent) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 30%, color-mix(in oklch, var(--accent) 30%, transparent) 0%, transparent 100%);
   animation: splashParticlesDrift 8s ease-in-out infinite;
 }
 @keyframes splashParticlesDrift {

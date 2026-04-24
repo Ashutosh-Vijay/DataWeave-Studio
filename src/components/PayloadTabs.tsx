@@ -193,55 +193,61 @@ export function PayloadTabs({
   };
 
   return (
-    <div className="flex flex-col h-full border border-line rounded-md overflow-hidden bg-surface-panel">
+    <div className="flex flex-col h-full overflow-hidden bg-surface">
       {/* Tab bar */}
-      <div className="bg-surface-elevated flex items-center border-b border-line shrink-0">
+      <div className="flex items-center border-b border-line shrink-0 pl-1">
         {/* Payload tab */}
         <button
           onClick={() => setActiveTab(0)}
-          className={`px-3 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer transition-colors ${
-            isPayloadTab
-              ? 'text-content bg-surface-panel border-b-2 border-blue-500'
-              : 'text-content-faint hover:text-content-secondary'
+          className={`relative h-7 px-3 text-[12px] whitespace-nowrap cursor-pointer transition-colors ${
+            isPayloadTab ? 'text-content font-semibold' : 'text-content-faint hover:text-content-secondary font-medium'
           }`}
         >
           payload
+          {isPayloadTab && <span className="absolute left-2 right-2 -bottom-px h-0.5 rounded-sm bg-accent" />}
         </button>
 
         {/* Named input tabs */}
-        {namedInputs.map((inp, i) => (
-          <button
-            key={i}
-            onClick={() => setActiveTab(i + 1)}
-            className={`px-3 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer transition-colors group flex items-center ${
-              effectiveTab === i + 1
-                ? 'text-content bg-surface-panel border-b-2 border-purple-500'
-                : 'text-content-faint hover:text-content-secondary'
-            }`}
-          >
-            <span>{inp.name || 'unnamed'}</span>
-            <span
-              role="button"
-              aria-label={`Remove input ${inp.name || 'unnamed'}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                removeInput(i);
-              }}
-              className="ml-1.5 text-content-ghost hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-              title="Remove input"
+        {namedInputs.map((inp, i) => {
+          const active = effectiveTab === i + 1;
+          return (
+            <button
+              key={i}
+              onClick={() => setActiveTab(i + 1)}
+              className={`group relative h-7 px-3 text-[12px] whitespace-nowrap cursor-pointer transition-colors inline-flex items-center gap-1.5 ${
+                active ? 'text-content font-semibold' : 'text-content-faint hover:text-content-secondary font-medium'
+              }`}
             >
-              ✕
-            </span>
-          </button>
-        ))}
+              <span>{inp.name || 'unnamed'}</span>
+              <span
+                role="button"
+                aria-label={`Remove input ${inp.name || 'unnamed'}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeInput(i);
+                }}
+                className="text-content-ghost hover:text-err opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-[11px]"
+                title="Remove input"
+              >
+                ✕
+              </span>
+              {active && (
+                <span
+                  className="absolute left-2 right-2 -bottom-px h-0.5 rounded-sm"
+                  style={{ background: 'var(--violet)' }}
+                />
+              )}
+            </button>
+          );
+        })}
 
         {/* Add button */}
         <button
           onClick={addInput}
-          className="px-2.5 py-1.5 text-xs text-blue-400 hover:text-blue-300 cursor-pointer"
+          className="inline-flex items-center justify-center w-6 h-6 ml-0.5 rounded text-content-faint hover:text-accent hover:bg-surface-2 cursor-pointer transition-colors"
           title="Add named input"
         >
-          +
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
 
         {/* Right side: MIME selector + Load file */}
@@ -275,7 +281,7 @@ export function PayloadTabs({
           {isPayloadTab && payloadMimeType !== 'application/octet-stream' && payloadMimeType !== 'multipart/form-data' && (
             <button
               onClick={() => loadPayloadFromFile(onPayloadMimeTypeChange)}
-              className="text-[10px] text-content-faint hover:text-[#00a0df] px-2 py-1 rounded border border-transparent hover:border-[#00a0df]/30 transition-colors cursor-pointer"
+              className="text-[10px] text-content-faint hover:text-accent px-2 py-1 rounded border border-transparent hover:border-accent-border transition-colors cursor-pointer"
               title="Load file contents into editor (CSV, JSON, XML, TXT…)"
             >
               Load file
@@ -284,7 +290,7 @@ export function PayloadTabs({
           {!isPayloadTab && activeInput && activeInput.mimeType !== 'application/octet-stream' && (
             <button
               onClick={() => loadInputFromFile(activeInputIndex)}
-              className="text-[10px] text-content-faint hover:text-[#00a0df] px-2 py-1 rounded border border-transparent hover:border-[#00a0df]/30 transition-colors cursor-pointer"
+              className="text-[10px] text-content-faint hover:text-accent px-2 py-1 rounded border border-transparent hover:border-accent-border transition-colors cursor-pointer"
               title="Load file contents into this input (CSV, JSON, XML, TXT…)"
             >
               Load file
@@ -329,7 +335,7 @@ export function PayloadTabs({
                 ...multipartParts,
                 { name: `part${multipartParts.length + 1}`, value: '', contentType: 'text/plain', isFile: false },
               ])}
-              className="text-[10px] text-[#00a0df] hover:text-[#00c8ff] cursor-pointer"
+              className="text-[10px] text-accent hover:text-accent-hover cursor-pointer"
             >+ Add Part</button>
           </div>
 
@@ -350,7 +356,7 @@ export function PayloadTabs({
                     onMultipartPartsChange(updated);
                   }}
                   placeholder="name"
-                  className="flex-1 bg-surface-input border border-line rounded px-2 py-1 text-[11px] font-mono text-content focus:border-[#00a0df] focus:outline-none"
+                  className="flex-1 bg-surface-input border border-line rounded px-2 py-1 text-[11px] font-mono text-content focus:border-accent focus:outline-none"
                 />
                 {/* Text/File toggle */}
                 <button
@@ -362,7 +368,7 @@ export function PayloadTabs({
                   className={`px-2 py-1 text-[10px] rounded border cursor-pointer transition-colors ${
                     part.isFile
                       ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
-                      : 'bg-[#00a0df]/10 text-[#00a0df] border-[#00a0df]/30'
+                      : 'bg-accent-dim text-accent border-accent-border'
                   }`}
                 >
                   {part.isFile ? 'File' : 'Text'}
@@ -377,7 +383,7 @@ export function PayloadTabs({
                     onMultipartPartsChange(updated);
                   }}
                   placeholder="text/plain"
-                  className="w-32 bg-surface-input border border-line rounded px-2 py-1 text-[10px] text-content-muted focus:border-[#00a0df] focus:outline-none"
+                  className="w-32 bg-surface-input border border-line rounded px-2 py-1 text-[10px] text-content-muted focus:border-accent focus:outline-none"
                 />
                 {/* Remove */}
                 <button
@@ -402,7 +408,7 @@ export function PayloadTabs({
                             onMultipartPartsChange(updated);
                           }
                         }}
-                        className="text-[10px] text-[#00a0df] border border-[#00a0df]/30 rounded px-2 py-0.5 cursor-pointer hover:bg-[#00a0df]/10"
+                        className="text-[10px] text-accent border border-accent-border rounded px-2 py-0.5 cursor-pointer hover:bg-accent-dim"
                       >Change</button>
                       <button
                         onClick={() => {
@@ -425,7 +431,7 @@ export function PayloadTabs({
                           onMultipartPartsChange(updated);
                         }
                       }}
-                      className="text-[10px] text-[#00a0df] border border-[#00a0df]/30 rounded px-2 py-1 cursor-pointer hover:bg-[#00a0df]/10"
+                      className="text-[10px] text-accent border border-accent-border rounded px-2 py-1 cursor-pointer hover:bg-accent-dim"
                     >Pick File...</button>
                   )}
                 </div>
@@ -439,7 +445,7 @@ export function PayloadTabs({
                     onMultipartPartsChange(updated);
                   }}
                   placeholder="value"
-                  className="w-full bg-surface-input border border-line rounded px-2 py-1 text-[11px] font-mono text-content focus:border-[#00a0df] focus:outline-none"
+                  className="w-full bg-surface-input border border-line rounded px-2 py-1 text-[11px] font-mono text-content focus:border-accent focus:outline-none"
                 />
               )}
             </div>
@@ -463,7 +469,7 @@ export function PayloadTabs({
                 {payloadFilePath}
               </div>
               <div className="flex gap-2">
-                <button onClick={pickPayloadFile} className="flex-1 px-3 py-1.5 text-xs bg-[#00a0df]/15 border border-[#00a0df]/30 text-[#00a0df] rounded cursor-pointer hover:bg-[#00a0df]/25 transition-colors">
+                <button onClick={pickPayloadFile} className="flex-1 px-3 py-1.5 text-xs bg-accent-dim border border-accent-border text-accent rounded cursor-pointer hover:bg-accent/25 transition-colors">
                   Change File
                 </button>
                 <button onClick={clearPayloadFile} className="px-3 py-1.5 text-xs border border-line-secondary text-content-faint rounded cursor-pointer hover:text-red-400 hover:border-red-700/40 transition-colors">
@@ -472,7 +478,7 @@ export function PayloadTabs({
               </div>
             </div>
           ) : (
-            <button onClick={pickPayloadFile} className="px-4 py-2 text-sm bg-[#00a0df]/15 border border-[#00a0df]/30 text-[#00a0df] rounded cursor-pointer hover:bg-[#00a0df]/25 transition-colors">
+            <button onClick={pickPayloadFile} className="px-4 py-2 text-sm bg-accent-dim border border-accent-border text-accent rounded cursor-pointer hover:bg-accent/25 transition-colors">
               Pick File...
             </button>
           )}
@@ -489,7 +495,7 @@ export function PayloadTabs({
                 {activeInput.filePath}
               </div>
               <div className="flex gap-2">
-                <button onClick={() => pickInputFile(activeInputIndex)} className="flex-1 px-3 py-1.5 text-xs bg-[#00a0df]/15 border border-[#00a0df]/30 text-[#00a0df] rounded cursor-pointer hover:bg-[#00a0df]/25 transition-colors">
+                <button onClick={() => pickInputFile(activeInputIndex)} className="flex-1 px-3 py-1.5 text-xs bg-accent-dim border border-accent-border text-accent rounded cursor-pointer hover:bg-accent/25 transition-colors">
                   Change File
                 </button>
                 <button onClick={() => clearInputFile(activeInputIndex)} className="px-3 py-1.5 text-xs border border-line-secondary text-content-faint rounded cursor-pointer hover:text-red-400 hover:border-red-700/40 transition-colors">
@@ -498,7 +504,7 @@ export function PayloadTabs({
               </div>
             </div>
           ) : (
-            <button onClick={() => pickInputFile(activeInputIndex)} className="px-4 py-2 text-sm bg-[#00a0df]/15 border border-[#00a0df]/30 text-[#00a0df] rounded cursor-pointer hover:bg-[#00a0df]/25 transition-colors">
+            <button onClick={() => pickInputFile(activeInputIndex)} className="px-4 py-2 text-sm bg-accent-dim border border-accent-border text-accent rounded cursor-pointer hover:bg-accent/25 transition-colors">
               Pick File...
             </button>
           )}

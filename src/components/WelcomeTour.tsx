@@ -332,13 +332,13 @@ export function WelcomeTour({ onComplete }: WelcomeTourProps) {
           style={{ zIndex: 52 }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="bg-[#1a1a2e] border border-[#00a0df]/25 rounded-xl shadow-2xl shadow-[#00a0df]/10 w-[480px] max-w-[90vw] overflow-hidden">
+          <div className="bg-[#1a1a2e] border border-accent/25 rounded-xl shadow-2xl shadow-[var(--accent)]/10 w-[480px] max-w-[90vw] overflow-hidden">
             <div className="px-8 py-7">
               {/* Logo */}
               <div className="flex items-center gap-4 mb-5">
                 <svg width="48" height="48" viewBox="0 0 512 512" fill="none">
                   <rect width="512" height="512" rx="100" fill="#0a1628"/>
-                  <path d="M130 155 C190 155, 210 240, 256 240 S322 155, 382 155" stroke="#00c8ff" strokeWidth="34" strokeLinecap="round" fill="none"/>
+                  <path d="M130 155 C190 155, 210 240, 256 240 S322 155, 382 155" stroke="var(--accent-hover)" strokeWidth="34" strokeLinecap="round" fill="none"/>
                   <path d="M130 357 C190 357, 210 272, 256 272 S322 357, 382 357" stroke="#0070c0" strokeWidth="34" strokeLinecap="round" fill="none"/>
                   <circle cx="256" cy="256" r="10" fill="#fff" opacity="0.9"/>
                 </svg>
@@ -372,11 +372,11 @@ export function WelcomeTour({ onComplete }: WelcomeTourProps) {
           {/* Arrow */}
           <div style={getArrowStyle(placement)} />
 
-          <div className="bg-[#1a1a2e] border border-[#00a0df]/25 rounded-xl shadow-2xl shadow-[#00a0df]/10 overflow-hidden">
+          <div className="bg-[#1a1a2e] border border-accent/25 rounded-xl shadow-2xl shadow-[var(--accent)]/10 overflow-hidden">
             {/* Progress bar */}
             <div className="h-1 bg-gray-800">
               <div
-                className="h-full bg-gradient-to-r from-[#00a0df] to-[#00d4ff] transition-all duration-300"
+                className="h-full bg-gradient-to-r from-[var(--accent)] to-[#00d4ff] transition-all duration-300"
                 style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
               />
             </div>
@@ -392,8 +392,8 @@ export function WelcomeTour({ onComplete }: WelcomeTourProps) {
                 {current.description}
               </p>
               {current.tip && (
-                <div className="bg-[#00a0df]/8 border border-[#00a0df]/20 rounded-lg px-3 py-2 mb-3 flex items-start gap-2">
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="#00a0df" className="mt-0.5 shrink-0">
+                <div className="bg-accent/8 border border-accent-border rounded-lg px-3 py-2 mb-3 flex items-start gap-2">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="var(--accent)" className="mt-0.5 shrink-0">
                     <path d="M8 1a7 7 0 110 14A7 7 0 018 1zm0 3a.75.75 0 00-.75.75v4.5a.75.75 0 001.5 0v-4.5A.75.75 0 008 4zm0 8a1 1 0 100-2 1 1 0 000 2z"/>
                   </svg>
                   <span className="text-[11px] text-[#80d0f0] leading-relaxed">{current.tip}</span>
@@ -447,9 +447,9 @@ function TourNav({
             onClick={() => onDotClick(i)}
             className={`h-2 rounded-full transition-all duration-200 cursor-pointer ${
               i === step
-                ? 'bg-[#00a0df] w-5'
+                ? 'bg-accent w-5'
                 : i < step
-                  ? 'bg-[#00a0df]/40 w-2'
+                  ? 'bg-accent/40 w-2'
                   : 'bg-gray-700 w-2'
             }`}
           />
@@ -474,7 +474,7 @@ function TourNav({
         )}
         <button
           onClick={onNext}
-          className="px-3 py-1 rounded text-[11px] font-medium bg-[#00a0df] hover:bg-[#0090c5] text-white transition-colors cursor-pointer shadow-sm shadow-[#00a0df]/20"
+          className="px-3 py-1 rounded text-[11px] font-medium bg-accent hover:bg-accent-hover text-white transition-colors cursor-pointer shadow-sm shadow-accent/20"
         >
           {isLast ? 'Get Started' : 'Next'}
         </button>

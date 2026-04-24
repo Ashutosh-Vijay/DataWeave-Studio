@@ -72,9 +72,9 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
       onClick={(e) => { if (e.target === backdropRef.current) onClose(); }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
     >
-      <div className="bg-surface-sidebar border border-[#00a0df]/30 rounded-xl shadow-2xl shadow-[#00a0df]/10 w-[460px] max-w-[90vw] overflow-hidden">
+      <div className="bg-surface-sidebar border border-accent-border rounded-xl shadow-2xl shadow-[var(--accent)]/10 w-[460px] max-w-[90vw] overflow-hidden">
         {/* Header with logo */}
-        <div className="relative bg-gradient-to-br from-[var(--dialog-header-from)] to-[var(--dialog-header-to)] px-6 py-6 border-b border-[#00a0df]/20">
+        <div className="relative bg-gradient-to-br from-[var(--dialog-header-from)] to-[var(--dialog-header-to)] px-6 py-6 border-b border-accent-border">
           <button
             onClick={onClose}
             aria-label="Close dialog"
@@ -86,12 +86,12 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
           </button>
           <div className="flex items-center gap-4">
             <div className="shrink-0 relative">
-              <div className="absolute inset-0 rounded-xl bg-[#00a0df]/20 blur-lg" />
+              <div className="absolute inset-0 rounded-xl bg-accent-dim blur-lg" />
               <img src="/logo.svg" alt="DataWeave Studio" width="56" height="56" className="relative rounded-xl" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-content tracking-tight">DataWeave Studio</h2>
-              <div className="text-[11px] text-[#00a0df] font-medium mt-0.5">
+              <div className="text-[11px] text-accent font-medium mt-0.5">
                 {appVersion ? `v${appVersion}` : '…'} — Desktop Edition
               </div>
             </div>
@@ -111,7 +111,7 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
           <div className="space-y-2">
             <div className="text-[10px] text-content-faint uppercase tracking-widest font-medium">Built by</div>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00a0df] to-[#0060a0] flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-[#00a0df]/20">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--accent)] to-[#0060a0] flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-accent/20">
                 AV
               </div>
               <div>
@@ -122,7 +122,7 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
             <div className="flex gap-3 pt-1">
               <button
                 onClick={() => openUrl('https://github.com/Ashutosh-Vijay')}
-                className="flex items-center gap-1.5 text-xs text-content-muted hover:text-[#00a0df] transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 text-xs text-content-muted hover:text-accent transition-colors cursor-pointer"
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                   <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -161,7 +161,7 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
               className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${
                 updateStatus === 'update-available'
                   ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400 border-green-500/30'
-                  : 'bg-[#00a0df]/10 hover:bg-[#00a0df]/20 text-[#00a0df] border-[#00a0df]/20'
+                  : 'bg-accent-dim hover:bg-accent-dim text-accent border-accent-border'
               }`}
             >
               {isUpdating ? '…' : updateStatus === 'update-available' ? 'Update now' : 'Check for updates'}

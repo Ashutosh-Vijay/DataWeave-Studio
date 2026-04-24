@@ -293,24 +293,26 @@ export function ScriptEditor({ code, onChange, onRun, errorLine, headerLabel, pa
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
 
   return (
-    <div className="relative flex flex-col h-full border border-line rounded-md overflow-hidden bg-surface-panel">
-      <div className="bg-surface-elevated px-3 py-1.5 text-xs text-content-secondary font-medium border-b border-line flex justify-between items-center">
-        <span>{headerLabel || 'Script (DataWeave 2.0)'}</span>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleMigrate}
-            title="Migrate DW 1.0 script to DW 2.0"
-            className="text-content-faint hover:text-amber-400 px-2 py-1 rounded text-xs transition-colors cursor-pointer border border-transparent hover:border-amber-500/30"
-          >
-            1.0→2.0
-          </button>
-          <button
-            onClick={onRun}
-            className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs transition-colors cursor-pointer"
-          >
-            Run (Ctrl+Enter)
-          </button>
-        </div>
+    <div className="relative flex flex-col h-full overflow-hidden bg-surface">
+      <div className="h-[30px] shrink-0 flex items-center gap-2 px-3.5 border-b border-line-secondary">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-content-faint shrink-0">
+          <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1M16 21h1a2 2 0 0 0 2-2v-5a2 2 0 0 1 2-2 2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/>
+        </svg>
+        <span className="text-[11.5px] font-medium text-content-secondary">{headerLabel || 'transform.dwl'}</span>
+        <span className="flex-1" />
+        <button
+          onClick={handleMigrate}
+          title="Migrate DW 1.0 script to DW 2.0"
+          className="font-mono text-[10.5px] px-1.5 py-0.5 rounded border border-transparent text-content-faint hover:text-warn transition-colors cursor-pointer"
+          style={{
+            borderColor: 'transparent',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'color-mix(in oklch, var(--warn) 30%, transparent)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; }}
+        >
+          1.0→2.0
+        </button>
+        <span className="font-mono text-[10.5px] text-content-faint">DataWeave 2.0</span>
       </div>
       <div className="flex-1">
         <Editor

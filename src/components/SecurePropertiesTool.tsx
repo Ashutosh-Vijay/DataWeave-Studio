@@ -93,9 +93,9 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
       onMouseUp={(e) => { if (mouseDownOnBackdrop.current && e.target === backdropRef.current) onClose(); mouseDownOnBackdrop.current = false; }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
     >
-      <div className="bg-surface-sidebar border border-[#00a0df]/30 rounded-xl shadow-2xl shadow-[#00a0df]/10 w-[520px] max-w-[90vw] overflow-hidden">
+      <div className="bg-surface-sidebar border border-accent-border rounded-xl shadow-2xl shadow-[var(--accent)]/10 w-[520px] max-w-[90vw] overflow-hidden">
         {/* Header */}
-        <div className="relative bg-gradient-to-br from-[var(--dialog-header-from)] to-[var(--dialog-header-to)] px-6 py-4 border-b border-[#00a0df]/20">
+        <div className="relative bg-gradient-to-br from-[var(--dialog-header-from)] to-[var(--dialog-header-to)] px-6 py-4 border-b border-accent-border">
           <button
             onClick={onClose}
             aria-label="Close dialog"
@@ -126,7 +126,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
               onClick={() => { setMode('encrypt'); setInput(''); setOutput(''); setError(''); }}
               className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
                 mode === 'encrypt'
-                  ? 'bg-[#00a0df]/20 text-[#00a0df] border border-[#00a0df]/30'
+                  ? 'bg-accent-dim text-accent border border-accent-border'
                   : 'text-content-muted hover:text-content border border-transparent'
               }`}
             >
@@ -153,7 +153,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={mode === 'encrypt' ? 'Enter value to encrypt...' : '![Base64EncodedValue] or raw Base64...'}
-              className="w-full bg-surface-input border border-line-secondary rounded-lg px-3 py-2 text-sm text-content placeholder-content-ghost focus:border-[#00a0df]/50 focus:outline-none font-mono resize-none"
+              className="w-full bg-surface-input border border-line-secondary rounded-lg px-3 py-2 text-sm text-content placeholder-content-ghost focus:border-accent-border focus:outline-none font-mono resize-none"
               rows={3}
             />
           </div>
@@ -169,7 +169,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
                 placeholder="Any length — MD5-derived key (MuleSoft compatible)"
-                className="flex-1 bg-surface-input border border-line-secondary rounded-lg px-3 py-2 text-sm text-content placeholder-content-ghost focus:border-[#00a0df]/50 focus:outline-none font-mono"
+                className="flex-1 bg-surface-input border border-line-secondary rounded-lg px-3 py-2 text-sm text-content placeholder-content-ghost focus:border-accent-border focus:outline-none font-mono"
               />
               <button
                 onClick={() => setShowKey(!showKey)}
@@ -216,7 +216,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
                 type="checkbox"
                 checked={settings.useRandomIVs}
                 onChange={(e) => setSettings({ ...settings, useRandomIVs: e.target.checked })}
-                className="w-3.5 h-3.5 rounded border-line-secondary accent-[#00a0df]"
+                className="w-3.5 h-3.5 rounded border-line-secondary accent-[var(--accent)]"
               />
               <span className="text-[10px] text-content-muted whitespace-nowrap">Random IVs</span>
             </label>
@@ -228,7 +228,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
             disabled={isProcessing || !input.trim() || !key.trim()}
             className={`w-full py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
               mode === 'encrypt'
-                ? 'bg-[#00a0df] hover:bg-[#0090c5] disabled:bg-line disabled:text-content-faint text-white'
+                ? 'bg-accent hover:bg-accent-hover disabled:bg-line disabled:text-content-faint text-white'
                 : 'bg-yellow-600 hover:bg-yellow-700 disabled:bg-line disabled:text-content-faint text-white'
             }`}
           >
@@ -251,7 +251,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
                 </label>
                 <button
                   onClick={handleCopy}
-                  className="text-[10px] text-content-muted hover:text-[#00a0df] transition-colors cursor-pointer"
+                  className="text-[10px] text-content-muted hover:text-accent transition-colors cursor-pointer"
                 >
                   {copied ? 'Copied!' : 'Copy'}
                 </button>
