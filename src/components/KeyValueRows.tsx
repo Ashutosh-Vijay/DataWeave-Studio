@@ -28,7 +28,7 @@ export function KeyValueRows({
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-content-muted uppercase tracking-wide">{label}</span>
-        <button onClick={addRow} className="text-xs text-blue-400 hover:text-blue-300 transition-colors cursor-pointer">
+        <button onClick={addRow} className="text-xs text-cyan hover:text-cyan transition-colors cursor-pointer">
           + Add
         </button>
       </div>
@@ -54,7 +54,7 @@ export function KeyValueRows({
                 value={pair.key}
                 onChange={(e) => updateRow(i, 'key', e.target.value)}
                 placeholder={keyPlaceholder}
-                className={`bg-surface-elevated border border-line rounded px-2 py-1 text-xs text-content placeholder-content-ghost focus:border-blue-500 focus:outline-none ${isExpanded ? 'w-24 shrink-0' : 'w-[42%]'}`}
+                className={`bg-surface-elevated border border-line rounded px-2 py-1 text-xs text-content placeholder-content-ghost focus:border-accent focus:outline-none ${isExpanded ? 'w-24 shrink-0' : 'w-[42%]'}`}
               />
               {/* Value — always a textarea so no element-swap on focus */}
               <textarea
@@ -63,11 +63,11 @@ export function KeyValueRows({
                 placeholder={valuePlaceholder}
                 rows={isExpanded ? 3 : 1}
                 style={{ resize: 'none', overflow: isExpanded ? 'auto' : 'hidden' }}
-                className={`flex-1 bg-surface-elevated border rounded px-2 py-1 text-xs text-content placeholder-content-ghost focus:outline-none ${isExpanded ? 'border-blue-500/40 focus:border-blue-500 font-mono' : 'border-line focus:border-blue-500'}`}
+                className={`flex-1 bg-surface-elevated border rounded px-2 py-1 text-xs text-content placeholder-content-ghost focus:outline-none ${isExpanded ? 'border-blue-500/40 focus:border-accent font-mono' : 'border-line focus:border-accent'}`}
               />
               <button
                 onClick={() => removeRow(i)}
-                className="text-content-faint hover:text-red-400 text-xs px-1 transition-colors cursor-pointer shrink-0"
+                className="text-content-faint hover:text-err text-xs px-1 transition-colors cursor-pointer shrink-0"
                 title="Remove"
               >✕</button>
             </div>

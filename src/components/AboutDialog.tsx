@@ -111,7 +111,7 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
           <div className="space-y-2">
             <div className="text-[10px] text-content-faint uppercase tracking-widest font-medium">Built by</div>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--accent)] to-[#0060a0] flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-accent/20">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--violet)] flex items-center justify-center text-[var(--accent-ink)] font-bold text-sm shadow-lg">
                 AV
               </div>
               <div>
@@ -131,7 +131,7 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
               </button>
               <button
                 onClick={() => openUrl('https://www.linkedin.com/in/ashutosh-vijay/')}
-                className="flex items-center gap-1.5 text-xs text-content-muted hover:text-[#0077b5] transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 text-xs text-content-muted hover:text-cyan transition-colors cursor-pointer"
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                   <path d="M0 1.146C0 .513.526 0 1.175 0h13.65C15.474 0 16 .513 16 1.146v13.708c0 .633-.526 1.146-1.175 1.146H1.175C.526 16 0 15.487 0 14.854V1.146zm4.943 12.248V6.169H2.542v7.225h2.401zm-1.2-8.212c.837 0 1.358-.554 1.358-1.248-.015-.709-.52-1.248-1.342-1.248-.822 0-1.359.54-1.359 1.248 0 .694.521 1.248 1.327 1.248h.016zm4.908 8.212V9.359c0-.216.016-.432.08-.586.173-.431.568-.878 1.232-.878.869 0 1.216.662 1.216 1.634v3.865h2.401V9.25c0-2.22-1.184-3.252-2.764-3.252-1.274 0-1.845.7-2.165 1.193v.025h-.016a5.54 5.54 0 0 1 .016-.025V6.169h-2.4c.03.678 0 7.225 0 7.225h2.4z"/>
@@ -145,13 +145,13 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
 
           {/* Update checker */}
           <div className={`flex items-center justify-between gap-3 rounded-lg p-2.5 -mx-1 transition-colors ${
-            updateStatus === 'update-available' ? 'bg-green-500/10 border border-green-500/20' : ''
+            updateStatus === 'update-available' ? 'bg-accent-dim border border-accent-border' : ''
           }`}>
             <div className={`text-xs flex items-center gap-1.5 ${
-              updateStatus === 'update-available' ? 'text-green-400 font-medium' : 'text-content-faint'
+              updateStatus === 'update-available' ? 'text-accent font-medium' : 'text-content-faint'
             }`}>
               {updateStatus === 'update-available' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
+                <span className="w-1.5 h-1.5 rounded-full bg-accent inline-block" />
               )}
               {statusText}
             </div>
@@ -160,7 +160,7 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
               disabled={isUpdating}
               className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${
                 updateStatus === 'update-available'
-                  ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400 border-green-500/30'
+                  ? 'bg-accent-dim hover:bg-accent-dim text-accent border-accent-border'
                   : 'bg-accent-dim hover:bg-accent-dim text-accent border-accent-border'
               }`}
             >

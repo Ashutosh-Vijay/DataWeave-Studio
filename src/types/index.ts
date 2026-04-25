@@ -115,18 +115,18 @@ export type HttpMethod = (typeof HTTP_METHODS)[number];
 
 /** Postman-style method colors */
 export const METHOD_COLORS: Record<string, { text: string; bg: string; border: string }> = {
-  GET:    { text: 'text-emerald-400', bg: 'bg-emerald-500/15', border: 'border-emerald-500/30' },
-  POST:   { text: 'text-amber-400',   bg: 'bg-amber-500/15',   border: 'border-amber-500/30' },
-  PUT:    { text: 'text-blue-400',    bg: 'bg-blue-500/15',    border: 'border-blue-500/30' },
-  DELETE: { text: 'text-red-400',     bg: 'bg-red-500/15',     border: 'border-red-500/30' },
-  PATCH:  { text: 'text-violet-400',  bg: 'bg-violet-500/15',  border: 'border-violet-500/30' },
+  GET:    { text: 'text-accent', bg: 'bg-accent-dim', border: 'border-accent-border' },
+  POST:   { text: 'text-warn',   bg: 'bg-warn-tint',  border: 'border-warn-border' },
+  PUT:    { text: 'text-cyan',   bg: 'bg-cyan-tint',  border: 'border-cyan-border' },
+  DELETE: { text: 'text-err',    bg: 'bg-err-tint',   border: 'border-err-border' },
+  PATCH:  { text: 'text-violet', bg: 'bg-violet-tint', border: 'border-violet-border' },
 };
 
 /** Node label accent colors */
 export const NODE_LABEL_COLORS: Record<string, { text: string; bg: string; border: string }> = {
-  Transform:         { text: 'text-violet-400',   bg: 'bg-violet-500/15',  border: 'border-violet-500/30' },
-  'Salesforce Query': { text: 'text-sky-400',     bg: 'bg-sky-500/15',     border: 'border-sky-500/30' },
-  'DB Query':        { text: 'text-orange-400',   bg: 'bg-orange-500/15',  border: 'border-orange-500/30' },
+  Transform:         { text: 'text-violet', bg: 'bg-violet-tint', border: 'border-violet-border' },
+  'Salesforce Query': { text: 'text-cyan',   bg: 'bg-cyan-tint',   border: 'border-cyan-border' },
+  'DB Query':        { text: 'text-warn',   bg: 'bg-warn-tint',   border: 'border-warn-border' },
 };
 
 // === Node labels ===

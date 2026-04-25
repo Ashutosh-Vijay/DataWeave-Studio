@@ -60,7 +60,7 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-content-muted uppercase tracking-wide">Variables</span>
-        <button onClick={addVar} className="text-xs text-blue-400 hover:text-blue-300 transition-colors cursor-pointer">
+        <button onClick={addVar} className="text-xs text-cyan hover:text-cyan transition-colors cursor-pointer">
           + Add
         </button>
       </div>
@@ -88,7 +88,7 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
                   setFocusedRow(i);
                 }}
                 placeholder="Name"
-                className={`bg-surface-elevated border border-line rounded px-2 py-1 text-xs text-content placeholder-content-ghost focus:border-blue-500 focus:outline-none ${isExpanded ? 'flex-1' : 'w-1/3'}`}
+                className={`bg-surface-elevated border border-line rounded px-2 py-1 text-xs text-content placeholder-content-ghost focus:border-accent focus:outline-none ${isExpanded ? 'flex-1' : 'w-1/3'}`}
               />
               {/* Collapsed: inline single-line value + type badge */}
               {!isExpanded && (
@@ -104,12 +104,12 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
                     placeholder="Value"
                     rows={1}
                     style={{ resize: 'none', overflow: 'hidden' }}
-                    className="flex-1 bg-surface-elevated border border-line rounded px-2 py-1 text-xs text-content placeholder-content-ghost focus:border-blue-500 focus:outline-none"
+                    className="flex-1 bg-surface-elevated border border-line rounded px-2 py-1 text-xs text-content placeholder-content-ghost focus:border-accent focus:outline-none"
                   />
                   <span
                     className={`text-[10px] px-1 py-0.5 rounded shrink-0 ${
                       v.valueType === 'json'
-                        ? 'bg-purple-900/50 text-purple-300'
+                        ? 'bg-violet-tint text-violet'
                         : 'bg-line-subtle text-content-faint'
                     }`}
                     title={
@@ -125,7 +125,7 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
               <button
                 onFocus={() => cancelCollapse()}
                 onClick={() => removeVar(i)}
-                className="text-content-faint hover:text-red-400 text-xs px-1 transition-colors cursor-pointer shrink-0"
+                className="text-content-faint hover:text-err text-xs px-1 transition-colors cursor-pointer shrink-0"
                 title="Remove"
               >✕</button>
             </div>
@@ -142,13 +142,13 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
                   placeholder={'e.g.  "hello"  •  42  •  null  •  true  •  {"key": "val"}  •  [1,2,3]'}
                   rows={4}
                   style={{ resize: 'vertical' }}
-                  className="w-full bg-surface-input border border-blue-500/40 rounded px-2 py-1.5 text-xs text-content placeholder-content-ghost focus:border-blue-500 focus:outline-none font-mono"
+                  className="w-full bg-surface-input border border-blue-500/40 rounded px-2 py-1.5 text-xs text-content placeholder-content-ghost focus:border-accent focus:outline-none font-mono"
                 />
                 <div className="flex items-center justify-between">
                   <span
                     className={`text-[10px] px-1.5 py-0.5 rounded ${
                       v.valueType === 'json'
-                        ? 'bg-purple-900/50 text-purple-300'
+                        ? 'bg-violet-tint text-violet'
                         : 'bg-line-subtle text-content-faint'
                     }`}
                   >

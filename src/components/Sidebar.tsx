@@ -179,7 +179,7 @@ export function Sidebar(props: SidebarProps) {
                     disabled={saving}
                     className={`w-full py-1.5 rounded text-xs font-medium transition-all cursor-pointer ${
                       saveFlash
-                        ? 'bg-emerald-600 text-white'
+                        ? 'bg-accent text-accent-ink'
                         : 'bg-accent hover:bg-accent-hover text-accent-ink disabled:opacity-50'
                     }`}
                   >

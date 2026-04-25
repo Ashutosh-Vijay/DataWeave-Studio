@@ -585,10 +585,10 @@ curl -F "file=@report.pdf" -F "name=John" 'https://upload.example.com/files'
 curl -d "user=john&pass=secret" 'https://auth.example.com/login'
 curl -H 'Content-Type: application/xml' -d '<user><name>John</name></user>' 'https://api.example.com'`}
             rows={7}
-            className="w-full bg-surface-panel border border-line rounded px-3 py-2 text-xs text-content font-mono placeholder-content-ghost focus:border-blue-500 focus:outline-none resize-y"
+            className="w-full bg-surface-panel border border-line rounded px-3 py-2 text-xs text-content font-mono placeholder-content-ghost focus:border-accent focus:outline-none resize-y"
             autoFocus
           />
-          {error && <div className="text-xs text-red-400">{error}</div>}
+          {error && <div className="text-xs text-err">{error}</div>}
 
           {/* Preview */}
           {preview && (
@@ -598,11 +598,11 @@ curl -H 'Content-Type: application/xml' -d '<user><name>John</name></user>' 'htt
               <div className="flex flex-wrap gap-3 text-[11px]">
                 <div>
                   <span className="text-content-faint">Method:</span>{' '}
-                  <span className="text-blue-400">{preview.method}</span>
+                  <span className="text-cyan">{preview.method}</span>
                 </div>
                 <div>
                   <span className="text-content-faint">Type:</span>{' '}
-                  <span className="text-purple-400">{preview.payloadMimeType}</span>
+                  <span className="text-violet">{preview.payloadMimeType}</span>
                 </div>
                 {preview.queryParams.length > 0 && (
                   <div>
@@ -620,7 +620,7 @@ curl -H 'Content-Type: application/xml' -d '<user><name>John</name></user>' 'htt
 
               <div>
                 <div className="text-[11px] text-content-faint mb-1">Generated Script</div>
-                <pre className="bg-surface-panel border border-line rounded p-3 text-xs text-green-300 font-mono whitespace-pre overflow-x-auto max-h-52">
+                <pre className="bg-surface-panel border border-line rounded p-3 text-xs text-accent font-mono whitespace-pre overflow-x-auto max-h-52">
                   {preview.generatedScript}
                 </pre>
               </div>
@@ -648,14 +648,14 @@ curl -H 'Content-Type: application/xml' -d '<user><name>John</name></user>' 'htt
           {!preview ? (
             <button
               onClick={handlePreview}
-              className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors cursor-pointer"
+              className="px-3 py-1.5 text-xs text-[var(--accent-ink)] bg-cyan hover:opacity-90 rounded transition-colors cursor-pointer"
             >
               Parse
             </button>
           ) : (
             <button
               onClick={handleImport}
-              className="px-3 py-1.5 text-xs text-white bg-green-600 hover:bg-green-700 rounded transition-colors cursor-pointer"
+              className="px-3 py-1.5 text-xs text-[var(--accent-ink)] bg-accent hover:bg-accent-hover rounded transition-colors cursor-pointer"
             >
               Import
             </button>

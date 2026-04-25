@@ -5,6 +5,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
 import { Icons } from './Icons';
+import { EmptyState, ErrorState } from './StateScreens';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
@@ -141,18 +142,7 @@ export function OutputPane({
 
         {error ? (
           <div className="h-full overflow-auto bg-surface p-4">
-            <div
-              className="rounded-md p-3 mb-2 border"
-              style={{
-                background: 'color-mix(in oklch, var(--err) 10%, transparent)',
-                borderColor: 'color-mix(in oklch, var(--err) 30%, transparent)',
-              }}
-            >
-              <div className="text-[11px] font-semibold mb-1.5 uppercase tracking-wide" style={{ color: 'var(--err)' }}>Error</div>
-              <pre className="text-[12px] font-mono whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--err)' }}>
-                {error}
-              </pre>
-            </div>
+            <ErrorState title="Error" message={error} />
           </div>
         ) : isQueryMode && queryResult ? (
           /* Query mode: show substituted query + parameters */
@@ -212,8 +202,12 @@ export function OutputPane({
             }}
           />
         ) : (
-          <div className="h-full flex items-center justify-center text-content-ghost text-sm">
-            {isQueryMode ? 'Run to see the final query with parameters' : 'Run a script to see output'}
+          <div className="h-full flex items-center justify-center">
+            <EmptyState
+              title={isQueryMode ? 'No query result yet' : 'No output yet'}
+              message={isQueryMode ? 'Run to see the final query with parameters resolved.' : 'Run your script to see the transformed output here.'}
+              icon={<Icons.Play size={16} />}
+            />
           </div>
         )}
       </div>

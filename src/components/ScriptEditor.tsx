@@ -347,14 +347,14 @@ export function ScriptEditor({ code, onChange, onRun, errorLine, headerLabel, pa
         <div className="absolute inset-0 z-20 bg-black/70 flex items-center justify-center p-4">
           <div className="bg-surface-sidebar border border-amber-500/30 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
             <div className="px-4 py-3 border-b border-amber-500/20 flex items-center justify-between">
-              <span className="text-sm font-semibold text-amber-400">DW 1.0 → 2.0 Migration Result</span>
+              <span className="text-sm font-semibold text-warn">DW 1.0 → 2.0 Migration Result</span>
               <button onClick={() => setMigrateResult(null)} className="text-content-faint hover:text-content cursor-pointer">✕</button>
             </div>
             <div className="p-4 space-y-3">
               {migrateResult.error ? (
-                <pre className="text-xs text-red-300 bg-red-900/20 border border-red-800/40 rounded p-3 whitespace-pre-wrap max-h-60 overflow-auto">{migrateResult.error}</pre>
+                <pre className="text-xs text-err bg-err-tint border border-err-border/40 rounded p-3 whitespace-pre-wrap max-h-60 overflow-auto">{migrateResult.error}</pre>
               ) : (
-                <pre className="text-xs text-green-300 font-mono bg-surface-input border border-line-secondary rounded p-3 whitespace-pre-wrap max-h-60 overflow-auto select-text">{migrateResult.output}</pre>
+                <pre className="text-xs text-accent font-mono bg-surface-input border border-line-secondary rounded p-3 whitespace-pre-wrap max-h-60 overflow-auto select-text">{migrateResult.output}</pre>
               )}
               {!migrateResult.error && migrateResult.output && (
                 <div className="flex gap-2 justify-end">
@@ -363,7 +363,7 @@ export function ScriptEditor({ code, onChange, onRun, errorLine, headerLabel, pa
                   </button>
                   <button
                     onClick={() => { onChange(migrateResult.output); setMigrateResult(null); }}
-                    className="px-3 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded cursor-pointer transition-colors"
+                    className="px-3 py-1.5 text-xs bg-warn hover:opacity-90 text-[var(--accent-ink)] rounded cursor-pointer transition-colors"
                   >
                     Replace Script
                   </button>
@@ -377,11 +377,11 @@ export function ScriptEditor({ code, onChange, onRun, errorLine, headerLabel, pa
       {/* Inline styles for error decorations */}
       <style>{`
         .error-line-highlight {
-          background-color: rgba(255, 0, 0, 0.15) !important;
-          border-left: 3px solid #ff4444 !important;
+          background-color: color-mix(in oklch, var(--err) 15%, transparent) !important;
+          border-left: 3px solid var(--err) !important;
         }
         .error-glyph {
-          background-color: #ff4444;
+          background-color: var(--err);
           border-radius: 50%;
           margin-left: 4px;
           width: 8px !important;

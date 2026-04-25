@@ -73,7 +73,7 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
           <span className="text-xs font-medium text-content-muted uppercase tracking-wide">
             Method
           </span>
-          <div className="flex gap-1 flex-wrap">
+          <div className="flex gap-1.5 flex-wrap">
             {HTTP_METHODS.map((m) => {
               const colors = METHOD_COLORS[m] || METHOD_COLORS.GET;
               const isActive = context.method === m;
@@ -81,10 +81,10 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
                 <button
                   key={m}
                   onClick={() => updateMethod(m)}
-                  className={`px-2 py-1 rounded text-[11px] font-bold tracking-wide transition-all cursor-pointer border ${
+                  className={`h-6 px-2 inline-flex items-center justify-center rounded-md text-[10.5px] font-bold tracking-wide transition-all cursor-pointer border ${
                     isActive
                       ? `${colors.bg} ${colors.text} ${colors.border}`
-                      : 'bg-transparent border-line text-content-faint hover:text-content-secondary hover:border-content-faint'
+                      : 'bg-transparent border-line-subtle text-content-faint hover:text-content-secondary hover:border-line'
                   }`}
                 >
                   {m}
@@ -135,7 +135,7 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
             >
               <path d="M3 1l5 4-5 4V1z" />
             </svg>
-            <span className="text-xs font-medium text-purple-400 uppercase tracking-wide">
+            <span className="text-xs font-medium text-violet uppercase tracking-wide">
               Config
             </span>
             <span className="text-[9px] text-content-ghost">
@@ -189,7 +189,7 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
             >
               <path d="M3 1l5 4-5 4V1z" />
             </svg>
-            <span className="text-xs font-medium text-yellow-400 uppercase tracking-wide">
+            <span className="text-xs font-medium text-warn uppercase tracking-wide">
               Secure Config
             </span>
             <span className="text-[9px] text-content-ghost">
@@ -230,12 +230,12 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
 
               {/* Encryption settings — shown when YAML contains ![...] values */}
               {hasEncryptedValues(context.secureConfigYaml || '') && (
-                <div className="space-y-2 p-2 border border-yellow-500/20 rounded bg-yellow-500/5">
+                <div className="space-y-2 p-2 border border-warn-border/20 rounded bg-warn-tint">
                   <div className="flex items-center gap-1.5">
-                    <svg width="10" height="10" viewBox="0 0 16 16" fill="#eab308" className="shrink-0">
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 text-warn">
                       <path d="M8 1a4 4 0 0 0-4 4v3H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V5a4 4 0 0 0-4-4zm2 7H6V5a2 2 0 1 1 4 0v3z"/>
                     </svg>
-                    <span className="text-[10px] font-medium text-yellow-400">Encrypted values detected</span>
+                    <span className="text-[10px] font-medium text-warn">Encrypted values detected</span>
                   </div>
 
                   {/* Encryption Key */}
@@ -247,7 +247,7 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
                         value={encryptionKey}
                         onChange={(e) => onEncryptionKeyChange(e.target.value)}
                         placeholder="Enter key to decrypt"
-                        className="flex-1 bg-surface-input border border-line-secondary rounded px-1.5 py-1 text-[10px] text-content placeholder-content-ghost focus:border-yellow-500/50 focus:outline-none font-mono"
+                        className="flex-1 bg-surface-input border border-line-secondary rounded px-1.5 py-1 text-[10px] text-content placeholder-content-ghost focus:border-warn-border/50 focus:outline-none font-mono"
                       />
                       <button
                         onClick={() => setShowKey(!showKey)}
@@ -312,14 +312,14 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
                           useRandomIVs: e.target.checked,
                         },
                       })}
-                      className="w-3 h-3 rounded border-line-secondary accent-yellow-500"
+                      className="w-3 h-3 rounded border-line-secondary accent-warn"
                     />
                     <span className="text-[10px] text-content-muted">useRandomIVs</span>
                     <span className="text-[8px] text-content-ghost">(recommended)</span>
                   </label>
 
                   {(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).algorithm !== 'AES' && (
-                    <div className="text-[9px] text-orange-400/80 leading-relaxed">
+                    <div className="text-[9px] text-warn/80 leading-relaxed">
                       Only AES is supported via Web Crypto. For {(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).algorithm}, enter plaintext values instead.
                     </div>
                   )}
@@ -330,7 +330,7 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
         </div>
 
         <div className="text-[9px] text-content-ghost leading-relaxed">
-          YAML keys are flattened with dots: <code className="text-[#C586C0]">salesforce.path</code> → <code className="text-[#C586C0]">{'${salesforce.path}'}</code>
+          YAML keys are flattened with dots: <code className="text-[var(--violet)]">salesforce.path</code> → <code className="text-[var(--violet)]">{'${salesforce.path}'}</code>
         </div>
       </div>
     </div>

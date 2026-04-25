@@ -12,10 +12,13 @@ import { AboutDialog } from './components/AboutDialog';
 import { SecurePropertiesTool } from './components/SecurePropertiesTool';
 import { WelcomeTour, shouldShowTour, markTourSeen } from './components/WelcomeTour';
 import { SplashScreen } from './components/SplashScreen';
+import { CommandPalette, Command } from './components/CommandPalette';
+import { FirstRunPicker, shouldShowFirstRun, markFirstRunSeen } from './components/FirstRunPicker';
 import { useWorkspace } from './hooks/useWorkspace';
 import { useDWRunner } from './hooks/useDWRunner';
+import { useMediaQuery } from './hooks/useMediaQuery';
 import { useTheme } from './ThemeContext';
-import { KeyValuePair, VarEntry, METHOD_COLORS, NODE_LABEL_COLORS } from './types';
+import { KeyValuePair, VarEntry, METHOD_COLORS, NODE_LABEL_COLORS, NODE_LABELS } from './types';
 import { Icons } from './components/Icons';
 import yaml from 'js-yaml';
 import { CurlImportResult } from './components/CurlImporter';
@@ -273,13 +276,22 @@ function StatusBar({
 function App() {
   const workspace = useWorkspace();
   const runner = useDWRunner();
-  const { toggle, isDark } = useTheme();
+  const { toggle, isDark, setTheme } = useTheme();
   const [outputFormat, setOutputFormat] = useState<'json' | 'xml' | 'raw'>('json');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [autoRun, setAutoRun] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [secureToolOpen, setSecureToolOpen] = useState(false);
   const [showTour, setShowTour] = useState(() => shouldShowTour());
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [showFirstRun, setShowFirstRun] = useState(() => shouldShowFirstRun());
+  const [layout, setLayout] = useState<'workbench' | 'focus'>(() => {
+    try { return (localStorage.getItem('dw.layout') as 'workbench' | 'focus') || 'workbench'; } catch { return 'workbench'; }
+  });
+  useEffect(() => { try { localStorage.setItem('dw.layout', layout); } catch { /* ignore */ } }, [layout]);
+  const isCompact = useMediaQuery('(max-width: 720px)');
+  const effectiveLayout: 'workbench' | 'focus' = isCompact ? 'focus' : layout;
+  useEffect(() => { if (isCompact) setSidebarCollapsed(true); }, [isCompact]);
   const [appVersion, setAppVersion] = useState('');
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState('');
@@ -357,12 +369,15 @@ function App() {
     });
   }, [workspace]);
 
-  // Global Ctrl+S to save
+  // Global Ctrl+S to save, Ctrl+K to open palette
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         workspace.saveWorkspace();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
       }
     };
     window.addEventListener('keydown', handler);
@@ -400,6 +415,29 @@ function App() {
 
   const methodColors = METHOD_COLORS[workspace.context.method] || METHOD_COLORS.GET;
   const nodeLabelColors = NODE_LABEL_COLORS[workspace.nodeLabel] || NODE_LABEL_COLORS.Transform;
+
+  const paletteCommands: Command[] = [
+    { id: 'run', label: 'Run script', shortcut: '⌘↵', group: 'Run', run: () => { if (canRun) handleRun(); } },
+    { id: 'auto', label: autoRun ? 'Disable auto-run' : 'Enable auto-run', group: 'Run', run: () => setAutoRun(!autoRun) },
+    { id: 'save', label: 'Save workspace', shortcut: '⌘S', group: 'Workspace', run: () => { workspace.saveWorkspace(); } },
+    { id: 'new', label: 'New workspace', group: 'Workspace', run: () => workspace.newWorkspace() },
+    { id: 'sidebar', label: sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar', group: 'View', run: () => setSidebarCollapsed(!sidebarCollapsed) },
+    { id: 'layout', label: layout === 'focus' ? 'Switch to Workbench layout' : 'Switch to Focus layout', group: 'View', run: () => setLayout(layout === 'focus' ? 'workbench' : 'focus') },
+    { id: 'theme', label: isDark ? 'Switch to light theme' : 'Switch to dark theme', group: 'View', run: () => toggle() },
+    { id: 'out-json', label: 'Output: JSON', hint: outputFormat === 'json' ? 'current' : '', group: 'Output', run: () => setOutputFormat('json') },
+    { id: 'out-xml', label: 'Output: XML', hint: outputFormat === 'xml' ? 'current' : '', group: 'Output', run: () => setOutputFormat('xml') },
+    { id: 'out-raw', label: 'Output: Raw', hint: outputFormat === 'raw' ? 'current' : '', group: 'Output', run: () => setOutputFormat('raw') },
+    ...NODE_LABELS.map((l) => ({
+      id: `node-${l}`,
+      label: `Node: ${l}`,
+      hint: workspace.nodeLabel === l ? 'current' : '',
+      group: 'Node label',
+      run: () => workspace.setNodeLabel(l),
+    })),
+    { id: 'secure', label: 'Open Secure Properties tool', group: 'Tools', run: () => setSecureToolOpen(true) },
+    { id: 'about', label: 'About DataWeave Studio', group: 'Tools', run: () => setAboutOpen(true) },
+    { id: 'tour', label: 'Show guided tour', group: 'Tools', run: () => setShowTour(true) },
+  ];
 
   return (
     <div className="h-screen w-screen bg-bg text-content flex flex-col font-sans select-none">
@@ -441,12 +479,16 @@ function App() {
 
         <div className="flex-1" />
 
-        {/* ⌘K search stub (palette will wire up in Phase 2) */}
-        <div className="hidden md:flex items-center gap-2 h-7 px-2.5 bg-surface-2 border border-line rounded-md w-[280px] text-content-faint text-[12.5px] cursor-pointer hover:border-line-secondary transition-colors">
+        {/* ⌘K command palette trigger */}
+        <button
+          onClick={() => setPaletteOpen(true)}
+          className="hidden md:flex items-center gap-2 h-7 px-2.5 bg-surface-2 border border-line rounded-md w-[280px] text-content-faint text-[12.5px] cursor-pointer hover:border-line-secondary hover:text-content-secondary transition-colors"
+          title="Command palette (Ctrl+K)"
+        >
           <Icons.Search size={13} />
-          <span className="flex-1 truncate">Search commands, files…</span>
+          <span className="flex-1 truncate text-left">Search commands, files…</span>
           <span className="font-mono text-[10.5px] px-1.5 py-0.5 rounded bg-surface-3 text-content-muted">⌘K</span>
-        </div>
+        </button>
 
         <div className="flex-1" />
 
@@ -468,6 +510,12 @@ function App() {
                 <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-accent" />
               )}
             </span>
+          </IconBtn>
+          <IconBtn
+            title={layout === 'focus' ? 'Switch to Workbench layout' : 'Switch to Focus layout'}
+            onClick={() => setLayout(layout === 'focus' ? 'workbench' : 'focus')}
+          >
+            <Icons.Panel size={15} />
           </IconBtn>
           <IconBtn title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggle}>
             {isDark ? <Icons.Sun size={15} /> : <Icons.Moon size={15} />}
@@ -543,8 +591,8 @@ function App() {
 
       {/* Body: Sidebar + Main */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar — fixed, not resizable (has its own collapse) */}
-        <Sidebar
+        {/* Sidebar — hidden in Focus layout / compact viewport */}
+        {effectiveLayout === 'workbench' && <Sidebar
           projectName={workspace.projectName}
           onProjectNameChange={workspace.setProjectName}
           currentFile={workspace.currentFile}
@@ -565,7 +613,7 @@ function App() {
           onCurlImport={handleCurlImport}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        />
+        />}
 
         {/* Main — three horizontal resizable columns */}
         <main className="flex-1 overflow-hidden bg-bg">
@@ -637,19 +685,23 @@ function App() {
               <div className="absolute top-1/2 -translate-y-1/2 -left-[1px] h-8 w-[3px] rounded bg-line group-hover:bg-accent transition-colors" />
             </PanelResizeHandle>
 
-            {/* Center: Context Panel */}
-            <Panel defaultSize={20} minSize={10} data-tour="context-panel">
-              <ContextPanel
-                context={workspace.context}
-                onChange={workspace.setContext}
-                encryptionKey={encryptionKey}
-                onEncryptionKeyChange={setEncryptionKey}
-              />
-            </Panel>
+            {/* Center: Context Panel — hidden in Focus layout / compact viewport */}
+            {effectiveLayout === 'workbench' && (
+              <>
+                <Panel defaultSize={20} minSize={10} data-tour="context-panel">
+                  <ContextPanel
+                    context={workspace.context}
+                    onChange={workspace.setContext}
+                    encryptionKey={encryptionKey}
+                    onEncryptionKeyChange={setEncryptionKey}
+                  />
+                </Panel>
 
-            <PanelResizeHandle className="w-px bg-line hover:bg-accent/50 transition-colors cursor-col-resize relative group mx-1">
-              <div className="absolute top-1/2 -translate-y-1/2 -left-[1px] h-8 w-[3px] rounded bg-line group-hover:bg-accent transition-colors" />
-            </PanelResizeHandle>
+                <PanelResizeHandle className="w-px bg-line hover:bg-accent/50 transition-colors cursor-col-resize relative group mx-1">
+                  <div className="absolute top-1/2 -translate-y-1/2 -left-[1px] h-8 w-[3px] rounded bg-line group-hover:bg-accent transition-colors" />
+                </PanelResizeHandle>
+              </>
+            )}
 
             {/* Right: Output */}
             <Panel defaultSize={38} minSize={15} data-tour="output">
@@ -682,6 +734,23 @@ function App() {
       {/* First-launch guided tour */}
       {showTour && (
         <WelcomeTour onComplete={() => { setShowTour(false); markTourSeen(); }} />
+      )}
+
+      {/* Command palette */}
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={paletteCommands} />
+
+      {/* First-run picker */}
+      {showFirstRun && (
+        <FirstRunPicker
+          initialTheme={isDark ? 'dark' : 'light'}
+          initialLayout={layout}
+          onComplete={({ theme, layout: chosen }) => {
+            setTheme(theme);
+            setLayout(chosen);
+            markFirstRunSeen();
+            setShowFirstRun(false);
+          }}
+        />
       )}
 
       {/* Splash screen — covers everything until CLI is ready */}

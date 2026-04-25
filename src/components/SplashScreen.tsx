@@ -61,7 +61,7 @@ export function SplashScreen({ isReady, hasError }: SplashScreenProps) {
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#080C18] transition-opacity duration-500 ${
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-bg transition-opacity duration-500 ${
         fadeOut ? 'opacity-0' : 'opacity-100'
       }`}
     >
@@ -73,7 +73,12 @@ export function SplashScreen({ isReady, hasError }: SplashScreenProps) {
       {/* Logo */}
       <div className="relative mb-8">
         {/* Glow behind logo */}
-        <div className="absolute inset-0 scale-150 rounded-3xl bg-gradient-to-br from-[#00D4FF]/10 to-[#7C3AED]/10 blur-3xl" />
+        <div
+          className="absolute inset-0 scale-150 rounded-3xl blur-3xl"
+          style={{
+            background: 'linear-gradient(to bottom right, color-mix(in oklch, var(--accent) 18%, transparent), color-mix(in oklch, var(--violet) 18%, transparent))',
+          }}
+        />
         <img
           src="/logo.svg"
           alt="DataWeave Studio"
@@ -84,15 +89,15 @@ export function SplashScreen({ isReady, hasError }: SplashScreenProps) {
       </div>
 
       {/* Title */}
-      <h1 className="text-2xl font-bold text-white tracking-tight mb-1 relative">
+      <h1 className="text-2xl font-bold text-content tracking-tight mb-1 relative">
         DataWeave Studio
       </h1>
-      <p className="text-sm text-gray-500 mb-10 relative">Desktop Edition</p>
+      <p className="text-sm text-content-faint mb-10 relative">Desktop Edition</p>
 
       {/* Progress bar */}
       <div className="w-72 relative mb-4">
         {/* Track */}
-        <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+        <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden">
           {/* Fill with flowing animation */}
           <div
             className="h-full rounded-full splash-progress-bar transition-all duration-200 ease-out"
@@ -104,12 +109,12 @@ export function SplashScreen({ isReady, hasError }: SplashScreenProps) {
       {/* Status text */}
       <div className="flex items-center gap-2 relative">
         {progress < 100 && (
-          <div className="w-3 h-3 rounded-full border-2 border-t-transparent border-[#00D4FF] animate-spin" />
+          <div className="w-3 h-3 rounded-full border-2 border-t-transparent border-accent animate-spin" />
         )}
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-content-muted">
           {hasError ? 'Started with warnings' : STAGES[stage]}
         </span>
-        <span className="text-xs text-gray-600 ml-1">
+        <span className="text-xs text-content-ghost ml-1">
           {Math.round(progress)}%
         </span>
       </div>
