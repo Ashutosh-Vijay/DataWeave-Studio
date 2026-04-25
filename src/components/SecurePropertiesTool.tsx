@@ -221,19 +221,6 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
             </label>
           </div>
 
-          {/* Process button */}
-          <button
-            onClick={handleProcess}
-            disabled={isProcessing || !input.trim() || !key.trim()}
-            className="w-full h-9 rounded-md text-[13px] font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-            style={{
-              background: mode === 'encrypt' ? 'var(--accent)' : 'var(--warn)',
-              color: 'var(--accent-ink)',
-            }}
-          >
-            {isProcessing ? 'Processing…' : mode === 'encrypt' ? 'Encrypt' : 'Decrypt'}
-          </button>
-
           {/* Error */}
           {error && (
             <div className="bg-err-tint border border-err-border rounded-md px-3 py-2 text-[12px] text-err">
@@ -255,7 +242,13 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
                   {copied ? <><Icons.Dot size={9} /> Copied</> : <><Icons.Copy size={11} /> Copy</>}
                 </button>
               </div>
-              <div className="bg-surface-2 border border-line rounded-md px-3 py-2 text-[12.5px] font-mono text-accent break-all select-text">
+              <div
+                className="rounded-md px-3 py-2 text-[12.5px] font-mono text-accent break-all select-text border"
+                style={{
+                  background: 'color-mix(in oklch, var(--accent) 8%, transparent)',
+                  borderColor: 'var(--accent-border)',
+                }}
+              >
                 {output}
               </div>
             </div>
@@ -263,8 +256,27 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-2.5 border-t border-line-subtle text-[10px] text-content-ghost leading-relaxed">
-          Compatible with MuleSoft's <code className="text-content-faint">secure-properties-tool.jar</code> (AES/CBC, MD5 key derivation). All processing happens locally.
+        <div className="px-5 py-3 border-t border-line flex items-center gap-2.5">
+          <span className="text-[10.5px] text-content-ghost flex-1">
+            Compatible with MuleSoft's <code className="text-content-faint">secure-properties-tool.jar</code>
+          </span>
+          <button
+            onClick={onClose}
+            className="h-8 px-3 rounded-md border border-line text-[12px] text-content-secondary hover:bg-surface-2 cursor-pointer"
+          >
+            Close
+          </button>
+          <button
+            onClick={handleProcess}
+            disabled={isProcessing || !input.trim() || !key.trim()}
+            className="h-8 px-4 rounded-md text-[12.5px] font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            style={{
+              background: mode === 'encrypt' ? 'var(--accent)' : 'var(--warn)',
+              color: 'var(--accent-ink)',
+            }}
+          >
+            {isProcessing ? 'Processing…' : mode === 'encrypt' ? 'Encrypt & copy' : 'Decrypt'}
+          </button>
         </div>
       </div>
     </div>

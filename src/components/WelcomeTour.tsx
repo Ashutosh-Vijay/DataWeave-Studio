@@ -19,53 +19,45 @@ const STEPS: TourStep[] = [
     target: null,
     title: 'Welcome to DataWeave Studio',
     description:
-      'A local desktop app to write, test, and debug DataWeave 2.0 scripts — without Anypoint Studio, browser limits, or complex project setups. Everything runs on your machine.',
+      'A fast, local workbench for DataWeave 2.0. Write, run, and debug transforms entirely on your machine — JSON, XML, CSV, multipart, SOQL, SQL.',
   },
   {
     target: 'script-editor',
-    title: 'Script Editor',
+    title: 'Script editor',
     description:
-      'Write DataWeave 2.0 scripts with syntax highlighting and context-aware autocomplete. Type "payload." to see field names from your input data.',
-    tip: 'Press Ctrl+Enter to run, or toggle Auto to live-preview as you type.',
+      'Write DataWeave 2.0 with syntax highlighting and payload-aware autocomplete. Errors highlight the exact line, and the Output panel shows ±2 lines of source context.',
+    tip: '⌘↵ to run · toggle Auto for live preview as you type.',
     placement: 'right',
   },
   {
     target: 'payload',
-    title: 'Input Payload & Named Inputs',
+    title: 'Payload & named inputs',
     description:
-      'Set your input payload in the first tab. Use the MIME selector in the tab bar to switch between JSON, XML, CSV, multipart/form-data, binary, and more. Load a file directly from disk, or build multipart requests with the visual parts builder. Click "+ Add" for extra named inputs.',
-    tip: 'Paste CSV, change MIME to text/csv, and run — no file needed.',
+      'Drop input data here — pick the MIME (JSON, XML, CSV, multipart, binary) from the tab bar. Add named inputs for multi-source transforms.',
+    tip: 'Paste CSV, switch MIME to text/csv, run. No file needed.',
     placement: 'right',
   },
   {
     target: 'context-panel',
-    title: 'Context Panel',
+    title: 'Context: Request · Vars · Config',
     description:
-      'Set the HTTP method, query parameters, headers, variables, and config properties. These map to attributes, vars, and ${key} placeholders in your script.',
-    tip: 'Config properties use YAML format with dot-notation flattening, just like MuleSoft.',
+      'Tabs for HTTP method/headers/query, DataWeave variables, and config properties (YAML, dot-notation flattening). Each tab badges its active count.',
+    tip: 'Use the secure-config block for ${key} placeholders that need decryption.',
     placement: 'left',
   },
   {
     target: 'output',
     title: 'Output',
     description:
-      'See your script results here after clicking Run. Supports JSON, XML, and raw output formatting. Errors show the exact line number in the script editor. Use the Export button to save output to a file.',
+      'JSON / XML / Raw views with Copy and Export. Errors render with a DW code chip, source location, and a collapsible stack trace.',
     placement: 'left',
   },
   {
-    target: 'sidebar',
-    title: 'Sidebar',
+    target: 'palette',
+    title: 'Command palette',
     description:
-      'Manage workspaces, switch modes (Transform / SOQL / SQL), import cURL commands, and configure advanced options — custom classpath JARs and execution timeout. Save with Ctrl+S.',
-    tip: 'Workspaces store everything: script, payload, context, multipart parts, classpath, and more.',
-    placement: 'right',
-  },
-  {
-    target: 'run-controls',
-    title: 'Run Controls',
-    description:
-      'Run your script manually or toggle Auto for live preview with 1.5s debounce. The toolbar also has the Secure Properties Tool for offline encrypt/decrypt.',
-    tip: 'The lock icon opens the offline encryption tool — no data sent to any server.',
+      'Press ⌘K to fuzzy-search every action — run, save, switch UI, change theme, open Settings. Layouts: ⌘1 Workbench, ⌘2 Focus. Theme: ⌘⇧T.',
+    tip: '⌘/ opens the full keyboard reference any time.',
     placement: 'bottom',
   },
 ];
@@ -178,7 +170,7 @@ function getArrowStyle(placement: ResolvedPlacement): React.CSSProperties & { bo
       style.transform = 'translateY(-50%)';
       style.borderTop = `${size}px solid transparent`;
       style.borderBottom = `${size}px solid transparent`;
-      style.borderRight = `${size}px solid rgba(0, 160, 223, 0.3)`;
+      style.borderRight = `${size}px solid color-mix(in oklch, var(--accent) 35%, transparent)`;
       style.borderSide = 'right';
       break;
     case 'left':
@@ -187,7 +179,7 @@ function getArrowStyle(placement: ResolvedPlacement): React.CSSProperties & { bo
       style.transform = 'translateY(-50%)';
       style.borderTop = `${size}px solid transparent`;
       style.borderBottom = `${size}px solid transparent`;
-      style.borderLeft = `${size}px solid rgba(0, 160, 223, 0.3)`;
+      style.borderLeft = `${size}px solid color-mix(in oklch, var(--accent) 35%, transparent)`;
       style.borderSide = 'left';
       break;
     case 'bottom':
@@ -196,7 +188,7 @@ function getArrowStyle(placement: ResolvedPlacement): React.CSSProperties & { bo
       style.transform = 'translateX(-50%)';
       style.borderLeft = `${size}px solid transparent`;
       style.borderRight = `${size}px solid transparent`;
-      style.borderBottom = `${size}px solid rgba(0, 160, 223, 0.3)`;
+      style.borderBottom = `${size}px solid color-mix(in oklch, var(--accent) 35%, transparent)`;
       style.borderSide = 'bottom';
       break;
     case 'top':
@@ -205,7 +197,7 @@ function getArrowStyle(placement: ResolvedPlacement): React.CSSProperties & { bo
       style.transform = 'translateX(-50%)';
       style.borderLeft = `${size}px solid transparent`;
       style.borderRight = `${size}px solid transparent`;
-      style.borderTop = `${size}px solid rgba(0, 160, 223, 0.3)`;
+      style.borderTop = `${size}px solid color-mix(in oklch, var(--accent) 35%, transparent)`;
       style.borderSide = 'top';
       break;
   }
@@ -317,7 +309,7 @@ export function WelcomeTour({ onComplete }: WelcomeTourProps) {
             height={targetRect.height}
             rx={8}
             fill="none"
-            stroke="rgba(0, 160, 223, 0.4)"
+            stroke="color-mix(in oklch, var(--accent) 45%, transparent)"
             strokeWidth={2}
             className="transition-all duration-300 ease-in-out"
           />

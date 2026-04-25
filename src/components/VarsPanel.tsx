@@ -74,7 +74,7 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
           <div
             key={i}
             onBlur={(e) => scheduleCollapse(e.currentTarget)}
-            className={`rounded-md ${isExpanded ? 'bg-surface-section ring-1 ring-blue-500/25 p-1.5 -mx-1' : ''}`}
+            className={`rounded-md ${isExpanded ? 'bg-surface-2 ring-1 ring-accent-border p-1.5 -mx-1' : ''}`}
           >
             {/* Top row */}
             <div className="flex items-center gap-1.5">
@@ -142,7 +142,7 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
                   placeholder={'e.g.  "hello"  •  42  •  null  •  true  •  {"key": "val"}  •  [1,2,3]'}
                   rows={4}
                   style={{ resize: 'vertical' }}
-                  className="w-full bg-surface-input border border-blue-500/40 rounded px-2 py-1.5 text-xs text-content placeholder-content-ghost focus:border-accent focus:outline-none font-mono"
+                  className="w-full bg-surface-input border border-accent-border rounded px-2 py-1.5 text-xs text-content placeholder-content-ghost focus:border-accent focus:outline-none font-mono"
                 />
                 <div className="flex items-center justify-between">
                   <span

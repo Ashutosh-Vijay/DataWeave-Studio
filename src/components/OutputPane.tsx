@@ -5,7 +5,6 @@ import { invoke } from '@tauri-apps/api/core';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
 import { Icons } from './Icons';
-import { EmptyState, ErrorState } from './StateScreens';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
@@ -25,6 +24,26 @@ interface OutputPaneProps {
   queryResult?: QueryResult | null;
   isQueryMode?: boolean;
   queryLanguage?: string;
+  scriptSource?: string;
+  onStartTour?: () => void;
+}
+
+function extractDwErrorCode(message: string): string | null {
+  const m = message.match(/DW-\d{3,5}/);
+  return m ? m[0] : null;
+}
+
+function extractFirstLine(message: string): string {
+  const lines = message.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('at ')) return trimmed;
+  }
+  return message.trim().split('\n')[0] || message;
+}
+
+function extractStackTrace(message: string): string[] {
+  return message.split('\n').filter((l) => l.trim().startsWith('at '));
 }
 
 export function OutputPane({
@@ -32,14 +51,18 @@ export function OutputPane({
   error,
   isRunning,
   executionTimeMs,
+  errorLine,
   outputFormat,
   onFormatChange,
   queryResult,
   isQueryMode,
   queryLanguage,
+  scriptSource,
+  onStartTour,
 }: OutputPaneProps) {
   const [copied, setCopied] = useState(false);
   const [exported, setExported] = useState(false);
+  const [stackOpen, setStackOpen] = useState(false);
   const { isDark } = useTheme();
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
 
@@ -125,24 +148,23 @@ export function OutputPane({
         )}
       </div>
 
+      {/* Run-loading banner */}
+      {isRunning && <RunLoadingBanner />}
+
       {/* Content area */}
       <div className="flex-1 relative">
-        {/* Running overlay */}
-        {isRunning && (
-          <div
-            className="absolute inset-0 z-10 flex items-center justify-center backdrop-blur-[1px]"
-            style={{ background: 'color-mix(in oklch, var(--bg) 55%, transparent)' }}
-          >
-            <div className="flex items-center space-x-2 text-content">
-              <div className="w-4 h-4 rounded-full border-2 border-t-transparent border-accent animate-spin" />
-              <span className="text-[12.5px]">Executing…</span>
-            </div>
-          </div>
-        )}
-
-        {error ? (
+        {isRunning && !output && !error ? (
+          <SkeletonRows />
+        ) : error ? (
           <div className="h-full overflow-auto bg-surface p-4">
-            <ErrorState title="Error" message={error} />
+            <OutputErrorCard
+              error={error}
+              errorLine={errorLine}
+              executionTimeMs={executionTimeMs}
+              scriptSource={scriptSource}
+              stackOpen={stackOpen}
+              onToggleStack={() => setStackOpen(!stackOpen)}
+            />
           </div>
         ) : isQueryMode && queryResult ? (
           /* Query mode: show substituted query + parameters */
@@ -202,15 +224,256 @@ export function OutputPane({
             }}
           />
         ) : (
-          <div className="h-full flex items-center justify-center">
-            <EmptyState
-              title={isQueryMode ? 'No query result yet' : 'No output yet'}
-              message={isQueryMode ? 'Run to see the final query with parameters resolved.' : 'Run your script to see the transformed output here.'}
-              icon={<Icons.Play size={16} />}
-            />
-          </div>
+          <StartTransformingHero isQueryMode={isQueryMode} onStartTour={onStartTour} />
         )}
       </div>
+    </div>
+  );
+}
+
+function RunLoadingBanner() {
+  return (
+    <div
+      className="shrink-0 flex items-center gap-2.5 px-3.5 py-1.5 border-b"
+      style={{
+        background: 'color-mix(in oklch, var(--accent) 10%, transparent)',
+        borderColor: 'color-mix(in oklch, var(--accent) 25%, transparent)',
+      }}
+    >
+      <div className="w-3 h-3 rounded-full border-2 border-t-transparent border-accent animate-spin" />
+      <span className="text-[11.5px] font-medium text-accent">Running transform…</span>
+      <span className="flex-1" />
+    </div>
+  );
+}
+
+function SkeletonRows() {
+  const widths = ['82%', '68%', '90%', '54%', '76%', '60%', '88%', '44%', '72%', '58%'];
+  return (
+    <div className="h-full overflow-hidden p-4 bg-surface space-y-2">
+      {widths.map((w, i) => (
+        <div
+          key={i}
+          className="h-3 rounded animate-pulse"
+          style={{
+            width: w,
+            background: 'color-mix(in oklch, var(--content) 8%, transparent)',
+            animationDelay: `${i * 60}ms`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function StartTransformingHero({ isQueryMode, onStartTour }: { isQueryMode?: boolean; onStartTour?: () => void }) {
+  const cards = isQueryMode
+    ? [
+        { title: 'Define query', desc: 'Write SOQL or SQL with :param bindings', kbd: '⌘1' },
+        { title: 'Set parameters', desc: 'Bind values in the Vars panel', kbd: '⌘2' },
+        { title: 'Run', desc: 'Resolve parameters into final query', kbd: '⌘↵' },
+      ]
+    : [
+        { title: 'Blank script', desc: 'Start from %dw 2.0 with empty output', kbd: 'B' },
+        { title: 'Import payload', desc: 'Drag & drop JSON, XML, or CSV', kbd: 'I' },
+        { title: 'Snippet', desc: 'Pick a template — map, filter, group', kbd: 'S' },
+      ];
+  return (
+    <div className="h-full overflow-auto flex items-center justify-center bg-surface px-6 py-10">
+      <div className="w-full max-w-[560px] flex flex-col items-center text-center">
+        <div
+          className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 font-bold text-[22px] tracking-tight"
+          style={{
+            background: 'linear-gradient(135deg, var(--accent), color-mix(in oklch, var(--accent) 70%, var(--violet)))',
+            color: 'var(--bg)',
+            boxShadow: '0 8px 24px -8px color-mix(in oklch, var(--accent) 50%, transparent)',
+          }}
+        >
+          dw
+        </div>
+        <div className="text-[16px] font-semibold text-content">
+          {isQueryMode ? 'Build your first query' : 'Start transforming'}
+        </div>
+        <div className="text-[12px] text-content-faint mt-1.5 max-w-[380px]">
+          {isQueryMode
+            ? 'Write a parameterized query, bind values, and resolve to the final SQL.'
+            : 'Pick a starting point — a blank script, an imported payload, or a snippet template.'}
+        </div>
+        <div className="grid grid-cols-3 gap-2 mt-5 w-full">
+          {cards.map((c) => (
+            <div
+              key={c.title}
+              className="rounded-lg border border-line p-3 text-left bg-surface-2 hover:bg-surface-3 hover:border-line-secondary transition-colors cursor-pointer"
+            >
+              <div className="text-[12px] font-semibold text-content">{c.title}</div>
+              <div className="text-[10.5px] text-content-faint mt-1 leading-relaxed">{c.desc}</div>
+              <span className="inline-flex items-center justify-center mt-2 h-4 px-1.5 rounded bg-surface-3 border border-line-secondary font-mono text-[9.5px] text-content-faint">
+                {c.kbd}
+              </span>
+            </div>
+          ))}
+        </div>
+        {onStartTour && (
+          <button
+            onClick={onStartTour}
+            className="mt-5 text-[11px] text-content-muted hover:text-content-secondary cursor-pointer bg-transparent border-0 p-0"
+          >
+            60-second tour →
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface OutputErrorCardProps {
+  error: string;
+  errorLine?: number | null;
+  executionTimeMs?: number;
+  scriptSource?: string;
+  stackOpen: boolean;
+  onToggleStack: () => void;
+}
+
+function OutputErrorCard({ error, errorLine, executionTimeMs, scriptSource, stackOpen, onToggleStack }: OutputErrorCardProps) {
+  const [copied, setCopied] = useState(false);
+  const code = extractDwErrorCode(error);
+  const headline = extractFirstLine(error);
+  const stack = extractStackTrace(error);
+
+  const sourceContext = (() => {
+    if (!scriptSource || !errorLine) return null;
+    const lines = scriptSource.split('\n');
+    const start = Math.max(0, errorLine - 3);
+    const end = Math.min(lines.length, errorLine + 2);
+    return { lines: lines.slice(start, end), startLine: start + 1, target: errorLine };
+  })();
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(error);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Status pill row */}
+      <div className="flex items-center gap-2">
+        <span
+          className="inline-flex items-center gap-1.5 h-6 px-2 rounded-md font-mono text-[11px] font-medium"
+          style={{
+            background: 'color-mix(in oklch, var(--err) 12%, transparent)',
+            color: 'var(--err)',
+            border: '1px solid color-mix(in oklch, var(--err) 30%, transparent)',
+          }}
+        >
+          <Icons.Dot size={8} /> Failed
+          {executionTimeMs !== undefined && <span className="opacity-70">· {executionTimeMs}ms</span>}
+        </span>
+        {code && (
+          <span
+            className="inline-flex items-center h-6 px-2 rounded-md font-mono text-[10.5px] font-bold"
+            style={{
+              background: 'color-mix(in oklch, var(--err) 8%, transparent)',
+              color: 'var(--err)',
+              border: '1px solid color-mix(in oklch, var(--err) 25%, transparent)',
+            }}
+          >
+            {code}
+          </span>
+        )}
+        <span className="flex-1" />
+        <button
+          onClick={handleCopy}
+          className="h-6 px-2 inline-flex items-center gap-1 rounded text-[11px] text-content-faint border border-line hover:bg-surface-2 cursor-pointer"
+        >
+          {copied ? <Icons.Dot size={9} /> : <Icons.Copy size={11} />}
+          {copied ? 'Copied' : 'Copy error'}
+        </button>
+      </div>
+
+      {/* Headline card */}
+      <div
+        className="rounded-lg p-3.5 border"
+        style={{
+          background: 'color-mix(in oklch, var(--err) 6%, transparent)',
+          borderColor: 'color-mix(in oklch, var(--err) 20%, transparent)',
+        }}
+      >
+        <div className="flex items-start gap-2.5">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 mt-0.5" style={{ color: 'var(--err)' }}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-semibold" style={{ color: 'var(--err)' }}>
+              {headline}
+            </div>
+            {errorLine && (
+              <div className="text-[11px] text-content-muted mt-1 font-mono">
+                at line {errorLine}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Source location panel */}
+      {sourceContext && (
+        <div className="rounded-lg border border-line overflow-hidden">
+          <div className="px-3 py-1.5 text-[10.5px] uppercase tracking-[0.6px] font-semibold text-content-faint bg-surface-2 border-b border-line">
+            Location
+          </div>
+          <div className="font-mono text-[11.5px] py-2 bg-surface">
+            {sourceContext.lines.map((line, i) => {
+              const lineNo = sourceContext.startLine + i;
+              const isTarget = lineNo === sourceContext.target;
+              return (
+                <div
+                  key={i}
+                  className="flex items-center px-3 py-0.5"
+                  style={{
+                    background: isTarget ? 'color-mix(in oklch, var(--err) 10%, transparent)' : 'transparent',
+                  }}
+                >
+                  <span
+                    className={`shrink-0 w-7 text-right pr-2 select-none ${
+                      isTarget ? 'text-err font-semibold' : 'text-content-ghost'
+                    }`}
+                  >
+                    {isTarget ? '→' : lineNo}
+                  </span>
+                  <span className={isTarget ? 'text-content' : 'text-content-secondary'}>
+                    {line || ' '}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Stack trace */}
+      {stack.length > 0 && (
+        <div className="rounded-lg border border-line overflow-hidden">
+          <button
+            onClick={onToggleStack}
+            className="w-full flex items-center gap-2 px-3 py-2 text-[11px] uppercase tracking-[0.6px] font-semibold text-content-faint bg-surface-2 hover:bg-surface-3 cursor-pointer"
+          >
+            <svg width="9" height="9" viewBox="0 0 10 10" fill="currentColor" className={`transition-transform ${stackOpen ? 'rotate-90' : ''}`}>
+              <path d="M3 1l5 4-5 4V1z" />
+            </svg>
+            Stack trace
+            <span className="ml-1 text-content-ghost">({stack.length})</span>
+          </button>
+          {stackOpen && (
+            <pre className="px-3 py-2 text-[10.5px] font-mono text-content-faint whitespace-pre-wrap break-words leading-relaxed bg-surface">
+              {stack.join('\n')}
+            </pre>
+          )}
+        </div>
+      )}
     </div>
   );
 }

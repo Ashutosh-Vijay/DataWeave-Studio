@@ -166,10 +166,12 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
         {/* Footer hints */}
         <div className="flex items-center gap-3 px-3 h-7 border-t border-line-subtle text-[10.5px] text-content-faint">
           <span><span className="font-mono">↑↓</span> navigate</span>
-          <span><span className="font-mono">⏎</span> run</span>
+          <span className="text-content-ghost">·</span>
+          <span><span className="font-mono">↵</span> select</span>
+          <span className="text-content-ghost">·</span>
           <span><span className="font-mono">esc</span> close</span>
           <div className="flex-1" />
-          <span>{filtered.length} {filtered.length === 1 ? 'command' : 'commands'}</span>
+          <span className="font-mono">{filtered.length} result{filtered.length === 1 ? '' : 's'}</span>
         </div>
       </div>
     </div>

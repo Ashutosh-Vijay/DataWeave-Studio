@@ -16,9 +16,6 @@
   --accent-border: oklch(72% 0.15 158 / 0.32);
   --accent-ink: oklch(14% 0.004 80); /* text on accent */
 
-  /* Legacy alias — components still referencing MuleSoft blue resolve to accent */
-  --mulesoft-blue: oklch(72% 0.15 158);
-
   /* Surfaces — warm dark neutrals */
   --bg:              oklch(14% 0.004 80);
   --surface:         oklch(17% 0.004 80);  /* panels */
@@ -80,7 +77,6 @@
   --accent-dim: oklch(55% 0.15 158 / 0.10);
   --accent-border: oklch(55% 0.15 158 / 0.35);
   --accent-ink: oklch(100% 0 0);
-  --mulesoft-blue: oklch(55% 0.15 158);
 
   --bg:              oklch(98% 0.003 80);
   --surface:         oklch(100% 0 0);

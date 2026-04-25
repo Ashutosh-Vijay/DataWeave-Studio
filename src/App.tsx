@@ -13,6 +13,10 @@ import { SecurePropertiesTool } from './components/SecurePropertiesTool';
 import { WelcomeTour, shouldShowTour, markTourSeen } from './components/WelcomeTour';
 import { SplashScreen } from './components/SplashScreen';
 import { CommandPalette, Command } from './components/CommandPalette';
+import { ShortcutsDialog } from './components/ShortcutsDialog';
+import { SettingsScreen } from './components/SettingsScreen';
+import { CompactLayout } from './components/CompactLayout';
+import { FocusDrawer } from './components/FocusDrawer';
 import { FirstRunPicker, shouldShowFirstRun, markFirstRunSeen } from './components/FirstRunPicker';
 import { useWorkspace } from './hooks/useWorkspace';
 import { useDWRunner } from './hooks/useDWRunner';
@@ -71,6 +75,10 @@ function substituteQueryParams(
   } catch {
     return null;
   }
+}
+
+function context_count(pairs: KeyValuePair[]): number {
+  return pairs.filter((p) => p.key && p.value !== '').length;
 }
 
 function buildAttributesJson(
@@ -249,10 +257,12 @@ function StatusBar({
   isReady,
   appVersion,
   dwVersion,
+  workspaceFile,
 }: {
   isReady: boolean;
   appVersion: string;
   dwVersion?: string;
+  workspaceFile?: string;
 }) {
   return (
     <div
@@ -264,7 +274,8 @@ function StatusBar({
       >
         <Icons.Dot size={8} /> {isReady ? 'CLI ready' : 'Warming up'}
       </span>
-      {dwVersion && <span>DW {dwVersion}</span>}
+      <span>DW {dwVersion || '2.5.0'}</span>
+      {workspaceFile && <span className="truncate max-w-[280px]">{workspaceFile}</span>}
       <span className="flex-1" />
       <span>UTF-8</span>
       <span>LF</span>
@@ -284,6 +295,9 @@ function App() {
   const [secureToolOpen, setSecureToolOpen] = useState(false);
   const [showTour, setShowTour] = useState(() => shouldShowTour());
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [focusDrawerOpen, setFocusDrawerOpen] = useState(false);
   const [showFirstRun, setShowFirstRun] = useState(() => shouldShowFirstRun());
   const [layout, setLayout] = useState<'workbench' | 'focus'>(() => {
     try { return (localStorage.getItem('dw.layout') as 'workbench' | 'focus') || 'workbench'; } catch { return 'workbench'; }
@@ -378,11 +392,29 @@ function App() {
       } else if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
         setPaletteOpen((o) => !o);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+        e.preventDefault();
+        setShortcutsOpen((o) => !o);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        setSettingsOpen((o) => !o);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '1') {
+        e.preventDefault();
+        setLayout('workbench');
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '2') {
+        e.preventDefault();
+        setLayout('focus');
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'T' || e.key === 't')) {
+        e.preventDefault();
+        toggle();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '.') {
+        e.preventDefault();
+        setFocusDrawerOpen((o) => !o);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [workspace.saveWorkspace]);
+  }, [workspace.saveWorkspace, toggle]);
 
   // Auto-run with 1.5s debounce — only fires when inputs change
   useEffect(() => {
@@ -422,8 +454,12 @@ function App() {
     { id: 'save', label: 'Save workspace', shortcut: '⌘S', group: 'Workspace', run: () => { workspace.saveWorkspace(); } },
     { id: 'new', label: 'New workspace', group: 'Workspace', run: () => workspace.newWorkspace() },
     { id: 'sidebar', label: sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar', group: 'View', run: () => setSidebarCollapsed(!sidebarCollapsed) },
-    { id: 'layout', label: layout === 'focus' ? 'Switch to Workbench layout' : 'Switch to Focus layout', group: 'View', run: () => setLayout(layout === 'focus' ? 'workbench' : 'focus') },
-    { id: 'theme', label: isDark ? 'Switch to light theme' : 'Switch to dark theme', group: 'View', run: () => toggle() },
+    { id: 'layout-workbench', label: 'Switch UI → Workbench', hint: layout === 'workbench' ? 'current' : 'Icon rail · sidebar · tabs', shortcut: '⌘1', group: 'View', run: () => setLayout('workbench') },
+    { id: 'layout-focus', label: 'Switch UI → Focus', hint: layout === 'focus' ? 'current' : 'Editor · payload · drawer', shortcut: '⌘2', group: 'View', run: () => setLayout('focus') },
+    ...(effectiveLayout === 'focus' && !isCompact
+      ? [{ id: 'focus-drawer', label: focusDrawerOpen ? 'Close context drawer' : 'Open context drawer', shortcut: '⌘.', group: 'View', run: () => setFocusDrawerOpen((o) => !o) }]
+      : []),
+    { id: 'theme', label: isDark ? 'Switch to Paper (light)' : 'Switch to Dusk (dark)', shortcut: '⌘⇧T', group: 'View', run: () => toggle() },
     { id: 'out-json', label: 'Output: JSON', hint: outputFormat === 'json' ? 'current' : '', group: 'Output', run: () => setOutputFormat('json') },
     { id: 'out-xml', label: 'Output: XML', hint: outputFormat === 'xml' ? 'current' : '', group: 'Output', run: () => setOutputFormat('xml') },
     { id: 'out-raw', label: 'Output: Raw', hint: outputFormat === 'raw' ? 'current' : '', group: 'Output', run: () => setOutputFormat('raw') },
@@ -435,6 +471,8 @@ function App() {
       run: () => workspace.setNodeLabel(l),
     })),
     { id: 'secure', label: 'Open Secure Properties tool', group: 'Tools', run: () => setSecureToolOpen(true) },
+    { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: '⌘/', group: 'Tools', run: () => setShortcutsOpen(true) },
+    { id: 'settings', label: 'Open Settings', shortcut: '⌘,', group: 'Tools', run: () => setSettingsOpen(true) },
     { id: 'about', label: 'About DataWeave Studio', group: 'Tools', run: () => setAboutOpen(true) },
     { id: 'tour', label: 'Show guided tour', group: 'Tools', run: () => setShowTour(true) },
   ];
@@ -481,6 +519,7 @@ function App() {
 
         {/* ⌘K command palette trigger */}
         <button
+          data-tour="palette"
           onClick={() => setPaletteOpen(true)}
           className="hidden md:flex items-center gap-2 h-7 px-2.5 bg-surface-2 border border-line rounded-md w-[280px] text-content-faint text-[12.5px] cursor-pointer hover:border-line-secondary hover:text-content-secondary transition-colors"
           title="Command palette (Ctrl+K)"
@@ -517,6 +556,14 @@ function App() {
           >
             <Icons.Panel size={15} />
           </IconBtn>
+          {effectiveLayout === 'focus' && !isCompact && (
+            <IconBtn
+              title="Toggle context drawer"
+              onClick={() => setFocusDrawerOpen((o) => !o)}
+            >
+              <Icons.Settings size={15} />
+            </IconBtn>
+          )}
           <IconBtn title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggle}>
             {isDark ? <Icons.Sun size={15} /> : <Icons.Moon size={15} />}
           </IconBtn>
@@ -615,7 +662,76 @@ function App() {
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />}
 
-        {/* Main — three horizontal resizable columns */}
+        {/* Main — compact uses pane tabs, otherwise three resizable columns */}
+        {isCompact ? (
+          <main className="flex-1 overflow-hidden bg-bg">
+            <CompactLayout
+              badges={{
+                context:
+                  context_count(workspace.context.queryParams) +
+                  context_count(workspace.context.headers) +
+                  workspace.context.vars.filter((v) => v.key).length,
+                output: runner.error ? '!' : (runner.executionTimeMs ? `${runner.executionTimeMs}ms` : undefined),
+              }}
+              scriptPane={
+                <ScriptEditor
+                  code={workspace.script}
+                  onChange={(val) => workspace.setScript(val || '')}
+                  onRun={handleRun}
+                  errorLine={runner.errorLine}
+                  payload={workspace.payload}
+                  payloadMimeType={workspace.payloadMimeType}
+                  contextData={{
+                    vars: workspace.context.vars,
+                    headers: workspace.context.headers,
+                    queryParams: workspace.context.queryParams,
+                    namedInputs: workspace.namedInputs,
+                    configYaml: workspace.context.configYaml,
+                    secureConfigYaml: workspace.context.secureConfigYaml,
+                  }}
+                />
+              }
+              payloadPane={
+                <PayloadTabs
+                  payload={workspace.payload}
+                  onPayloadChange={(val) => workspace.setPayload(val || '')}
+                  payloadMimeType={workspace.payloadMimeType}
+                  onPayloadMimeTypeChange={workspace.setPayloadMimeType}
+                  payloadFilePath={workspace.payloadFilePath}
+                  onPayloadFilePathChange={workspace.setPayloadFilePath}
+                  multipartParts={workspace.multipartParts}
+                  onMultipartPartsChange={workspace.setMultipartParts}
+                  namedInputs={workspace.namedInputs}
+                  onNamedInputsChange={workspace.setNamedInputs}
+                />
+              }
+              contextPane={
+                <ContextPanel
+                  context={workspace.context}
+                  onChange={workspace.setContext}
+                  encryptionKey={encryptionKey}
+                  onEncryptionKeyChange={setEncryptionKey}
+                />
+              }
+              outputPane={
+                <OutputPane
+                  output={runner.output}
+                  error={runner.error}
+                  isRunning={runner.isRunning}
+                  executionTimeMs={runner.executionTimeMs}
+                  errorLine={runner.errorLine}
+                  outputFormat={outputFormat}
+                  onFormatChange={setOutputFormat}
+                  queryResult={queryResult}
+                  isQueryMode={isQueryMode}
+                  queryLanguage={queryLanguage}
+                  scriptSource={workspace.script}
+                  onStartTour={() => setShowTour(true)}
+                />
+              }
+            />
+          </main>
+        ) : (
         <main className="flex-1 overflow-hidden bg-bg">
           <PanelGroup orientation="horizontal" className="h-full gap-0">
 
@@ -639,7 +755,35 @@ function App() {
                   </>
                 )}
                 <Panel defaultSize={isQueryMode ? 40 : 60} minSize={15}>
-                  <div className="h-full pb-1" data-tour="script-editor">
+                  <div className="h-full pb-1 flex flex-col" data-tour="script-editor">
+                    {!isQueryMode && (
+                      <div className="h-10 shrink-0 flex items-center gap-2 px-3.5 bg-surface border-b border-line">
+                        <span className={`font-mono text-[10.5px] font-bold tracking-wide px-1.5 h-5 inline-flex items-center rounded ${methodColors.bg} ${methodColors.text} ${methodColors.border} border`}>
+                          {workspace.context.method}
+                        </span>
+                        <span className="font-mono text-[12px] text-content-secondary truncate">
+                          {(() => {
+                            const url = `/transform/${workspace.currentFile?.replace(/\.json$/, '') || workspace.nodeLabel.toLowerCase().replace(/\s+/g, '-')}`;
+                            const parts = url.split(/(:[A-Za-z_][A-Za-z0-9_]*)/g);
+                            return parts.map((p, i) =>
+                              p.startsWith(':') ? (
+                                <span key={i} className="text-violet">{p}</span>
+                              ) : (
+                                <span key={i}>{p}</span>
+                              )
+                            );
+                          })()}
+                        </span>
+                        <span className="flex-1" />
+                        <span className={`text-[10px] px-1.5 h-5 inline-flex items-center rounded font-medium border ${nodeLabelColors.bg} ${nodeLabelColors.text} ${nodeLabelColors.border}`}>
+                          {workspace.nodeLabel}
+                        </span>
+                        <span className="font-mono text-[10.5px] text-content-faint">
+                          {workspace.payloadMimeType || 'application/json'}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex-1 min-h-0">
                     <ScriptEditor
                       code={workspace.script}
                       onChange={(val) => workspace.setScript(val || '')}
@@ -657,6 +801,7 @@ function App() {
                         secureConfigYaml: workspace.context.secureConfigYaml,
                       }}
                     />
+                    </div>
                   </div>
                 </Panel>
                 <PanelResizeHandle className="h-1.5 flex items-center justify-center cursor-row-resize group">
@@ -710,20 +855,28 @@ function App() {
                 error={runner.error}
                 isRunning={runner.isRunning}
                 executionTimeMs={runner.executionTimeMs}
+                errorLine={runner.errorLine}
                 outputFormat={outputFormat}
                 onFormatChange={setOutputFormat}
                 queryResult={queryResult}
                 isQueryMode={isQueryMode}
                 queryLanguage={queryLanguage}
+                scriptSource={workspace.script}
+                onStartTour={() => setShowTour(true)}
               />
             </Panel>
 
           </PanelGroup>
         </main>
+        )}
       </div>
 
       {/* Status bar */}
-      <StatusBar isReady={runner.isWarmedUp} appVersion={appVersion} />
+      <StatusBar
+        isReady={runner.isWarmedUp}
+        appVersion={appVersion}
+        workspaceFile={workspace.currentFile || undefined}
+      />
 
       {/* About dialog */}
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} appVersion={appVersion} updateAvailable={updateAvailable} onUpdateInstalled={() => setUpdateAvailable(false)} />
@@ -736,8 +889,40 @@ function App() {
         <WelcomeTour onComplete={() => { setShowTour(false); markTourSeen(); }} />
       )}
 
+      {/* Focus mode: context drawer */}
+      {effectiveLayout === 'focus' && !isCompact && (
+        <FocusDrawer open={focusDrawerOpen} onClose={() => setFocusDrawerOpen(false)}>
+          <ContextPanel
+            context={workspace.context}
+            onChange={workspace.setContext}
+            encryptionKey={encryptionKey}
+            onEncryptionKeyChange={setEncryptionKey}
+          />
+        </FocusDrawer>
+      )}
+
       {/* Command palette */}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={paletteCommands} />
+
+      {/* Shortcuts reference */}
+      <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+
+      {/* Settings */}
+      <SettingsScreen
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        appVersion={appVersion}
+        layout={layout}
+        onLayoutChange={setLayout}
+        payloadMimeType={workspace.payloadMimeType}
+        onPayloadMimeTypeChange={workspace.setPayloadMimeType}
+        classpath={workspace.classpath}
+        onClasspathChange={workspace.setClasspath}
+        timeoutMs={workspace.timeoutMs}
+        onTimeoutMsChange={workspace.setTimeoutMs}
+        onShowTour={() => { setSettingsOpen(false); setShowTour(true); }}
+        onShowAbout={() => { setSettingsOpen(false); setAboutOpen(true); }}
+      />
 
       {/* First-run picker */}
       {showFirstRun && (

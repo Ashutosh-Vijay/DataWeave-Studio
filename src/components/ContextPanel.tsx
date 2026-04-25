@@ -14,8 +14,6 @@ const CONFIG_PLACEHOLDER = `# config.yaml — referenced as \${key}
 # salesforce:
 #   path: /api/v1
 #   timeout: 30000
-# http:
-#   port: 8081
 `;
 
 const SECURE_PLACEHOLDER = `# secure-config.yaml — referenced as \${secure::key}
@@ -28,6 +26,8 @@ const SECURE_PLACEHOLDER = `# secure-config.yaml — referenced as \${secure::ke
 const ALGORITHMS = ['AES', 'Blowfish', 'DES', 'DESede', 'RC2'] as const;
 const MODES = ['CBC', 'CFB', 'ECB', 'OFB'] as const;
 
+type Tab = 'Request' | 'Vars' | 'Config';
+
 interface ContextPanelProps {
   context: ContextState;
   onChange: (context: ContextState) => void;
@@ -35,170 +35,165 @@ interface ContextPanelProps {
   onEncryptionKeyChange: (key: string) => void;
 }
 
+function activeCount(pairs: KeyValuePair[]): number {
+  return pairs.filter((p) => p.key && p.value !== '').length;
+}
+
 export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKeyChange }: ContextPanelProps) {
-  const [configExpanded, setConfigExpanded] = useState(true);
-  const [secureExpanded, setSecureExpanded] = useState(true);
+  const [tab, setTab] = useState<Tab>('Request');
   const [showKey, setShowKey] = useState(false);
   const { isDark } = useTheme();
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
 
-  const updateMethod = (method: string) => {
-    onChange({ ...context, method });
-  };
+  const updateMethod = (method: string) => onChange({ ...context, method });
+  const updateQueryParams = (queryParams: KeyValuePair[]) => onChange({ ...context, queryParams });
+  const updateHeaders = (headers: KeyValuePair[]) => onChange({ ...context, headers });
+  const updateVars = (vars: VarEntry[]) => onChange({ ...context, vars });
 
-  const updateQueryParams = (queryParams: KeyValuePair[]) => {
-    onChange({ ...context, queryParams });
-  };
-
-  const updateHeaders = (headers: KeyValuePair[]) => {
-    onChange({ ...context, headers });
-  };
-
-  const updateVars = (vars: VarEntry[]) => {
-    onChange({ ...context, vars });
-  };
+  const reqCount = activeCount(context.queryParams) + activeCount(context.headers);
+  const varsCount = context.vars.filter((v) => v.key).length;
+  const configCount =
+    (context.configYaml && context.configYaml.trim() ? 1 : 0) +
+    (context.secureConfigYaml && context.secureConfigYaml.trim() ? 1 : 0);
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-surface">
-      <div className="h-[34px] shrink-0 flex items-end border-b border-line pl-3">
-        <span className="relative h-full inline-flex items-center px-3 text-[12.5px] font-semibold text-content">
-          Context
-          <span className="absolute left-2 right-2 -bottom-px h-0.5 rounded-sm bg-accent" />
-        </span>
-        <span className="ml-2 mb-2 text-[10.5px] text-content-faint">attributes · vars · config</span>
+      {/* Header */}
+      <div className="h-10 shrink-0 flex items-center px-3.5 border-b border-line">
+        <span className="text-[12.5px] font-semibold text-content">Context</span>
+        <span className="ml-2 text-[10.5px] text-content-faint">request · vars · config</span>
       </div>
-      <div className="flex-1 overflow-y-auto p-3.5 space-y-4">
-        {/* HTTP Method — Postman-style colored pills */}
-        <div className="space-y-1.5">
-          <span className="text-xs font-medium text-content-muted uppercase tracking-wide">
-            Method
-          </span>
-          <div className="flex gap-1.5 flex-wrap">
-            {HTTP_METHODS.map((m) => {
-              const colors = METHOD_COLORS[m] || METHOD_COLORS.GET;
-              const isActive = context.method === m;
-              return (
-                <button
-                  key={m}
-                  onClick={() => updateMethod(m)}
-                  className={`h-6 px-2 inline-flex items-center justify-center rounded-md text-[10.5px] font-bold tracking-wide transition-all cursor-pointer border ${
-                    isActive
-                      ? `${colors.bg} ${colors.text} ${colors.border}`
-                      : 'bg-transparent border-line-subtle text-content-faint hover:text-content-secondary hover:border-line'
+
+      {/* Tabs */}
+      <div className="h-9 shrink-0 flex items-end px-2 border-b border-line gap-1">
+        {(['Request', 'Vars', 'Config'] as const).map((t) => {
+          const active = tab === t;
+          const count = t === 'Request' ? reqCount : t === 'Vars' ? varsCount : configCount;
+          return (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`relative h-full px-2.5 inline-flex items-center gap-1.5 text-[12px] font-medium cursor-pointer transition-colors ${
+                active ? 'text-content' : 'text-content-faint hover:text-content-secondary'
+              }`}
+            >
+              {t}
+              {count > 0 && (
+                <span
+                  className={`inline-flex items-center justify-center min-w-[16px] h-[15px] px-1 rounded-full font-mono text-[9.5px] ${
+                    active ? 'bg-accent-dim text-accent' : 'bg-surface-2 text-content-faint'
                   }`}
                 >
-                  {m}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                  {count}
+                </span>
+              )}
+              {active && <span className="absolute left-1.5 right-1.5 -bottom-px h-0.5 rounded-sm bg-accent" />}
+            </button>
+          );
+        })}
+      </div>
 
-        {/* Query Params */}
-        <KeyValueRows
-          label="Query Params"
-          pairs={context.queryParams}
-          onChange={updateQueryParams}
-          keyPlaceholder="param"
-          valuePlaceholder="value"
-        />
-
-        {/* Headers */}
-        <KeyValueRows
-          label="Headers"
-          pairs={context.headers}
-          onChange={updateHeaders}
-          keyPlaceholder="Header-Name"
-          valuePlaceholder="Header-Value"
-        />
-
-        {/* Separator */}
-        <div className="border-t border-line" />
-
-        {/* Vars */}
-        <VarsPanel vars={context.vars} onChange={updateVars} />
-
-        {/* Separator */}
-        <div className="border-t border-line" />
-
-        {/* Config Properties (YAML) */}
-        <div className="space-y-1.5">
-          <button
-            onClick={() => setConfigExpanded(!configExpanded)}
-            aria-label="Toggle config properties"
-            className="flex items-center gap-1.5 w-full cursor-pointer group"
-          >
-            <svg
-              width="10" height="10" viewBox="0 0 10 10"
-              className={`text-content-faint transition-transform ${configExpanded ? 'rotate-90' : ''}`}
-              fill="currentColor"
-            >
-              <path d="M3 1l5 4-5 4V1z" />
-            </svg>
-            <span className="text-xs font-medium text-violet uppercase tracking-wide">
-              Config
-            </span>
-            <span className="text-[9px] text-content-ghost">
-              {'${key}'}
-            </span>
-          </button>
-          {configExpanded && (
-            <div className="border border-line rounded overflow-hidden" style={{ height: 120 }}>
-              <Editor
-                height="100%"
-                language="yaml"
-                theme={editorTheme}
-                beforeMount={handleBeforeMount}
-                value={context.configYaml || ''}
-                onChange={(val) => onChange({ ...context, configYaml: val || '' })}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 11,
-                  lineNumbers: 'off',
-                  wordWrap: 'on',
-                  scrollBeyondLastLine: false,
-                  folding: false,
-                  glyphMargin: false,
-                  lineDecorationsWidth: 4,
-                  lineNumbersMinChars: 0,
-                  renderLineHighlight: 'none',
-                  scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
-                  overviewRulerLanes: 0,
-                  placeholder: CONFIG_PLACEHOLDER,
-                  autoClosingBrackets: 'always',
-                  autoClosingQuotes: 'always',
-                  autoSurround: 'brackets',
-                  autoIndent: 'full',
-                }}
-              />
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-3.5 space-y-4">
+        {tab === 'Request' && (
+          <>
+            <div className="space-y-1.5">
+              <span className="text-[10.5px] font-semibold text-content-faint uppercase tracking-[0.6px]">
+                Method
+              </span>
+              <div className="flex gap-1.5 flex-wrap">
+                {HTTP_METHODS.map((m) => {
+                  const colors = METHOD_COLORS[m] || METHOD_COLORS.GET;
+                  const isActive = context.method === m;
+                  return (
+                    <button
+                      key={m}
+                      onClick={() => updateMethod(m)}
+                      className={`h-6 px-2 inline-flex items-center justify-center rounded-md text-[10.5px] font-bold tracking-wide transition-all cursor-pointer border font-mono ${
+                        isActive
+                          ? `${colors.bg} ${colors.text} ${colors.border}`
+                          : 'bg-transparent border-line-subtle text-content-faint hover:text-content-secondary hover:border-line'
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          )}
-        </div>
 
-        {/* Secure Config (YAML) */}
-        <div className="space-y-1.5">
-          <button
-            onClick={() => setSecureExpanded(!secureExpanded)}
-            aria-label="Toggle secure config properties"
-            className="flex items-center gap-1.5 w-full cursor-pointer group"
-          >
-            <svg
-              width="10" height="10" viewBox="0 0 10 10"
-              className={`text-content-faint transition-transform ${secureExpanded ? 'rotate-90' : ''}`}
-              fill="currentColor"
-            >
-              <path d="M3 1l5 4-5 4V1z" />
-            </svg>
-            <span className="text-xs font-medium text-warn uppercase tracking-wide">
-              Secure Config
-            </span>
-            <span className="text-[9px] text-content-ghost">
-              {'${secure::key}'}
-            </span>
-          </button>
-          {secureExpanded && (
-            <>
-              <div className="border border-line rounded overflow-hidden" style={{ height: 120 }}>
+            <KeyValueRows
+              label="Query Params"
+              pairs={context.queryParams}
+              onChange={updateQueryParams}
+              keyPlaceholder="param"
+              valuePlaceholder="value"
+            />
+
+            <KeyValueRows
+              label="Headers"
+              pairs={context.headers}
+              onChange={updateHeaders}
+              keyPlaceholder="Header-Name"
+              valuePlaceholder="Header-Value"
+            />
+          </>
+        )}
+
+        {tab === 'Vars' && (
+          <VarsPanel vars={context.vars} onChange={updateVars} />
+        )}
+
+        {tab === 'Config' && (
+          <>
+            {/* config.yaml */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10.5px] font-semibold text-violet uppercase tracking-[0.6px]">
+                  config.yaml
+                </span>
+                <span className="text-[9.5px] text-content-ghost font-mono">{'${key}'}</span>
+              </div>
+              <div className="border border-line rounded overflow-hidden" style={{ height: 140 }}>
+                <Editor
+                  height="100%"
+                  language="yaml"
+                  theme={editorTheme}
+                  beforeMount={handleBeforeMount}
+                  value={context.configYaml || ''}
+                  onChange={(val) => onChange({ ...context, configYaml: val || '' })}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 11,
+                    lineNumbers: 'off',
+                    wordWrap: 'on',
+                    scrollBeyondLastLine: false,
+                    folding: false,
+                    glyphMargin: false,
+                    lineDecorationsWidth: 4,
+                    lineNumbersMinChars: 0,
+                    renderLineHighlight: 'none',
+                    scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
+                    overviewRulerLanes: 0,
+                    placeholder: CONFIG_PLACEHOLDER,
+                    autoClosingBrackets: 'always',
+                    autoClosingQuotes: 'always',
+                    autoSurround: 'brackets',
+                    autoIndent: 'full',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* secure-config.yaml */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10.5px] font-semibold text-warn uppercase tracking-[0.6px]">
+                  secure-config.yaml
+                </span>
+                <span className="text-[9.5px] text-content-ghost font-mono">{'${secure::key}'}</span>
+              </div>
+              <div className="border border-line rounded overflow-hidden" style={{ height: 140 }}>
                 <Editor
                   height="100%"
                   language="yaml"
@@ -227,111 +222,126 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
                   }}
                 />
               </div>
+            </div>
 
-              {/* Encryption settings — shown when YAML contains ![...] values */}
-              {hasEncryptedValues(context.secureConfigYaml || '') && (
-                <div className="space-y-2 p-2 border border-warn-border/20 rounded bg-warn-tint">
-                  <div className="flex items-center gap-1.5">
-                    <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 text-warn">
-                      <path d="M8 1a4 4 0 0 0-4 4v3H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V5a4 4 0 0 0-4-4zm2 7H6V5a2 2 0 1 1 4 0v3z"/>
-                    </svg>
-                    <span className="text-[10px] font-medium text-warn">Encrypted values detected</span>
+            {/* Encryption status row */}
+            {hasEncryptedValues(context.secureConfigYaml || '') && (
+              <div className="space-y-2 p-2.5 border border-warn-border rounded-md bg-warn-tint">
+                <div className="flex items-center gap-1.5">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 text-warn">
+                    <path d="M8 1a4 4 0 0 0-4 4v3H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V5a4 4 0 0 0-4-4zm2 7H6V5a2 2 0 1 1 4 0v3z" />
+                  </svg>
+                  <span className="text-[11px] font-medium text-warn">Encrypted values detected</span>
+                  <span className="ml-auto font-mono text-[10px] text-content-faint">
+                    {(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).algorithm} ·{' '}
+                    {(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).mode}
+                  </span>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[10px] text-content-faint">Encryption key</span>
+                  <div className="flex gap-1">
+                    <input
+                      type={showKey ? 'text' : 'password'}
+                      value={encryptionKey}
+                      onChange={(e) => onEncryptionKeyChange(e.target.value)}
+                      placeholder="Enter key to decrypt"
+                      className="flex-1 bg-surface-input border border-line-secondary rounded px-2 py-1 text-[11px] text-content placeholder-content-ghost focus:border-warn-border focus:outline-none font-mono"
+                    />
+                    <button
+                      onClick={() => setShowKey(!showKey)}
+                      className="px-2 text-[10px] text-content-faint hover:text-content-secondary border border-line-secondary rounded cursor-pointer"
+                      title={showKey ? 'Hide key' : 'Show key'}
+                    >
+                      {showKey ? 'Hide' : 'Show'}
+                    </button>
                   </div>
+                  <span className="text-[9px] text-content-ghost block">Not saved to workspace file</span>
+                </div>
 
-                  {/* Encryption Key */}
-                  <div className="space-y-1">
-                    <span className="text-[9px] text-content-faint">Encryption Key</span>
-                    <div className="flex gap-1">
-                      <input
-                        type={showKey ? 'text' : 'password'}
-                        value={encryptionKey}
-                        onChange={(e) => onEncryptionKeyChange(e.target.value)}
-                        placeholder="Enter key to decrypt"
-                        className="flex-1 bg-surface-input border border-line-secondary rounded px-1.5 py-1 text-[10px] text-content placeholder-content-ghost focus:border-warn-border/50 focus:outline-none font-mono"
-                      />
-                      <button
-                        onClick={() => setShowKey(!showKey)}
-                        className="px-1.5 text-[9px] text-content-faint hover:text-content-secondary border border-line-secondary rounded cursor-pointer"
-                        title={showKey ? 'Hide key' : 'Show key'}
-                      >
-                        {showKey ? 'Hide' : 'Show'}
-                      </button>
-                    </div>
-                    <span className="text-[8px] text-content-ghost block">Not saved to workspace file</span>
-                  </div>
-
-                  {/* Algorithm + Mode */}
-                  <div className="flex gap-2">
-                    <div className="flex-1 space-y-0.5">
-                      <span className="text-[9px] text-content-faint">Algorithm</span>
-                      <select
-                        value={(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).algorithm}
-                        onChange={(e) => onChange({
+                <div className="flex gap-2">
+                  <div className="flex-1 space-y-0.5">
+                    <span className="text-[10px] text-content-faint">Algorithm</span>
+                    <select
+                      value={(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).algorithm}
+                      onChange={(e) =>
+                        onChange({
                           ...context,
                           encryptionSettings: {
                             ...(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS),
                             algorithm: e.target.value,
                           },
-                        })}
-                        className="w-full bg-surface-input border border-line-secondary rounded px-1 py-0.5 text-[10px] text-content focus:outline-none cursor-pointer"
-                      >
-                        {ALGORITHMS.map((a) => (
-                          <option key={a} value={a}>{a}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex-1 space-y-0.5">
-                      <span className="text-[9px] text-content-faint">Mode</span>
-                      <select
-                        value={(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).mode}
-                        onChange={(e) => onChange({
+                        })
+                      }
+                      className="w-full bg-surface-input border border-line-secondary rounded px-1.5 py-1 text-[10.5px] text-content focus:outline-none cursor-pointer"
+                    >
+                      {ALGORITHMS.map((a) => (
+                        <option key={a} value={a}>
+                          {a}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex-1 space-y-0.5">
+                    <span className="text-[10px] text-content-faint">Mode</span>
+                    <select
+                      value={(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).mode}
+                      onChange={(e) =>
+                        onChange({
                           ...context,
                           encryptionSettings: {
                             ...(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS),
                             mode: e.target.value,
                           },
-                        })}
-                        className="w-full bg-surface-input border border-line-secondary rounded px-1 py-0.5 text-[10px] text-content focus:outline-none cursor-pointer"
-                      >
-                        {MODES.map((m) => (
-                          <option key={m} value={m}>{m}</option>
-                        ))}
-                      </select>
-                    </div>
+                        })
+                      }
+                      className="w-full bg-surface-input border border-line-secondary rounded px-1.5 py-1 text-[10.5px] text-content focus:outline-none cursor-pointer"
+                    >
+                      {MODES.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
                   </div>
+                </div>
 
-                  {/* useRandomIVs toggle */}
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).useRandomIVs}
-                      onChange={(e) => onChange({
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).useRandomIVs}
+                    onChange={(e) =>
+                      onChange({
                         ...context,
                         encryptionSettings: {
                           ...(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS),
                           useRandomIVs: e.target.checked,
                         },
-                      })}
-                      className="w-3 h-3 rounded border-line-secondary accent-warn"
-                    />
-                    <span className="text-[10px] text-content-muted">useRandomIVs</span>
-                    <span className="text-[8px] text-content-ghost">(recommended)</span>
-                  </label>
+                      })
+                    }
+                    className="w-3 h-3 rounded border-line-secondary accent-warn"
+                  />
+                  <span className="text-[11px] text-content-muted">Random IVs</span>
+                  <span className="text-[9.5px] text-content-ghost">(recommended)</span>
+                </label>
 
-                  {(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).algorithm !== 'AES' && (
-                    <div className="text-[9px] text-warn/80 leading-relaxed">
-                      Only AES is supported via Web Crypto. For {(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).algorithm}, enter plaintext values instead.
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-        </div>
+                {(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).algorithm !== 'AES' && (
+                  <div className="text-[10px] text-warn leading-relaxed">
+                    Only AES is supported via Web Crypto. For{' '}
+                    {(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).algorithm}, enter plaintext values
+                    instead.
+                  </div>
+                )}
+              </div>
+            )}
 
-        <div className="text-[9px] text-content-ghost leading-relaxed">
-          YAML keys are flattened with dots: <code className="text-[var(--violet)]">salesforce.path</code> → <code className="text-[var(--violet)]">{'${salesforce.path}'}</code>
-        </div>
+            <div className="text-[9.5px] text-content-ghost leading-relaxed">
+              YAML keys flatten with dots:{' '}
+              <code className="text-violet font-mono">salesforce.path</code> →{' '}
+              <code className="text-violet font-mono">{'${salesforce.path}'}</code>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
