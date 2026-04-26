@@ -33,14 +33,15 @@ interface ContextPanelProps {
   onChange: (context: ContextState) => void;
   encryptionKey: string;
   onEncryptionKeyChange: (key: string) => void;
+  defaultTab?: Tab;
 }
 
 function activeCount(pairs: KeyValuePair[]): number {
   return pairs.filter((p) => p.key && p.value !== '').length;
 }
 
-export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKeyChange }: ContextPanelProps) {
-  const [tab, setTab] = useState<Tab>('Request');
+export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKeyChange, defaultTab }: ContextPanelProps) {
+  const [tab, setTab] = useState<Tab>(defaultTab ?? 'Request');
   const [showKey, setShowKey] = useState(false);
   const { isDark } = useTheme();
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;

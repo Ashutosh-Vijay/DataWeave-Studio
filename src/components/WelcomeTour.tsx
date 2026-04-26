@@ -56,7 +56,7 @@ const STEPS: TourStep[] = [
     target: 'palette',
     title: 'Command palette',
     description:
-      'Press ⌘K to fuzzy-search every action — run, save, switch UI, change theme, open Settings. Layouts: ⌘1 Workbench, ⌘2 Focus. Theme: ⌘⇧T.',
+      'Press ⌘K to fuzzy-search every action — run, save, switch UI, change theme, open Settings. Layouts: ⌘⇧1 Workbench, ⌘⇧2 Focus. Theme: ⌘⇧T.',
     tip: '⌘/ opens the full keyboard reference any time.',
     placement: 'bottom',
   },
@@ -324,24 +324,39 @@ export function WelcomeTour({ onComplete }: WelcomeTourProps) {
           style={{ zIndex: 52 }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="bg-surface border border-line rounded-xl shadow-2xl w-[480px] max-w-[90vw] overflow-hidden">
+          <div className="bg-surface border border-line rounded-2xl shadow-2xl w-[520px] max-w-[90vw] overflow-hidden">
+            {/* Window chrome */}
+            <div className="h-9 shrink-0 flex items-center px-3.5 bg-rail border-b border-line">
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full" style={{ background: '#ff5f57' }} />
+                <span className="w-3 h-3 rounded-full" style={{ background: '#febc2e' }} />
+                <span className="w-3 h-3 rounded-full" style={{ background: '#28c840' }} />
+              </div>
+              <span className="flex-1" />
+              <span className="font-mono text-[10.5px] text-content-faint">DataWeave Studio · Tour</span>
+              <span className="flex-1" />
+            </div>
             <div className="px-8 py-7">
-              {/* Logo */}
+              {/* Brand lockup */}
               <div className="flex items-center gap-4 mb-5">
-                <svg width="48" height="48" viewBox="0 0 512 512" fill="none">
-                  <rect width="512" height="512" rx="100" fill="var(--surface-2)"/>
-                  <path d="M130 155 C190 155, 210 240, 256 240 S322 155, 382 155" stroke="var(--accent)" strokeWidth="34" strokeLinecap="round" fill="none"/>
-                  <path d="M130 357 C190 357, 210 272, 256 272 S322 357, 382 357" stroke="var(--violet)" strokeWidth="34" strokeLinecap="round" fill="none"/>
-                  <circle cx="256" cy="256" r="10" fill="var(--content)" opacity="0.9"/>
-                </svg>
+                <div
+                  className="w-12 h-12 shrink-0 rounded-xl flex items-center justify-center font-mono font-extrabold text-[18px]"
+                  style={{
+                    background: 'linear-gradient(135deg, var(--accent), color-mix(in oklch, var(--accent) 55%, var(--violet)))',
+                    color: 'var(--accent-ink)',
+                    boxShadow: '0 8px 24px color-mix(in oklch, var(--accent) 25%, transparent)',
+                  }}
+                >
+                  dw
+                </div>
                 <div>
-                  <h2 className="text-lg font-bold text-content">{current.title}</h2>
-                  <div className="text-[10px] text-content-faint mt-0.5">
+                  <h2 className="text-[20px] font-semibold text-content tracking-tight leading-tight">{current.title}</h2>
+                  <div className="text-[10.5px] text-content-faint mt-1 uppercase tracking-[0.6px] font-semibold">
                     Step {step + 1} of {STEPS.length}
                   </div>
                 </div>
               </div>
-              <p className="text-sm text-content-secondary leading-relaxed mb-5">{current.description}</p>
+              <p className="text-[13px] text-content-secondary leading-relaxed mb-5">{current.description}</p>
               <TourNav
                 step={step}
                 total={STEPS.length}

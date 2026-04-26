@@ -1,5 +1,5 @@
 import Editor, { useMonaco, BeforeMount } from '@monaco-editor/react';
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
 import { dwTokensProvider } from '../dataweaveGrammar';
 import { registerDWCompletionProvider, DWCompletionContext } from '../dataweaveCompletions';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
@@ -21,6 +21,13 @@ interface ScriptEditorProps {
     configYaml?: string;
     secureConfigYaml?: string;
   };
+  onCursorChange?: (line: number, col: number) => void;
+}
+
+export interface ScriptEditorHandle {
+  format: () => void;
+  focus: () => void;
+  insertSnippet: (text: string) => void;
 }
 
 /** Best-effort DW 1.0 → 2.0 source migration (client-side) */
@@ -117,7 +124,10 @@ function migrateDW1to2(src: string): string {
   return result;
 }
 
-export function ScriptEditor({ code, onChange, onRun, errorLine, headerLabel, payload, payloadMimeType, contextData }: ScriptEditorProps) {
+export const ScriptEditor = forwardRef<ScriptEditorHandle, ScriptEditorProps>(function ScriptEditor(
+  { code, onChange, onRun, errorLine, headerLabel, payload, payloadMimeType, contextData, onCursorChange },
+  ref,
+) {
   const monaco = useMonaco();
   const { isDark } = useTheme();
   const editorRef = useRef<any>(null);
@@ -143,6 +153,34 @@ export function ScriptEditor({ code, onChange, onRun, errorLine, headerLabel, pa
 
   const onRunRef = useRef(onRun);
   onRunRef.current = onRun;
+
+  const onCursorChangeRef = useRef(onCursorChange);
+  onCursorChangeRef.current = onCursorChange;
+
+  useImperativeHandle(ref, () => ({
+    format: () => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      const model = editor.getModel();
+      if (!model) return;
+      const lineCount = model.getLineCount();
+      editor.setSelection({ startLineNumber: 1, startColumn: 1, endLineNumber: lineCount, endColumn: model.getLineMaxColumn(lineCount) });
+      const action = editor.getAction('editor.action.reindentselectedlines') || editor.getAction('editor.action.reindentlines');
+      if (action) action.run();
+      editor.setPosition({ lineNumber: 1, column: 1 });
+    },
+    focus: () => editorRef.current?.focus(),
+    insertSnippet: (text: string) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      const sel = editor.getSelection();
+      const op = sel
+        ? { range: sel, text, forceMoveMarkers: true }
+        : { range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1 }, text, forceMoveMarkers: true };
+      editor.executeEdits('insert-snippet', [op]);
+      editor.focus();
+    },
+  }), []);
 
   const completionDisposableRef = useRef<any>(null);
   const contextRef = useRef<DWCompletionContext>({
@@ -288,6 +326,11 @@ export function ScriptEditor({ code, onChange, onRun, errorLine, headerLabel, pa
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter, () => {
       onRunRef.current();
     });
+    editor.onDidChangeCursorPosition((e: any) => {
+      onCursorChangeRef.current?.(e.position.lineNumber, e.position.column);
+    });
+    const pos = editor.getPosition();
+    if (pos) onCursorChangeRef.current?.(pos.lineNumber, pos.column);
   };
 
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
@@ -391,4 +434,4 @@ export function ScriptEditor({ code, onChange, onRun, errorLine, headerLabel, pa
       `}</style>
     </div>
   );
-}
+});

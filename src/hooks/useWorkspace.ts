@@ -60,6 +60,7 @@ interface UseWorkspaceReturn {
   listWorkspaces: () => Promise<string[]>;
   deleteWorkspace: (filename: string) => Promise<void>;
   newWorkspace: () => void;
+  duplicateWorkspace: () => void;
   isDirty: boolean;
   currentFile: string | null;
 }
@@ -176,6 +177,13 @@ export function useWorkspace(): UseWorkspaceReturn {
     if (currentFile === filename) setCurrentFile(null);
   }, [currentFile]);
 
+  const duplicateWorkspace = useCallback(() => {
+    const base = projectName.replace(/\s+copy(?:\s+\d+)?$/i, '');
+    setProjectName(`${base} copy`);
+    setCurrentFile(null);
+    setIsDirty(true);
+  }, [projectName]);
+
   const newWorkspace = useCallback(() => {
     scriptsByLabel.current = {
       Transform: DEFAULT_SCRIPT,
@@ -229,6 +237,7 @@ export function useWorkspace(): UseWorkspaceReturn {
     listWorkspaces,
     deleteWorkspace,
     newWorkspace,
+    duplicateWorkspace,
     isDirty,
     currentFile,
   };
