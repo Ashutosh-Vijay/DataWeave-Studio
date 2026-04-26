@@ -1,7 +1,7 @@
 mod dw_runner;
 mod workspace;
 
-use dw_runner::WarmupState;
+use dw_runner::{CliOverride, RunState, WarmupState};
 use std::sync::Mutex;
 use tauri::Manager;
 
@@ -15,6 +15,13 @@ pub fn run() {
         .manage(WarmupState {
             ready: Mutex::new(false),
             error: Mutex::new(None),
+        })
+        .manage(RunState {
+            child_pid: Mutex::new(None),
+            cancelled: Mutex::new(false),
+        })
+        .manage(CliOverride {
+            path: Mutex::new(None),
         })
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -46,11 +53,16 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             dw_runner::run_dataweave,
+            dw_runner::cancel_dataweave,
             dw_runner::migrate_dataweave,
             dw_runner::save_output_file,
             dw_runner::read_text_file,
             dw_runner::is_warmed_up,
             dw_runner::get_warmup_status,
+            dw_runner::restart_cli,
+            dw_runner::get_log_dir,
+            dw_runner::set_cli_path_override,
+            dw_runner::get_cli_path_override,
             workspace::save_workspace,
             workspace::load_workspace,
             workspace::list_workspaces,

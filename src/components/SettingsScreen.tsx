@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
+import { invoke } from '@tauri-apps/api/core';
 import { Icons } from './Icons';
 import { MIME_OPTIONS, MimeType } from '../types';
 import { useTheme } from '../ThemeContext';
@@ -20,6 +21,7 @@ interface SettingsScreenProps {
   onTimeoutMsChange: (ms: number) => void;
   onShowTour: () => void;
   onShowAbout: () => void;
+  onRestartCli: () => void;
 }
 
 const SECTIONS: { id: Section; label: string; icon: keyof typeof Icons; keywords: string[] }[] = [
@@ -45,7 +47,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
     payloadMimeType, onPayloadMimeTypeChange,
     classpath, onClasspathChange,
     timeoutMs, onTimeoutMsChange,
-    onShowTour, onShowAbout } = props;
+    onShowTour, onShowAbout, onRestartCli } = props;
   const { isDark, pref, setPref } = useTheme();
   const [section, setSection] = useState<Section>('appearance');
   const [search, setSearch] = useState('');
@@ -144,6 +146,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
                 onClasspathChange={onClasspathChange}
                 timeoutMs={timeoutMs}
                 onTimeoutMsChange={onTimeoutMsChange}
+                onRestartCli={onRestartCli}
               />
             )}
             {section === 'editor' && <EditorPanel />}
@@ -470,6 +473,7 @@ function RuntimePanel({
   payloadMimeType, onPayloadMimeTypeChange,
   classpath, onClasspathChange,
   timeoutMs, onTimeoutMsChange,
+  onRestartCli,
 }: {
   payloadMimeType: MimeType;
   onPayloadMimeTypeChange: (m: MimeType) => void;
@@ -477,19 +481,47 @@ function RuntimePanel({
   onClasspathChange: (cp: string[]) => void;
   timeoutMs: number;
   onTimeoutMsChange: (ms: number) => void;
+  onRestartCli: () => void;
 }) {
   const [warmup, setWarmup] = useState<boolean>(() => {
     try { return localStorage.getItem('dw.warmup') !== '0'; } catch { return true; }
   });
+  const [cliPath, setCliPath] = useState<string>(() => {
+    try { return localStorage.getItem('dw.cliPath') || ''; } catch { return ''; }
+  });
+
+  const applyCliPath = async (next: string) => {
+    setCliPath(next);
+    try {
+      if (next) localStorage.setItem('dw.cliPath', next);
+      else localStorage.removeItem('dw.cliPath');
+    } catch { /* ignore */ }
+    try {
+      await invoke('set_cli_path_override', { path: next || null });
+    } catch { /* ignore */ }
+    onRestartCli();
+  };
 
   return (
     <SectionWrap title="Runtime" desc="DataWeave CLI execution settings">
       <Group title="DataWeave CLI">
         <SRow label="CLI path" desc="Path to the DataWeave CLI binary. Leave empty for bundled.">
-          <span className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-surface-2 border border-line font-mono text-[11.5px] text-content-secondary">
-            {'<bundled>'}
-            <Icons.Folder size={12} />
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span
+              className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-surface-2 border border-line font-mono text-[11.5px] text-content-secondary max-w-[280px] truncate"
+              title={cliPath || '<bundled>'}
+            >
+              <Icons.Folder size={12} />
+              <span className="truncate">{cliPath || '<bundled>'}</span>
+            </span>
+            <OutlineBtn onClick={async () => {
+              const selected = await open({ multiple: false, directory: false });
+              if (typeof selected === 'string') await applyCliPath(selected);
+            }}>Browse…</OutlineBtn>
+            {cliPath && (
+              <OutlineBtn onClick={() => { applyCliPath(''); }}>Reset</OutlineBtn>
+            )}
+          </div>
         </SRow>
         <SRow label="Timeout (ms)" desc="Per-execution timeout. 0 = no limit.">
           <input

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { check } from '@tauri-apps/plugin-updater';
+import { invoke } from '@tauri-apps/api/core';
+import { openPath } from '@tauri-apps/plugin-opener';
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { ScriptEditor, ScriptEditorHandle } from './components/ScriptEditor';
 import { OpenWorkspaceDialog } from './components/OpenWorkspaceDialog';
@@ -369,6 +371,24 @@ function App() {
   const handleRunRef = useRef<() => void>(() => {});
   const canRunRef = useRef(false);
 
+  // Push the CLI path override from localStorage into Rust state on startup,
+  // then restart the warmup if the user has actually configured a custom path.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let stored: string | null = null;
+      try { stored = localStorage.getItem('dw.cliPath'); } catch { /* ignore */ }
+      if (cancelled) return;
+      try {
+        await invoke('set_cli_path_override', { path: stored && stored.trim() ? stored : null });
+      } catch { /* ignore */ }
+      if (stored && stored.trim() && !cancelled) {
+        try { await invoke('restart_cli'); } catch { /* ignore */ }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // Load app version and silently check for updates on startup
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => {});
@@ -470,7 +490,12 @@ function App() {
         toggle();
       } else if ((e.ctrlKey || e.metaKey) && e.key === '.') {
         e.preventDefault();
-        setFocusDrawerOpen((o) => !o);
+        // Context-sensitive: cancel a running script first; otherwise toggle the focus drawer.
+        if (runner.isRunning) {
+          runner.cancel();
+        } else {
+          setFocusDrawerOpen((o) => !o);
+        }
       } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'o' || e.key === 'O')) {
         e.preventDefault();
         setOpenWsOpen(true);
@@ -484,7 +509,7 @@ function App() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [workspace.saveWorkspace, workspace.duplicateWorkspace, toggle]);
+  }, [workspace.saveWorkspace, workspace.duplicateWorkspace, toggle, runner.isRunning, runner.cancel]);
 
   // Auto-run with 1.5s debounce — only fires when inputs change
   useEffect(() => {
@@ -728,7 +753,25 @@ function App() {
             <span className="text-[12px] font-medium" style={{ color: 'var(--err)' }}>DataWeave CLI unavailable</span>
             <span className="text-[12px] text-content-muted ml-2">{runner.cliError}</span>
           </div>
-          <span className="text-[10.5px] text-content-faint shrink-0">Scripts cannot be executed until this is resolved</span>
+          <button
+            onClick={() => { runner.restartCli(); }}
+            className="shrink-0 h-6 px-2 rounded text-[11px] font-medium text-content-secondary hover:text-content border border-line hover:bg-surface-2 cursor-pointer"
+            title="Re-run the warm-up probe"
+          >
+            Restart CLI
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                const dir = await invoke<string>('get_log_dir');
+                await openPath(dir);
+              } catch { /* ignore */ }
+            }}
+            className="shrink-0 h-6 px-2 rounded text-[11px] font-medium text-content-secondary hover:text-content border border-line hover:bg-surface-2 cursor-pointer"
+            title="Open the app log directory"
+          >
+            View logs
+          </button>
         </div>
       )}
 
@@ -831,6 +874,7 @@ function App() {
                   onNewScript={handleNewScript}
                   onImportCurl={handleOpenImport}
                   onOpenSnippets={handleOpenSnippets}
+                  onCancel={runner.cancel}
                 />
               }
             />
@@ -972,6 +1016,7 @@ function App() {
                 onNewScript={handleNewScript}
                 onImportCurl={handleOpenImport}
                 onOpenSnippets={handleOpenSnippets}
+                onCancel={runner.cancel}
               />
             </Panel>
 
@@ -1060,6 +1105,7 @@ function App() {
         onTimeoutMsChange={workspace.setTimeoutMs}
         onShowTour={() => { setSettingsOpen(false); setShowTour(true); }}
         onShowAbout={() => { setSettingsOpen(false); setAboutOpen(true); }}
+        onRestartCli={runner.restartCli}
       />
 
       {/* First-run picker */}

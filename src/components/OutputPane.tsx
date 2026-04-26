@@ -29,6 +29,7 @@ interface OutputPaneProps {
   onNewScript?: () => void;
   onImportCurl?: () => void;
   onOpenSnippets?: () => void;
+  onCancel?: () => void;
 }
 
 function extractDwErrorCode(message: string): string | null {
@@ -65,6 +66,7 @@ export function OutputPane({
   onNewScript,
   onImportCurl,
   onOpenSnippets,
+  onCancel,
 }: OutputPaneProps) {
   const [copied, setCopied] = useState(false);
   const [exported, setExported] = useState(false);
@@ -155,7 +157,7 @@ export function OutputPane({
       </div>
 
       {/* Run-loading banner */}
-      {isRunning && <RunLoadingBanner />}
+      {isRunning && <RunLoadingBanner onCancel={onCancel} />}
 
       {/* Content area */}
       <div className="flex-1 relative">
@@ -243,7 +245,7 @@ export function OutputPane({
   );
 }
 
-function RunLoadingBanner() {
+function RunLoadingBanner({ onCancel }: { onCancel?: () => void }) {
   return (
     <div
       className="shrink-0 flex items-center gap-2.5 px-3.5 py-1.5 border-b"
@@ -255,6 +257,16 @@ function RunLoadingBanner() {
       <div className="w-3 h-3 rounded-full border-2 border-t-transparent border-accent animate-spin" />
       <span className="text-[11.5px] font-medium text-accent">Running transform…</span>
       <span className="flex-1" />
+      {onCancel && (
+        <button
+          onClick={onCancel}
+          className="text-[11px] font-medium text-content-secondary hover:text-content cursor-pointer inline-flex items-center gap-1 px-2 py-0.5 rounded border border-line hover:bg-surface-2 transition-colors"
+          title="Cancel running script (⌘.)"
+        >
+          Cancel
+          <kbd className="text-[9.5px] font-mono text-content-faint">⌘.</kbd>
+        </button>
+      )}
     </div>
   );
 }
