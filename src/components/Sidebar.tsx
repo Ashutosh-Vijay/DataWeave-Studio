@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
-import { open } from '@tauri-apps/plugin-dialog';
 import { CurlImporter, CurlImportResult } from './CurlImporter';
-import { MIME_OPTIONS, NODE_LABELS, NODE_LABEL_COLORS, METHOD_COLORS, MimeType } from '../types';
+import { METHOD_COLORS } from '../types';
 import { Icons } from './Icons';
 
 const PINNED_KEY = 'dw.pinned';
@@ -28,7 +27,7 @@ function methodBadgeColor(method: string): string {
   return 'var(--accent)';
 }
 
-export type RailTab = 'workspaces' | 'import' | 'snippets' | 'secure' | 'settings';
+export type RailTab = 'workspaces' | 'import' | 'snippets';
 
 interface SidebarProps {
   projectName: string;
@@ -41,14 +40,6 @@ interface SidebarProps {
   onLoad: (filename: string) => Promise<void>;
   onDelete: (filename: string) => Promise<void>;
   listWorkspaces: () => Promise<string[]>;
-  nodeLabel: string;
-  onNodeLabelChange: (label: string) => void;
-  payloadMimeType: MimeType;
-  onPayloadMimeTypeChange: (mime: MimeType) => void;
-  classpath: string[];
-  onClasspathChange: (cp: string[]) => void;
-  timeoutMs: number;
-  onTimeoutMsChange: (ms: number) => void;
   onCurlImport: (result: CurlImportResult) => void;
   onInsertSnippet?: (body: string) => void;
   collapsed: boolean;
@@ -59,7 +50,6 @@ const RAIL_ITEMS: { id: RailTab; title: string; Icon: (typeof Icons)[keyof typeo
   { id: 'workspaces', title: 'Workspaces', Icon: Icons.Workspaces },
   { id: 'import', title: 'Import (cURL)', Icon: Icons.Import },
   { id: 'snippets', title: 'Snippets library', Icon: Icons.Library },
-  { id: 'secure', title: 'Secure properties', Icon: Icons.Secure },
 ];
 
 const SNIPPETS: { name: string; desc: string; body: string }[] = [
@@ -113,10 +103,6 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const {
     projectName, onProjectNameChange, currentFile, isDirty, currentMethod,
     onNew, onSave, onLoad, onDelete, listWorkspaces,
-    nodeLabel, onNodeLabelChange,
-    payloadMimeType, onPayloadMimeTypeChange,
-    classpath, onClasspathChange,
-    timeoutMs, onTimeoutMsChange,
     onCurlImport, onInsertSnippet, collapsed, onToggleCollapse,
   } = props;
 
@@ -171,17 +157,6 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     }
   };
 
-  const handleSettingsClick = () => {
-    if (collapsed) {
-      onToggleCollapse();
-      setTab('settings');
-    } else if (tab === 'settings') {
-      onToggleCollapse();
-    } else {
-      setTab('settings');
-    }
-  };
-
   return (
     <div data-tour="sidebar" className="flex shrink-0 overflow-hidden">
       {/* Icon Rail — 48px */}
@@ -211,21 +186,6 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
         {isDirty && (
           <div className="mx-auto w-1.5 h-1.5 rounded-full bg-warn mb-1" title="Unsaved changes" />
         )}
-        <button
-          onClick={handleSettingsClick}
-          title="Settings (Node label, MIME, Timeout, Classpath)"
-          aria-label="Settings"
-          className={`relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors ${
-            !collapsed && tab === 'settings'
-              ? 'bg-surface-2 text-content'
-              : 'text-content-faint hover:text-content-secondary'
-          }`}
-        >
-          {!collapsed && tab === 'settings' && (
-            <span className="absolute -left-2 top-2 bottom-2 w-0.5 bg-accent rounded-sm" />
-          )}
-          <Icons.Settings size={18} />
-        </button>
       </div>
 
       {/* Side Panel — 240px */}
@@ -237,8 +197,6 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
               {tab === 'workspaces' && 'Workspaces'}
               {tab === 'import' && 'Import'}
               {tab === 'snippets' && 'Snippets'}
-              {tab === 'secure' && 'Secure Properties'}
-              {tab === 'settings' && 'Settings'}
             </span>
             {tab === 'workspaces' && (
               <button
@@ -332,127 +290,6 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
               </div>
             )}
 
-            {tab === 'secure' && (
-              <div className="p-3 text-[11.5px] text-content-muted space-y-2">
-                <div className="p-3 rounded-md border border-dashed border-line bg-surface-2 text-center text-content-faint">
-                  <Icons.Secure size={18} />
-                  <div className="mt-1.5">Use the Secure Properties tool in the top bar to encrypt or decrypt values.</div>
-                </div>
-              </div>
-            )}
-
-            {tab === 'settings' && (
-              <div className="p-3 space-y-4">
-                {/* Input format */}
-                <div className="space-y-1">
-                  <label className="text-[10px] text-content-faint uppercase tracking-wide">Input Format</label>
-                  <select
-                    value={payloadMimeType}
-                    onChange={(e) => onPayloadMimeTypeChange(e.target.value as MimeType)}
-                    className="w-full bg-surface-2 border border-line rounded px-2 py-1.5 text-xs text-content focus:outline-none focus:border-accent cursor-pointer"
-                  >
-                    {MIME_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Node label */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-content-faint uppercase tracking-wide">Node Label</label>
-                  <div className="space-y-1">
-                    {NODE_LABELS.map((l) => {
-                      const colors = NODE_LABEL_COLORS[l] || NODE_LABEL_COLORS.Transform;
-                      const isActive = nodeLabel === l;
-                      return (
-                        <button
-                          key={l}
-                          onClick={() => onNodeLabelChange(l)}
-                          className={`w-full text-left px-2 py-1.5 rounded text-[11px] transition-all cursor-pointer border ${
-                            isActive
-                              ? `${colors.bg} ${colors.text} ${colors.border} font-medium`
-                              : 'bg-transparent border-transparent text-content-faint hover:text-content-secondary hover:bg-surface-2'
-                          }`}
-                        >
-                          {l}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Timeout */}
-                <div className="space-y-1">
-                  <label className="text-[10px] text-content-faint uppercase tracking-wide">Timeout (ms)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1000}
-                    value={timeoutMs}
-                    onChange={(e) => onTimeoutMsChange(Number(e.target.value))}
-                    className="w-full bg-surface-2 border border-line rounded px-2 py-1 text-xs text-content focus:border-accent focus:outline-none"
-                    title="0 = no timeout"
-                  />
-                  <div className="text-[9px] text-content-ghost">0 = no timeout</div>
-                </div>
-
-                {/* Classpath */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] text-content-faint uppercase tracking-wide">Classpath</label>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={async () => {
-                          const selected = await open({ multiple: true, directory: true });
-                          if (selected) {
-                            const entries = Array.isArray(selected) ? selected : [selected];
-                            onClasspathChange([...classpath, ...entries.filter(e => !classpath.includes(e))]);
-                          }
-                        }}
-                        className="text-[10px] text-accent hover:text-accent-hover cursor-pointer"
-                        title="Add directory"
-                      >+ Dir</button>
-                      <span className="text-content-ghost text-[10px]">·</span>
-                      <button
-                        onClick={async () => {
-                          const selected = await open({
-                            multiple: true,
-                            directory: false,
-                            filters: [{ name: 'JAR / DWL', extensions: ['jar', 'dwl'] }],
-                          });
-                          if (selected) {
-                            const entries = Array.isArray(selected) ? selected : [selected];
-                            onClasspathChange([...classpath, ...entries.filter(e => !classpath.includes(e))]);
-                          }
-                        }}
-                        className="text-[10px] text-accent hover:text-accent-hover cursor-pointer"
-                        title="Add JAR or .dwl file"
-                      >+ JAR</button>
-                    </div>
-                  </div>
-                  {classpath.length === 0 ? (
-                    <div className="text-[10px] text-content-ghost italic">No entries</div>
-                  ) : (
-                    <div className="space-y-0.5 max-h-40 overflow-y-auto">
-                      {classpath.map((entry, i) => (
-                        <div key={i} className="flex items-center gap-1 group px-1.5 py-1 rounded hover:bg-surface-2">
-                          <span className="flex-1 text-[10px] text-content-muted font-mono truncate" title={entry}>
-                            {entry.split(/[/\\]/).pop()}
-                          </span>
-                          <button
-                            onClick={() => onClasspathChange(classpath.filter((_, j) => j !== i))}
-                            className="text-content-ghost hover:text-err opacity-0 group-hover:opacity-100 cursor-pointer"
-                            aria-label="Remove"
-                          >
-                            <Icons.X size={10} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Footer */}

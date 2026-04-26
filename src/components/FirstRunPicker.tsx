@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Icons } from './Icons';
+import { MiniPreview } from './MiniPreview';
 
 const FIRST_RUN_KEY = 'dw.firstRun.seen';
 
@@ -56,7 +57,7 @@ export function FirstRunPicker({ initialTheme, initialLayout, onComplete }: Firs
               Welcome to DataWeave Studio
             </h1>
             <p className="text-[12.5px] text-content-faint mt-1">
-              Pick a starting look. You can change either anytime from the top bar.
+              Pick the layout and theme you like. You can change either anytime from Settings or ⌘K.
             </p>
           </div>
         </div>
@@ -109,7 +110,7 @@ export function FirstRunPicker({ initialTheme, initialLayout, onComplete }: Firs
               active={layout === 'focus'}
               onClick={() => setLayout('focus')}
               title="Focus"
-              desc="Editor + payload + output"
+              desc="Editor + output take the stage. Context opens as a right drawer on demand."
               tags={['Minimal chrome', 'Keyboard-first']}
             />
           </div>
@@ -118,8 +119,8 @@ export function FirstRunPicker({ initialTheme, initialLayout, onComplete }: Firs
         {/* Footer */}
         <div className="px-8 py-4 border-t border-line flex items-center gap-2">
           <button
-            onClick={() => onComplete({ theme, layout })}
-            className="text-[11.5px] text-content-faint hover:text-content-secondary cursor-pointer"
+            onClick={() => onComplete({ theme: 'dark', layout: 'workbench' })}
+            className="h-9 px-3.5 inline-flex items-center text-[12.5px] text-content-faint hover:text-content-secondary cursor-pointer rounded-md border border-line hover:bg-surface-2 transition-colors"
           >
             Skip, use defaults
           </button>
@@ -200,128 +201,3 @@ function LayoutCard({
   );
 }
 
-function MiniPreview({ variant, theme }: { variant: 'workbench' | 'focus'; theme: 'dark' | 'light' }) {
-  const surface = theme === 'dark' ? '#23201c' : '#fbf7ed';
-  const surface2 = theme === 'dark' ? '#2a2622' : '#efe8d8';
-  const line = theme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
-  const ink = theme === 'dark' ? '#cdc5b4' : '#2d2a25';
-  const faint = theme === 'dark' ? '#8b8478' : '#857d6e';
-
-  // Common: top bar
-  const TopBar = (
-    <div
-      style={{
-        height: 14, background: surface, borderBottom: `1px solid ${line}`,
-        display: 'flex', alignItems: 'center', gap: 4, padding: '0 5px', borderRadius: 3,
-      }}
-    >
-      <div
-        style={{
-          width: 8, height: 8, borderRadius: 2,
-          background: 'linear-gradient(135deg, var(--accent), color-mix(in oklch, var(--accent) 55%, var(--violet)))',
-        }}
-      />
-      <div style={{ flex: 1, height: 4, background: surface2, borderRadius: 2 }} />
-      <div style={{ width: 14, height: 6, background: 'var(--accent)', borderRadius: 2 }} />
-    </div>
-  );
-
-  if (variant === 'workbench') {
-    return (
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {TopBar}
-        <div style={{ flex: 1, display: 'flex', gap: 3, minHeight: 0 }}>
-          {/* Icon rail */}
-          <div style={{ width: 8, background: surface, borderRadius: 2, padding: '4px 1px', display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center' }}>
-            <div style={{ width: 4, height: 4, background: 'var(--accent)', borderRadius: 1 }} />
-            <div style={{ width: 4, height: 4, background: faint, borderRadius: 1, opacity: 0.5 }} />
-            <div style={{ width: 4, height: 4, background: faint, borderRadius: 1, opacity: 0.5 }} />
-          </div>
-          {/* Sidebar */}
-          <div style={{ width: 32, background: surface, borderRadius: 2, padding: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ height: 3, background: surface2, borderRadius: 1, width: '60%' }} />
-            <div style={{ height: 4, background: 'var(--accent-dim)', borderRadius: 1, marginTop: 2 }} />
-            <div style={{ height: 4, background: surface2, borderRadius: 1 }} />
-            <div style={{ height: 4, background: surface2, borderRadius: 1 }} />
-          </div>
-          {/* Editor */}
-          <div style={{ flex: 1.6, background: surface, borderRadius: 2, padding: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-              <div style={{ width: 10, height: 4, background: 'var(--accent-dim)', borderRadius: 1 }} />
-              <div style={{ flex: 1, height: 3, background: surface2, borderRadius: 1 }} />
-            </div>
-            <div style={{ height: 2, background: surface2, borderRadius: 1, width: '90%', marginTop: 2 }} />
-            <div style={{ height: 2, background: surface2, borderRadius: 1, width: '75%' }} />
-            <div style={{ height: 2, background: surface2, borderRadius: 1, width: '85%' }} />
-            <div style={{ height: 2, background: surface2, borderRadius: 1, width: '60%' }} />
-            <div style={{ flex: 1 }} />
-            <div style={{ height: 12, background: surface2, borderRadius: 1, marginTop: 2 }} />
-          </div>
-          {/* Context */}
-          <div style={{ width: 38, background: surface, borderRadius: 2, padding: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ display: 'flex', gap: 2 }}>
-              <div style={{ flex: 1, height: 3, background: ink, borderRadius: 1, opacity: 0.7 }} />
-              <div style={{ flex: 1, height: 3, background: surface2, borderRadius: 1 }} />
-              <div style={{ flex: 1, height: 3, background: surface2, borderRadius: 1 }} />
-            </div>
-            <div style={{ height: 2, background: surface2, borderRadius: 1 }} />
-            <div style={{ height: 2, background: surface2, borderRadius: 1, width: '80%' }} />
-            <div style={{ height: 2, background: surface2, borderRadius: 1, width: '60%' }} />
-          </div>
-          {/* Output */}
-          <div style={{ flex: 1.25, background: surface, borderRadius: 2, padding: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ height: 3, background: 'var(--accent-dim)', borderRadius: 1, width: '40%' }} />
-            <div style={{ height: 2, background: surface2, borderRadius: 1, width: '90%' }} />
-            <div style={{ height: 2, background: surface2, borderRadius: 1, width: '70%' }} />
-            <div style={{ height: 2, background: surface2, borderRadius: 1, width: '85%' }} />
-          </div>
-        </div>
-        {/* Status bar */}
-        <div style={{ height: 6, background: surface, borderRadius: 2, display: 'flex', alignItems: 'center', padding: '0 4px', gap: 2 }}>
-          <div style={{ width: 3, height: 3, background: 'var(--accent)', borderRadius: 99 }} />
-          <div style={{ flex: 1, height: 2, background: surface2, borderRadius: 1 }} />
-        </div>
-      </div>
-    );
-  }
-
-  // Focus
-  return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {TopBar}
-      <div style={{ flex: 1, display: 'flex', gap: 3, minHeight: 0 }}>
-        {/* Editor + Payload column */}
-        <div style={{ flex: 1.3, display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <div style={{ flex: 1.5, background: surface, borderRadius: 2, padding: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ height: 3, background: surface2, borderRadius: 1, width: '30%' }} />
-            <div style={{ height: 2, background: surface2, borderRadius: 1, width: '90%', marginTop: 2 }} />
-            <div style={{ height: 2, background: surface2, borderRadius: 1, width: '75%' }} />
-            <div style={{ height: 2, background: surface2, borderRadius: 1, width: '85%' }} />
-            <div style={{ height: 2, background: surface2, borderRadius: 1, width: '65%' }} />
-          </div>
-          <div style={{ flex: 1, background: surface, borderRadius: 2, padding: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ height: 3, background: surface2, borderRadius: 1, width: '25%' }} />
-            <div style={{ height: 2, background: surface2, borderRadius: 1, width: '80%', marginTop: 2 }} />
-            <div style={{ height: 2, background: surface2, borderRadius: 1, width: '60%' }} />
-          </div>
-        </div>
-        {/* Output */}
-        <div style={{ flex: 1, background: surface, borderRadius: 2, padding: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            <div style={{ flex: 1, height: 3, background: ink, borderRadius: 1, opacity: 0.7 }} />
-            <div style={{ width: 8, height: 3, background: 'var(--accent-dim)', borderRadius: 1 }} />
-          </div>
-          <div style={{ height: 2, background: surface2, borderRadius: 1, width: '90%', marginTop: 2 }} />
-          <div style={{ height: 2, background: surface2, borderRadius: 1, width: '70%' }} />
-          <div style={{ height: 2, background: surface2, borderRadius: 1, width: '85%' }} />
-          <div style={{ height: 2, background: surface2, borderRadius: 1, width: '55%' }} />
-        </div>
-      </div>
-      {/* Status bar */}
-      <div style={{ height: 6, background: surface, borderRadius: 2, display: 'flex', alignItems: 'center', padding: '0 4px', gap: 2 }}>
-        <div style={{ width: 3, height: 3, background: 'var(--accent)', borderRadius: 99 }} />
-        <div style={{ flex: 1, height: 2, background: surface2, borderRadius: 1 }} />
-      </div>
-    </div>
-  );
-}

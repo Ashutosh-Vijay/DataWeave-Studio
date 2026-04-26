@@ -3,12 +3,16 @@
 export interface KeyValuePair {
   key: string;
   value: string;
+  /** Per-row enable. Undefined or true = included in execution; false = skipped. */
+  enabled?: boolean;
 }
 
 export interface VarEntry {
   key: string;
   value: string;
   valueType: 'string' | 'json';
+  /** Per-row enable. Undefined or true = included in execution; false = skipped. */
+  enabled?: boolean;
 }
 
 export interface EncryptionSettings {
