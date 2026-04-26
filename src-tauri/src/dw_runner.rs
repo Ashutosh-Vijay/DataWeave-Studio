@@ -19,6 +19,20 @@ pub struct WarmupState {
     pub error: Mutex<Option<String>>,
 }
 
+/// Managed state for tracking the currently running DW script subprocess so it
+/// can be cancelled. PID is set once the child spawns, cleared on completion.
+pub struct RunState {
+    pub child_pid: Mutex<Option<u32>>,
+    pub cancelled: Mutex<bool>,
+}
+
+/// User-configurable override for the DW CLI binary path. When None, the
+/// bundled binary is used. The frontend pushes the value from localStorage
+/// during startup via `set_cli_path_override`.
+pub struct CliOverride {
+    pub path: Mutex<Option<String>>,
+}
+
 /// Get the platform-specific DW CLI binary resource path
 fn get_dw_binary_resource_path() -> &'static str {
     #[cfg(target_os = "windows")]
@@ -94,12 +108,49 @@ fn hide_console_window(cmd: &mut Command) {
 #[cfg(not(target_os = "windows"))]
 fn hide_console_window(_cmd: &mut Command) {}
 
-/// Resolve the DW CLI binary path from Tauri resources
+/// Resolve the DW CLI binary path. If the user has set a CLI override and the
+/// path exists, use it; otherwise fall back to the bundled binary.
 fn resolve_dw_binary(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let override_path = app
+        .state::<CliOverride>()
+        .path
+        .lock()
+        .unwrap()
+        .clone();
+    if let Some(p) = override_path {
+        let pb = std::path::PathBuf::from(&p);
+        if pb.exists() {
+            return Ok(pb);
+        }
+        return Err(format!(
+            "CLI path override is set but the file does not exist: {}",
+            p
+        ));
+    }
     let path = app.path()
         .resolve(get_dw_binary_resource_path(), tauri::path::BaseDirectory::Resource)
         .map_err(|e| format!("Failed to resolve DW binary path: {}", e))?;
     Ok(strip_unc_prefix(path))
+}
+
+/// Update the CLI path override. Pass an empty string or None to clear.
+/// Frontend calls this on startup with the value from localStorage and
+/// whenever the user changes the picker in Settings.
+#[tauri::command]
+pub fn set_cli_path_override(state: tauri::State<'_, CliOverride>, path: Option<String>) -> Result<(), String> {
+    let normalized = match path {
+        Some(p) if p.trim().is_empty() => None,
+        Some(p) => Some(p),
+        None => None,
+    };
+    *state.path.lock().unwrap() = normalized;
+    Ok(())
+}
+
+/// Get the current CLI path override (None if using bundled).
+#[tauri::command]
+pub fn get_cli_path_override(state: tauri::State<'_, CliOverride>) -> Option<String> {
+    state.path.lock().unwrap().clone()
 }
 
 /// Run a dummy DW script to warm up the CLI (eats the worst cold start)
@@ -322,6 +373,7 @@ fn cleanup_run_dir(dir: &std::path::Path) {
 #[tauri::command]
 pub async fn run_dataweave(
     app: AppHandle,
+    state: tauri::State<'_, RunState>,
     script: String,
     payload: String,
     payload_mime_type: String,
@@ -334,6 +386,10 @@ pub async fn run_dataweave(
     multipart_parts_json: Option<String>,
 ) -> Result<RunResult, String> {
     let start_time = Instant::now();
+
+    // Reset cancellation flag and any stale PID at the start of every run.
+    *state.cancelled.lock().unwrap() = false;
+    *state.child_pid.lock().unwrap() = None;
 
     let dw_binary_path = resolve_dw_binary(&app)?;
 
@@ -460,6 +516,9 @@ pub async fn run_dataweave(
             }
         })?;
 
+    // Record the PID so cancel_dataweave can kill it.
+    *state.child_pid.lock().unwrap() = Some(child.id());
+
     // Apply timeout via a killer thread
     let effective_timeout = timeout_ms.unwrap_or(0);
     let run_dir_clone = run_dir.clone();
@@ -484,6 +543,10 @@ pub async fn run_dataweave(
             }
             Err(_) => {
                 cleanup_run_dir(&run_dir_clone);
+                // Best-effort: kill the child so it doesn't keep running after the timeout.
+                if let Some(pid) = state.child_pid.lock().unwrap().take() {
+                    kill_pid(pid);
+                }
                 return Ok(RunResult {
                     output: String::new(),
                     error: Some(format!(
@@ -506,6 +569,23 @@ pub async fn run_dataweave(
     };
 
     let execution_time_ms = start_time.elapsed().as_millis() as u64;
+
+    // Clear the PID — the process is no longer running.
+    *state.child_pid.lock().unwrap() = None;
+
+    // If the user pressed Cancel while we were waiting, surface that as the
+    // result rather than reporting whatever non-zero exit the killed process
+    // produced.
+    if *state.cancelled.lock().unwrap() {
+        *state.cancelled.lock().unwrap() = false;
+        return Ok(RunResult {
+            output: String::new(),
+            error: Some("Cancelled".to_string()),
+            execution_time_ms,
+            error_line: None,
+            error_column: None,
+        });
+    }
 
     let stdout_str = String::from_utf8_lossy(&output.stdout).to_string();
     let raw_stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -557,4 +637,78 @@ pub fn save_output_file(path: String, content: String) -> Result<(), String> {
 pub fn read_text_file(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read file '{}': {}", path, e))
+}
+
+/// Kill a process tree by PID. Best-effort, platform-specific.
+/// On Windows uses `taskkill /F /T` to also kill child processes (the JVM
+/// the DW CLI shim launches). On Unix uses `kill -TERM`.
+fn kill_pid(pid: u32) {
+    #[cfg(target_os = "windows")]
+    {
+        let mut cmd = Command::new("taskkill");
+        cmd.arg("/PID").arg(pid.to_string()).arg("/F").arg("/T");
+        hide_console_window(&mut cmd);
+        let _ = cmd.status();
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        // SIGTERM first; the OS will reap the child and wait_with_output returns.
+        let _ = Command::new("kill").arg("-TERM").arg(pid.to_string()).status();
+    }
+}
+
+/// Cancel the currently-running DW script, if any.
+/// Marks the run as cancelled and kills the subprocess. The pending
+/// `run_dataweave` call will see the flag and return a Cancelled result.
+#[tauri::command]
+pub fn cancel_dataweave(state: tauri::State<'_, RunState>) -> Result<bool, String> {
+    let pid_opt = *state.child_pid.lock().unwrap();
+    match pid_opt {
+        Some(pid) => {
+            *state.cancelled.lock().unwrap() = true;
+            kill_pid(pid);
+            Ok(true)
+        }
+        None => Ok(false),
+    }
+}
+
+/// Reset warm-up state and re-run the warmup probe in a background thread.
+/// Used by the "Restart CLI" button on the CLI-down banner.
+#[tauri::command]
+pub fn restart_cli(app: AppHandle) -> Result<(), String> {
+    {
+        let state = app.state::<WarmupState>();
+        *state.ready.lock().unwrap() = false;
+        *state.error.lock().unwrap() = None;
+    }
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        match warmup_dw_cli(&handle) {
+            Ok(_) => {}
+            Err(e) => {
+                let state = handle.state::<WarmupState>();
+                *state.error.lock().unwrap() = Some(e);
+            }
+        }
+        let state = handle.state::<WarmupState>();
+        *state.ready.lock().unwrap() = true;
+    });
+    Ok(())
+}
+
+/// Return the absolute path to the app's log directory so the frontend can
+/// open it with the opener plugin.
+#[tauri::command]
+pub fn get_log_dir(app: AppHandle) -> Result<String, String> {
+    let path = app
+        .path()
+        .app_log_dir()
+        .map_err(|e| format!("Failed to resolve log dir: {}", e))?;
+    let path = strip_unc_prefix(path);
+    // Ensure the directory exists so the OS doesn't error on open.
+    let _ = std::fs::create_dir_all(&path);
+    path.to_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| "Log dir path is not valid UTF-8".to_string())
 }

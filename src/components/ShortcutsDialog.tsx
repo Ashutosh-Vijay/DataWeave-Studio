@@ -15,44 +15,46 @@ const GROUPS: { title: string; items: Shortcut[] }[] = [
   {
     title: 'Run & execute',
     items: [
-      { keys: ['⌘', '↵'], label: 'Run script' },
-      { keys: ['⌘', '⇧', 'A'], label: 'Toggle auto-run' },
+      { keys: ['⌘', '↵'], label: 'Run transform' },
+      { keys: ['⌘', '⇧', 'R'], label: 'Toggle auto-run' },
       { keys: ['⌘', '.'], label: 'Cancel running' },
     ],
   },
   {
     title: 'Workspace',
     items: [
-      { keys: ['⌘', 'S'], label: 'Save workspace' },
-      { keys: ['⌘', 'N'], label: 'New workspace' },
-      { keys: ['⌘', 'O'], label: 'Open workspace' },
-      { keys: ['⌘', 'W'], label: 'Close workspace' },
+      { keys: ['⌘', 'N'], label: 'New' },
+      { keys: ['⌘', 'S'], label: 'Save' },
+      { keys: ['⌘', 'O'], label: 'Open workspace…' },
+      { keys: ['⌘', 'D'], label: 'Duplicate' },
     ],
   },
   {
     title: 'Navigation',
     items: [
       { keys: ['⌘', 'K'], label: 'Command palette' },
-      { keys: ['⌘', 'B'], label: 'Toggle sidebar' },
-      { keys: ['⌘', '/'], label: 'Toggle context' },
-      { keys: ['⌘', '1'], label: 'Workbench layout' },
-      { keys: ['⌘', '2'], label: 'Focus layout' },
+      { keys: ['⌘', '1'], label: 'Go to script' },
+      { keys: ['⌘', '2'], label: 'Go to payload' },
+      { keys: ['⌘', '3'], label: 'Go to context' },
+      { keys: ['⌘', '4'], label: 'Go to output' },
     ],
   },
   {
     title: 'Appearance',
     items: [
+      { keys: ['⌘', '⇧', '1'], label: 'Switch to Workbench' },
+      { keys: ['⌘', '⇧', '2'], label: 'Switch to Focus' },
       { keys: ['⌘', '⇧', 'T'], label: 'Toggle theme' },
+      { keys: ['⌘', 'B'], label: 'Toggle sidebar' },
       { keys: ['⌘', ','], label: 'Open settings' },
-      { keys: ['⌘', '?'], label: 'Show shortcuts' },
     ],
   },
   {
     title: 'Import & tools',
     items: [
       { keys: ['⌘', '⇧', 'I'], label: 'Import cURL' },
-      { keys: ['⌘', '⇧', 'E'], label: 'Secure properties' },
-      { keys: ['⌘', '⇧', 'P'], label: 'Reveal data folder' },
+      { keys: ['⌘', '⇧', 'E'], label: 'Encrypt value' },
+      { keys: ['⌥', '⇧', 'F'], label: 'Format script' },
     ],
   },
 ];

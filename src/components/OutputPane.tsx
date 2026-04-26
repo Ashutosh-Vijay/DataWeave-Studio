@@ -26,6 +26,10 @@ interface OutputPaneProps {
   queryLanguage?: string;
   scriptSource?: string;
   onStartTour?: () => void;
+  onNewScript?: () => void;
+  onImportCurl?: () => void;
+  onOpenSnippets?: () => void;
+  onCancel?: () => void;
 }
 
 function extractDwErrorCode(message: string): string | null {
@@ -59,6 +63,10 @@ export function OutputPane({
   queryLanguage,
   scriptSource,
   onStartTour,
+  onNewScript,
+  onImportCurl,
+  onOpenSnippets,
+  onCancel,
 }: OutputPaneProps) {
   const [copied, setCopied] = useState(false);
   const [exported, setExported] = useState(false);
@@ -149,7 +157,7 @@ export function OutputPane({
       </div>
 
       {/* Run-loading banner */}
-      {isRunning && <RunLoadingBanner />}
+      {isRunning && <RunLoadingBanner onCancel={onCancel} />}
 
       {/* Content area */}
       <div className="flex-1 relative">
@@ -224,14 +232,20 @@ export function OutputPane({
             }}
           />
         ) : (
-          <StartTransformingHero isQueryMode={isQueryMode} onStartTour={onStartTour} />
+          <StartTransformingHero
+            isQueryMode={isQueryMode}
+            onStartTour={onStartTour}
+            onNewScript={onNewScript}
+            onImportCurl={onImportCurl}
+            onOpenSnippets={onOpenSnippets}
+          />
         )}
       </div>
     </div>
   );
 }
 
-function RunLoadingBanner() {
+function RunLoadingBanner({ onCancel }: { onCancel?: () => void }) {
   return (
     <div
       className="shrink-0 flex items-center gap-2.5 px-3.5 py-1.5 border-b"
@@ -243,6 +257,16 @@ function RunLoadingBanner() {
       <div className="w-3 h-3 rounded-full border-2 border-t-transparent border-accent animate-spin" />
       <span className="text-[11.5px] font-medium text-accent">Running transform…</span>
       <span className="flex-1" />
+      {onCancel && (
+        <button
+          onClick={onCancel}
+          className="text-[11px] font-medium text-content-secondary hover:text-content cursor-pointer inline-flex items-center gap-1 px-2 py-0.5 rounded border border-line hover:bg-surface-2 transition-colors"
+          title="Cancel running script (⌘.)"
+        >
+          Cancel
+          <kbd className="text-[9.5px] font-mono text-content-faint">⌘.</kbd>
+        </button>
+      )}
     </div>
   );
 }
@@ -266,17 +290,29 @@ function SkeletonRows() {
   );
 }
 
-function StartTransformingHero({ isQueryMode, onStartTour }: { isQueryMode?: boolean; onStartTour?: () => void }) {
+function StartTransformingHero({
+  isQueryMode,
+  onStartTour,
+  onNewScript,
+  onImportCurl,
+  onOpenSnippets,
+}: {
+  isQueryMode?: boolean;
+  onStartTour?: () => void;
+  onNewScript?: () => void;
+  onImportCurl?: () => void;
+  onOpenSnippets?: () => void;
+}) {
   const cards = isQueryMode
     ? [
-        { title: 'Define query', desc: 'Write SOQL or SQL with :param bindings', kbd: '⌘1' },
-        { title: 'Set parameters', desc: 'Bind values in the Vars panel', kbd: '⌘2' },
-        { title: 'Run', desc: 'Resolve parameters into final query', kbd: '⌘↵' },
+        { title: 'Define query', desc: 'Write SOQL or SQL with :param bindings', kbd: '⌘1', onClick: undefined as undefined | (() => void) },
+        { title: 'Set parameters', desc: 'Bind values in the Vars panel', kbd: '⌘2', onClick: undefined as undefined | (() => void) },
+        { title: 'Run', desc: 'Resolve parameters into final query', kbd: '⌘↵', onClick: undefined as undefined | (() => void) },
       ]
     : [
-        { title: 'Blank script', desc: 'Start from %dw 2.0 with empty output', kbd: 'B' },
-        { title: 'Import payload', desc: 'Drag & drop JSON, XML, or CSV', kbd: 'I' },
-        { title: 'Snippet', desc: 'Pick a template — map, filter, group', kbd: 'S' },
+        { title: 'Blank script', desc: 'Start from %dw 2.0 with empty output', kbd: '⌘N', onClick: onNewScript },
+        { title: 'Import payload', desc: 'Drag & drop JSON, XML, or CSV', kbd: '⌘⇧I', onClick: onImportCurl },
+        { title: 'Snippet', desc: 'Pick a template — map, filter, group', kbd: '⌘⇧S', onClick: onOpenSnippets },
       ];
   return (
     <div className="h-full overflow-auto flex items-center justify-center bg-surface px-6 py-10">
@@ -300,18 +336,28 @@ function StartTransformingHero({ isQueryMode, onStartTour }: { isQueryMode?: boo
             : 'Pick a starting point — a blank script, an imported payload, or a snippet template.'}
         </div>
         <div className="grid grid-cols-3 gap-2 mt-5 w-full">
-          {cards.map((c) => (
-            <div
-              key={c.title}
-              className="rounded-lg border border-line p-3 text-left bg-surface-2 hover:bg-surface-3 hover:border-line-secondary transition-colors cursor-pointer"
-            >
-              <div className="text-[12px] font-semibold text-content">{c.title}</div>
-              <div className="text-[10.5px] text-content-faint mt-1 leading-relaxed">{c.desc}</div>
-              <span className="inline-flex items-center justify-center mt-2 h-4 px-1.5 rounded bg-surface-3 border border-line-secondary font-mono text-[9.5px] text-content-faint">
-                {c.kbd}
-              </span>
-            </div>
-          ))}
+          {cards.map((c) => {
+            const interactive = !!c.onClick;
+            const Tag: any = interactive ? 'button' : 'div';
+            return (
+              <Tag
+                key={c.title}
+                onClick={c.onClick}
+                disabled={interactive ? false : undefined}
+                className={`rounded-lg border border-line p-3 text-left bg-surface-2 transition-colors ${
+                  interactive
+                    ? 'hover:bg-surface-3 hover:border-line-secondary cursor-pointer'
+                    : 'opacity-80'
+                }`}
+              >
+                <div className="text-[12px] font-semibold text-content">{c.title}</div>
+                <div className="text-[10.5px] text-content-faint mt-1 leading-relaxed">{c.desc}</div>
+                <span className="inline-flex items-center justify-center mt-2 h-4 px-1.5 rounded bg-surface-3 border border-line-secondary font-mono text-[9.5px] text-content-faint">
+                  {c.kbd}
+                </span>
+              </Tag>
+            );
+          })}
         </div>
         {onStartTour && (
           <button

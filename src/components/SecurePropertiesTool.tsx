@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   encryptValue,
   decryptValue,
+  inspectAesKey,
   EncryptionSettings,
   DEFAULT_ENCRYPTION_SETTINGS,
 } from '../cryptoUtils';
@@ -167,7 +168,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
                 type={showKey ? 'text' : 'password'}
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
-                placeholder="Any length — MD5-derived (MuleSoft-compatible)"
+                placeholder="Exactly 16, 24, or 32 chars (AES-128 / 192 / 256)"
                 className="flex-1 bg-surface-2 border border-line rounded-md px-3 py-2 text-[13px] text-content placeholder-content-ghost focus:border-accent focus:outline-none font-mono"
               />
               <button
@@ -177,11 +178,20 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
                 {showKey ? 'Hide' : 'Show'}
               </button>
             </div>
-            {key && (
-              <span className="text-[10px] text-content-ghost">
-                Key is {new TextEncoder().encode(key).length} bytes — MD5-hashed to AES-128
-              </span>
-            )}
+            {key && (() => {
+              const info = inspectAesKey(key);
+              return (
+                <span
+                  className="text-[10px]"
+                  style={{ color: info.aesValid ? 'var(--accent)' : 'var(--warn)' }}
+                >
+                  Key is {info.bytes} bytes —{' '}
+                  {info.aesValid
+                    ? `${info.aesVariant} ✓ matches MuleSoft secure-properties-tool`
+                    : 'invalid for AES (need 16, 24, or 32)'}
+                </span>
+              );
+            })()}
           </div>
 
           {/* Algorithm + Mode + useRandomIVs */}
@@ -210,14 +220,17 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
                 ))}
               </select>
             </div>
-            <label className="flex items-center gap-1.5 cursor-pointer pb-2">
+            <label
+              className="flex items-center gap-1.5 cursor-pointer pb-2"
+              title="Mule default is OFF (zero IV). Turn on only if your Mule app uses --use-random-iv."
+            >
               <input
                 type="checkbox"
                 checked={settings.useRandomIVs}
                 onChange={(e) => setSettings({ ...settings, useRandomIVs: e.target.checked })}
                 className="w-3.5 h-3.5 rounded border-line accent-[var(--accent)]"
               />
-              <span className="text-[11px] text-content-muted whitespace-nowrap">Random IVs</span>
+              <span className="text-[11px] text-content-muted whitespace-nowrap">Random IV</span>
             </label>
           </div>
 

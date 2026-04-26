@@ -4,7 +4,7 @@ import { ContextState, HTTP_METHODS, METHOD_COLORS, KeyValuePair, VarEntry } fro
 import { KeyValueRows } from './KeyValueRows';
 import { VarsPanel } from './VarsPanel';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
-import { hasEncryptedValues, DEFAULT_ENCRYPTION_SETTINGS } from '../cryptoUtils';
+import { hasEncryptedValues, inspectAesKey, DEFAULT_ENCRYPTION_SETTINGS } from '../cryptoUtils';
 import { useTheme } from '../ThemeContext';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
@@ -33,14 +33,15 @@ interface ContextPanelProps {
   onChange: (context: ContextState) => void;
   encryptionKey: string;
   onEncryptionKeyChange: (key: string) => void;
+  defaultTab?: Tab;
 }
 
 function activeCount(pairs: KeyValuePair[]): number {
   return pairs.filter((p) => p.key && p.value !== '').length;
 }
 
-export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKeyChange }: ContextPanelProps) {
-  const [tab, setTab] = useState<Tab>('Request');
+export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKeyChange, defaultTab }: ContextPanelProps) {
+  const [tab, setTab] = useState<Tab>(defaultTab ?? 'Request');
   const [showKey, setShowKey] = useState(false);
   const { isDark } = useTheme();
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
@@ -245,7 +246,7 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
                       type={showKey ? 'text' : 'password'}
                       value={encryptionKey}
                       onChange={(e) => onEncryptionKeyChange(e.target.value)}
-                      placeholder="Enter key to decrypt"
+                      placeholder="16, 24, or 32 chars"
                       className="flex-1 bg-surface-input border border-line-secondary rounded px-2 py-1 text-[11px] text-content placeholder-content-ghost focus:border-warn-border focus:outline-none font-mono"
                     />
                     <button
@@ -256,6 +257,17 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
                       {showKey ? 'Hide' : 'Show'}
                     </button>
                   </div>
+                  {encryptionKey ? (() => {
+                    const info = inspectAesKey(encryptionKey);
+                    return (
+                      <span
+                        className="text-[9px] block"
+                        style={{ color: info.aesValid ? 'var(--accent)' : 'var(--warn)' }}
+                      >
+                        {info.bytes} bytes — {info.aesValid ? `${info.aesVariant} ✓` : 'invalid AES length'}
+                      </span>
+                    );
+                  })() : null}
                   <span className="text-[9px] text-content-ghost block">Not saved to workspace file</span>
                 </div>
 
@@ -321,8 +333,8 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
                     }
                     className="w-3 h-3 rounded border-line-secondary accent-warn"
                   />
-                  <span className="text-[11px] text-content-muted">Random IVs</span>
-                  <span className="text-[9.5px] text-content-ghost">(recommended)</span>
+                  <span className="text-[11px] text-content-muted">Random IV</span>
+                  <span className="text-[9.5px] text-content-ghost">(off matches Mule default)</span>
                 </label>
 
                 {(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).algorithm !== 'AES' && (

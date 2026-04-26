@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 
 interface RunResult {
@@ -35,6 +35,8 @@ interface UseDWRunnerReturn {
     timeoutMs?: number,
     multipartPartsJson?: string,
   ) => Promise<void>;
+  cancel: () => Promise<void>;
+  restartCli: () => Promise<void>;
 }
 
 export function useDWRunner(): UseDWRunnerReturn {
@@ -46,14 +48,17 @@ export function useDWRunner(): UseDWRunnerReturn {
   const [executionTimeMs, setExecutionTimeMs] = useState<number | undefined>(undefined);
   const [isWarmedUp, setIsWarmedUp] = useState(false);
   const [cliError, setCliError] = useState<string | null>(null);
+  const pollGenRef = useRef(0);
 
-  useEffect(() => {
+  const startPolling = useCallback(() => {
+    const myGen = ++pollGenRef.current;
     const check = async () => {
+      if (pollGenRef.current !== myGen) return;
       try {
         const status = await invoke<WarmupStatus>('get_warmup_status');
         if (status.ready) {
           setIsWarmedUp(true);
-          if (status.error) setCliError(status.error);
+          setCliError(status.error ?? null);
           return;
         }
       } catch {
@@ -66,6 +71,10 @@ export function useDWRunner(): UseDWRunnerReturn {
     };
     check();
   }, []);
+
+  useEffect(() => {
+    startPolling();
+  }, [startPolling]);
 
   const run = useCallback(
     async (
@@ -117,6 +126,27 @@ export function useDWRunner(): UseDWRunnerReturn {
     []
   );
 
+  const cancel = useCallback(async () => {
+    try {
+      await invoke<boolean>('cancel_dataweave');
+    } catch {
+      /* nothing to cancel — ignore */
+    }
+  }, []);
+
+  const restartCli = useCallback(async () => {
+    setIsWarmedUp(false);
+    setCliError(null);
+    try {
+      await invoke('restart_cli');
+    } catch (e) {
+      setCliError(String(e));
+      setIsWarmedUp(true);
+      return;
+    }
+    startPolling();
+  }, [startPolling]);
+
   return {
     output,
     error,
@@ -127,5 +157,7 @@ export function useDWRunner(): UseDWRunnerReturn {
     isWarmedUp,
     cliError,
     run,
+    cancel,
+    restartCli,
   };
 }

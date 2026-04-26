@@ -26,7 +26,7 @@ export function FirstRunPicker({ initialTheme, initialLayout, onComplete }: Firs
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
       style={{ background: 'color-mix(in oklch, var(--bg) 80%, transparent)', backdropFilter: 'blur(2px)' }}
     >
-      <div className="w-full max-w-[680px] bg-surface border border-line rounded-2xl shadow-2xl overflow-hidden">
+      <div className="w-full max-w-[1240px] bg-surface border border-line rounded-2xl shadow-2xl overflow-hidden">
         {/* Window chrome with traffic lights */}
         <div className="h-9 shrink-0 flex items-center px-3.5 bg-rail border-b border-line">
           <div className="flex items-center gap-1.5">
@@ -174,7 +174,7 @@ function LayoutCard({
       )}
 
       {/* Mini preview */}
-      <div className="h-[148px] p-2.5" style={{ background: theme === 'dark' ? '#1a1815' : '#f6f1e8' }}>
+      <div className="h-[320px] p-4" style={{ background: theme === 'dark' ? '#1a1815' : '#f6f1e8' }}>
         <MiniPreview variant={variant} theme={theme} />
       </div>
 

@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { check } from '@tauri-apps/plugin-updater';
+import { invoke } from '@tauri-apps/api/core';
+import { openPath } from '@tauri-apps/plugin-opener';
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
-import { ScriptEditor } from './components/ScriptEditor';
+import { ScriptEditor, ScriptEditorHandle } from './components/ScriptEditor';
+import { OpenWorkspaceDialog } from './components/OpenWorkspaceDialog';
 import { PayloadTabs } from './components/PayloadTabs';
 import { OutputPane } from './components/OutputPane';
 import { ContextPanel } from './components/ContextPanel';
-import { Sidebar } from './components/Sidebar';
+import { Sidebar, SidebarHandle } from './components/Sidebar';
 import { QueryEditor } from './components/QueryEditor';
 import { AboutDialog } from './components/AboutDialog';
 import { SecurePropertiesTool } from './components/SecurePropertiesTool';
@@ -258,11 +261,20 @@ function StatusBar({
   appVersion,
   dwVersion,
   workspaceFile,
+  cursor,
+  focusToggles,
 }: {
   isReady: boolean;
   appVersion: string;
   dwVersion?: string;
   workspaceFile?: string;
+  cursor?: { line: number; col: number };
+  focusToggles?: {
+    drawerOpen: boolean;
+    activeTab: 'Request' | 'Vars' | 'Config';
+    counts: { Request: number; Vars: number; Config: number };
+    onSelect: (tab: 'Request' | 'Vars' | 'Config') => void;
+  };
 }) {
   return (
     <div
@@ -276,7 +288,33 @@ function StatusBar({
       </span>
       <span>DW {dwVersion || '2.5.0'}</span>
       {workspaceFile && <span className="truncate max-w-[280px]">{workspaceFile}</span>}
+      {focusToggles && (
+        <span className="flex items-center gap-1 ml-1">
+          {(['Request', 'Vars', 'Config'] as const).map((t) => {
+            const active = focusToggles.drawerOpen && focusToggles.activeTab === t;
+            const count = focusToggles.counts[t];
+            return (
+              <button
+                key={t}
+                onClick={() => focusToggles.onSelect(t)}
+                className={`inline-flex items-center gap-1 h-[18px] px-1.5 rounded text-[10.5px] font-sans border cursor-pointer transition-colors ${
+                  active
+                    ? 'bg-accent-dim border-accent-border text-accent'
+                    : 'border-transparent text-content-faint hover:text-content-secondary hover:border-line-secondary'
+                }`}
+                title={`Toggle ${t}`}
+              >
+                {t}
+                {count > 0 && (
+                  <span className="font-mono text-[9.5px] opacity-80">{count}</span>
+                )}
+              </button>
+            );
+          })}
+        </span>
+      )}
       <span className="flex-1" />
+      {cursor && <span>Ln {cursor.line}, Col {cursor.col}</span>}
       <span>UTF-8</span>
       <span>LF</span>
       {appVersion && <span className="text-content-ghost">v{appVersion}</span>}
@@ -299,6 +337,11 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [focusDrawerOpen, setFocusDrawerOpen] = useState(false);
   const [showFirstRun, setShowFirstRun] = useState(() => shouldShowFirstRun());
+  const [cursor, setCursor] = useState<{ line: number; col: number }>({ line: 1, col: 1 });
+  const [openWsOpen, setOpenWsOpen] = useState(false);
+  const [focusDrawerTab, setFocusDrawerTab] = useState<'Request' | 'Vars' | 'Config'>('Request');
+  const scriptEditorRef = useRef<ScriptEditorHandle>(null);
+  const sidebarRef = useRef<SidebarHandle>(null);
   const [layout, setLayout] = useState<'workbench' | 'focus'>(() => {
     try { return (localStorage.getItem('dw.layout') as 'workbench' | 'focus') || 'workbench'; } catch { return 'workbench'; }
   });
@@ -306,12 +349,45 @@ function App() {
   const isCompact = useMediaQuery('(max-width: 720px)');
   const effectiveLayout: 'workbench' | 'focus' = isCompact ? 'focus' : layout;
   useEffect(() => { if (isCompact) setSidebarCollapsed(true); }, [isCompact]);
+
+  const handleNewScript = useCallback(() => {
+    workspace.newWorkspace();
+    setTimeout(() => scriptEditorRef.current?.focus(), 50);
+  }, [workspace]);
+  const handleOpenImport = useCallback(() => {
+    setLayout('workbench');
+    setSidebarCollapsed(false);
+    sidebarRef.current?.openTab('import');
+  }, []);
+  const handleOpenSnippets = useCallback(() => {
+    setLayout('workbench');
+    setSidebarCollapsed(false);
+    sidebarRef.current?.openTab('snippets');
+  }, []);
   const [appVersion, setAppVersion] = useState('');
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState('');
   const autoRunTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleRunRef = useRef<() => void>(() => {});
   const canRunRef = useRef(false);
+
+  // Push the CLI path override from localStorage into Rust state on startup,
+  // then restart the warmup if the user has actually configured a custom path.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let stored: string | null = null;
+      try { stored = localStorage.getItem('dw.cliPath'); } catch { /* ignore */ }
+      if (cancelled) return;
+      try {
+        await invoke('set_cli_path_override', { path: stored && stored.trim() ? stored : null });
+      } catch { /* ignore */ }
+      if (stored && stored.trim() && !cancelled) {
+        try { await invoke('restart_cli'); } catch { /* ignore */ }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Load app version and silently check for updates on startup
   useEffect(() => {
@@ -398,23 +474,42 @@ function App() {
       } else if ((e.ctrlKey || e.metaKey) && e.key === ',') {
         e.preventDefault();
         setSettingsOpen((o) => !o);
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '1') {
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === '!') {
+        // ⌘⇧1 (shift+1 → "!" on most layouts) — Workbench layout
         e.preventDefault();
         setLayout('workbench');
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '2') {
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === '@') {
+        // ⌘⇧2 — Focus layout
         e.preventDefault();
         setLayout('focus');
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'R' || e.key === 'r')) {
+        e.preventDefault();
+        setAutoRun((a) => !a);
       } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'T' || e.key === 't')) {
         e.preventDefault();
         toggle();
       } else if ((e.ctrlKey || e.metaKey) && e.key === '.') {
         e.preventDefault();
-        setFocusDrawerOpen((o) => !o);
+        // Context-sensitive: cancel a running script first; otherwise toggle the focus drawer.
+        if (runner.isRunning) {
+          runner.cancel();
+        } else {
+          setFocusDrawerOpen((o) => !o);
+        }
+      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'o' || e.key === 'O')) {
+        e.preventDefault();
+        setOpenWsOpen(true);
+      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        workspace.duplicateWorkspace();
+      } else if (e.altKey && e.shiftKey && (e.key === 'F' || e.key === 'f' || e.code === 'KeyF')) {
+        e.preventDefault();
+        scriptEditorRef.current?.format();
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [workspace.saveWorkspace, toggle]);
+  }, [workspace.saveWorkspace, workspace.duplicateWorkspace, toggle, runner.isRunning, runner.cancel]);
 
   // Auto-run with 1.5s debounce — only fires when inputs change
   useEffect(() => {
@@ -450,12 +545,15 @@ function App() {
 
   const paletteCommands: Command[] = [
     { id: 'run', label: 'Run script', shortcut: '⌘↵', group: 'Run', run: () => { if (canRun) handleRun(); } },
-    { id: 'auto', label: autoRun ? 'Disable auto-run' : 'Enable auto-run', group: 'Run', run: () => setAutoRun(!autoRun) },
+    { id: 'auto', label: autoRun ? 'Disable auto-run' : 'Enable auto-run', shortcut: '⌘⇧R', group: 'Run', run: () => setAutoRun(!autoRun) },
     { id: 'save', label: 'Save workspace', shortcut: '⌘S', group: 'Workspace', run: () => { workspace.saveWorkspace(); } },
-    { id: 'new', label: 'New workspace', group: 'Workspace', run: () => workspace.newWorkspace() },
+    { id: 'new', label: 'New workspace', shortcut: '⌘N', group: 'Workspace', run: () => workspace.newWorkspace() },
+    { id: 'open', label: 'Open workspace…', shortcut: '⌘O', group: 'Workspace', run: () => setOpenWsOpen(true) },
+    { id: 'duplicate', label: 'Duplicate workspace', shortcut: '⌘D', group: 'Workspace', run: () => workspace.duplicateWorkspace() },
+    { id: 'format', label: 'Format script', shortcut: '⌥⇧F', group: 'Editor', run: () => scriptEditorRef.current?.format() },
     { id: 'sidebar', label: sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar', group: 'View', run: () => setSidebarCollapsed(!sidebarCollapsed) },
-    { id: 'layout-workbench', label: 'Switch UI → Workbench', hint: layout === 'workbench' ? 'current' : 'Icon rail · sidebar · tabs', shortcut: '⌘1', group: 'View', run: () => setLayout('workbench') },
-    { id: 'layout-focus', label: 'Switch UI → Focus', hint: layout === 'focus' ? 'current' : 'Editor · payload · drawer', shortcut: '⌘2', group: 'View', run: () => setLayout('focus') },
+    { id: 'layout-workbench', label: 'Switch UI → Workbench', hint: layout === 'workbench' ? 'current' : 'Icon rail · sidebar · tabs', shortcut: '⌘⇧1', group: 'View', run: () => setLayout('workbench') },
+    { id: 'layout-focus', label: 'Switch UI → Focus', hint: layout === 'focus' ? 'current' : 'Editor · payload · drawer', shortcut: '⌘⇧2', group: 'View', run: () => setLayout('focus') },
     ...(effectiveLayout === 'focus' && !isCompact
       ? [{ id: 'focus-drawer', label: focusDrawerOpen ? 'Close context drawer' : 'Open context drawer', shortcut: '⌘.', group: 'View', run: () => setFocusDrawerOpen((o) => !o) }]
       : []),
@@ -495,25 +593,40 @@ function App() {
           </div>
         </div>
 
-        {/* Breadcrumb: method · node · project / file */}
-        <div className="flex items-center gap-2 min-w-0">
-          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wide border font-mono ${methodColors.bg} ${methodColors.text} ${methodColors.border}`}>
-            {workspace.context.method}
-          </span>
-          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${nodeLabelColors.bg} ${nodeLabelColors.text} ${nodeLabelColors.border}`}>
-            {workspace.nodeLabel}
-          </span>
-          <span className="text-[13px] text-content-faint truncate">{workspace.projectName}</span>
-          {workspace.currentFile && (
-            <>
-              <span className="text-content-ghost">/</span>
-              <span className="text-[13px] text-content font-medium truncate">{workspace.currentFile.replace(/\.json$/, '')}</span>
-            </>
-          )}
-          {workspace.isDirty && (
-            <span className="text-warn text-base leading-none ml-0.5" title="Unsaved changes">•</span>
-          )}
-        </div>
+        {/* Breadcrumb: project / file • — clickable in focus mode (workspace dropdown) */}
+        {effectiveLayout === 'focus' ? (
+          <button
+            onClick={() => setOpenWsOpen(true)}
+            title="Open workspace (⌘O)"
+            className="flex items-center gap-2 min-w-0 h-7 px-2 rounded-md hover:bg-surface-2 cursor-pointer transition-colors"
+          >
+            <Icons.Braces size={13} className="text-content-faint shrink-0" />
+            <span className="text-[13px] text-content-faint truncate">{workspace.projectName}</span>
+            {workspace.currentFile && (
+              <>
+                <span className="text-content-ghost">/</span>
+                <span className="text-[13px] text-content font-medium truncate">{workspace.currentFile.replace(/\.json$/, '').replace(/\.dwstudio$/, '')}</span>
+              </>
+            )}
+            {workspace.isDirty && (
+              <span className="text-warn text-base leading-none ml-0.5" title="Unsaved changes">•</span>
+            )}
+            <Icons.ChevronDown size={12} className="text-content-ghost shrink-0" />
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[13px] text-content-faint truncate">{workspace.projectName}</span>
+            {workspace.currentFile && (
+              <>
+                <span className="text-content-ghost">/</span>
+                <span className="text-[13px] text-content font-medium truncate">{workspace.currentFile.replace(/\.json$/, '').replace(/\.dwstudio$/, '')}</span>
+              </>
+            )}
+            {workspace.isDirty && (
+              <span className="text-warn text-base leading-none ml-0.5" title="Unsaved changes">•</span>
+            )}
+          </div>
+        )}
 
         <div className="flex-1" />
 
@@ -557,15 +670,23 @@ function App() {
             <Icons.Panel size={15} />
           </IconBtn>
           {effectiveLayout === 'focus' && !isCompact && (
-            <IconBtn
-              title="Toggle context drawer"
+            <button
+              title="Toggle context drawer (⌘.)"
               onClick={() => setFocusDrawerOpen((o) => !o)}
+              className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] font-medium border cursor-pointer transition-colors ${
+                focusDrawerOpen
+                  ? 'bg-accent-dim border-accent-border text-accent'
+                  : 'bg-transparent border-line text-content-faint hover:border-line-secondary hover:text-content-secondary'
+              }`}
             >
-              <Icons.Settings size={15} />
-            </IconBtn>
+              <Icons.Braces size={12} /> Configure
+            </button>
           )}
           <IconBtn title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggle}>
             {isDark ? <Icons.Sun size={15} /> : <Icons.Moon size={15} />}
+          </IconBtn>
+          <IconBtn title="Settings (⌘,)" onClick={() => setSettingsOpen(true)}>
+            <Icons.Settings size={15} />
           </IconBtn>
 
           <div className="w-px h-4 bg-line mx-1" />
@@ -632,7 +753,25 @@ function App() {
             <span className="text-[12px] font-medium" style={{ color: 'var(--err)' }}>DataWeave CLI unavailable</span>
             <span className="text-[12px] text-content-muted ml-2">{runner.cliError}</span>
           </div>
-          <span className="text-[10.5px] text-content-faint shrink-0">Scripts cannot be executed until this is resolved</span>
+          <button
+            onClick={() => { runner.restartCli(); }}
+            className="shrink-0 h-6 px-2 rounded text-[11px] font-medium text-content-secondary hover:text-content border border-line hover:bg-surface-2 cursor-pointer"
+            title="Re-run the warm-up probe"
+          >
+            Restart CLI
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                const dir = await invoke<string>('get_log_dir');
+                await openPath(dir);
+              } catch { /* ignore */ }
+            }}
+            className="shrink-0 h-6 px-2 rounded text-[11px] font-medium text-content-secondary hover:text-content border border-line hover:bg-surface-2 cursor-pointer"
+            title="Open the app log directory"
+          >
+            View logs
+          </button>
         </div>
       )}
 
@@ -640,10 +779,12 @@ function App() {
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar — hidden in Focus layout / compact viewport */}
         {effectiveLayout === 'workbench' && <Sidebar
+          ref={sidebarRef}
           projectName={workspace.projectName}
           onProjectNameChange={workspace.setProjectName}
           currentFile={workspace.currentFile}
           isDirty={workspace.isDirty}
+          currentMethod={workspace.context.method}
           onNew={workspace.newWorkspace}
           onSave={workspace.saveWorkspace}
           onLoad={workspace.loadWorkspace}
@@ -658,6 +799,7 @@ function App() {
           timeoutMs={workspace.timeoutMs}
           onTimeoutMsChange={workspace.setTimeoutMs}
           onCurlImport={handleCurlImport}
+          onInsertSnippet={(body) => scriptEditorRef.current?.insertSnippet(body)}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />}
@@ -675,6 +817,7 @@ function App() {
               }}
               scriptPane={
                 <ScriptEditor
+                  ref={scriptEditorRef}
                   code={workspace.script}
                   onChange={(val) => workspace.setScript(val || '')}
                   onRun={handleRun}
@@ -689,6 +832,7 @@ function App() {
                     configYaml: workspace.context.configYaml,
                     secureConfigYaml: workspace.context.secureConfigYaml,
                   }}
+                  onCursorChange={(line, col) => setCursor({ line, col })}
                 />
               }
               payloadPane={
@@ -727,6 +871,10 @@ function App() {
                   queryLanguage={queryLanguage}
                   scriptSource={workspace.script}
                   onStartTour={() => setShowTour(true)}
+                  onNewScript={handleNewScript}
+                  onImportCurl={handleOpenImport}
+                  onOpenSnippets={handleOpenSnippets}
+                  onCancel={runner.cancel}
                 />
               }
             />
@@ -785,6 +933,7 @@ function App() {
                     )}
                     <div className="flex-1 min-h-0">
                     <ScriptEditor
+                      ref={scriptEditorRef}
                       code={workspace.script}
                       onChange={(val) => workspace.setScript(val || '')}
                       onRun={handleRun}
@@ -800,6 +949,7 @@ function App() {
                         configYaml: workspace.context.configYaml,
                         secureConfigYaml: workspace.context.secureConfigYaml,
                       }}
+                      onCursorChange={(line, col) => setCursor({ line, col })}
                     />
                     </div>
                   </div>
@@ -863,6 +1013,10 @@ function App() {
                 queryLanguage={queryLanguage}
                 scriptSource={workspace.script}
                 onStartTour={() => setShowTour(true)}
+                onNewScript={handleNewScript}
+                onImportCurl={handleOpenImport}
+                onOpenSnippets={handleOpenSnippets}
+                onCancel={runner.cancel}
               />
             </Panel>
 
@@ -876,6 +1030,24 @@ function App() {
         isReady={runner.isWarmedUp}
         appVersion={appVersion}
         workspaceFile={workspace.currentFile || undefined}
+        cursor={cursor}
+        focusToggles={effectiveLayout === 'focus' && !isCompact ? {
+          drawerOpen: focusDrawerOpen,
+          activeTab: focusDrawerTab,
+          counts: {
+            Request: workspace.context.queryParams.filter(p => p.key && p.value).length + workspace.context.headers.filter(h => h.key && h.value).length,
+            Vars: workspace.context.vars.filter(v => v.key).length,
+            Config: ((workspace.context.configYaml ?? '').trim() ? 1 : 0) + ((workspace.context.secureConfigYaml ?? '').trim() ? 1 : 0),
+          },
+          onSelect: (tab) => {
+            if (focusDrawerOpen && focusDrawerTab === tab) {
+              setFocusDrawerOpen(false);
+            } else {
+              setFocusDrawerTab(tab);
+              setFocusDrawerOpen(true);
+            }
+          },
+        } : undefined}
       />
 
       {/* About dialog */}
@@ -893,10 +1065,12 @@ function App() {
       {effectiveLayout === 'focus' && !isCompact && (
         <FocusDrawer open={focusDrawerOpen} onClose={() => setFocusDrawerOpen(false)}>
           <ContextPanel
+            key={focusDrawerTab}
             context={workspace.context}
             onChange={workspace.setContext}
             encryptionKey={encryptionKey}
             onEncryptionKeyChange={setEncryptionKey}
+            defaultTab={focusDrawerTab}
           />
         </FocusDrawer>
       )}
@@ -906,6 +1080,15 @@ function App() {
 
       {/* Shortcuts reference */}
       <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+
+      {/* Open workspace quick picker */}
+      <OpenWorkspaceDialog
+        open={openWsOpen}
+        onClose={() => setOpenWsOpen(false)}
+        listWorkspaces={workspace.listWorkspaces}
+        onOpen={(f) => workspace.loadWorkspace(f)}
+        currentFile={workspace.currentFile}
+      />
 
       {/* Settings */}
       <SettingsScreen
@@ -922,6 +1105,7 @@ function App() {
         onTimeoutMsChange={workspace.setTimeoutMs}
         onShowTour={() => { setSettingsOpen(false); setShowTour(true); }}
         onShowAbout={() => { setSettingsOpen(false); setAboutOpen(true); }}
+        onRestartCli={runner.restartCli}
       />
 
       {/* First-run picker */}
