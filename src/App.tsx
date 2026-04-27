@@ -21,6 +21,7 @@ import { SettingsScreen } from './components/SettingsScreen';
 import { CompactLayout } from './components/CompactLayout';
 import { FocusDrawer } from './components/FocusDrawer';
 import { FirstRunPicker, shouldShowFirstRun, markFirstRunSeen } from './components/FirstRunPicker';
+import { EmptyState, shouldShowEmptyState, markStarted } from './components/EmptyState';
 import { useWorkspace } from './hooks/useWorkspace';
 import { useDWRunner } from './hooks/useDWRunner';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -81,7 +82,7 @@ function substituteQueryParams(
 }
 
 function context_count(pairs: KeyValuePair[]): number {
-  return pairs.filter((p) => p.key && p.value !== '').length;
+  return pairs.filter((p) => p.enabled !== false && p.key && p.value !== '').length;
 }
 
 function buildAttributesJson(
@@ -94,7 +95,8 @@ function buildAttributesJson(
   if (queryParams.length > 0) {
     const qp: Record<string, string> = {};
     queryParams.forEach((p) => {
-      // Skip rows with empty key or empty value (absent param ≠ empty-string param in DW)
+      // Skip disabled or empty rows (absent param ≠ empty-string param in DW)
+      if (p.enabled === false) return;
       if (p.key && p.value !== '') qp[p.key] = p.value;
     });
     if (Object.keys(qp).length > 0) attrs.queryParams = qp;
@@ -103,6 +105,7 @@ function buildAttributesJson(
   if (headers.length > 0) {
     const h: Record<string, string> = {};
     headers.forEach((p) => {
+      if (p.enabled === false) return;
       if (p.key && p.value !== '') h[p.key] = p.value;
     });
     if (Object.keys(h).length > 0) attrs.headers = h;
@@ -115,6 +118,7 @@ function buildVarsJson(vars: VarEntry[]): string {
   const obj: Record<string, unknown> = {};
   vars.forEach((v) => {
     if (!v.key) return;
+    if (v.enabled === false) return;
     if (v.value.trim() === '') {
       // Empty value → DataWeave null (avoids "cannot operate on empty string" errors)
       obj[v.key] = null;
@@ -230,6 +234,42 @@ async function substitutePropertiesAsync(
   return substituteFromMaps(text, configFlat, secureFlat);
 }
 
+function NodeLabelChip({ nodeLabel, onChange }: { nodeLabel: string; onChange: (l: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const colors = NODE_LABEL_COLORS[nodeLabel] || NODE_LABEL_COLORS.Transform;
+  return (
+    <div className="relative hidden sm:block">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        title="Change node role"
+        className={`inline-flex items-center gap-1 h-[22px] px-1.5 rounded text-[10.5px] font-medium border cursor-pointer ${colors.bg} ${colors.text} ${colors.border}`}
+      >
+        {nodeLabel}
+        <Icons.ChevronDown size={10} className="opacity-70" />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-[26px] z-30 min-w-[170px] py-1 rounded-md bg-surface border border-line shadow-lg">
+          {NODE_LABELS.map((l) => {
+            const c = NODE_LABEL_COLORS[l] || NODE_LABEL_COLORS.Transform;
+            const active = l === nodeLabel;
+            return (
+              <button
+                key={l}
+                onMouseDown={(e) => { e.preventDefault(); onChange(l); setOpen(false); }}
+                className={`w-full flex items-center gap-2 px-2.5 h-7 text-[12px] cursor-pointer ${active ? 'bg-surface-2 text-content' : 'text-content-secondary hover:bg-surface-2'}`}
+              >
+                <span className={`inline-block w-2 h-2 rounded-sm ${c.bg} ${c.border} border`} />
+                {l}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function IconBtn({
   children,
   onClick,
@@ -337,6 +377,10 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [focusDrawerOpen, setFocusDrawerOpen] = useState(false);
   const [showFirstRun, setShowFirstRun] = useState(() => shouldShowFirstRun());
+  const [hasStarted, setHasStarted] = useState(() => !shouldShowEmptyState());
+  const beginTransforming = useCallback(() => {
+    if (!hasStarted) { markStarted(); setHasStarted(true); }
+  }, [hasStarted]);
   const [cursor, setCursor] = useState<{ line: number; col: number }>({ line: 1, col: 1 });
   const [openWsOpen, setOpenWsOpen] = useState(false);
   const [focusDrawerTab, setFocusDrawerTab] = useState<'Request' | 'Vars' | 'Config'>('Request');
@@ -351,25 +395,36 @@ function App() {
   useEffect(() => { if (isCompact) setSidebarCollapsed(true); }, [isCompact]);
 
   const handleNewScript = useCallback(() => {
+    beginTransforming();
     workspace.newWorkspace();
     setTimeout(() => scriptEditorRef.current?.focus(), 50);
-  }, [workspace]);
+  }, [workspace, beginTransforming]);
   const handleOpenImport = useCallback(() => {
+    beginTransforming();
     setLayout('workbench');
     setSidebarCollapsed(false);
-    sidebarRef.current?.openTab('import');
-  }, []);
+    setTimeout(() => sidebarRef.current?.openTab('import'), 0);
+  }, [beginTransforming]);
   const handleOpenSnippets = useCallback(() => {
+    beginTransforming();
     setLayout('workbench');
     setSidebarCollapsed(false);
-    sidebarRef.current?.openTab('snippets');
-  }, []);
+    setTimeout(() => sidebarRef.current?.openTab('snippets'), 0);
+  }, [beginTransforming]);
   const [appVersion, setAppVersion] = useState('');
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState('');
   const autoRunTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleRunRef = useRef<() => void>(() => {});
   const canRunRef = useRef(false);
+
+  // Auto-dismiss empty state once a workspace gets opened from disk
+  useEffect(() => {
+    if (workspace.currentFile && !hasStarted) {
+      markStarted();
+      setHasStarted(true);
+    }
+  }, [workspace.currentFile, hasStarted]);
 
   // Push the CLI path override from localStorage into Rust state on startup,
   // then restart the warmup if the user has actually configured a custom path.
@@ -474,11 +529,11 @@ function App() {
       } else if ((e.ctrlKey || e.metaKey) && e.key === ',') {
         e.preventDefault();
         setSettingsOpen((o) => !o);
-      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === '!') {
-        // ⌘⇧1 (shift+1 → "!" on most layouts) — Workbench layout
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.code === 'Digit1' || e.key === '!')) {
+        // ⌘⇧1 — Workbench layout (e.code is keyboard-layout-independent)
         e.preventDefault();
         setLayout('workbench');
-      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === '@') {
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.code === 'Digit2' || e.key === '@')) {
         // ⌘⇧2 — Focus layout
         e.preventDefault();
         setLayout('focus');
@@ -546,10 +601,10 @@ function App() {
   const paletteCommands: Command[] = [
     { id: 'run', label: 'Run script', shortcut: '⌘↵', group: 'Run', run: () => { if (canRun) handleRun(); } },
     { id: 'auto', label: autoRun ? 'Disable auto-run' : 'Enable auto-run', shortcut: '⌘⇧R', group: 'Run', run: () => setAutoRun(!autoRun) },
-    { id: 'save', label: 'Save workspace', shortcut: '⌘S', group: 'Workspace', run: () => { workspace.saveWorkspace(); } },
-    { id: 'new', label: 'New workspace', shortcut: '⌘N', group: 'Workspace', run: () => workspace.newWorkspace() },
+    { id: 'save', label: 'Save workspace', shortcut: '⌘S', group: 'Workspace', run: () => { beginTransforming(); workspace.saveWorkspace(); } },
+    { id: 'new', label: 'New workspace', shortcut: '⌘N', group: 'Workspace', run: () => { beginTransforming(); workspace.newWorkspace(); } },
     { id: 'open', label: 'Open workspace…', shortcut: '⌘O', group: 'Workspace', run: () => setOpenWsOpen(true) },
-    { id: 'duplicate', label: 'Duplicate workspace', shortcut: '⌘D', group: 'Workspace', run: () => workspace.duplicateWorkspace() },
+    { id: 'duplicate', label: 'Duplicate workspace', shortcut: '⌘D', group: 'Workspace', run: () => { beginTransforming(); workspace.duplicateWorkspace(); } },
     { id: 'format', label: 'Format script', shortcut: '⌥⇧F', group: 'Editor', run: () => scriptEditorRef.current?.format() },
     { id: 'sidebar', label: sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar', group: 'View', run: () => setSidebarCollapsed(!sidebarCollapsed) },
     { id: 'layout-workbench', label: 'Switch UI → Workbench', hint: layout === 'workbench' ? 'current' : 'Icon rail · sidebar · tabs', shortcut: '⌘⇧1', group: 'View', run: () => setLayout('workbench') },
@@ -579,18 +634,22 @@ function App() {
     <div className="h-screen w-screen bg-bg text-content flex flex-col font-sans select-none">
       {/* Top bar — brand, breadcrumb, ⌘K search, run cluster */}
       <header data-tour="header" className="h-11 flex items-center gap-3 px-3 bg-surface border-b border-line shrink-0">
-        {/* Brand mark */}
+        {/* Brand mark — also the About entry; subtle dot when an update is available */}
         <div className="flex items-center justify-center w-11 shrink-0">
-          <div
-            className="w-[22px] h-[22px] rounded-md flex items-center justify-center font-mono font-extrabold text-[11px]"
+          <button
+            onClick={() => setAboutOpen(true)}
+            title={updateAvailable ? 'Update available — open About' : 'About DataWeave Studio'}
+            className="relative w-[22px] h-[22px] rounded-md flex items-center justify-center font-mono font-extrabold text-[11px] cursor-pointer"
             style={{
               background: 'linear-gradient(135deg, var(--accent), color-mix(in oklch, var(--accent) 60%, var(--violet)))',
               color: 'var(--accent-ink)',
             }}
-            title="DataWeave Studio"
           >
             dw
-          </div>
+            {updateAvailable && (
+              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-accent ring-2 ring-surface" />
+            )}
+          </button>
         </div>
 
         {/* Breadcrumb: project / file • — clickable in focus mode (workspace dropdown) */}
@@ -628,6 +687,9 @@ function App() {
           </div>
         )}
 
+        {/* Node label chip — picks the workspace's role (Transform / Salesforce Query / DB Query / …) */}
+        <NodeLabelChip nodeLabel={workspace.nodeLabel} onChange={workspace.setNodeLabel} />
+
         <div className="flex-1" />
 
         {/* ⌘K command palette trigger */}
@@ -644,49 +706,10 @@ function App() {
 
         <div className="flex-1" />
 
-        {/* Right cluster */}
+        {/* Right cluster — design spec: theme + Run only beside palette */}
         <div className="flex items-center gap-1">
-          <IconBtn title="Show guided tour" onClick={() => setShowTour(true)}>
-            <Icons.Help size={15} />
-          </IconBtn>
-          <IconBtn title="Secure Properties Tool" onClick={() => setSecureToolOpen(true)}>
-            <Icons.Secure size={15} />
-          </IconBtn>
-          <IconBtn
-            title={updateAvailable ? 'Update available — open About' : 'About DataWeave Studio'}
-            onClick={() => setAboutOpen(true)}
-          >
-            <span className="relative inline-flex">
-              <Icons.Activity size={15} />
-              {updateAvailable && (
-                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-accent" />
-              )}
-            </span>
-          </IconBtn>
-          <IconBtn
-            title={layout === 'focus' ? 'Switch to Workbench layout' : 'Switch to Focus layout'}
-            onClick={() => setLayout(layout === 'focus' ? 'workbench' : 'focus')}
-          >
-            <Icons.Panel size={15} />
-          </IconBtn>
-          {effectiveLayout === 'focus' && !isCompact && (
-            <button
-              title="Toggle context drawer (⌘.)"
-              onClick={() => setFocusDrawerOpen((o) => !o)}
-              className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] font-medium border cursor-pointer transition-colors ${
-                focusDrawerOpen
-                  ? 'bg-accent-dim border-accent-border text-accent'
-                  : 'bg-transparent border-line text-content-faint hover:border-line-secondary hover:text-content-secondary'
-              }`}
-            >
-              <Icons.Braces size={12} /> Configure
-            </button>
-          )}
           <IconBtn title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggle}>
             {isDark ? <Icons.Sun size={15} /> : <Icons.Moon size={15} />}
-          </IconBtn>
-          <IconBtn title="Settings (⌘,)" onClick={() => setSettingsOpen(true)}>
-            <Icons.Settings size={15} />
           </IconBtn>
 
           <div className="w-px h-4 bg-line mx-1" />
@@ -777,35 +800,34 @@ function App() {
 
       {/* Body: Sidebar + Main */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar — hidden in Focus layout / compact viewport */}
-        {effectiveLayout === 'workbench' && <Sidebar
+        {/* Sidebar — hidden in Focus layout / compact viewport / empty state */}
+        {effectiveLayout === 'workbench' && hasStarted && <Sidebar
           ref={sidebarRef}
           projectName={workspace.projectName}
           onProjectNameChange={workspace.setProjectName}
           currentFile={workspace.currentFile}
           isDirty={workspace.isDirty}
           currentMethod={workspace.context.method}
-          onNew={workspace.newWorkspace}
+          onNew={() => { beginTransforming(); workspace.newWorkspace(); }}
           onSave={workspace.saveWorkspace}
           onLoad={workspace.loadWorkspace}
           onDelete={workspace.deleteWorkspace}
           listWorkspaces={workspace.listWorkspaces}
-          nodeLabel={workspace.nodeLabel}
-          onNodeLabelChange={workspace.setNodeLabel}
-          payloadMimeType={workspace.payloadMimeType}
-          onPayloadMimeTypeChange={workspace.setPayloadMimeType}
-          classpath={workspace.classpath}
-          onClasspathChange={workspace.setClasspath}
-          timeoutMs={workspace.timeoutMs}
-          onTimeoutMsChange={workspace.setTimeoutMs}
           onCurlImport={handleCurlImport}
           onInsertSnippet={(body) => scriptEditorRef.current?.insertSnippet(body)}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />}
 
-        {/* Main — compact uses pane tabs, otherwise three resizable columns */}
-        {isCompact ? (
+        {/* Main — empty state, then compact pane tabs, then three resizable columns */}
+        {!hasStarted ? (
+          <EmptyState
+            onBlankTransform={handleNewScript}
+            onImportCurl={handleOpenImport}
+            onOpenSnippets={handleOpenSnippets}
+            onStartTour={() => setShowTour(true)}
+          />
+        ) : isCompact ? (
           <main className="flex-1 overflow-hidden bg-bg">
             <CompactLayout
               badges={{
@@ -870,10 +892,6 @@ function App() {
                   isQueryMode={isQueryMode}
                   queryLanguage={queryLanguage}
                   scriptSource={workspace.script}
-                  onStartTour={() => setShowTour(true)}
-                  onNewScript={handleNewScript}
-                  onImportCurl={handleOpenImport}
-                  onOpenSnippets={handleOpenSnippets}
                   onCancel={runner.cancel}
                 />
               }
@@ -1012,10 +1030,6 @@ function App() {
                 isQueryMode={isQueryMode}
                 queryLanguage={queryLanguage}
                 scriptSource={workspace.script}
-                onStartTour={() => setShowTour(true)}
-                onNewScript={handleNewScript}
-                onImportCurl={handleOpenImport}
-                onOpenSnippets={handleOpenSnippets}
                 onCancel={runner.cancel}
               />
             </Panel>
@@ -1035,8 +1049,8 @@ function App() {
           drawerOpen: focusDrawerOpen,
           activeTab: focusDrawerTab,
           counts: {
-            Request: workspace.context.queryParams.filter(p => p.key && p.value).length + workspace.context.headers.filter(h => h.key && h.value).length,
-            Vars: workspace.context.vars.filter(v => v.key).length,
+            Request: workspace.context.queryParams.filter(p => p.enabled !== false && p.key && p.value).length + workspace.context.headers.filter(h => h.enabled !== false && h.key && h.value).length,
+            Vars: workspace.context.vars.filter(v => v.enabled !== false && v.key).length,
             Config: ((workspace.context.configYaml ?? '').trim() ? 1 : 0) + ((workspace.context.secureConfigYaml ?? '').trim() ? 1 : 0),
           },
           onSelect: (tab) => {

@@ -284,9 +284,10 @@ export const ScriptEditor = forwardRef<ScriptEditorHandle, ScriptEditorProps>(fu
     };
   }, [monaco]);
 
-  // Switch Monaco theme when app theme changes
+  // Switch Monaco theme when app theme changes (redefine first so colors reflect current CSS vars)
   useEffect(() => {
     if (monaco) {
+      defineDataWeaveTheme(monaco);
       monaco.editor.setTheme(isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME);
     }
   }, [isDark, monaco]);

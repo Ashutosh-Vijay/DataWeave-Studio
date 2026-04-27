@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import Editor, { BeforeMount } from '@monaco-editor/react';
+import { useEffect, useState } from 'react';
+import Editor, { BeforeMount, useMonaco } from '@monaco-editor/react';
 import { ContextState, HTTP_METHODS, METHOD_COLORS, KeyValuePair, VarEntry } from '../types';
 import { KeyValueRows } from './KeyValueRows';
 import { VarsPanel } from './VarsPanel';
@@ -44,6 +44,8 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
   const [tab, setTab] = useState<Tab>(defaultTab ?? 'Request');
   const [showKey, setShowKey] = useState(false);
   const { isDark } = useTheme();
+  const monaco = useMonaco();
+  useEffect(() => { if (monaco) defineDataWeaveTheme(monaco); }, [isDark, monaco]);
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
 
   const updateMethod = (method: string) => onChange({ ...context, method });

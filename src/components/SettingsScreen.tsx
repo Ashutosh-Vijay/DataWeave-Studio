@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Icons } from './Icons';
 import { MIME_OPTIONS, MimeType } from '../types';
 import { useTheme } from '../ThemeContext';
+import { MiniPreview } from './MiniPreview';
 
 type Section = 'appearance' | 'general' | 'runtime' | 'editor' | 'shortcuts' | 'advanced' | 'about';
 
@@ -319,10 +320,10 @@ function AppearancePanel({
                   </span>
                 )}
                 <div
-                  className="rounded-md overflow-hidden flex items-center justify-center"
-                  style={{ aspectRatio: '1.6 / 1', border: '1px solid var(--line-subtle)', background: 'var(--bg)' }}
+                  className="rounded-md overflow-hidden p-2"
+                  style={{ aspectRatio: '1.6 / 1', border: '1px solid var(--line-subtle)', background: isDark ? '#1a1815' : '#f6f1e8' }}
                 >
-                  <LayoutPreview kind={id} />
+                  <MiniPreview variant={id} theme={isDark ? 'dark' : 'light'} />
                 </div>
                 <div className="px-0.5 pt-2.5">
                   <div className="text-[13.5px] font-semibold text-content">{name}</div>
@@ -401,26 +402,6 @@ function AppearancePanel({
         </SRow>
       </Group>
     </SectionWrap>
-  );
-}
-
-function LayoutPreview({ kind }: { kind: 'workbench' | 'focus' }) {
-  if (kind === 'workbench') {
-    return (
-      <div className="w-full h-full flex">
-        <div className="w-[8%] h-full bg-rail" />
-        <div className="w-[18%] h-full" style={{ background: 'var(--surface)', borderRight: '1px solid var(--line)' }} />
-        <div className="flex-1 h-full" style={{ background: 'var(--bg)' }} />
-        <div className="w-[18%] h-full" style={{ background: 'var(--surface)', borderLeft: '1px solid var(--line)' }} />
-        <div className="w-[24%] h-full" style={{ background: 'var(--bg)', borderLeft: '1px solid var(--line)' }} />
-      </div>
-    );
-  }
-  return (
-    <div className="w-full h-full flex">
-      <div className="flex-1 h-full" style={{ background: 'var(--bg)' }} />
-      <div className="w-[36%] h-full" style={{ background: 'var(--surface)', borderLeft: '1px solid var(--line)' }} />
-    </div>
   );
 }
 
