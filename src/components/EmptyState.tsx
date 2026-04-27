@@ -1,26 +1,36 @@
 import { Icons } from './Icons';
 
-const STARTED_KEY = 'dw.hasStarted';
+const LAST_WS_KEY = 'dw.lastWorkspace';
 
-export function shouldShowEmptyState(): boolean {
-  try { return localStorage.getItem(STARTED_KEY) !== 'true'; } catch { return false; }
+export function readLastWorkspace(): string | null {
+  try { return localStorage.getItem(LAST_WS_KEY); } catch { return null; }
 }
 
-export function markStarted(): void {
-  try { localStorage.setItem(STARTED_KEY, 'true'); } catch { /* ignore */ }
+export function writeLastWorkspace(name: string | null): void {
+  try {
+    if (name) localStorage.setItem(LAST_WS_KEY, name);
+    else localStorage.removeItem(LAST_WS_KEY);
+  } catch { /* ignore */ }
 }
 
 interface EmptyStateProps {
   onBlankTransform: () => void;
   onImportCurl: () => void;
   onOpenSnippets: () => void;
+  onOpenWorkspace: () => void;
   onStartTour: () => void;
+  lastWorkspace: string | null;
+  onResumeLast: () => void;
 }
 
-export function EmptyState({ onBlankTransform, onImportCurl, onOpenSnippets, onStartTour }: EmptyStateProps) {
+export function EmptyState({
+  onBlankTransform, onImportCurl, onOpenSnippets, onOpenWorkspace,
+  onStartTour, lastWorkspace, onResumeLast,
+}: EmptyStateProps) {
+  const lastName = lastWorkspace ? lastWorkspace.replace(/\.json$/, '').replace(/\.dwstudio$/, '') : null;
   return (
     <div className="flex-1 flex items-center justify-center bg-bg overflow-auto">
-      <div className="text-center max-w-[480px] px-6 py-10">
+      <div className="text-center max-w-[640px] px-6 py-10">
         <div
           className="w-16 h-16 mx-auto mb-5 rounded-2xl flex items-center justify-center font-mono font-extrabold text-[22px]"
           style={{
@@ -36,11 +46,34 @@ export function EmptyState({ onBlankTransform, onImportCurl, onOpenSnippets, onS
           DataWeave Studio runs the real MuleSoft DW engine locally. Write a script,
           feed it a payload, and see the result — no cloud, no signup.
         </p>
-        <div className="grid grid-cols-3 gap-2.5 mb-5">
-          <Card icon={<Icons.Plus size={14} />} label="Blank transform" shortcut="⌘N" onClick={onBlankTransform} />
-          <Card icon={<Icons.Import size={14} />} label="Import cURL" shortcut="⌘⇧I" onClick={onImportCurl} />
-          <Card icon={<Icons.Library size={14} />} label="From a snippet" shortcut="⌘L" onClick={onOpenSnippets} />
+
+        {lastName && (
+          <button
+            onClick={onResumeLast}
+            className="inline-flex items-center gap-2 mb-5 px-3.5 h-9 rounded-md cursor-pointer transition-colors border"
+            style={{
+              background: 'var(--accent-dim)',
+              borderColor: 'var(--accent-border)',
+              color: 'var(--accent)',
+            }}
+            title="Resume the last workspace you had open"
+          >
+            <Icons.Folder size={13} />
+            <span className="text-[12.5px] font-medium">Resume last session</span>
+            <span className="font-mono text-[11px] opacity-80 truncate max-w-[220px]">· {lastName}</span>
+            <span className="opacity-80">→</span>
+          </button>
+        )}
+
+        <div className="grid grid-cols-2 gap-2.5 mb-2.5">
+          <Card icon={<Icons.Plus size={14} />} label="Blank transform" desc="Empty %dw 2.0 script" shortcut="⌘N" onClick={onBlankTransform} />
+          <Card icon={<Icons.Folder size={14} />} label="Open workspace" desc="Pick from saved workspaces" shortcut="⌘O" onClick={onOpenWorkspace} />
         </div>
+        <div className="grid grid-cols-2 gap-2.5 mb-5">
+          <Card icon={<Icons.Import size={14} />} label="Import cURL" desc="Paste a request, scaffold the script" shortcut="⌘⇧I" onClick={onImportCurl} />
+          <Card icon={<Icons.Library size={14} />} label="From a snippet" desc="Map, filter, group templates" shortcut="⌘L" onClick={onOpenSnippets} />
+        </div>
+
         <button
           onClick={onStartTour}
           className="text-[11.5px] text-content-faint hover:text-content-secondary cursor-pointer transition-colors"
@@ -52,15 +85,19 @@ export function EmptyState({ onBlankTransform, onImportCurl, onOpenSnippets, onS
   );
 }
 
-function Card({ icon, label, shortcut, onClick }: { icon: React.ReactNode; label: string; shortcut: string; onClick: () => void }) {
+function Card({ icon, label, desc, shortcut, onClick }: { icon: React.ReactNode; label: string; desc: string; shortcut: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
       className="text-left p-3.5 bg-surface border border-line rounded-[9px] cursor-pointer hover:border-accent-border hover:bg-surface-2 transition-colors"
     >
-      <div className="text-accent mb-2.5">{icon}</div>
-      <div className="text-[12.5px] font-medium text-content">{label}</div>
-      <div className="text-[10.5px] text-content-faint font-mono mt-0.5">{shortcut}</div>
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-accent">{icon}</span>
+        <span className="text-[12.5px] font-medium text-content">{label}</span>
+        <span className="flex-1" />
+        <span className="text-[10px] text-content-faint font-mono">{shortcut}</span>
+      </div>
+      <div className="text-[11px] text-content-faint leading-snug">{desc}</div>
     </button>
   );
 }

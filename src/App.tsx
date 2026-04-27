@@ -21,7 +21,7 @@ import { SettingsScreen } from './components/SettingsScreen';
 import { CompactLayout } from './components/CompactLayout';
 import { FocusDrawer } from './components/FocusDrawer';
 import { FirstRunPicker, shouldShowFirstRun, markFirstRunSeen } from './components/FirstRunPicker';
-import { EmptyState, shouldShowEmptyState, markStarted } from './components/EmptyState';
+import { EmptyState, readLastWorkspace, writeLastWorkspace } from './components/EmptyState';
 import { useWorkspace } from './hooks/useWorkspace';
 import { useDWRunner } from './hooks/useDWRunner';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -377,10 +377,11 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [focusDrawerOpen, setFocusDrawerOpen] = useState(false);
   const [showFirstRun, setShowFirstRun] = useState(() => shouldShowFirstRun());
-  const [hasStarted, setHasStarted] = useState(() => !shouldShowEmptyState());
+  const [hasStarted, setHasStarted] = useState(false);
+  const [lastWorkspace, setLastWorkspace] = useState<string | null>(() => readLastWorkspace());
   const beginTransforming = useCallback(() => {
-    if (!hasStarted) { markStarted(); setHasStarted(true); }
-  }, [hasStarted]);
+    setHasStarted(true);
+  }, []);
   const [cursor, setCursor] = useState<{ line: number; col: number }>({ line: 1, col: 1 });
   const [openWsOpen, setOpenWsOpen] = useState(false);
   const [focusDrawerTab, setFocusDrawerTab] = useState<'Request' | 'Vars' | 'Config'>('Request');
@@ -418,11 +419,13 @@ function App() {
   const handleRunRef = useRef<() => void>(() => {});
   const canRunRef = useRef(false);
 
-  // Auto-dismiss empty state once a workspace gets opened from disk
+  // Auto-dismiss empty state once a workspace gets opened from disk;
+  // also remember which workspace was last loaded so the next launch can offer to resume it.
   useEffect(() => {
-    if (workspace.currentFile && !hasStarted) {
-      markStarted();
-      setHasStarted(true);
+    if (workspace.currentFile) {
+      if (!hasStarted) setHasStarted(true);
+      writeLastWorkspace(workspace.currentFile);
+      setLastWorkspace(workspace.currentFile);
     }
   }, [workspace.currentFile, hasStarted]);
 
@@ -815,6 +818,8 @@ function App() {
           listWorkspaces={workspace.listWorkspaces}
           onCurlImport={handleCurlImport}
           onInsertSnippet={(body) => scriptEditorRef.current?.insertSnippet(body)}
+          onOpenSecure={() => setSecureToolOpen(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />}
@@ -825,7 +830,14 @@ function App() {
             onBlankTransform={handleNewScript}
             onImportCurl={handleOpenImport}
             onOpenSnippets={handleOpenSnippets}
+            onOpenWorkspace={() => setOpenWsOpen(true)}
             onStartTour={() => setShowTour(true)}
+            lastWorkspace={lastWorkspace}
+            onResumeLast={() => {
+              if (!lastWorkspace) return;
+              beginTransforming();
+              workspace.loadWorkspace(lastWorkspace);
+            }}
           />
         ) : isCompact ? (
           <main className="flex-1 overflow-hidden bg-bg">
