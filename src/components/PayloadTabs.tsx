@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import Editor, { BeforeMount } from '@monaco-editor/react';
+import { useEffect, useState } from 'react';
+import Editor, { BeforeMount, useMonaco } from '@monaco-editor/react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { NamedInput, MIME_OPTIONS, MimeType, MultipartPart } from '../types';
@@ -86,6 +86,8 @@ export function PayloadTabs({
 }: PayloadTabsProps) {
   const [activeTab, setActiveTab] = useState(0); // 0 = payload
   const { isDark } = useTheme();
+  const monaco = useMonaco();
+  useEffect(() => { if (monaco) defineDataWeaveTheme(monaco); }, [isDark, monaco]);
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
 
   // Clamp tab if a named input was removed

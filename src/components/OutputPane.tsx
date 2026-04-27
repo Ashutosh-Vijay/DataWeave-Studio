@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import Editor, { BeforeMount } from '@monaco-editor/react';
+import { useEffect, useState } from 'react';
+import Editor, { BeforeMount, useMonaco } from '@monaco-editor/react';
 import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
@@ -25,10 +25,6 @@ interface OutputPaneProps {
   isQueryMode?: boolean;
   queryLanguage?: string;
   scriptSource?: string;
-  onStartTour?: () => void;
-  onNewScript?: () => void;
-  onImportCurl?: () => void;
-  onOpenSnippets?: () => void;
   onCancel?: () => void;
 }
 
@@ -62,16 +58,14 @@ export function OutputPane({
   isQueryMode,
   queryLanguage,
   scriptSource,
-  onStartTour,
-  onNewScript,
-  onImportCurl,
-  onOpenSnippets,
   onCancel,
 }: OutputPaneProps) {
   const [copied, setCopied] = useState(false);
   const [exported, setExported] = useState(false);
   const [stackOpen, setStackOpen] = useState(false);
   const { isDark } = useTheme();
+  const monaco = useMonaco();
+  useEffect(() => { if (monaco) defineDataWeaveTheme(monaco); }, [isDark, monaco]);
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
 
   const handleExport = async () => {
@@ -232,13 +226,7 @@ export function OutputPane({
             }}
           />
         ) : (
-          <StartTransformingHero
-            isQueryMode={isQueryMode}
-            onStartTour={onStartTour}
-            onNewScript={onNewScript}
-            onImportCurl={onImportCurl}
-            onOpenSnippets={onOpenSnippets}
-          />
+          <OutputIdleState isQueryMode={isQueryMode} />
         )}
       </div>
     </div>
@@ -290,83 +278,18 @@ function SkeletonRows() {
   );
 }
 
-function StartTransformingHero({
-  isQueryMode,
-  onStartTour,
-  onNewScript,
-  onImportCurl,
-  onOpenSnippets,
-}: {
-  isQueryMode?: boolean;
-  onStartTour?: () => void;
-  onNewScript?: () => void;
-  onImportCurl?: () => void;
-  onOpenSnippets?: () => void;
-}) {
-  const cards = isQueryMode
-    ? [
-        { title: 'Define query', desc: 'Write SOQL or SQL with :param bindings', kbd: '⌘1', onClick: undefined as undefined | (() => void) },
-        { title: 'Set parameters', desc: 'Bind values in the Vars panel', kbd: '⌘2', onClick: undefined as undefined | (() => void) },
-        { title: 'Run', desc: 'Resolve parameters into final query', kbd: '⌘↵', onClick: undefined as undefined | (() => void) },
-      ]
-    : [
-        { title: 'Blank script', desc: 'Start from %dw 2.0 with empty output', kbd: '⌘N', onClick: onNewScript },
-        { title: 'Import payload', desc: 'Drag & drop JSON, XML, or CSV', kbd: '⌘⇧I', onClick: onImportCurl },
-        { title: 'Snippet', desc: 'Pick a template — map, filter, group', kbd: '⌘⇧S', onClick: onOpenSnippets },
-      ];
+function OutputIdleState({ isQueryMode }: { isQueryMode?: boolean }) {
   return (
-    <div className="h-full overflow-auto flex items-center justify-center bg-surface px-6 py-10">
-      <div className="w-full max-w-[560px] flex flex-col items-center text-center">
-        <div
-          className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 font-bold text-[22px] tracking-tight"
-          style={{
-            background: 'linear-gradient(135deg, var(--accent), color-mix(in oklch, var(--accent) 70%, var(--violet)))',
-            color: 'var(--bg)',
-            boxShadow: '0 8px 24px -8px color-mix(in oklch, var(--accent) 50%, transparent)',
-          }}
-        >
-          dw
+    <div className="h-full flex items-center justify-center bg-surface px-6 py-10">
+      <div className="flex flex-col items-center text-center">
+        <div className="text-[12.5px] text-content-faint">
+          {isQueryMode ? 'Resolve a query to see the final SQL here.' : 'Run a transform to see output here.'}
         </div>
-        <div className="text-[16px] font-semibold text-content">
-          {isQueryMode ? 'Build your first query' : 'Start transforming'}
+        <div className="mt-2 inline-flex items-center gap-1.5 text-[10.5px] text-content-ghost">
+          <span>Press</span>
+          <kbd className="font-mono px-1.5 h-4 inline-flex items-center rounded bg-surface-2 border border-line text-content-faint">⌘↵</kbd>
+          <span>to run</span>
         </div>
-        <div className="text-[12px] text-content-faint mt-1.5 max-w-[380px]">
-          {isQueryMode
-            ? 'Write a parameterized query, bind values, and resolve to the final SQL.'
-            : 'Pick a starting point — a blank script, an imported payload, or a snippet template.'}
-        </div>
-        <div className="grid grid-cols-3 gap-2 mt-5 w-full">
-          {cards.map((c) => {
-            const interactive = !!c.onClick;
-            const Tag: any = interactive ? 'button' : 'div';
-            return (
-              <Tag
-                key={c.title}
-                onClick={c.onClick}
-                disabled={interactive ? false : undefined}
-                className={`rounded-lg border border-line p-3 text-left bg-surface-2 transition-colors ${
-                  interactive
-                    ? 'hover:bg-surface-3 hover:border-line-secondary cursor-pointer'
-                    : 'opacity-80'
-                }`}
-              >
-                <div className="text-[12px] font-semibold text-content">{c.title}</div>
-                <div className="text-[10.5px] text-content-faint mt-1 leading-relaxed">{c.desc}</div>
-                <span className="inline-flex items-center justify-center mt-2 h-4 px-1.5 rounded bg-surface-3 border border-line-secondary font-mono text-[9.5px] text-content-faint">
-                  {c.kbd}
-                </span>
-              </Tag>
-            );
-          })}
-        </div>
-        {onStartTour && (
-          <button
-            onClick={onStartTour}
-            className="mt-5 text-[11px] text-content-muted hover:text-content-secondary cursor-pointer bg-transparent border-0 p-0"
-          >
-            60-second tour →
-          </button>
-        )}
       </div>
     </div>
   );

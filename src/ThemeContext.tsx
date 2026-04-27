@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useState, ReactNode } from 'react';
 
 type Theme = 'dark' | 'light';
 type ThemePref = 'dark' | 'light' | 'system';
@@ -47,7 +47,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [pref, setPrefState] = useState<ThemePref>(readStoredPref);
   const [theme, setThemeState] = useState<Theme>(() => resolveTheme(readStoredPref()));
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.documentElement;
     if (theme === 'light') {
       root.classList.add('light');

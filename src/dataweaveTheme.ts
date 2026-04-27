@@ -1,145 +1,119 @@
 import type * as Monaco from 'monaco-editor';
 
 /**
- * Monaco themes for DataWeave matching the Dusk/Paper design tokens.
- * Token colors are converted from OKLCH to sRGB hex (Monaco doesn't accept CSS vars).
+ * Monaco themes for DataWeave that read live values from the Dusk/Paper CSS vars
+ * via getComputedStyle, so the editor surface always blends with --surface / --bg.
+ * Re-call defineDataWeaveTheme(monaco) whenever the active theme toggles.
  */
 export const DATAWEAVE_THEME_NAME = 'dataweave-dusk';
 export const DATAWEAVE_LIGHT_THEME_NAME = 'dataweave-paper';
 
+function colorToHex6(ctx: CanvasRenderingContext2D, cssColor: string): string {
+  ctx.clearRect(0, 0, 1, 1);
+  ctx.fillStyle = '#000000';
+  ctx.fillStyle = cssColor;
+  ctx.fillRect(0, 0, 1, 1);
+  const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+  return [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+function readVarHex(probe: HTMLElement, ctx: CanvasRenderingContext2D, varName: string): string {
+  probe.style.color = `var(${varName})`;
+  return colorToHex6(ctx, getComputedStyle(probe).color);
+}
+
 export function defineDataWeaveTheme(monaco: typeof Monaco) {
-  /* Dusk — warm dark.
-     kw violet     oklch(72% 0.13 290) ≈ #b89ce6
-     str green     oklch(78% 0.13 140) ≈ #88d4a4
-     num amber     oklch(76% 0.14 60)  ≈ #e2b36f
-     comm grey     oklch(50% 0    0)   ≈ #767676
-     fn cyan       oklch(78% 0.11 220) ≈ #84cde9
-     type warm     oklch(85% 0.05 80)  ≈ #ddd3be
-     ident         oklch(96% 0    0)   ≈ #f3f3f3
-     bg            oklch(17% 0.004 80) ≈ #25221f
-  */
-  monaco.editor.defineTheme(DATAWEAVE_THEME_NAME, {
-    base: 'vs-dark',
-    inherit: true,
-    rules: [
-      { token: '',                              foreground: 'F3F3F3' },
+  const probe = document.createElement('div');
+  probe.style.position = 'absolute';
+  probe.style.visibility = 'hidden';
+  probe.style.pointerEvents = 'none';
+  probe.style.left = '-9999px';
+  document.body.appendChild(probe);
 
-      { token: 'keyword',                       foreground: 'B89CE6' },
-      { token: 'keyword.dataweave',             foreground: 'B89CE6' },
-      { token: 'type',                          foreground: 'DDD3BE' },
-      { token: 'type.identifier',               foreground: 'DDD3BE' },
+  const canvas = document.createElement('canvas');
+  canvas.width = 1;
+  canvas.height = 1;
+  const ctx = canvas.getContext('2d')!;
 
-      { token: 'string',                        foreground: '88D4A4' },
-      { token: 'string.escape',                 foreground: '88D4A4', fontStyle: 'italic' },
-      { token: 'string.invalid',                foreground: 'E5878D' },
+  const isLight = document.documentElement.classList.contains('light');
 
-      { token: 'number',                        foreground: 'E2B36F' },
-      { token: 'number.float',                  foreground: 'E2B36F' },
-      { token: 'number.hex',                    foreground: 'E2B36F' },
+  const surface = readVarHex(probe, ctx, '--surface');
+  const surface2 = readVarHex(probe, ctx, '--surface-2');
+  const surface3 = readVarHex(probe, ctx, '--surface-3');
+  const line = readVarHex(probe, ctx, '--line');
+  const lineSecondary = readVarHex(probe, ctx, '--line-secondary');
+  const content = readVarHex(probe, ctx, '--content');
+  const contentMuted = readVarHex(probe, ctx, '--content-muted');
+  const contentFaint = readVarHex(probe, ctx, '--content-faint');
+  const contentGhost = readVarHex(probe, ctx, '--content-ghost');
+  const accent = readVarHex(probe, ctx, '--accent');
+  const violet = readVarHex(probe, ctx, '--violet');
+  const cyan = readVarHex(probe, ctx, '--cyan');
+  const err = readVarHex(probe, ctx, '--err');
 
-      { token: 'comment',                       foreground: '767676', fontStyle: 'italic' },
-      { token: 'comment.invalid',               foreground: 'E5878D' },
+  document.body.removeChild(probe);
 
-      { token: 'identifier',                    foreground: 'F3F3F3' },
-      { token: 'operator',                      foreground: 'B89CE6' },
-      { token: 'delimiter',                     foreground: 'B0AAA0' },
+  // String / number tokens are tuned per-mode and don't have CSS vars.
+  const stringFg = isLight ? '1F6537' : '88D4A4';
+  const numberFg = isLight ? '8E6224' : 'E2B36F';
+  const typeFg = isLight ? '3D3B36' : 'DDD3BE';
 
-      { token: 'variable.property',             foreground: 'B89CE6' },
-      { token: 'variable.property.dataweave',   foreground: 'B89CE6' },
-      { token: 'variable.secure',               foreground: 'E2B36F' },
-      { token: 'variable.secure.dataweave',     foreground: 'E2B36F' },
-    ],
-    colors: {
-      'editor.background':                  '#25221F',
-      'editor.foreground':                  '#F3F3F3',
-      'editor.lineHighlightBackground':     '#2C2926',
-      'editor.lineHighlightBorder':         '#00000000',
-      'editor.selectionBackground':         '#3a8c66aa',
-      'editor.inactiveSelectionBackground': '#3a8c6644',
-      'editorCursor.foreground':            '#7BCFA0',
-      'editorLineNumber.foreground':        '#5C5853',
-      'editorLineNumber.activeForeground':  '#A8A29A',
-      'editorIndentGuide.background1':      '#2C2926',
-      'editorIndentGuide.activeBackground1':'#3A3733',
-      'editorWhitespace.foreground':        '#3A3733',
-      'editorBracketMatch.background':      '#3a8c6633',
-      'editorBracketMatch.border':          '#7BCFA0',
-      'editorBracketHighlight.foreground1': '#B89CE6',
-      'editorBracketHighlight.foreground2': '#84CDE9',
-      'editorBracketHighlight.foreground3': '#E2B36F',
-      'editorGutter.background':            '#25221F',
-      'editorWidget.background':            '#2C2926',
-      'editorWidget.border':                '#3A3733',
-      'editorSuggestWidget.background':     '#2C2926',
-      'editorSuggestWidget.border':         '#3A3733',
-      'editorSuggestWidget.selectedBackground': '#3A3733',
-    },
-  });
+  const themes: { name: string; base: 'vs' | 'vs-dark' }[] = [
+    { name: DATAWEAVE_THEME_NAME, base: 'vs-dark' },
+    { name: DATAWEAVE_LIGHT_THEME_NAME, base: 'vs' },
+  ];
 
-  /* Paper — warm light.
-     kw violet     oklch(45% 0.15 290) ≈ #6232a0
-     str green     oklch(40% 0.13 140) ≈ #1f6537
-     num amber     oklch(50% 0.13 60)  ≈ #8e6224
-     comm grey     oklch(60% 0    0)   ≈ #919191
-     fn cyan       oklch(45% 0.12 220) ≈ #1a718a
-     type warm     oklch(28% 0.005 80) ≈ #3d3b36
-     ident         oklch(20% 0    0)   ≈ #2b2b2b
-     bg            oklch(100% 0   0)   = #ffffff
-  */
-  monaco.editor.defineTheme(DATAWEAVE_LIGHT_THEME_NAME, {
-    base: 'vs',
-    inherit: true,
-    rules: [
-      { token: '',                              foreground: '2B2B2B' },
-
-      { token: 'keyword',                       foreground: '6232A0' },
-      { token: 'keyword.dataweave',             foreground: '6232A0' },
-      { token: 'type',                          foreground: '3D3B36' },
-      { token: 'type.identifier',               foreground: '3D3B36' },
-
-      { token: 'string',                        foreground: '1F6537' },
-      { token: 'string.escape',                 foreground: '1F6537', fontStyle: 'italic' },
-      { token: 'string.invalid',                foreground: 'B83A45' },
-
-      { token: 'number',                        foreground: '8E6224' },
-      { token: 'number.float',                  foreground: '8E6224' },
-      { token: 'number.hex',                    foreground: '8E6224' },
-
-      { token: 'comment',                       foreground: '919191', fontStyle: 'italic' },
-      { token: 'comment.invalid',               foreground: 'B83A45' },
-
-      { token: 'identifier',                    foreground: '2B2B2B' },
-      { token: 'operator',                      foreground: '6232A0' },
-      { token: 'delimiter',                     foreground: '5A554F' },
-
-      { token: 'variable.property',             foreground: '6232A0' },
-      { token: 'variable.property.dataweave',   foreground: '6232A0' },
-      { token: 'variable.secure',               foreground: '8E6224' },
-      { token: 'variable.secure.dataweave',     foreground: '8E6224' },
-    ],
-    colors: {
-      'editor.background':                  '#FFFFFF',
-      'editor.foreground':                  '#2B2B2B',
-      'editor.lineHighlightBackground':     '#F6F4F0',
-      'editor.lineHighlightBorder':         '#00000000',
-      'editor.selectionBackground':         '#2D8A6033',
-      'editor.inactiveSelectionBackground': '#2D8A6018',
-      'editorCursor.foreground':            '#2D8A60',
-      'editorLineNumber.foreground':        '#B0AAA0',
-      'editorLineNumber.activeForeground':  '#6A645C',
-      'editorIndentGuide.background1':      '#EFECE6',
-      'editorIndentGuide.activeBackground1':'#D8D4CC',
-      'editorBracketMatch.background':      '#2D8A6022',
-      'editorBracketMatch.border':          '#2D8A60',
-      'editorBracketHighlight.foreground1': '#6232A0',
-      'editorBracketHighlight.foreground2': '#1A718A',
-      'editorBracketHighlight.foreground3': '#8E6224',
-      'editorGutter.background':            '#FFFFFF',
-      'editorWidget.background':            '#FAF8F4',
-      'editorWidget.border':                '#E5E0D8',
-      'editorSuggestWidget.background':     '#FAF8F4',
-      'editorSuggestWidget.border':         '#E5E0D8',
-      'editorSuggestWidget.selectedBackground': '#E5E0D8',
-    },
-  });
+  for (const t of themes) {
+    monaco.editor.defineTheme(t.name, {
+      base: t.base,
+      inherit: true,
+      rules: [
+        { token: '',                              foreground: content },
+        { token: 'keyword',                       foreground: violet },
+        { token: 'keyword.dataweave',             foreground: violet },
+        { token: 'type',                          foreground: typeFg },
+        { token: 'type.identifier',               foreground: typeFg },
+        { token: 'string',                        foreground: stringFg },
+        { token: 'string.escape',                 foreground: stringFg, fontStyle: 'italic' },
+        { token: 'string.invalid',                foreground: err },
+        { token: 'number',                        foreground: numberFg },
+        { token: 'number.float',                  foreground: numberFg },
+        { token: 'number.hex',                    foreground: numberFg },
+        { token: 'comment',                       foreground: contentFaint, fontStyle: 'italic' },
+        { token: 'comment.invalid',               foreground: err },
+        { token: 'identifier',                    foreground: content },
+        { token: 'operator',                      foreground: violet },
+        { token: 'delimiter',                     foreground: contentMuted },
+        { token: 'variable.property',             foreground: violet },
+        { token: 'variable.property.dataweave',   foreground: violet },
+        { token: 'variable.secure',               foreground: numberFg },
+        { token: 'variable.secure.dataweave',     foreground: numberFg },
+      ],
+      colors: {
+        'editor.background':                  '#' + surface,
+        'editor.foreground':                  '#' + content,
+        'editor.lineHighlightBackground':     '#' + surface2,
+        'editor.lineHighlightBorder':         '#00000000',
+        'editor.selectionBackground':         '#' + accent + '40',
+        'editor.inactiveSelectionBackground': '#' + accent + '20',
+        'editorCursor.foreground':            '#' + accent,
+        'editorLineNumber.foreground':        '#' + contentGhost,
+        'editorLineNumber.activeForeground':  '#' + contentMuted,
+        'editorIndentGuide.background1':      '#' + surface2,
+        'editorIndentGuide.activeBackground1':'#' + lineSecondary,
+        'editorWhitespace.foreground':        '#' + line,
+        'editorBracketMatch.background':      '#' + accent + '33',
+        'editorBracketMatch.border':          '#' + accent,
+        'editorBracketHighlight.foreground1': '#' + violet,
+        'editorBracketHighlight.foreground2': '#' + cyan,
+        'editorBracketHighlight.foreground3': '#' + numberFg,
+        'editorGutter.background':            '#' + surface,
+        'editorWidget.background':            '#' + surface2,
+        'editorWidget.border':                '#' + line,
+        'editorSuggestWidget.background':     '#' + surface2,
+        'editorSuggestWidget.border':         '#' + line,
+        'editorSuggestWidget.selectedBackground': '#' + surface3,
+      },
+    });
+  }
 }

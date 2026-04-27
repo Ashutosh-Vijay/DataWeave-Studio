@@ -1,4 +1,5 @@
-import Editor, { BeforeMount } from '@monaco-editor/react';
+import Editor, { BeforeMount, useMonaco } from '@monaco-editor/react';
+import { useEffect } from 'react';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
 
@@ -17,6 +18,8 @@ const HINTS: Record<string, string> = {
 
 export function QueryEditor({ query, onChange, language }: QueryEditorProps) {
   const { isDark } = useTheme();
+  const monaco = useMonaco();
+  useEffect(() => { if (monaco) defineDataWeaveTheme(monaco); }, [isDark, monaco]);
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
 
   return (

@@ -892,10 +892,6 @@ function App() {
                   isQueryMode={isQueryMode}
                   queryLanguage={queryLanguage}
                   scriptSource={workspace.script}
-                  onStartTour={() => setShowTour(true)}
-                  onNewScript={handleNewScript}
-                  onImportCurl={handleOpenImport}
-                  onOpenSnippets={handleOpenSnippets}
                   onCancel={runner.cancel}
                 />
               }
@@ -1034,10 +1030,6 @@ function App() {
                 isQueryMode={isQueryMode}
                 queryLanguage={queryLanguage}
                 scriptSource={workspace.script}
-                onStartTour={() => setShowTour(true)}
-                onNewScript={handleNewScript}
-                onImportCurl={handleOpenImport}
-                onOpenSnippets={handleOpenSnippets}
                 onCancel={runner.cancel}
               />
             </Panel>
