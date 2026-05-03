@@ -5,6 +5,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { ScriptEditor, ScriptEditorHandle } from './components/ScriptEditor';
+import { WindowControls } from './components/WindowControls';
+import { WorkspaceMenu } from './components/WorkspaceMenu';
+import { ToastHost, toast } from './components/Toast';
 import { OpenWorkspaceDialog } from './components/OpenWorkspaceDialog';
 import { PayloadTabs } from './components/PayloadTabs';
 import { OutputPane } from './components/OutputPane';
@@ -412,6 +415,63 @@ function App() {
     setSidebarCollapsed(false);
     setTimeout(() => sidebarRef.current?.openTab('snippets'), 0);
   }, [beginTransforming]);
+  const handleImportPlayground = useCallback(async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.zip,application/zip';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const { importPlaygroundZip } = await import('./playgroundImport');
+        const result = await importPlaygroundZip(file);
+        beginTransforming();
+        workspace.newWorkspace();
+        workspace.setProjectName(result.projectName);
+        workspace.setScript(result.script);
+        workspace.setPayload(result.payload);
+        workspace.setPayloadMimeType(result.payloadMimeType);
+        workspace.setContext(result.context);
+        workspace.setNamedInputs(result.namedInputs);
+        toast(
+          result.warnings.length
+            ? `Imported "${result.projectName}" with ${result.warnings.length} warning(s) — see console`
+            : `Imported "${result.projectName}" from Playground zip`,
+          'success'
+        );
+        if (result.warnings.length > 0) console.warn('Playground import warnings:', result.warnings);
+        setTimeout(() => scriptEditorRef.current?.focus(), 50);
+      } catch (e) {
+        toast(`Import failed: ${(e as Error).message}`, 'error');
+      }
+    };
+    input.click();
+  }, [workspace, beginTransforming]);
+  const handleExportPlayground = useCallback(async () => {
+    try {
+      const { save } = await import('@tauri-apps/plugin-dialog');
+      const { exportPlaygroundZip } = await import('./playgroundImport');
+      const safeName = (workspace.projectName || 'main').replace(/[^a-zA-Z0-9_-]+/g, '_') || 'main';
+      const path = await save({
+        defaultPath: `${safeName}.zip`,
+        filters: [{ name: 'Playground zip', extensions: ['zip'] }],
+      });
+      if (!path) return; // user cancelled
+      const blob = exportPlaygroundZip({
+        projectName: workspace.projectName || 'main',
+        script: workspace.script,
+        payload: workspace.payload,
+        payloadMimeType: workspace.payloadMimeType,
+        context: workspace.context,
+        namedInputs: workspace.namedInputs,
+      });
+      const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
+      await invoke('save_binary_file', { path, contents: bytes });
+      toast(`Exported to ${path.split(/[\\/]/).pop()}`, 'success');
+    } catch (e) {
+      toast(`Export failed: ${(e as Error).message}`, 'error');
+    }
+  }, [workspace]);
   const [appVersion, setAppVersion] = useState('');
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState('');
@@ -608,6 +668,8 @@ function App() {
     { id: 'new', label: 'New workspace', shortcut: '⌘N', group: 'Workspace', run: () => { beginTransforming(); workspace.newWorkspace(); } },
     { id: 'open', label: 'Open workspace…', shortcut: '⌘O', group: 'Workspace', run: () => setOpenWsOpen(true) },
     { id: 'duplicate', label: 'Duplicate workspace', shortcut: '⌘D', group: 'Workspace', run: () => { beginTransforming(); workspace.duplicateWorkspace(); } },
+    { id: 'import-playground', label: 'Import from Playground zip…', group: 'Workspace', run: handleImportPlayground },
+    { id: 'export-playground', label: 'Export as Playground zip…', group: 'Workspace', run: handleExportPlayground },
     { id: 'format', label: 'Format script', shortcut: '⌥⇧F', group: 'Editor', run: () => scriptEditorRef.current?.format() },
     { id: 'sidebar', label: sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar', group: 'View', run: () => setSidebarCollapsed(!sidebarCollapsed) },
     { id: 'layout-workbench', label: 'Switch UI → Workbench', hint: layout === 'workbench' ? 'current' : 'Icon rail · sidebar · tabs', shortcut: '⌘⇧1', group: 'View', run: () => setLayout('workbench') },
@@ -636,59 +698,33 @@ function App() {
   return (
     <div className="h-screen w-screen bg-bg text-content flex flex-col font-sans select-none">
       {/* Top bar — brand, breadcrumb, ⌘K search, run cluster */}
-      <header data-tour="header" className="h-11 flex items-center gap-3 px-3 bg-surface border-b border-line shrink-0">
+      <header data-tour="header" data-tauri-drag-region className="h-11 flex items-center gap-3 px-3 bg-surface border-b border-line shrink-0">
         {/* Brand mark — also the About entry; subtle dot when an update is available */}
         <div className="flex items-center justify-center w-11 shrink-0">
           <button
             onClick={() => setAboutOpen(true)}
             title={updateAvailable ? 'Update available — open About' : 'About DataWeave Studio'}
-            className="relative w-[22px] h-[22px] rounded-md flex items-center justify-center font-mono font-extrabold text-[11px] cursor-pointer"
-            style={{
-              background: 'linear-gradient(135deg, var(--accent), color-mix(in oklch, var(--accent) 60%, var(--violet)))',
-              color: 'var(--accent-ink)',
-            }}
+            className="relative w-[22px] h-[22px] flex items-center justify-center cursor-pointer"
           >
-            dw
+            <img src="/logo.svg" alt="DataWeave Studio" width="22" height="22" />
             {updateAvailable && (
               <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-accent ring-2 ring-surface" />
             )}
           </button>
         </div>
 
-        {/* Breadcrumb: project / file • — clickable in focus mode (workspace dropdown) */}
-        {effectiveLayout === 'focus' ? (
-          <button
-            onClick={() => setOpenWsOpen(true)}
-            title="Open workspace (⌘O)"
-            className="flex items-center gap-2 min-w-0 h-7 px-2 rounded-md hover:bg-surface-2 cursor-pointer transition-colors"
-          >
-            <Icons.Braces size={13} className="text-content-faint shrink-0" />
-            <span className="text-[13px] text-content-faint truncate">{workspace.projectName}</span>
-            {workspace.currentFile && (
-              <>
-                <span className="text-content-ghost">/</span>
-                <span className="text-[13px] text-content font-medium truncate">{workspace.currentFile.replace(/\.json$/, '').replace(/\.dwstudio$/, '')}</span>
-              </>
-            )}
-            {workspace.isDirty && (
-              <span className="text-warn text-base leading-none ml-0.5" title="Unsaved changes">•</span>
-            )}
-            <Icons.ChevronDown size={12} className="text-content-ghost shrink-0" />
-          </button>
-        ) : (
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[13px] text-content-faint truncate">{workspace.projectName}</span>
-            {workspace.currentFile && (
-              <>
-                <span className="text-content-ghost">/</span>
-                <span className="text-[13px] text-content font-medium truncate">{workspace.currentFile.replace(/\.json$/, '').replace(/\.dwstudio$/, '')}</span>
-              </>
-            )}
-            {workspace.isDirty && (
-              <span className="text-warn text-base leading-none ml-0.5" title="Unsaved changes">•</span>
-            )}
-          </div>
-        )}
+        {/* Workspace menu — project name doubles as a dropdown trigger */}
+        <WorkspaceMenu
+          projectName={workspace.projectName}
+          currentFile={workspace.currentFile}
+          isDirty={workspace.isDirty}
+          onSave={() => { beginTransforming(); workspace.saveWorkspace(); }}
+          onNew={handleNewScript}
+          onOpen={() => setOpenWsOpen(true)}
+          onDuplicate={() => { beginTransforming(); workspace.duplicateWorkspace(); }}
+          onImportPlayground={handleImportPlayground}
+          onExportPlayground={handleExportPlayground}
+        />
 
         {/* Node label chip — picks the workspace's role (Transform / Salesforce Query / DB Query / …) */}
         <NodeLabelChip nodeLabel={workspace.nodeLabel} onChange={workspace.setNodeLabel} />
@@ -761,6 +797,7 @@ function App() {
             </span>
           </button>
         </div>
+        <WindowControls />
       </header>
 
       {/* CLI error banner */}
@@ -829,9 +866,18 @@ function App() {
           <EmptyState
             onBlankTransform={handleNewScript}
             onImportCurl={handleOpenImport}
+            onImportPlayground={handleImportPlayground}
             onOpenSnippets={handleOpenSnippets}
             onOpenWorkspace={() => setOpenWsOpen(true)}
-            onStartTour={() => setShowTour(true)}
+            onStartTour={() => {
+              // Tour highlights elements (editor, payload, context, output)
+              // that only mount inside the workspace. Open it before starting.
+              beginTransforming();
+              setLayout('workbench');
+              setSidebarCollapsed(false);
+              // Wait for the workspace to render before the tour measures rects
+              setTimeout(() => setShowTour(true), 50);
+            }}
             lastWorkspace={lastWorkspace}
             onResumeLast={() => {
               if (!lastWorkspace) return;
@@ -1150,6 +1196,8 @@ function App() {
 
       {/* Splash screen — covers everything until CLI is ready */}
       <SplashScreen isReady={runner.isWarmedUp} hasError={!!runner.cliError} />
+
+      <ToastHost />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import Editor, { BeforeMount, useMonaco } from '@monaco-editor/react';
 import { useEffect } from 'react';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
+import { useEditorFont } from '../hooks/useEditorFont';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
@@ -19,6 +20,7 @@ const HINTS: Record<string, string> = {
 export function QueryEditor({ query, onChange, language }: QueryEditorProps) {
   const { isDark } = useTheme();
   const monaco = useMonaco();
+  const editorFont = useEditorFont();
   useEffect(() => { if (monaco) defineDataWeaveTheme(monaco); }, [isDark, monaco]);
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
 
@@ -38,7 +40,7 @@ export function QueryEditor({ query, onChange, language }: QueryEditorProps) {
           onChange={onChange}
           options={{
             minimap: { enabled: false },
-            fontSize: 14,
+            ...editorFont,
             wordWrap: 'on',
             scrollBeyondLastLine: false,
             folding: true,

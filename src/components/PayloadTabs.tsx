@@ -5,6 +5,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { NamedInput, MIME_OPTIONS, MimeType, MultipartPart } from '../types';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
+import { useEditorFont } from '../hooks/useEditorFont';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
@@ -86,6 +87,7 @@ export function PayloadTabs({
 }: PayloadTabsProps) {
   const [activeTab, setActiveTab] = useState(0); // 0 = payload
   const { isDark } = useTheme();
+  const editorFont = useEditorFont();
   const monaco = useMonaco();
   useEffect(() => { if (monaco) defineDataWeaveTheme(monaco); }, [isDark, monaco]);
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
@@ -527,7 +529,7 @@ export function PayloadTabs({
             onChange={handleEditorChange}
             options={{
               minimap: { enabled: false },
-              fontSize: 14,
+              ...editorFont,
               wordWrap: 'on',
               scrollBeyondLastLine: false,
               folding: true,

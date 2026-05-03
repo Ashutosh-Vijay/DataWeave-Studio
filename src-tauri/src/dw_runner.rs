@@ -632,6 +632,14 @@ pub fn save_output_file(path: String, content: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to save file '{}': {}", path, e))
 }
 
+/// Save raw bytes to a file at the given absolute path.
+/// Used by the Playground export to write a zip blob.
+#[tauri::command]
+pub fn save_binary_file(path: String, contents: Vec<u8>) -> Result<(), String> {
+    std::fs::write(&path, contents)
+        .map_err(|e| format!("Failed to save file '{}': {}", path, e))
+}
+
 /// Read a text file from disk — used by the payload file loader.
 #[tauri::command]
 pub fn read_text_file(path: String) -> Result<String, String> {

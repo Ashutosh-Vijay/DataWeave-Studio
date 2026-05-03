@@ -168,7 +168,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
                 type={showKey ? 'text' : 'password'}
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
-                placeholder="Exactly 16, 24, or 32 chars (AES-128 / 192 / 256)"
+                placeholder={settings.algorithm === 'AES' ? 'Exactly 16, 24, or 32 chars (AES-128 / 192 / 256)' : 'Encryption key'}
                 className="flex-1 bg-surface-2 border border-line rounded-md px-3 py-2 text-[13px] text-content placeholder-content-ghost focus:border-accent focus:outline-none font-mono"
               />
               <button
@@ -178,7 +178,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
                 {showKey ? 'Hide' : 'Show'}
               </button>
             </div>
-            {key && (() => {
+            {key && settings.algorithm === 'AES' && (() => {
               const info = inspectAesKey(key);
               return (
                 <span
@@ -187,8 +187,8 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
                 >
                   Key is {info.bytes} bytes —{' '}
                   {info.aesValid
-                    ? `${info.aesVariant} ✓ matches MuleSoft secure-properties-tool`
-                    : 'invalid for AES (need 16, 24, or 32)'}
+                    ? `${info.aesVariant} ✓`
+                    : 'invalid for AES (need 16, 24, or 32 bytes)'}
                 </span>
               );
             })()}
@@ -204,7 +204,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
                 className="w-full bg-surface-2 border border-line rounded-md px-2 py-1.5 text-[12px] text-content focus:outline-none focus:border-accent cursor-pointer"
               >
                 {ALGORITHMS.map((a) => (
-                  <option key={a} value={a}>{a}{a !== 'AES' ? ' (unsupported)' : ''}</option>
+                  <option key={a} value={a}>{a}</option>
                 ))}
               </select>
             </div>
@@ -216,7 +216,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
                 className="w-full bg-surface-2 border border-line rounded-md px-2 py-1.5 text-[12px] text-content focus:outline-none focus:border-accent cursor-pointer"
               >
                 {MODES.map((m) => (
-                  <option key={m} value={m}>{m}{m !== 'CBC' ? ' (unsupported)' : ''}</option>
+                  <option key={m} value={m}>{m}</option>
                 ))}
               </select>
             </div>

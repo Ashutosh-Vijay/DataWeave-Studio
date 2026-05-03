@@ -6,6 +6,7 @@ import { VarsPanel } from './VarsPanel';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { hasEncryptedValues, inspectAesKey, DEFAULT_ENCRYPTION_SETTINGS } from '../cryptoUtils';
 import { useTheme } from '../ThemeContext';
+import { useEditorFont } from '../hooks/useEditorFont';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
@@ -44,6 +45,7 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
   const [tab, setTab] = useState<Tab>(defaultTab ?? 'Request');
   const [showKey, setShowKey] = useState(false);
   const { isDark } = useTheme();
+  const editorFont = useEditorFont();
   const monaco = useMonaco();
   useEffect(() => { if (monaco) defineDataWeaveTheme(monaco); }, [isDark, monaco]);
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
@@ -167,6 +169,7 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
                   onChange={(val) => onChange({ ...context, configYaml: val || '' })}
                   options={{
                     minimap: { enabled: false },
+                    fontFamily: editorFont.fontFamily,
                     fontSize: 11,
                     lineNumbers: 'off',
                     wordWrap: 'on',
@@ -206,6 +209,7 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
                   onChange={(val) => onChange({ ...context, secureConfigYaml: val || '' })}
                   options={{
                     minimap: { enabled: false },
+                    fontFamily: editorFont.fontFamily,
                     fontSize: 11,
                     lineNumbers: 'off',
                     wordWrap: 'on',
@@ -339,13 +343,6 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
                   <span className="text-[9.5px] text-content-ghost">(off matches Mule default)</span>
                 </label>
 
-                {(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).algorithm !== 'AES' && (
-                  <div className="text-[10px] text-warn leading-relaxed">
-                    Only AES is supported via Web Crypto. For{' '}
-                    {(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).algorithm}, enter plaintext values
-                    instead.
-                  </div>
-                )}
               </div>
             )}
 

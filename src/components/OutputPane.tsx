@@ -4,6 +4,7 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
+import { useEditorFont } from '../hooks/useEditorFont';
 import { Icons } from './Icons';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
@@ -64,6 +65,7 @@ export function OutputPane({
   const [exported, setExported] = useState(false);
   const [stackOpen, setStackOpen] = useState(false);
   const { isDark } = useTheme();
+  const editorFont = useEditorFont();
   const monaco = useMonaco();
   useEffect(() => { if (monaco) defineDataWeaveTheme(monaco); }, [isDark, monaco]);
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
@@ -217,7 +219,7 @@ export function OutputPane({
             options={{
               readOnly: true,
               minimap: { enabled: false },
-              fontSize: 13,
+              ...editorFont,
               wordWrap: 'on',
               scrollBeyondLastLine: false,
               lineNumbers: 'on',

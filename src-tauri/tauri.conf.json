@@ -20,7 +20,8 @@
         "resizable": true,
         "fullscreen": false,
         "maximized": true,
-        "focus": true
+        "focus": true,
+        "decorations": false
       }
     ],
     "security": {
@@ -42,6 +43,7 @@
     "targets": "all",
     "resources": [
       "resources/dw-cli/**/*",
+      "resources/secure-properties/**/*",
       "../licenses/*"
     ],
     "icon": [

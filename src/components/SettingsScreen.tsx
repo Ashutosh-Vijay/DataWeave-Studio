@@ -3,6 +3,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { Icons } from './Icons';
 import { MIME_OPTIONS, MimeType } from '../types';
+import { notifyEditorFontChanged } from '../hooks/useEditorFont';
 import { useTheme } from '../ThemeContext';
 import { MiniPreview } from './MiniPreview';
 
@@ -593,10 +594,10 @@ function EditorPanel() {
     <SectionWrap title="Editor" desc="Script editor preferences">
       <Group title="Font">
         <SRow label="Editor font">
-          <SelectInput value={font} options={['JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SF Mono', 'Consolas']} onChange={setFont} width={170} />
+          <SelectInput value={font} options={['JetBrains Mono', 'Fira Code', 'Cascadia Code', 'IBM Plex Mono', 'Geist Mono', 'SF Mono (system)', 'Consolas (system)']} onChange={(v) => { setFont(v); notifyEditorFontChanged(); }} width={200} />
         </SRow>
         <SRow label="Font size">
-          <SelectInput value={fontSize} options={['11 px', '12 px', '13 px', '14 px', '15 px', '16 px']} onChange={setFontSize} width={100} />
+          <SelectInput value={fontSize} options={['11 px', '12 px', '13 px', '14 px', '15 px', '16 px']} onChange={(v) => { setFontSize(v); notifyEditorFontChanged(); }} width={100} />
         </SRow>
         <SRow label="Line height">
           <SelectInput value={lineHeight} options={['1.4', '1.5', '1.6', '1.7', '1.8']} onChange={setLineHeight} width={80} />
@@ -618,9 +619,6 @@ function EditorPanel() {
 function AdvancedPanel() {
   const [verbose, setVerbose] = useState<boolean>(() => {
     try { return localStorage.getItem('dw.verbose') === '1'; } catch { return false; }
-  });
-  const [telemetry, setTelemetry] = useState<boolean>(() => {
-    try { return localStorage.getItem('dw.telemetry') !== '0'; } catch { return true; }
   });
 
   const dataPath = navigator.platform.startsWith('Win')
@@ -646,9 +644,6 @@ function AdvancedPanel() {
       <Group title="Diagnostics">
         <SRow label="Enable verbose logging" desc="Includes CLI stderr and stack traces in app logs.">
           <Toggle on={verbose} onChange={(v) => { setVerbose(v); try { localStorage.setItem('dw.verbose', v ? '1' : '0'); } catch {} }} />
-        </SRow>
-        <SRow label="Send anonymous usage data" desc="Helps us prioritize improvements. No workspace content is ever sent.">
-          <Toggle on={telemetry} onChange={(v) => { setTelemetry(v); try { localStorage.setItem('dw.telemetry', v ? '1' : '0'); } catch {} }} />
         </SRow>
       </Group>
 
@@ -720,16 +715,13 @@ function ShortcutsList() {
 function AboutPanel({ appVersion, onOpenAbout }: { appVersion: string; onOpenAbout: () => void }) {
   return (
     <div className="flex flex-col items-center gap-3.5 pt-10 pb-6">
-      <div
-        className="w-16 h-16 rounded-2xl flex items-center justify-center font-mono font-extrabold text-[22px]"
-        style={{
-          background: 'linear-gradient(135deg, var(--accent), color-mix(in oklch, var(--accent) 60%, var(--violet)))',
-          color: 'var(--accent-ink)',
-          boxShadow: '0 10px 30px color-mix(in oklch, var(--accent) 30%, transparent)',
-        }}
-      >
-        dw
-      </div>
+      <img
+        src="/logo.svg"
+        alt="DataWeave Studio"
+        width="64"
+        height="64"
+        style={{ filter: 'drop-shadow(0 10px 30px color-mix(in oklch, var(--accent) 30%, transparent))' }}
+      />
       <div className="text-center">
         <div className="text-[20px] font-semibold text-content">DataWeave Studio</div>
         <div className="text-[12.5px] text-content-muted mt-1 font-mono">Version {appVersion || '—'}</div>

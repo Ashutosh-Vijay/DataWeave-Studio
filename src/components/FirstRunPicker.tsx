@@ -42,16 +42,14 @@ export function FirstRunPicker({ initialTheme, initialLayout, onComplete }: Firs
 
         {/* Hero */}
         <div className="px-8 pt-7 pb-5 flex items-start gap-4">
-          <div
-            className="w-12 h-12 shrink-0 rounded-xl flex items-center justify-center font-mono font-extrabold text-[18px]"
-            style={{
-              background: 'linear-gradient(135deg, var(--accent), color-mix(in oklch, var(--accent) 55%, var(--violet)))',
-              color: 'var(--accent-ink)',
-              boxShadow: '0 8px 24px color-mix(in oklch, var(--accent) 25%, transparent)',
-            }}
-          >
-            dw
-          </div>
+          <img
+            src="/logo.svg"
+            alt="DataWeave Studio"
+            width="48"
+            height="48"
+            className="shrink-0"
+            style={{ filter: 'drop-shadow(0 8px 24px color-mix(in oklch, var(--accent) 25%, transparent))' }}
+          />
           <div className="flex-1">
             <h1 className="text-[20px] font-semibold text-content tracking-tight leading-tight">
               Welcome to DataWeave Studio

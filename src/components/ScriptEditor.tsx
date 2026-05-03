@@ -4,6 +4,7 @@ import { dwTokensProvider } from '../dataweaveGrammar';
 import { registerDWCompletionProvider, DWCompletionContext } from '../dataweaveCompletions';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
+import { useEditorFont } from '../hooks/useEditorFont';
 
 interface ScriptEditorProps {
   code: string;
@@ -130,6 +131,7 @@ export const ScriptEditor = forwardRef<ScriptEditorHandle, ScriptEditorProps>(fu
 ) {
   const monaco = useMonaco();
   const { isDark } = useTheme();
+  const editorFont = useEditorFont();
   const editorRef = useRef<any>(null);
   const [migrateResult, setMigrateResult] = useState<{ output: string; error?: string } | null>(null);
 
@@ -173,11 +175,21 @@ export const ScriptEditor = forwardRef<ScriptEditorHandle, ScriptEditorProps>(fu
     insertSnippet: (text: string) => {
       const editor = editorRef.current;
       if (!editor) return;
-      const sel = editor.getSelection();
-      const op = sel
-        ? { range: sel, text, forceMoveMarkers: true }
-        : { range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1 }, text, forceMoveMarkers: true };
-      editor.executeEdits('insert-snippet', [op]);
+      const model = editor.getModel?.();
+      if (!model) return;
+      // Replace the entire script. DW snippets are self-contained scripts
+      // (header + body); stacking them produces invalid code. pushEditOperations
+      // with explicit undo stops preserves history so Ctrl+Z restores the
+      // previous script.
+      editor.pushUndoStop();
+      model.pushEditOperations(
+        [],
+        [{ range: model.getFullModelRange(), text }],
+        () => null,
+      );
+      editor.pushUndoStop();
+      editor.setPosition({ lineNumber: 1, column: 1 });
+      editor.revealLine(1);
       editor.focus();
     },
   }), []);
@@ -369,7 +381,7 @@ export const ScriptEditor = forwardRef<ScriptEditorHandle, ScriptEditorProps>(fu
           onMount={handleEditorDidMount}
           options={{
             minimap: { enabled: false },
-            fontSize: 14,
+            ...editorFont,
             wordWrap: 'on',
             scrollBeyondLastLine: false,
             glyphMargin: true,

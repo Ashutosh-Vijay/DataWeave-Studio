@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Bundled monospace fonts (WOFF2, latin subset, Reg + Bold). Loaded lazily by
+   the browser when first referenced via fontFamily. */
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-style: normal; font-display: swap; src: url("/fonts/jetbrains-mono-400.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-style: normal; font-display: swap; src: url("/fonts/jetbrains-mono-700.woff2") format("woff2"); }
+@font-face { font-family: "Fira Code";      font-weight: 400; font-style: normal; font-display: swap; src: url("/fonts/fira-code-400.woff2")      format("woff2"); }
+@font-face { font-family: "Fira Code";      font-weight: 700; font-style: normal; font-display: swap; src: url("/fonts/fira-code-700.woff2")      format("woff2"); }
+@font-face { font-family: "Cascadia Code";  font-weight: 400; font-style: normal; font-display: swap; src: url("/fonts/cascadia-code-400.woff2")  format("woff2"); }
+@font-face { font-family: "Cascadia Code";  font-weight: 700; font-style: normal; font-display: swap; src: url("/fonts/cascadia-code-700.woff2")  format("woff2"); }
+@font-face { font-family: "IBM Plex Mono";  font-weight: 400; font-style: normal; font-display: swap; src: url("/fonts/ibm-plex-mono-400.woff2")  format("woff2"); }
+@font-face { font-family: "IBM Plex Mono";  font-weight: 700; font-style: normal; font-display: swap; src: url("/fonts/ibm-plex-mono-700.woff2")  format("woff2"); }
+@font-face { font-family: "Geist Mono";     font-weight: 400; font-style: normal; font-display: swap; src: url("/fonts/geist-mono-400.woff2")     format("woff2"); }
+@font-face { font-family: "Geist Mono";     font-weight: 700; font-style: normal; font-display: swap; src: url("/fonts/geist-mono-700.woff2")     format("woff2"); }
+
 /* ========= DataWeave Studio — Dusk / Paper design tokens =========
    Redesign spec: warm-neutral surfaces (hue 80, chroma 0.004) + emerald accent.
    Semantic variables so components re-skin automatically. */

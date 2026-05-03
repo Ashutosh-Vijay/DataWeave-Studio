@@ -51,3 +51,10 @@ AGENTS.md
 
 # Local design handoff reference (unpacked from Claude Design bundle)
 .design-spec/
+
+# Claude Code agent state (worktrees, session metadata)
+.claude/
+
+# Local sample data and AI-generated notes
+example/
+project_summary.md

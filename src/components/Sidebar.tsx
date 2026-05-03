@@ -56,14 +56,24 @@ const RAIL_ITEMS: { id: RailTab; title: string; Icon: (typeof Icons)[keyof typeo
 
 const SNIPPETS: { name: string; desc: string; body: string }[] = [
   {
+    name: 'Hello world',
+    desc: 'Minimal starter',
+    body: `%dw 2.0\noutput application/json\n---\n{\n  message: "Hello, " ++ (payload.name default "world")\n}`,
+  },
+  {
     name: 'Map array',
     desc: 'payload map ((item) -> …)',
-    body: `%dw 2.0\noutput application/json\n---\npayload map (item, index) -> {\n  index: index,\n  value: item\n}`,
+    body: `%dw 2.0\noutput application/json\n---\npayload map ((item, index) -> {\n  index: index,\n  value: item\n})`,
   },
   {
     name: 'Filter array',
-    desc: 'payload filter (cond)',
+    desc: 'payload filter ((item) -> cond)',
     body: `%dw 2.0\noutput application/json\n---\npayload filter ((item) -> item.active == true)`,
+  },
+  {
+    name: 'Sort array',
+    desc: 'orderBy ((item) -> key)',
+    body: `%dw 2.0\noutput application/json\n---\npayload orderBy ((item) -> item.name)`,
   },
   {
     name: 'Group by',
@@ -76,7 +86,7 @@ const SNIPPETS: { name: string; desc: string; body: string }[] = [
     body: `%dw 2.0\noutput application/json\n---\npayload reduce ((item, acc = 0) -> acc + item.amount)`,
   },
   {
-    name: 'Object → array of entries',
+    name: 'Object → entries',
     desc: 'pluck (v, k) -> { k, v }',
     body: `%dw 2.0\noutput application/json\n---\npayload pluck ((value, key) -> { key: key as String, value: value })`,
   },
@@ -87,13 +97,23 @@ const SNIPPETS: { name: string; desc: string; body: string }[] = [
   },
   {
     name: 'Read named input',
-    desc: 'inputs.<name>',
-    body: `%dw 2.0\ninput accounts json\noutput application/json\n---\naccounts map ((a) -> { id: a.id, name: a.name })`,
+    desc: 'input <name> application/…',
+    body: `%dw 2.0\ninput accounts application/json\noutput application/json\n---\naccounts map ((a) -> {\n  id: a.id,\n  name: a.name\n})`,
   },
   {
     name: 'Format date',
-    desc: 'as DateTime / format',
-    body: `%dw 2.0\noutput application/json\n---\n{\n  iso: now() as String,\n  formatted: now() as String { format: "yyyy-MM-dd HH:mm:ss" }\n}`,
+    desc: 'now() as String { format }',
+    body: `%dw 2.0\noutput application/json\n---\n{\n  iso: now() as String,\n  date: now() as String { format: "yyyy-MM-dd" },\n  full: now() as String { format: "yyyy-MM-dd HH:mm:ss" }\n}`,
+  },
+  {
+    name: 'JSON → XML',
+    desc: 'output application/xml',
+    body: `%dw 2.0\noutput application/xml\n---\n{\n  root: {\n    items: payload map ((item) -> {\n      item: item\n    })\n  }\n}`,
+  },
+  {
+    name: 'Variable + function',
+    desc: 'var / fun declarations',
+    body: `%dw 2.0\noutput application/json\n\nvar discount = 0.1\nfun applyDiscount(price: Number) = price * (1 - discount)\n\n---\npayload map ((item) -> {\n  name: item.name,\n  price: applyDiscount(item.price)\n})`,
   },
 ];
 
@@ -294,7 +314,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                   <button
                     key={s.name}
                     onClick={() => onInsertSnippet?.(s.body)}
-                    title="Insert at cursor / replace selection"
+                    title="Replace the script with this snippet (Ctrl+Z to undo)"
                     className="w-full text-left p-2 rounded-md border border-line-subtle hover:border-line-secondary hover:bg-surface-2 cursor-pointer transition-colors"
                   >
                     <div className="flex items-center gap-1.5">
@@ -304,8 +324,8 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                     <div className="font-mono text-[10.5px] text-content-faint mt-0.5 truncate">{s.desc}</div>
                   </button>
                 ))}
-                <div className="px-1.5 pt-2 text-[10.5px] text-content-ghost">
-                  Click to insert. Local snippets only.
+                <div className="px-1.5 pt-2 text-[10.5px] text-content-ghost leading-snug">
+                  Click to replace the current script. Use <span className="font-mono">⌘Z</span> to undo.
                 </div>
               </div>
             )}

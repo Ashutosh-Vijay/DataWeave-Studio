@@ -16,6 +16,7 @@ export function writeLastWorkspace(name: string | null): void {
 interface EmptyStateProps {
   onBlankTransform: () => void;
   onImportCurl: () => void;
+  onImportPlayground: () => void;
   onOpenSnippets: () => void;
   onOpenWorkspace: () => void;
   onStartTour: () => void;
@@ -24,23 +25,21 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({
-  onBlankTransform, onImportCurl, onOpenSnippets, onOpenWorkspace,
+  onBlankTransform, onImportCurl, onImportPlayground, onOpenSnippets, onOpenWorkspace,
   onStartTour, lastWorkspace, onResumeLast,
 }: EmptyStateProps) {
   const lastName = lastWorkspace ? lastWorkspace.replace(/\.json$/, '').replace(/\.dwstudio$/, '') : null;
   return (
     <div className="flex-1 flex items-center justify-center bg-bg overflow-auto">
       <div className="text-center max-w-[640px] px-6 py-10">
-        <div
-          className="w-16 h-16 mx-auto mb-5 rounded-2xl flex items-center justify-center font-mono font-extrabold text-[22px]"
-          style={{
-            background: 'linear-gradient(135deg, var(--accent), color-mix(in oklch, var(--accent) 50%, var(--violet)))',
-            color: 'var(--accent-ink)',
-            boxShadow: '0 10px 40px color-mix(in oklch, var(--accent) 30%, transparent)',
-          }}
-        >
-          dw
-        </div>
+        <img
+          src="/logo.svg"
+          alt="DataWeave Studio"
+          width="64"
+          height="64"
+          className="mx-auto mb-5"
+          style={{ filter: 'drop-shadow(0 10px 40px color-mix(in oklch, var(--accent) 30%, transparent))' }}
+        />
         <h2 className="text-[22px] font-semibold text-content tracking-tight">Start transforming</h2>
         <p className="text-[13.5px] text-content-muted mt-2.5 mb-6 leading-relaxed">
           DataWeave Studio runs the real MuleSoft DW engine locally. Write a script,
@@ -69,9 +68,12 @@ export function EmptyState({
           <Card icon={<Icons.Plus size={14} />} label="Blank transform" desc="Empty %dw 2.0 script" shortcut="⌘N" onClick={onBlankTransform} />
           <Card icon={<Icons.Folder size={14} />} label="Open workspace" desc="Pick from saved workspaces" shortcut="⌘O" onClick={onOpenWorkspace} />
         </div>
-        <div className="grid grid-cols-2 gap-2.5 mb-5">
+        <div className="grid grid-cols-2 gap-2.5 mb-2.5">
           <Card icon={<Icons.Import size={14} />} label="Import cURL" desc="Paste a request, scaffold the script" shortcut="⌘⇧I" onClick={onImportCurl} />
           <Card icon={<Icons.Library size={14} />} label="From a snippet" desc="Map, filter, group templates" shortcut="⌘L" onClick={onOpenSnippets} />
+        </div>
+        <div className="grid grid-cols-1 gap-2.5 mb-5">
+          <Card icon={<Icons.Import size={14} />} label="Import from Playground" desc="Open a .zip exported from DataWeave Playground" shortcut="" onClick={onImportPlayground} />
         </div>
 
         <button

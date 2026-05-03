@@ -1,4 +1,5 @@
 mod dw_runner;
+mod secure_properties;
 mod workspace;
 
 use dw_runner::{CliOverride, RunState, WarmupState};
@@ -56,6 +57,7 @@ pub fn run() {
             dw_runner::cancel_dataweave,
             dw_runner::migrate_dataweave,
             dw_runner::save_output_file,
+            dw_runner::save_binary_file,
             dw_runner::read_text_file,
             dw_runner::is_warmed_up,
             dw_runner::get_warmup_status,
@@ -63,6 +65,7 @@ pub fn run() {
             dw_runner::get_log_dir,
             dw_runner::set_cli_path_override,
             dw_runner::get_cli_path_override,
+            secure_properties::secure_properties_invoke,
             workspace::save_workspace,
             workspace::load_workspace,
             workspace::list_workspaces,
