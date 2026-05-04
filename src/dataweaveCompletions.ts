@@ -1,5 +1,6 @@
 import type * as Monaco from 'monaco-editor';
 import yaml from 'js-yaml';
+import { buildCompletionDoc } from './dataweaveHover';
 
 export interface DWCompletionContext {
   payload: string;
@@ -508,18 +509,26 @@ export function registerDWCompletionProvider(
       }
 
       // --- Default static completions ---
-      const suggestions: Monaco.languages.CompletionItem[] = COMPLETIONS.map((c, i) => ({
-        label: c.label,
-        kind: getCompletionKind(c.kind, monaco),
-        detail: c.detail,
-        documentation: c.documentation,
-        insertText: c.insertText || c.label,
-        insertTextRules: c.isSnippet
-          ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
-          : undefined,
-        range,
-        sortText: String(i).padStart(4, '0'),
-      }));
+      // For function-kind entries, prefer the rich auto-generated docs
+      // (signature + description from the official MuleSoft reference).
+      const suggestions: Monaco.languages.CompletionItem[] = COMPLETIONS.map((c, i) => {
+        const richDoc = c.kind === 'function' ? buildCompletionDoc(c.label) : undefined;
+        const documentation: Monaco.languages.CompletionItem['documentation'] = richDoc
+          ? { value: richDoc, isTrusted: false }
+          : c.documentation;
+        return {
+          label: c.label,
+          kind: getCompletionKind(c.kind, monaco),
+          detail: c.detail,
+          documentation,
+          insertText: c.insertText || c.label,
+          insertTextRules: c.isSnippet
+            ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
+            : undefined,
+          range,
+          sortText: String(i).padStart(4, '0'),
+        };
+      });
 
       return { suggestions };
     },

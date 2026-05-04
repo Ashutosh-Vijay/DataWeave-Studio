@@ -57,18 +57,48 @@ fn parse_error_location(stderr: &str) -> (Option<u32>, Option<u32>) {
     (None, None)
 }
 
+/// Rewrite line numbers in stderr text to undo the header offset, so error
+/// messages reference the user's script lines (not the merged-with-imports
+/// line numbers the DW CLI sees).
+fn shift_stderr_lines(stderr: &str, offset: i64) -> String {
+    if offset <= 0 { return stderr.to_string(); }
+
+    // (line N, column M) and (line: N, column: M) — the structured forms.
+    let pat_paren = regex::Regex::new(r"line:?\s*(\d+)").unwrap();
+    let shifted = pat_paren.replace_all(stderr, |caps: &regex::Captures| {
+        let n: i64 = caps[1].parse().unwrap_or(0);
+        let mapped = (n - offset).max(1);
+        // Preserve the prefix exactly (could be `line ` or `line:`).
+        let prefix_end = caps.get(1).unwrap().start() - caps.get(0).unwrap().start();
+        let prefix = &caps[0][..prefix_end];
+        format!("{}{}", prefix, mapped)
+    }).to_string();
+
+    // `N| user code` — the source-line gutter the DW CLI prints. Match digits
+    // followed by `|` at start of a line.
+    let pat_gutter = regex::Regex::new(r"(?m)^(\s*)(\d+)\|").unwrap();
+    pat_gutter.replace_all(&shifted, |caps: &regex::Captures| {
+        let indent = &caps[1];
+        let n: i64 = caps[2].parse().unwrap_or(0);
+        let mapped = (n - offset).max(1);
+        format!("{}{}|", indent, mapped)
+    }).to_string()
+}
+
 /// Strip ANSI escape codes and Java warnings from stderr
-fn clean_stderr(stderr: &str) -> String {
+fn clean_stderr(stderr: &str, line_offset: i64) -> String {
     let ansi_re = regex::Regex::new(r"\x1b\[[0-9;]*m").unwrap();
     let cleaned = ansi_re.replace_all(stderr, "");
 
-    let result = cleaned
+    let no_warnings = cleaned
         .lines()
         .filter(|line| !line.starts_with("WARNING:"))
         .collect::<Vec<_>>()
         .join("\n")
         .trim()
         .to_string();
+
+    let result = shift_stderr_lines(&no_warnings, line_offset);
 
     if result.contains("Unknown content type `application/java`") {
         return format!(
@@ -449,6 +479,11 @@ pub async fn run_dataweave(
         payload_mime_type.clone()
     };
     let full_script = build_full_script(&script, &script_mime, has_attributes, has_vars, &named_inputs);
+    // Offset = lines we prepended / inserted. The DW CLI reports errors against
+    // the merged script; we remap line numbers back to the user's view.
+    let line_offset: i64 = (full_script.lines().count() as i64)
+        .saturating_sub(script.lines().count() as i64)
+        .max(0);
     let script_file = write_temp_file(&run_dir, "script.dwl", &full_script)?;
 
     let mut cmd = Command::new(&dw_binary_path);
@@ -589,7 +624,7 @@ pub async fn run_dataweave(
 
     let stdout_str = String::from_utf8_lossy(&output.stdout).to_string();
     let raw_stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    let stderr_str = clean_stderr(&raw_stderr);
+    let stderr_str = clean_stderr(&raw_stderr, line_offset);
 
     if output.status.success() {
         Ok(RunResult {

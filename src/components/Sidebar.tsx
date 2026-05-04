@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } fro
 import { CurlImporter, CurlImportResult } from './CurlImporter';
 import { METHOD_COLORS } from '../types';
 import { Icons } from './Icons';
+import { FunctionBrowser } from './FunctionBrowser';
 
 const PINNED_KEY = 'dw.pinned';
 
@@ -27,7 +28,7 @@ function methodBadgeColor(method: string): string {
   return 'var(--accent)';
 }
 
-export type RailTab = 'workspaces' | 'import' | 'snippets';
+export type RailTab = 'workspaces' | 'import' | 'snippets' | 'reference';
 
 interface SidebarProps {
   projectName: string;
@@ -42,6 +43,7 @@ interface SidebarProps {
   listWorkspaces: () => Promise<string[]>;
   onCurlImport: (result: CurlImportResult) => void;
   onInsertSnippet?: (body: string) => void;
+  onInsertAtCursor?: (text: string) => void;
   onOpenSecure: () => void;
   onOpenSettings: () => void;
   collapsed: boolean;
@@ -52,6 +54,7 @@ const RAIL_ITEMS: { id: RailTab; title: string; Icon: (typeof Icons)[keyof typeo
   { id: 'workspaces', title: 'Workspaces', Icon: Icons.Workspaces },
   { id: 'import', title: 'Import (cURL)', Icon: Icons.Import },
   { id: 'snippets', title: 'Snippets library', Icon: Icons.Library },
+  { id: 'reference', title: 'Function reference', Icon: Icons.Braces },
 ];
 
 const SNIPPETS: { name: string; desc: string; body: string }[] = [
@@ -125,7 +128,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const {
     projectName, onProjectNameChange, currentFile, isDirty, currentMethod,
     onNew, onSave, onLoad, onDelete, listWorkspaces,
-    onCurlImport, onInsertSnippet, onOpenSecure, onOpenSettings,
+    onCurlImport, onInsertSnippet, onInsertAtCursor, onOpenSecure, onOpenSettings,
     collapsed, onToggleCollapse,
   } = props;
 
@@ -237,6 +240,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
               {tab === 'workspaces' && 'Workspaces'}
               {tab === 'import' && 'Import'}
               {tab === 'snippets' && 'Snippets'}
+              {tab === 'reference' && 'Function reference'}
             </span>
             {tab === 'workspaces' && (
               <button
@@ -328,6 +332,10 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                   Click to replace the current script. Use <span className="font-mono">⌘Z</span> to undo.
                 </div>
               </div>
+            )}
+
+            {tab === 'reference' && (
+              <FunctionBrowser onInsertAtCursor={onInsertAtCursor} />
             )}
 
           </div>

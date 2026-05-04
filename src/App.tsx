@@ -855,6 +855,7 @@ function App() {
           listWorkspaces={workspace.listWorkspaces}
           onCurlImport={handleCurlImport}
           onInsertSnippet={(body) => scriptEditorRef.current?.insertSnippet(body)}
+          onInsertAtCursor={(text) => scriptEditorRef.current?.insertAtCursor(text)}
           onOpenSecure={() => setSecureToolOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
           collapsed={sidebarCollapsed}

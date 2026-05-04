@@ -2,6 +2,7 @@ import Editor, { useMonaco, BeforeMount } from '@monaco-editor/react';
 import { useEffect, useRef, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
 import { dwTokensProvider } from '../dataweaveGrammar';
 import { registerDWCompletionProvider, DWCompletionContext } from '../dataweaveCompletions';
+import { registerDWHoverProvider } from '../dataweaveHover';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';
@@ -29,6 +30,7 @@ export interface ScriptEditorHandle {
   format: () => void;
   focus: () => void;
   insertSnippet: (text: string) => void;
+  insertAtCursor: (text: string) => void;
 }
 
 /** Best-effort DW 1.0 → 2.0 source migration (client-side) */
@@ -172,6 +174,18 @@ export const ScriptEditor = forwardRef<ScriptEditorHandle, ScriptEditorProps>(fu
       editor.setPosition({ lineNumber: 1, column: 1 });
     },
     focus: () => editorRef.current?.focus(),
+    insertAtCursor: (text: string) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      const sel = editor.getSelection();
+      const range = sel ?? {
+        startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1,
+      };
+      editor.executeEdits('insert-at-cursor', [
+        { range, text, forceMoveMarkers: true },
+      ]);
+      editor.focus();
+    },
     insertSnippet: (text: string) => {
       const editor = editorRef.current;
       if (!editor) return;
@@ -195,6 +209,7 @@ export const ScriptEditor = forwardRef<ScriptEditorHandle, ScriptEditorProps>(fu
   }), []);
 
   const completionDisposableRef = useRef<any>(null);
+  const hoverDisposableRef = useRef<any>(null);
   const contextRef = useRef<DWCompletionContext>({
     payload: '',
     payloadMimeType: 'application/json',
@@ -279,19 +294,23 @@ export const ScriptEditor = forwardRef<ScriptEditorHandle, ScriptEditorProps>(fu
     defineDataWeaveTheme(monacoInstance);
   }, []);
 
-  // Register autocomplete once monaco is ready
+  // Register autocomplete + hover docs once monaco is ready
   useEffect(() => {
     if (monaco) {
-      if (completionDisposableRef.current) {
-        completionDisposableRef.current.dispose();
-      }
+      if (completionDisposableRef.current) completionDisposableRef.current.dispose();
+      if (hoverDisposableRef.current) hoverDisposableRef.current.dispose();
       completionDisposableRef.current = registerDWCompletionProvider(monaco, () => contextRef.current);
+      hoverDisposableRef.current = registerDWHoverProvider(monaco);
     }
 
     return () => {
       if (completionDisposableRef.current) {
         completionDisposableRef.current.dispose();
         completionDisposableRef.current = null;
+      }
+      if (hoverDisposableRef.current) {
+        hoverDisposableRef.current.dispose();
+        hoverDisposableRef.current = null;
       }
     };
   }, [monaco]);
@@ -382,6 +401,9 @@ export const ScriptEditor = forwardRef<ScriptEditorHandle, ScriptEditorProps>(fu
           options={{
             minimap: { enabled: false },
             ...editorFont,
+            // Render hover & suggest popups at document root so they don't get
+            // clipped by the editor container's overflow.
+            fixedOverflowWidgets: true,
             wordWrap: 'on',
             scrollBeyondLastLine: false,
             glyphMargin: true,

@@ -47,6 +47,27 @@ function extractStackTrace(message: string): string[] {
   return message.split('\n').filter((l) => l.trim().startsWith('at '));
 }
 
+/** Everything after the first non-`at` line and before the stack frames —
+ *  i.e. the actual error reason (the body the CLI prints between the headline
+ *  and the trace). */
+function extractDetails(message: string): string {
+  const lines = message.split('\n');
+  const out: string[] = [];
+  let headlineConsumed = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!headlineConsumed) {
+      if (trimmed && !trimmed.startsWith('at ')) headlineConsumed = true;
+      continue;
+    }
+    if (trimmed.startsWith('at ')) continue;
+    out.push(line);
+  }
+  while (out.length && !out[0].trim()) out.shift();
+  while (out.length && !out[out.length - 1].trim()) out.pop();
+  return out.join('\n');
+}
+
 export function OutputPane({
   output,
   error,
@@ -310,6 +331,7 @@ function OutputErrorCard({ error, errorLine, executionTimeMs, scriptSource, stac
   const [copied, setCopied] = useState(false);
   const code = extractDwErrorCode(error);
   const headline = extractFirstLine(error);
+  const details = extractDetails(error);
   const stack = extractStackTrace(error);
 
   const sourceContext = (() => {
@@ -389,6 +411,21 @@ function OutputErrorCard({ error, errorLine, executionTimeMs, scriptSource, stac
           </div>
         </div>
       </div>
+
+      {/* Reason details — the body of the error message between the headline
+          and the stack trace. Often the most important part. */}
+      {details && (
+        <pre
+          className="rounded-lg p-3 text-[11.5px] font-mono whitespace-pre-wrap break-words leading-relaxed border overflow-x-auto"
+          style={{
+            background: 'color-mix(in oklch, var(--err) 4%, var(--surface))',
+            borderColor: 'var(--line)',
+            color: 'var(--content-secondary)',
+          }}
+        >
+          {details}
+        </pre>
+      )}
 
       {/* Source location panel */}
       {sourceContext && (
