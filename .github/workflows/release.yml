@@ -11,6 +11,8 @@ permissions:
 
 env:
   DW_CLI_VERSION: "1.0.36"
+  # Vite + Monaco bundle exceeds Node's 2 GB default on macOS x86_64 runners.
+  NODE_OPTIONS: --max-old-space-size=4096
 
 jobs:
   prepare:
