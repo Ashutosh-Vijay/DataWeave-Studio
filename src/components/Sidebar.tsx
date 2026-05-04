@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } fro
 import { CurlImporter, CurlImportResult } from './CurlImporter';
 import { METHOD_COLORS } from '../types';
 import { Icons } from './Icons';
-import { FunctionBrowser } from './FunctionBrowser';
 
 const PINNED_KEY = 'dw.pinned';
 
@@ -28,7 +27,7 @@ function methodBadgeColor(method: string): string {
   return 'var(--accent)';
 }
 
-export type RailTab = 'workspaces' | 'import' | 'snippets' | 'reference';
+export type RailTab = 'workspaces' | 'import' | 'snippets';
 
 interface SidebarProps {
   projectName: string;
@@ -43,7 +42,7 @@ interface SidebarProps {
   listWorkspaces: () => Promise<string[]>;
   onCurlImport: (result: CurlImportResult) => void;
   onInsertSnippet?: (body: string) => void;
-  onInsertAtCursor?: (text: string) => void;
+  onOpenReference: () => void;
   onOpenSecure: () => void;
   onOpenSettings: () => void;
   collapsed: boolean;
@@ -54,7 +53,6 @@ const RAIL_ITEMS: { id: RailTab; title: string; Icon: (typeof Icons)[keyof typeo
   { id: 'workspaces', title: 'Workspaces', Icon: Icons.Workspaces },
   { id: 'import', title: 'Import (cURL)', Icon: Icons.Import },
   { id: 'snippets', title: 'Snippets library', Icon: Icons.Library },
-  { id: 'reference', title: 'Function reference', Icon: Icons.Braces },
 ];
 
 const SNIPPETS: { name: string; desc: string; body: string }[] = [
@@ -128,7 +126,8 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const {
     projectName, onProjectNameChange, currentFile, isDirty, currentMethod,
     onNew, onSave, onLoad, onDelete, listWorkspaces,
-    onCurlImport, onInsertSnippet, onInsertAtCursor, onOpenSecure, onOpenSettings,
+    onCurlImport, onInsertSnippet, onOpenSecure, onOpenSettings,
+    onOpenReference,
     collapsed, onToggleCollapse,
   } = props;
 
@@ -195,6 +194,14 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
         >
           <Icons.Secure size={18} />
         </button>
+        <button
+          onClick={onOpenReference}
+          title="Function reference"
+          aria-label="Function reference"
+          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
+        >
+          <Icons.Braces size={18} />
+        </button>
         <div className="mx-2 my-1.5 h-px bg-line-subtle" />
         {RAIL_ITEMS.map(({ id, title, Icon }) => {
           const isActive = !collapsed && tab === id;
@@ -240,7 +247,6 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
               {tab === 'workspaces' && 'Workspaces'}
               {tab === 'import' && 'Import'}
               {tab === 'snippets' && 'Snippets'}
-              {tab === 'reference' && 'Function reference'}
             </span>
             {tab === 'workspaces' && (
               <button
@@ -332,10 +338,6 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                   Click to replace the current script. Use <span className="font-mono">⌘Z</span> to undo.
                 </div>
               </div>
-            )}
-
-            {tab === 'reference' && (
-              <FunctionBrowser onInsertAtCursor={onInsertAtCursor} />
             )}
 
           </div>

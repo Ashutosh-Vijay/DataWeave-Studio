@@ -7,6 +7,25 @@ import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME 
 import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';
 
+// Lazy-init a singleton DOM node attached directly to document.body for
+// Monaco's overflow widgets (hover popovers, completion menus). Attaching
+// here escapes any ancestor that creates a containing block (transform,
+// will-change, etc.) which otherwise clips the popovers.
+let _overflowDomNode: HTMLDivElement | null = null;
+function getOverflowWidgetsDomNode(): HTMLDivElement {
+  if (typeof document === 'undefined') return null as unknown as HTMLDivElement;
+  if (!_overflowDomNode) {
+    _overflowDomNode = document.createElement('div');
+    _overflowDomNode.className = 'monaco-overflow-widgets-root';
+    _overflowDomNode.style.position = 'absolute';
+    _overflowDomNode.style.zIndex = '99999';
+    _overflowDomNode.style.top = '0';
+    _overflowDomNode.style.left = '0';
+    document.body.appendChild(_overflowDomNode);
+  }
+  return _overflowDomNode;
+}
+
 interface ScriptEditorProps {
   code: string;
   onChange: (value: string | undefined) => void;
@@ -401,9 +420,11 @@ export const ScriptEditor = forwardRef<ScriptEditorHandle, ScriptEditorProps>(fu
           options={{
             minimap: { enabled: false },
             ...editorFont,
-            // Render hover & suggest popups at document root so they don't get
-            // clipped by the editor container's overflow.
+            // Render hover & suggest popups in a dedicated DOM node attached
+            // to <body>, so they aren't clipped by any ancestor's overflow or
+            // containing block (transform/will-change/etc.).
             fixedOverflowWidgets: true,
+            overflowWidgetsDomNode: getOverflowWidgetsDomNode(),
             wordWrap: 'on',
             scrollBeyondLastLine: false,
             glyphMargin: true,

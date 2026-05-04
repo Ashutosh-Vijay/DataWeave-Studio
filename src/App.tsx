@@ -8,6 +8,7 @@ import { ScriptEditor, ScriptEditorHandle } from './components/ScriptEditor';
 import { WindowControls } from './components/WindowControls';
 import { WorkspaceMenu } from './components/WorkspaceMenu';
 import { ToastHost, toast } from './components/Toast';
+import { FunctionBrowser } from './components/FunctionBrowser';
 import { OpenWorkspaceDialog } from './components/OpenWorkspaceDialog';
 import { PayloadTabs } from './components/PayloadTabs';
 import { OutputPane } from './components/OutputPane';
@@ -378,6 +379,7 @@ function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [referenceOpen, setReferenceOpen] = useState(false);
   const [focusDrawerOpen, setFocusDrawerOpen] = useState(false);
   const [showFirstRun, setShowFirstRun] = useState(() => shouldShowFirstRun());
   const [hasStarted, setHasStarted] = useState(false);
@@ -688,6 +690,7 @@ function App() {
       group: 'Node label',
       run: () => workspace.setNodeLabel(l),
     })),
+    { id: 'reference', label: 'Open DataWeave function reference', group: 'Tools', run: () => setReferenceOpen(true) },
     { id: 'secure', label: 'Open Secure Properties tool', group: 'Tools', run: () => setSecureToolOpen(true) },
     { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: '⌘/', group: 'Tools', run: () => setShortcutsOpen(true) },
     { id: 'settings', label: 'Open Settings', shortcut: '⌘,', group: 'Tools', run: () => setSettingsOpen(true) },
@@ -855,9 +858,9 @@ function App() {
           listWorkspaces={workspace.listWorkspaces}
           onCurlImport={handleCurlImport}
           onInsertSnippet={(body) => scriptEditorRef.current?.insertSnippet(body)}
-          onInsertAtCursor={(text) => scriptEditorRef.current?.insertAtCursor(text)}
           onOpenSecure={() => setSecureToolOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
+          onOpenReference={() => setReferenceOpen(true)}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />}
@@ -1197,6 +1200,12 @@ function App() {
 
       {/* Splash screen — covers everything until CLI is ready */}
       <SplashScreen isReady={runner.isWarmedUp} hasError={!!runner.cliError} />
+
+      <FunctionBrowser
+        open={referenceOpen}
+        onClose={() => setReferenceOpen(false)}
+        onInsertAtCursor={(text) => scriptEditorRef.current?.insertAtCursor(text)}
+      />
 
       <ToastHost />
     </div>
