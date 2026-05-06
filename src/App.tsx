@@ -517,8 +517,14 @@ function App() {
   // Auto-save the in-progress draft to localStorage so the user can resume
   // even if they never explicitly saved a workspace file. Debounced so we
   // don't hammer storage on every keystroke.
+  //
+  // Only persist when the workspace is actually dirty — otherwise we'd
+  // silently snapshot the default starter script the moment the user
+  // enters the workspace (before typing anything), which triggers the
+  // Resume button on next launch and "restores" defaults. Useless UX.
   useEffect(() => {
     if (!hasStarted) return;
+    if (!workspace.isDirty) return;
     const handle = setTimeout(() => {
       writeDraft({
         projectName: workspace.projectName,
@@ -539,7 +545,7 @@ function App() {
     }, 600);
     return () => clearTimeout(handle);
   }, [
-    hasStarted,
+    hasStarted, workspace.isDirty,
     workspace.projectName, workspace.script, workspace.payload, workspace.payloadMimeType,
     workspace.context, workspace.namedInputs, workspace.classpath, workspace.timeoutMs,
     workspace.multipartParts, workspace.nodeLabel, workspace.queryTemplate, workspace.payloadFilePath,
