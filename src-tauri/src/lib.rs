@@ -1,8 +1,10 @@
 mod dw_runner;
+mod dw_server;
 mod secure_properties;
 mod workspace;
 
 use dw_runner::{CliOverride, RunState, WarmupState};
+use dw_server::DwServerState;
 use std::sync::Mutex;
 use tauri::Manager;
 
@@ -24,6 +26,7 @@ pub fn run() {
         .manage(CliOverride {
             path: Mutex::new(None),
         })
+        .manage(DwServerState::new())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -33,19 +36,21 @@ pub fn run() {
                 )?;
             }
 
-            // Warm up DW CLI in a background thread
+            // Boot the long-lived DW evaluation server in a background thread.
+            // Pays JVM + DW runtime cold-start once (~1-3s), hidden behind
+            // the splash, so every subsequent Run is ~15-50ms instead of
+            // re-spawning a process every time.
             let handle = app.handle().clone();
             std::thread::spawn(move || {
-                log::info!("Warming up DataWeave CLI...");
-                match dw_runner::warmup_dw_cli(&handle) {
-                    Ok(_) => log::info!("DW CLI warm-up complete"),
+                log::info!("Starting DataWeave server...");
+                match dw_server::start(&handle) {
+                    Ok(_) => log::info!("DW server ready"),
                     Err(e) => {
-                        log::warn!("DW CLI warm-up failed: {}", e);
+                        log::warn!("DW server start failed: {}", e);
                         let state = handle.state::<WarmupState>();
                         *state.error.lock().unwrap() = Some(e);
                     }
                 }
-                // Mark as warmed up regardless (don't block the user forever)
                 let state = handle.state::<WarmupState>();
                 *state.ready.lock().unwrap() = true;
             });
