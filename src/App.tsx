@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { check } from '@tauri-apps/plugin-updater';
 import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { ScriptEditor, ScriptEditorHandle } from './components/ScriptEditor';
@@ -523,8 +524,15 @@ function App() {
   // enters the workspace (before typing anything), which triggers the
   // Resume button on next launch and "restores" defaults. Useless UX.
   useEffect(() => {
-    if (!hasStarted) return;
-    if (!workspace.isDirty) return;
+    if (!hasStarted) {
+      console.log('[draft] auto-draft skipped: hasStarted=false');
+      return;
+    }
+    if (!workspace.isDirty) {
+      console.log('[draft] auto-draft skipped: not dirty');
+      return;
+    }
+    console.log('[draft] auto-draft scheduled (300ms debounce)');
     const handle = setTimeout(() => {
       writeDraft({
         projectName: workspace.projectName,
@@ -542,7 +550,7 @@ function App() {
         savedAt: Date.now(),
       });
       setHasDraftSession(true);
-    }, 600);
+    }, 300);
     return () => clearTimeout(handle);
   }, [
     hasStarted, workspace.isDirty,
@@ -551,12 +559,61 @@ function App() {
     workspace.multipartParts, workspace.nodeLabel, workspace.queryTemplate, workspace.payloadFilePath,
   ]);
 
+  // Flush the draft on window close. The 300ms debounce can leave dirty
+  // state unsaved if the user types-then-immediately-closes; this hook
+  // grabs the latest state via a ref and writes it synchronously before
+  // the WebView shuts down. Tauri 2's onCloseRequested fires before the
+  // window destroys.
+  const draftRefForClose = useRef({
+    hasStarted: false, isDirty: false,
+    state: null as null | Parameters<typeof writeDraft>[0],
+  });
+  draftRefForClose.current = {
+    hasStarted,
+    isDirty: workspace.isDirty,
+    state: hasStarted && workspace.isDirty ? {
+      projectName: workspace.projectName,
+      script: workspace.script,
+      payload: workspace.payload,
+      payloadMimeType: workspace.payloadMimeType,
+      context: workspace.context,
+      namedInputs: workspace.namedInputs,
+      classpath: workspace.classpath,
+      timeoutMs: workspace.timeoutMs,
+      multipartParts: workspace.multipartParts,
+      nodeLabel: workspace.nodeLabel,
+      queryTemplate: workspace.queryTemplate,
+      payloadFilePath: workspace.payloadFilePath,
+      savedAt: Date.now(),
+    } : null,
+  };
+  useEffect(() => {
+    const win = getCurrentWindow();
+    const unlisten = win.onCloseRequested(() => {
+      const cur = draftRefForClose.current;
+      if (cur.hasStarted && cur.isDirty && cur.state) {
+        console.log('[draft] flush on close');
+        writeDraft(cur.state);
+      } else {
+        console.log('[draft] close: nothing to flush', {
+          hasStarted: cur.hasStarted, isDirty: cur.isDirty,
+        });
+      }
+    });
+    return () => { unlisten.then((fn) => fn()).catch(() => {}); };
+  }, []);
+
   // When the workspace transitions to non-dirty (after Save, Load, or New),
   // the draft is no longer the "freshest" state — the persistent storage is.
   // Clear it so Resume on next launch doesn't shadow the just-saved file
   // with stale draft state.
+  //
+  // NOTE: this also fires on the FIRST entry to the workspace (Blank
+  // transform → newWorkspace sets isDirty=false). That's intentional —
+  // explicitly clicking "new" should drop any previous draft.
   useEffect(() => {
     if (hasStarted && !workspace.isDirty) {
+      console.log('[draft] non-dirty transition — clearing draft');
       clearDraft();
       setHasDraftSession(false);
     }
@@ -972,6 +1029,7 @@ function App() {
             lastWorkspace={lastWorkspace}
             hasDraftSession={hasDraftSession && !lastWorkspace}
             onResumeLast={async () => {
+              console.log('[resume] click — lastWorkspace=', lastWorkspace, 'hasDraftSession=', hasDraftSession);
               // Prefer the draft if it exists — it's strictly newer than any
               // saved file (auto-draft writes on every edit; explicit saves
               // clear the draft so the file becomes source of truth, and any
@@ -980,6 +1038,7 @@ function App() {
               // close, regardless of when they last hit Save.
               const d = readDraft();
               if (d) {
+                console.log('[resume] restoring from draft');
                 workspace.setProjectName(d.projectName);
                 workspace.setScript(d.script);
                 workspace.setPayload(d.payload);

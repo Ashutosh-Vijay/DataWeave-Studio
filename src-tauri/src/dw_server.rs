@@ -180,13 +180,15 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
         stdout: reader,
     });
 
-    // Prime the DW compiler with a no-op script so the FIRST user-visible
-    // run doesn't pay parser/compiler cold-start (~1s). The cost is hidden
-    // behind the splash. We use a tiny script with no inputs so it's fast
-    // even from cold (~300-500ms vs ~1s for a real script the first time).
+    // Prime the DW compiler with a representative script (matches the default
+    // starter `{ hello: payload.message }`) so the compiler's hot paths —
+    // parser, type checker, codegen, JSON reader+writer — are all JIT-warmed
+    // and class-cached BEFORE the splash clears. Also primes the cache for
+    // the default script directly, so a user's first manual Run on the
+    // out-of-the-box workspace lands at ~10ms instead of ~800ms.
     let primer_id = state.next_id.fetch_add(1, Ordering::Relaxed);
     let primer_req = format!(
-        r#"{{"id":{},"script":"%dw 2.0\noutput application/json\n---\n1","payloadPath":"","payloadMime":"application/json","namedInputs":[],"outputMime":"application/json"}}"#,
+        r#"{{"id":{},"script":"%dw 2.0\ninput payload application/json\noutput application/json\n---\n{{ hello: payload.message }}","payloadPath":"","payloadMime":"application/json","namedInputs":[],"outputMime":"application/json","compileOnly":true}}"#,
         primer_id
     );
     {
