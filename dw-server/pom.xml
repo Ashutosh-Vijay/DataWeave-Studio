@@ -49,6 +49,13 @@
             <artifactId>core-modules</artifactId>
             <version>${weave.version}</version>
         </dependency>
+        <!-- java-module enables `import java!org::package::Klass` for direct
+             JVM interop. Lets users call any class on the classpath. -->
+        <dependency>
+            <groupId>org.mule.weave</groupId>
+            <artifactId>java-module</artifactId>
+            <version>${weave.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.mule.weave</groupId>
             <artifactId>yaml-module</artifactId>

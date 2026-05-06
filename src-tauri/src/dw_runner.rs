@@ -85,32 +85,6 @@ fn shift_stderr_lines(stderr: &str, offset: i64) -> String {
     }).to_string()
 }
 
-/// Strip ANSI escape codes and Java warnings from stderr
-fn clean_stderr(stderr: &str, line_offset: i64) -> String {
-    let ansi_re = regex::Regex::new(r"\x1b\[[0-9;]*m").unwrap();
-    let cleaned = ansi_re.replace_all(stderr, "");
-
-    let no_warnings = cleaned
-        .lines()
-        .filter(|line| !line.starts_with("WARNING:"))
-        .collect::<Vec<_>>()
-        .join("\n")
-        .trim()
-        .to_string();
-
-    let result = shift_stderr_lines(&no_warnings, line_offset);
-
-    if result.contains("Unknown content type `application/java`") {
-        return format!(
-            "{}\n\nHint: `application/java` is only available inside a Mule runtime. \
-            Try `output application/json` instead — the DW CLI does not support Java object output.",
-            result
-        );
-    }
-
-    result
-}
-
 /// Strip the \\?\ extended-length path prefix that Windows/Rust canonicalize adds.
 #[cfg(target_os = "windows")]
 fn strip_unc_prefix(path: std::path::PathBuf) -> std::path::PathBuf {

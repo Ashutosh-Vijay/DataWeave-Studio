@@ -27,6 +27,12 @@ export function SplashScreen({ isReady, hasError }: SplashScreenProps) {
   const [fadeOut, setFadeOut] = useState(false);
   const [hidden, setHidden] = useState(false);
 
+  // Hand off from the static index.html boot loader. The React splash is
+  // mounted now, so we can drop the early HTML loader without a flash gap.
+  useEffect(() => {
+    document.getElementById('boot-loader')?.remove();
+  }, []);
+
   // Pick one of three loaders, stable for this mount
   const Loader = useMemo(() => pickRandomLoader(), []);
   // Resolve theme colors once so the SVG loaders render with the app's palette

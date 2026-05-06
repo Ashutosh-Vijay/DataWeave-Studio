@@ -98,6 +98,7 @@ pub struct DwResponse {
     pub ok: bool,
     pub output: String,
     pub error: Option<String>,
+    #[allow(dead_code)]
     pub execution_time_ms: i64,
 }
 
@@ -172,6 +173,26 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
         stdin,
         stdout: reader,
     });
+
+    // Prime the DW compiler with a no-op script so the FIRST user-visible
+    // run doesn't pay parser/compiler cold-start (~1s). The cost is hidden
+    // behind the splash. We use a tiny script with no inputs so it's fast
+    // even from cold (~300-500ms vs ~1s for a real script the first time).
+    let primer_id = state.next_id.fetch_add(1, Ordering::Relaxed);
+    let primer_req = format!(
+        r#"{{"id":{},"script":"%dw 2.0\noutput application/json\n---\n1","payloadPath":"","payloadMime":"application/json","namedInputs":[],"outputMime":"application/json"}}"#,
+        primer_id
+    );
+    let mut guard = state.inner.lock().unwrap();
+    if let Some(inner) = guard.as_mut() {
+        let _ = inner.stdin.write_all(primer_req.as_bytes());
+        let _ = inner.stdin.write_all(b"\n");
+        let _ = inner.stdin.flush();
+        let mut primer_resp = String::new();
+        let _ = inner.stdout.read_line(&mut primer_resp);
+        log::info!("DW server primer: {}", primer_resp.trim());
+    }
+
     Ok(())
 }
 
