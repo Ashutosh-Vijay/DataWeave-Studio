@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { check } from '@tauri-apps/plugin-updater';
 import { invoke } from '@tauri-apps/api/core';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { ScriptEditor, ScriptEditorHandle } from './components/ScriptEditor';
@@ -559,49 +558,12 @@ function App() {
     workspace.multipartParts, workspace.nodeLabel, workspace.queryTemplate, workspace.payloadFilePath,
   ]);
 
-  // Flush the draft on window close. The 300ms debounce can leave dirty
-  // state unsaved if the user types-then-immediately-closes; this hook
-  // grabs the latest state via a ref and writes it synchronously before
-  // the WebView shuts down. Tauri 2's onCloseRequested fires before the
-  // window destroys.
-  const draftRefForClose = useRef({
-    hasStarted: false, isDirty: false,
-    state: null as null | Parameters<typeof writeDraft>[0],
-  });
-  draftRefForClose.current = {
-    hasStarted,
-    isDirty: workspace.isDirty,
-    state: hasStarted && workspace.isDirty ? {
-      projectName: workspace.projectName,
-      script: workspace.script,
-      payload: workspace.payload,
-      payloadMimeType: workspace.payloadMimeType,
-      context: workspace.context,
-      namedInputs: workspace.namedInputs,
-      classpath: workspace.classpath,
-      timeoutMs: workspace.timeoutMs,
-      multipartParts: workspace.multipartParts,
-      nodeLabel: workspace.nodeLabel,
-      queryTemplate: workspace.queryTemplate,
-      payloadFilePath: workspace.payloadFilePath,
-      savedAt: Date.now(),
-    } : null,
-  };
-  useEffect(() => {
-    const win = getCurrentWindow();
-    const unlisten = win.onCloseRequested(() => {
-      const cur = draftRefForClose.current;
-      if (cur.hasStarted && cur.isDirty && cur.state) {
-        console.log('[draft] flush on close');
-        writeDraft(cur.state);
-      } else {
-        console.log('[draft] close: nothing to flush', {
-          hasStarted: cur.hasStarted, isDirty: cur.isDirty,
-        });
-      }
-    });
-    return () => { unlisten.then((fn) => fn()).catch(() => {}); };
-  }, []);
+  // (Previously had an onCloseRequested handler to flush the draft on window
+  // close. Removed because Tauri 2's onCloseRequested can prevent the window
+  // from actually closing in some configurations — registering the listener
+  // alone was enough to make X-button clicks no-op. The 300 ms debounce on
+  // auto-draft + the on-Run flush below cover the same use-case without the
+  // close-blocking risk.)
 
   // When the workspace transitions to non-dirty (after Save, Load, or New),
   // the draft is no longer the "freshest" state — the persistent storage is.
@@ -668,6 +630,28 @@ function App() {
   }, []);
 
   const handleRun = useCallback(async () => {
+    // Flush the draft synchronously before the run. Each Run is a definite
+    // checkpoint — user clearly cares about this exact state. If they close
+    // the app right after Run, the draft has the run's exact state.
+    if (workspace.isDirty) {
+      writeDraft({
+        projectName: workspace.projectName,
+        script: workspace.script,
+        payload: workspace.payload,
+        payloadMimeType: workspace.payloadMimeType,
+        context: workspace.context,
+        namedInputs: workspace.namedInputs,
+        classpath: workspace.classpath,
+        timeoutMs: workspace.timeoutMs,
+        multipartParts: workspace.multipartParts,
+        nodeLabel: workspace.nodeLabel,
+        queryTemplate: workspace.queryTemplate,
+        payloadFilePath: workspace.payloadFilePath,
+        savedAt: Date.now(),
+      });
+      setHasDraftSession(true);
+    }
+
     const { configYaml, secureConfigYaml } = workspace.context;
 
     const attributesJson = buildAttributesJson(
