@@ -149,7 +149,7 @@ output application/json
 
 ## Output application/java handling
 
-### T10. Friendly hint on application/java
+### T10. application/java renders as JSON
 ```dataweave
 %dw 2.0
 output application/java
@@ -158,15 +158,17 @@ output application/java
 ```
 - Payload: `{"x":1}`
 
-**Expected:** Output panel shows the friendly message
-> `output application/java` produces a JVM object that has no text
-> representation outside a Mule flow. The script ran successfully, but
-> there's nothing to display.
->
-> To inspect the value, switch the output directive to `application/json` or
-> `application/xml`.
+**Expected:** Output shows the Java object rendered as JSON:
+```json
+{
+  "requestBody": {
+    "x": 1
+  }
+}
+```
 
-**Verifies:** Hint detection in `dw_runner.rs`.
+**Verifies:** Server rewrites `output application/java` → `output application/json`
+internally so the Playground-style display works (`DwServer.scala`).
 
 ---
 

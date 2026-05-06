@@ -207,11 +207,14 @@ licenses/               # Third-party licenses
 
 | Feature | Workaround in DataWeave Studio |
 |---|---|
-| `output application/java` | Use `application/json` for logic testing |
 | `p("key")` / `Mule::p("key")` property lookup | Use the **Config YAML** panel — `${key}` is substituted before each run |
 | `Mule::lookup("flowName", payload)` | No equivalent — extract the logic into a named input or separate script |
 | Connector-specific types (Salesforce `SObject`, DB `ResultSet`, etc.) | Pass a JSON mock of the data structure as payload |
-| Custom Java JARs via classpath | Not yet wired — bundled JDK classes work, custom JARs need URLClassLoader hot-load (TODO) |
+
+> `output application/java` is supported — we render the Java object as JSON
+> for display (the same approach the Playground uses), so you can still see
+> the value structure even though the actual JVM-object form only matters in
+> a Mule flow.
 
 ---
 

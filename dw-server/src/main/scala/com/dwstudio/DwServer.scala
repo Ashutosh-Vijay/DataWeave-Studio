@@ -98,8 +98,18 @@ object DwServer {
 
     val id = if (req.get("id") == null) -1 else req.get("id").asInt()
     try {
-      val script = req.getString("script", "")
+      val rawScript = req.getString("script", "")
       val outputMime = req.getString("outputMime", "application/json")
+
+      // `output application/java` produces a JVM object that has no text
+      // representation — the official Playground sidesteps this by rendering
+      // the result as JSON instead. Mirror that: rewrite the directive to
+      // application/json before compilation so the JSON writer emits text.
+      // The user sees the same readable JSON the Playground shows.
+      val script = rawScript.replaceAll(
+        "(?m)^(\\s*output\\s+)application/java(\\s*)$",
+        "$1application/json$2"
+      )
 
       // Hot-add any user-provided JARs to the classloader so `import java!...`
       // can resolve classes from them. Idempotent — only new paths get added.
