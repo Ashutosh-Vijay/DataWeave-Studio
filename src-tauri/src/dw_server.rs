@@ -183,15 +183,47 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
         r#"{{"id":{},"script":"%dw 2.0\noutput application/json\n---\n1","payloadPath":"","payloadMime":"application/json","namedInputs":[],"outputMime":"application/json"}}"#,
         primer_id
     );
-    let mut guard = state.inner.lock().unwrap();
-    if let Some(inner) = guard.as_mut() {
-        let _ = inner.stdin.write_all(primer_req.as_bytes());
-        let _ = inner.stdin.write_all(b"\n");
-        let _ = inner.stdin.flush();
-        let mut primer_resp = String::new();
-        let _ = inner.stdout.read_line(&mut primer_resp);
-        log::info!("DW server primer: {}", primer_resp.trim());
+    {
+        let mut guard = state.inner.lock().unwrap();
+        if let Some(inner) = guard.as_mut() {
+            let _ = inner.stdin.write_all(primer_req.as_bytes());
+            let _ = inner.stdin.write_all(b"\n");
+            let _ = inner.stdin.flush();
+            let mut primer_resp = String::new();
+            let _ = inner.stdout.read_line(&mut primer_resp);
+            log::info!("DW server primer: {}", primer_resp.trim());
+        }
     }
+
+    // Keep-alive: every 60 s send a no-op eval to keep the JVM hot and the
+    // DW compiler caches resident in memory. After ~30 s idle the OS pages
+    // out warm code and the next user run pays a ~1-2 s "soft warmup" before
+    // returning to ~10 ms. Cost of the ping is ~10 ms once a minute (0.02%
+    // CPU) which is invisible.
+    let keepalive_app = app.clone();
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(60));
+            let state = keepalive_app.state::<DwServerState>();
+            let id = state.next_id.fetch_add(1, Ordering::Relaxed);
+            let req = format!(
+                r#"{{"id":{},"script":"%dw 2.0\noutput application/json\n---\n1","payloadPath":"","payloadMime":"application/json","namedInputs":[],"outputMime":"application/json"}}"#,
+                id
+            );
+            let mut guard = state.inner.lock().unwrap();
+            let Some(inner) = guard.as_mut() else { return; };
+            if inner.stdin.write_all(req.as_bytes()).is_err()
+                || inner.stdin.write_all(b"\n").is_err()
+                || inner.stdin.flush().is_err()
+            {
+                return;
+            }
+            let mut resp = String::new();
+            if inner.stdout.read_line(&mut resp).is_err() {
+                return;
+            }
+        }
+    });
 
     Ok(())
 }

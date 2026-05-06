@@ -575,9 +575,32 @@ pub async fn run_dataweave(
         });
     }
 
+    // Detect `output application/java` in the user script. The Java writer
+    // emits a JVM object graph (HashMap/ArrayList/String) — meaningful in
+    // a Mule flow as the next-processor payload, but no text representation
+    // outside one. Surface a friendly hint instead of the silent empty result.
+    let wants_java_output = full_script
+        .lines()
+        .any(|l| l.trim().starts_with("output ") && l.contains("application/java"));
+
     match server_result {
         Ok(resp) => {
             if resp.ok {
+                if wants_java_output && resp.output.trim().is_empty() {
+                    return Ok(RunResult {
+                        output: String::new(),
+                        error: Some(
+                            "`output application/java` produces a JVM object that has no text \
+                             representation outside a Mule flow. The script ran successfully, \
+                             but there's nothing to display.\n\n\
+                             To inspect the value, switch the output directive to \
+                             `application/json` or `application/xml`.".to_string()
+                        ),
+                        execution_time_ms,
+                        error_line: None,
+                        error_column: None,
+                    });
+                }
                 Ok(RunResult {
                     output: resp.output,
                     error: None,
