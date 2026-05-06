@@ -26,6 +26,7 @@ import { CompactLayout } from './components/CompactLayout';
 import { FocusDrawer } from './components/FocusDrawer';
 import { FirstRunPicker, shouldShowFirstRun, markFirstRunSeen } from './components/FirstRunPicker';
 import { EmptyState, readLastWorkspace, writeLastWorkspace } from './components/EmptyState';
+import { readDraft, writeDraft, hasDraft } from './draftSession';
 import { useWorkspace } from './hooks/useWorkspace';
 import { useDWRunner } from './hooks/useDWRunner';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -143,6 +144,23 @@ function buildVarsJson(vars: VarEntry[]): string {
  * Flatten a nested YAML object into dot-notation keys.
  * e.g. { salesforce: { path: "/api" } } → { "salesforce.path": "/api" }
  */
+/**
+ * Pre-process secure-config YAML before js-yaml gets it. The `!` character
+ * is a YAML tag indicator, so a bare `![Base64Blob]` value gets parsed as
+ * "apply tag `!` to flow sequence" — which either throws or returns junk.
+ * We replace each bare `![...]` value with its quoted-string equivalent so
+ * js-yaml parses it as a literal string. The leading `![` stays in the
+ * value, so hasEncryptedValues + decryptFlatMap still find and decrypt it.
+ */
+function escapeBangBracketValues(yamlSource: string): string {
+  // Match a `:` (key separator) followed by optional whitespace, then a
+  // bare ![...] value, up to end-of-line. Quote it.
+  return yamlSource.replace(
+    /(:\s*)(!\[[^\]\n]+\])(\s*$)/gm,
+    (_, prefix, value, trailing) => `${prefix}"${value.replace(/"/g, '\\"')}"${trailing}`,
+  );
+}
+
 function flattenYaml(obj: unknown, prefix = ''): Record<string, string> {
   const result: Record<string, string> = {};
   if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
@@ -199,7 +217,7 @@ function substituteProperties(text: string, configYaml?: string, secureConfigYam
     try { configFlat = flattenYaml(yaml.load(configYaml)); } catch { /* skip */ }
   }
   if (secureConfigYaml) {
-    try { secureFlat = flattenYaml(yaml.load(secureConfigYaml)); } catch { /* skip */ }
+    try { secureFlat = flattenYaml(yaml.load(escapeBangBracketValues(secureConfigYaml))); } catch { /* skip */ }
   }
 
   return substituteFromMaps(text, configFlat, secureFlat);
@@ -226,13 +244,15 @@ async function substitutePropertiesAsync(
 
   if (secureConfigYaml) {
     try {
-      secureFlat = flattenYaml(yaml.load(secureConfigYaml));
+      secureFlat = flattenYaml(yaml.load(escapeBangBracketValues(secureConfigYaml)));
       // Decrypt ![...] values if key is provided
       if (encryptionKey && hasEncryptedValues(secureConfigYaml)) {
         const settings = encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS;
         secureFlat = await decryptFlatMap(secureFlat, encryptionKey, settings);
       }
-    } catch { /* skip */ }
+    } catch (e) {
+      console.warn('Secure config parse failed:', e);
+    }
   }
 
   return substituteFromMaps(text, configFlat, secureFlat);
@@ -384,6 +404,9 @@ function App() {
   const [showFirstRun, setShowFirstRun] = useState(() => shouldShowFirstRun());
   const [hasStarted, setHasStarted] = useState(false);
   const [lastWorkspace, setLastWorkspace] = useState<string | null>(() => readLastWorkspace());
+  // Whether a recoverable in-progress draft exists in localStorage. Used by
+  // the welcome screen's Resume button when no saved workspace file is present.
+  const [hasDraftSession, setHasDraftSession] = useState<boolean>(() => hasDraft());
   const beginTransforming = useCallback(() => {
     setHasStarted(true);
   }, []);
@@ -490,6 +513,37 @@ function App() {
       setLastWorkspace(workspace.currentFile);
     }
   }, [workspace.currentFile, hasStarted]);
+
+  // Auto-save the in-progress draft to localStorage so the user can resume
+  // even if they never explicitly saved a workspace file. Debounced so we
+  // don't hammer storage on every keystroke.
+  useEffect(() => {
+    if (!hasStarted) return;
+    const handle = setTimeout(() => {
+      writeDraft({
+        projectName: workspace.projectName,
+        script: workspace.script,
+        payload: workspace.payload,
+        payloadMimeType: workspace.payloadMimeType,
+        context: workspace.context,
+        namedInputs: workspace.namedInputs,
+        classpath: workspace.classpath,
+        timeoutMs: workspace.timeoutMs,
+        multipartParts: workspace.multipartParts,
+        nodeLabel: workspace.nodeLabel,
+        queryTemplate: workspace.queryTemplate,
+        payloadFilePath: workspace.payloadFilePath,
+        savedAt: Date.now(),
+      });
+      setHasDraftSession(true);
+    }, 600);
+    return () => clearTimeout(handle);
+  }, [
+    hasStarted,
+    workspace.projectName, workspace.script, workspace.payload, workspace.payloadMimeType,
+    workspace.context, workspace.namedInputs, workspace.classpath, workspace.timeoutMs,
+    workspace.multipartParts, workspace.nodeLabel, workspace.queryTemplate, workspace.payloadFilePath,
+  ]);
 
   // Push the CLI path override from localStorage into Rust state on startup,
   // then restart the warmup if the user has actually configured a custom path.
@@ -883,10 +937,28 @@ function App() {
               setTimeout(() => setShowTour(true), 50);
             }}
             lastWorkspace={lastWorkspace}
+            hasDraftSession={hasDraftSession && !lastWorkspace}
             onResumeLast={() => {
-              if (!lastWorkspace) return;
               beginTransforming();
-              workspace.loadWorkspace(lastWorkspace);
+              if (lastWorkspace) {
+                workspace.loadWorkspace(lastWorkspace);
+                return;
+              }
+              // No saved file — restore from the in-progress draft instead.
+              const d = readDraft();
+              if (!d) return;
+              workspace.setProjectName(d.projectName);
+              workspace.setScript(d.script);
+              workspace.setPayload(d.payload);
+              workspace.setPayloadMimeType(d.payloadMimeType);
+              workspace.setContext(d.context);
+              workspace.setNamedInputs(d.namedInputs);
+              workspace.setClasspath(d.classpath);
+              workspace.setTimeoutMs(d.timeoutMs);
+              workspace.setMultipartParts(d.multipartParts);
+              workspace.setNodeLabel(d.nodeLabel);
+              workspace.setQueryTemplate(d.queryTemplate);
+              workspace.setPayloadFilePath(d.payloadFilePath);
             }}
           />
         ) : isCompact ? (

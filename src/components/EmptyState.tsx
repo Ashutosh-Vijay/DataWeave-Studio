@@ -21,14 +21,17 @@ interface EmptyStateProps {
   onOpenWorkspace: () => void;
   onStartTour: () => void;
   lastWorkspace: string | null;
+  /** True when no saved file exists but a recoverable in-progress draft does. */
+  hasDraftSession?: boolean;
   onResumeLast: () => void;
 }
 
 export function EmptyState({
   onBlankTransform, onImportCurl, onImportPlayground, onOpenSnippets, onOpenWorkspace,
-  onStartTour, lastWorkspace, onResumeLast,
+  onStartTour, lastWorkspace, hasDraftSession, onResumeLast,
 }: EmptyStateProps) {
   const lastName = lastWorkspace ? lastWorkspace.replace(/\.json$/, '').replace(/\.dwstudio$/, '') : null;
+  const showResume = !!lastName || !!hasDraftSession;
   return (
     <div className="flex-1 flex items-center justify-center bg-bg overflow-auto">
       <div className="text-center max-w-[640px] px-6 py-10">
@@ -46,7 +49,7 @@ export function EmptyState({
           feed it a payload, and see the result — no cloud, no signup.
         </p>
 
-        {lastName && (
+        {showResume && (
           <button
             onClick={onResumeLast}
             className="inline-flex items-center gap-2 mb-5 px-3.5 h-9 rounded-md cursor-pointer transition-colors border"
@@ -55,11 +58,15 @@ export function EmptyState({
               borderColor: 'var(--accent-border)',
               color: 'var(--accent)',
             }}
-            title="Resume the last workspace you had open"
+            title={lastName ? 'Resume the last saved workspace' : 'Restore your unsaved in-progress draft'}
           >
             <Icons.Folder size={13} />
-            <span className="text-[12.5px] font-medium">Resume last session</span>
-            <span className="font-mono text-[11px] opacity-80 truncate max-w-[220px]">· {lastName}</span>
+            <span className="text-[12.5px] font-medium">
+              {lastName ? 'Resume last session' : 'Restore unsaved draft'}
+            </span>
+            {lastName && (
+              <span className="font-mono text-[11px] opacity-80 truncate max-w-[220px]">· {lastName}</span>
+            )}
             <span className="opacity-80">→</span>
           </button>
         )}

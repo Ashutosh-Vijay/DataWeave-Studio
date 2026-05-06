@@ -251,6 +251,41 @@ function DetailPane({
   );
 }
 
+function CopyableBlock({
+  content, className, style, children,
+}: {
+  content: string;
+  className: string;
+  style: React.CSSProperties;
+  children: React.ReactNode;
+}) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="relative group">
+      <pre className={className} style={style}>{children}</pre>
+      <button
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(content);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          } catch { /* clipboard not available */ }
+        }}
+        title={copied ? 'Copied' : 'Copy'}
+        className="absolute top-2 right-2 inline-flex items-center gap-1 px-2 h-6 rounded text-[10.5px] font-medium opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+        style={{
+          background: 'var(--surface)',
+          color: copied ? 'var(--accent)' : 'var(--content-faint)',
+          border: '1px solid var(--line)',
+        }}
+      >
+        {copied ? <Icons.Dot size={9} /> : <Icons.Copy size={11} />}
+        {copied ? 'Copied' : 'Copy'}
+      </button>
+    </div>
+  );
+}
+
 function OverloadSection({ ov, index }: { ov: FnOverload; index: number | null }) {
   return (
     <section className="space-y-3.5">
@@ -273,15 +308,16 @@ function OverloadSection({ ov, index }: { ov: FnOverload; index: number | null }
       </div>
 
       {/* Signature */}
-      <pre
-        className="px-4 py-3 rounded-lg font-mono text-[12.5px] text-content overflow-x-auto whitespace-pre-wrap break-all leading-relaxed border"
+      <CopyableBlock
+        content={ov.signature}
+        className="px-4 py-3 rounded-lg font-mono text-[12.5px] text-content overflow-x-auto whitespace-pre-wrap break-all leading-relaxed border select-text"
         style={{
           background: 'var(--surface-2)',
           borderColor: 'var(--line)',
         }}
       >
         {ov.signature}
-      </pre>
+      </CopyableBlock>
 
       {/* Description */}
       {ov.description && (
@@ -298,22 +334,24 @@ function OverloadSection({ ov, index }: { ov: FnOverload; index: number | null }
               <div className="text-[10.5px] uppercase tracking-[0.5px] font-semibold text-content-faint">
                 {ov.examples.length > 1 ? `Example ${j + 1}` : 'Example'}
               </div>
-              <pre
-                className="px-4 py-3 rounded-md font-mono text-[12.5px] text-content overflow-x-auto whitespace-pre leading-relaxed border"
+              <CopyableBlock
+                content={ex.source}
+                className="px-4 py-3 rounded-md font-mono text-[12.5px] text-content overflow-x-auto whitespace-pre leading-relaxed border select-text"
                 style={{
                   background: 'var(--surface-2)',
                   borderColor: 'var(--line)',
                 }}
               >
                 {ex.source}
-              </pre>
+              </CopyableBlock>
               {ex.output && (
                 <>
                   <div className="text-[10px] uppercase tracking-[0.5px] font-semibold text-content-ghost">
                     Output
                   </div>
-                  <pre
-                    className="px-4 py-3 rounded-md font-mono text-[12px] overflow-x-auto whitespace-pre leading-relaxed border"
+                  <CopyableBlock
+                    content={ex.output}
+                    className="px-4 py-3 rounded-md font-mono text-[12px] overflow-x-auto whitespace-pre leading-relaxed border select-text"
                     style={{
                       background: 'color-mix(in oklch, var(--accent) 4%, var(--surface-2))',
                       borderColor: 'var(--line)',
@@ -321,7 +359,7 @@ function OverloadSection({ ov, index }: { ov: FnOverload; index: number | null }
                     }}
                   >
                     {ex.output}
-                  </pre>
+                  </CopyableBlock>
                 </>
               )}
             </div>

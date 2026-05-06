@@ -263,35 +263,44 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           {/* Body */}
           <div className="flex-1 overflow-y-auto">
             {tab === 'workspaces' && (
-              files.length === 0 ? (
-                <WorkspacesEmpty onNew={() => { onNew(); refreshFiles(); }} onImport={() => setTab('import')} />
-              ) : (
-                <div className="p-2 space-y-3">
-                  {/* Project name + save */}
-                  <div className="px-1 space-y-2">
-                    <label className="text-[10px] text-content-faint uppercase tracking-wide">Project Name</label>
-                    <input
-                      type="text"
-                      value={projectName}
-                      onChange={(e) => onProjectNameChange(e.target.value)}
-                      className="w-full bg-surface-2 border border-line rounded px-2 py-1.5 text-xs text-content placeholder-content-ghost focus:border-accent focus:outline-none"
-                      placeholder="Untitled"
-                    />
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className={`w-full py-1.5 rounded text-xs font-medium transition-all cursor-pointer ${
-                        saveFlash
-                          ? 'bg-accent text-accent-ink'
-                          : 'bg-accent hover:bg-accent-hover text-accent-ink disabled:opacity-50'
-                      }`}
-                    >
-                      {saveFlash ? 'Saved!' : saving ? 'Saving…' : 'Save'}
-                      <span className="text-[10px] opacity-60 ml-1">Ctrl+S</span>
-                    </button>
-                  </div>
+              <div className="p-2 space-y-3">
+                {/* Project name + save — always visible so the user can save the
+                    in-progress draft even when no files have been saved yet. */}
+                <div className="px-1 space-y-2">
+                  <label className="text-[10px] text-content-faint uppercase tracking-wide">Project Name</label>
+                  <input
+                    type="text"
+                    value={projectName}
+                    onChange={(e) => onProjectNameChange(e.target.value)}
+                    className="w-full bg-surface-2 border border-line rounded px-2 py-1.5 text-xs text-content placeholder-content-ghost focus:border-accent focus:outline-none"
+                    placeholder="Untitled"
+                  />
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className={`w-full py-1.5 rounded text-xs font-medium transition-all cursor-pointer ${
+                      saveFlash
+                        ? 'bg-accent text-accent-ink'
+                        : 'bg-accent hover:bg-accent-hover text-accent-ink disabled:opacity-50'
+                    }`}
+                  >
+                    {saveFlash ? 'Saved!' : saving ? 'Saving…' : 'Save'}
+                    <span className="text-[10px] opacity-60 ml-1">Ctrl+S</span>
+                  </button>
+                  <button
+                    onClick={() => { onNew(); refreshFiles(); }}
+                    className="w-full py-1.5 rounded text-xs font-medium border border-line text-content-secondary hover:bg-surface-2 cursor-pointer transition-colors inline-flex items-center justify-center gap-1.5"
+                    title="Start a fresh blank workspace"
+                  >
+                    <Icons.Plus size={11} /> New blank workspace
+                  </button>
+                </div>
 
-                  {/* Pinned + Recent */}
+                {files.length === 0 ? (
+                  <div className="px-1 pt-2 text-[11px] text-content-faint leading-relaxed text-center">
+                    No saved workspaces yet. Hit <span className="font-mono">⌘S</span> to save this one.
+                  </div>
+                ) : (
                   <WorkspaceList
                     files={files}
                     pinned={pinned}
@@ -305,8 +314,8 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                     }}
                     onTogglePin={togglePin}
                   />
-                </div>
-              )
+                )}
+              </div>
             )}
 
             {tab === 'import' && (
@@ -490,41 +499,3 @@ function WSRow({
   );
 }
 
-function WorkspacesEmpty({ onNew, onImport }: { onNew: () => void; onImport: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center text-center px-6 py-10 gap-3.5 h-full">
-      <div
-        className="w-14 h-14 rounded-2xl flex items-center justify-center"
-        style={{
-          background: 'color-mix(in oklch, var(--accent) 10%, transparent)',
-          border: '1px dashed var(--accent-border)',
-          color: 'var(--accent)',
-        }}
-      >
-        <Icons.Folder size={22} />
-      </div>
-      <div>
-        <div className="text-[14px] font-semibold text-content">No workspaces yet</div>
-        <div className="text-[12px] text-content-muted mt-1.5 max-w-[200px] leading-relaxed">
-          Create your first workspace, or import a cURL command to generate one.
-        </div>
-      </div>
-      <div className="flex flex-col gap-1.5 w-full">
-        <button
-          onClick={onNew}
-          className="flex items-center justify-center gap-1.5 h-8 rounded-md text-[12.5px] font-semibold cursor-pointer"
-          style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
-        >
-          <Icons.Plus size={12} /> New workspace
-        </button>
-        <button
-          onClick={onImport}
-          className="flex items-center justify-center gap-1.5 h-8 rounded-md text-[12.5px] cursor-pointer border border-line text-content-secondary hover:bg-surface-2"
-        >
-          <Icons.Import size={12} /> Import cURL
-        </button>
-      </div>
-      <div className="text-[10.5px] text-content-faint mt-1 font-mono">⌘N to start fresh</div>
-    </div>
-  );
-}

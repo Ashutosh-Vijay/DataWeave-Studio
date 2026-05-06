@@ -150,6 +150,45 @@ code, pre, .font-mono, [class*="font-mono"] {
   font-family: var(--font-mono);
 }
 
+/* Monaco overflow widgets (hover, suggest, parameter hints) rendered at body
+   level need explicit background + text colors. Without this they render
+   transparent on top of whatever's behind them — unreadable. */
+.monaco-overflow-widgets-root .monaco-hover,
+.monaco-overflow-widgets-root .monaco-editor-hover,
+.monaco-overflow-widgets-root .suggest-widget,
+.monaco-overflow-widgets-root .parameter-hints-widget {
+  background: var(--surface) !important;
+  color: var(--content) !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35) !important;
+  border-radius: 6px !important;
+}
+
+.monaco-overflow-widgets-root .monaco-hover .monaco-hover-content,
+.monaco-overflow-widgets-root .monaco-editor-hover .monaco-hover-content {
+  color: var(--content) !important;
+}
+
+.monaco-overflow-widgets-root .suggest-widget .monaco-list .monaco-list-row {
+  color: var(--content) !important;
+}
+
+.monaco-overflow-widgets-root .suggest-widget .monaco-list .monaco-list-row.focused {
+  background: color-mix(in oklch, var(--accent) 18%, transparent) !important;
+}
+
+.monaco-overflow-widgets-root .suggest-widget .details {
+  background: var(--surface-2) !important;
+  color: var(--content) !important;
+  border-color: var(--line) !important;
+}
+
+.monaco-overflow-widgets-root code {
+  background: var(--surface-2) !important;
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
 /* Custom scrollbars */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }

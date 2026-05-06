@@ -11,12 +11,17 @@ import { useEditorFont } from '../hooks/useEditorFont';
 // Monaco's overflow widgets (hover popovers, completion menus). Attaching
 // here escapes any ancestor that creates a containing block (transform,
 // will-change, etc.) which otherwise clips the popovers.
+//
+// IMPORTANT: must carry the `monaco-editor` class so Monaco's theme CSS
+// (background colors, text colors) cascades into the widgets. Without it
+// the popovers render with no background and unreadable text. We append
+// the active theme class too so dark/light theming applies correctly.
 let _overflowDomNode: HTMLDivElement | null = null;
 function getOverflowWidgetsDomNode(): HTMLDivElement {
   if (typeof document === 'undefined') return null as unknown as HTMLDivElement;
   if (!_overflowDomNode) {
     _overflowDomNode = document.createElement('div');
-    _overflowDomNode.className = 'monaco-overflow-widgets-root';
+    _overflowDomNode.className = 'monaco-editor monaco-overflow-widgets-root';
     _overflowDomNode.style.position = 'absolute';
     _overflowDomNode.style.zIndex = '99999';
     _overflowDomNode.style.top = '0';
@@ -339,6 +344,17 @@ export const ScriptEditor = forwardRef<ScriptEditorHandle, ScriptEditorProps>(fu
     if (monaco) {
       defineDataWeaveTheme(monaco);
       monaco.editor.setTheme(isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME);
+    }
+    // Mirror the active theme class on the body-attached overflow widgets
+    // node so hover/suggest popovers pick up the right background colors.
+    const overflowNode = _overflowDomNode;
+    if (overflowNode) {
+      overflowNode.classList.remove(
+        `vs-theme-${DATAWEAVE_THEME_NAME}`,
+        `vs-theme-${DATAWEAVE_LIGHT_THEME_NAME}`,
+        'vs', 'vs-dark',
+      );
+      overflowNode.classList.add(isDark ? 'vs-dark' : 'vs');
     }
   }, [isDark, monaco]);
 
