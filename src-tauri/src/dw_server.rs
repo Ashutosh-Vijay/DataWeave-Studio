@@ -186,9 +186,12 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     // and class-cached BEFORE the splash clears. Also primes the cache for
     // the default script directly, so a user's first manual Run on the
     // out-of-the-box workspace lands at ~10ms instead of ~800ms.
+    // Match exactly what build_full_script produces for the default workspace
+    // (GET method ⇒ has_attributes=true ⇒ injects `input attributes
+    // application/json`). Hits the cache on a fresh user's first manual Run.
     let primer_id = state.next_id.fetch_add(1, Ordering::Relaxed);
     let primer_req = format!(
-        r#"{{"id":{},"script":"%dw 2.0\ninput payload application/json\noutput application/json\n---\n{{ hello: payload.message }}","payloadPath":"","payloadMime":"application/json","namedInputs":[],"outputMime":"application/json","compileOnly":true}}"#,
+        r#"{{"id":{},"script":"%dw 2.0\ninput payload application/json\ninput attributes application/json\noutput application/json\n---\n{{\n  hello: payload.message\n}}","payloadPath":"","payloadMime":"application/json","namedInputs":[],"outputMime":"application/json","compileOnly":true}}"#,
         primer_id
     );
     {

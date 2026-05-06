@@ -187,12 +187,13 @@ object DwServer {
       val inputTypes: Array[InputType] =
         mimeByName.keys.toList.map(name => new InputType(name, None)).toArray
 
-      // Cache key: script + input names + output mime. Same script with same
-      // input shape compiles to the same bytecode, so we can reuse the
-      // DataWeaveScript object across runs. Eliminates the ~800ms compile
-      // cost on every repeat run.
-      val cacheKey =
-        script + " " + mimeByName.keys.mkString(",") + " " + outputMime
+      // Cache key: script text + output mime. The script already contains the
+      // `input <name> <mime>` directives our Rust runner injects (via
+      // build_full_script), so the input shape is implicit. Earlier we also
+      // keyed on mimeByName.keys, but that caused misses when the splash
+      // primer compiled with [payload] only while the actual run sent
+      // [payload, attributes] — even though the script texts were identical.
+      val cacheKey = script + " " + outputMime
       val compiled: DataWeaveScript = CompileCache.get(cacheKey).getOrElse {
         val c = engine.compileWith(
           engine.newConfig()

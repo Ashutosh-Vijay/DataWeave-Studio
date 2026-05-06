@@ -581,11 +581,11 @@ function App() {
     }
   }, [hasStarted, workspace.isDirty]);
 
-  // Debounced compile-cache pre-warm: when the user pauses typing for ~800ms,
+  // Debounced compile-cache pre-warm: when the user pauses typing for ~200ms,
   // ask the server to compile (and cache) the current script silently. By
   // the time they click Run, the cache is hot — eval drops to ~10ms instead
-  // of paying ~800ms first-compile cost. Costs nothing if the user keeps
-  // typing (debounce cancels) or hasn't entered a workspace yet.
+  // of paying ~800ms first-compile cost. Also fires right after Resume
+  // restores a script, so a quick Run-after-Resume is also cached.
   useEffect(() => {
     if (!hasStarted || !runner.isWarmedUp) return;
     const handle = setTimeout(() => {
@@ -593,7 +593,7 @@ function App() {
         // Pre-warm is best-effort; ignore failures so a transient compile
         // error doesn't leak as a toast or disrupt the user.
       });
-    }, 800);
+    }, 200);
     return () => clearTimeout(handle);
   }, [hasStarted, runner.isWarmedUp, workspace.script]);
 
