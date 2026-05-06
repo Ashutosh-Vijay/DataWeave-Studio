@@ -30,41 +30,17 @@ export interface DraftSession {
 export function readDraft(): DraftSession | null {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) {
-      console.log('[draft] readDraft: no draft in localStorage');
-      return null;
-    }
-    const d = JSON.parse(raw) as DraftSession;
-    console.log('[draft] readDraft: loaded', {
-      projectName: d.projectName,
-      scriptLen: d.script?.length,
-      scriptPreview: d.script?.slice(0, 80),
-      savedAt: new Date(d.savedAt).toISOString(),
-    });
-    return d;
-  } catch (e) {
-    console.warn('[draft] readDraft: parse failed', e);
-    return null;
-  }
+    if (!raw) return null;
+    return JSON.parse(raw) as DraftSession;
+  } catch { return null; }
 }
 
 export function writeDraft(d: DraftSession): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(d));
-    console.log('[draft] writeDraft', {
-      scriptLen: d.script?.length,
-      scriptPreview: d.script?.slice(0, 80),
-      savedAt: new Date(d.savedAt).toISOString(),
-    });
-  } catch (e) { console.warn('[draft] writeDraft failed:', e); }
+  try { localStorage.setItem(KEY, JSON.stringify(d)); } catch { /* quota or unavailable */ }
 }
 
 export function clearDraft(): void {
-  try {
-    const had = localStorage.getItem(KEY) != null;
-    localStorage.removeItem(KEY);
-    if (had) console.log('[draft] clearDraft: cleared an existing draft');
-  } catch (e) { console.warn('[draft] clearDraft failed:', e); }
+  try { localStorage.removeItem(KEY); } catch { /* unavailable */ }
 }
 
 export function hasDraft(): boolean {

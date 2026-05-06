@@ -523,15 +523,7 @@ function App() {
   // enters the workspace (before typing anything), which triggers the
   // Resume button on next launch and "restores" defaults. Useless UX.
   useEffect(() => {
-    if (!hasStarted) {
-      console.log('[draft] auto-draft skipped: hasStarted=false');
-      return;
-    }
-    if (!workspace.isDirty) {
-      console.log('[draft] auto-draft skipped: not dirty');
-      return;
-    }
-    console.log('[draft] auto-draft scheduled (300ms debounce)');
+    if (!hasStarted || !workspace.isDirty) return;
     const handle = setTimeout(() => {
       writeDraft({
         projectName: workspace.projectName,
@@ -549,7 +541,7 @@ function App() {
         savedAt: Date.now(),
       });
       setHasDraftSession(true);
-    }, 300);
+    }, 500);
     return () => clearTimeout(handle);
   }, [
     hasStarted, workspace.isDirty,
@@ -575,7 +567,6 @@ function App() {
   // explicitly clicking "new" should drop any previous draft.
   useEffect(() => {
     if (hasStarted && !workspace.isDirty) {
-      console.log('[draft] non-dirty transition — clearing draft');
       clearDraft();
       setHasDraftSession(false);
     }
@@ -630,28 +621,6 @@ function App() {
   }, []);
 
   const handleRun = useCallback(async () => {
-    // Flush the draft synchronously before the run. Each Run is a definite
-    // checkpoint — user clearly cares about this exact state. If they close
-    // the app right after Run, the draft has the run's exact state.
-    if (workspace.isDirty) {
-      writeDraft({
-        projectName: workspace.projectName,
-        script: workspace.script,
-        payload: workspace.payload,
-        payloadMimeType: workspace.payloadMimeType,
-        context: workspace.context,
-        namedInputs: workspace.namedInputs,
-        classpath: workspace.classpath,
-        timeoutMs: workspace.timeoutMs,
-        multipartParts: workspace.multipartParts,
-        nodeLabel: workspace.nodeLabel,
-        queryTemplate: workspace.queryTemplate,
-        payloadFilePath: workspace.payloadFilePath,
-        savedAt: Date.now(),
-      });
-      setHasDraftSession(true);
-    }
-
     const { configYaml, secureConfigYaml } = workspace.context;
 
     const attributesJson = buildAttributesJson(
@@ -1013,7 +982,6 @@ function App() {
             lastWorkspace={lastWorkspace}
             hasDraftSession={hasDraftSession && !lastWorkspace}
             onResumeLast={async () => {
-              console.log('[resume] click — lastWorkspace=', lastWorkspace, 'hasDraftSession=', hasDraftSession);
               // Prefer the draft if it exists — it's strictly newer than any
               // saved file (auto-draft writes on every edit; explicit saves
               // clear the draft so the file becomes source of truth, and any
@@ -1022,7 +990,6 @@ function App() {
               // close, regardless of when they last hit Save.
               const d = readDraft();
               if (d) {
-                console.log('[resume] restoring from draft');
                 workspace.setProjectName(d.projectName);
                 workspace.setScript(d.script);
                 workspace.setPayload(d.payload);
