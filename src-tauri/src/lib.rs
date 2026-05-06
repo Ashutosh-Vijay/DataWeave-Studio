@@ -29,9 +29,19 @@ pub fn run() {
         .manage(DwServerState::new())
         .setup(|app| {
             if cfg!(debug_assertions) {
+                use tauri_plugin_log::{Target, TargetKind};
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
                         .level(log::LevelFilter::Info)
+                        .targets([
+                            // Stdout = the `npm run tauri dev` terminal. Both
+                            // Rust-side log::info! AND forwarded JS console.log
+                            // (via the plugin's JS API) appear here.
+                            Target::new(TargetKind::Stdout),
+                            // Webview target lets us write to the in-app dev
+                            // console too if the user opens it.
+                            Target::new(TargetKind::Webview),
+                        ])
                         .build(),
                 )?;
             }

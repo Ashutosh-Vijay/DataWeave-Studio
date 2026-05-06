@@ -6,6 +6,10 @@ import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ThemeProvider } from "./ThemeContext";
 import "./index.css";
+// Side-effect import: wraps console.log/warn/error so messages also surface
+// in the `npm run tauri dev` terminal (via the Tauri log plugin's stdout
+// target). Browser DevTools still gets them too.
+import "./logForward";
 
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
