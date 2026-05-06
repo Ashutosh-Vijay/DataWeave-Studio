@@ -938,15 +938,30 @@ function App() {
             }}
             lastWorkspace={lastWorkspace}
             hasDraftSession={hasDraftSession && !lastWorkspace}
-            onResumeLast={() => {
-              beginTransforming();
+            onResumeLast={async () => {
+              // Try the named workspace file first. If it loads, beginTransforming
+              // AFTER the state is set so we don't briefly render the default
+              // script (which is what caused "Resume always shows defaults" —
+              // the workspace mounted before loadWorkspace finished, and a
+              // failed load left the default state visible forever).
               if (lastWorkspace) {
-                workspace.loadWorkspace(lastWorkspace);
+                try {
+                  await workspace.loadWorkspace(lastWorkspace);
+                  beginTransforming();
+                  return;
+                } catch (e) {
+                  console.warn('Resume: lastWorkspace load failed, falling back to draft.', e);
+                  // Stale reference (file deleted/renamed) — clear it and
+                  // try the draft path.
+                  writeLastWorkspace(null);
+                }
+              }
+              // Restore from the in-progress draft.
+              const d = readDraft();
+              if (!d) {
+                toast('No previous session found to restore.', 'error');
                 return;
               }
-              // No saved file — restore from the in-progress draft instead.
-              const d = readDraft();
-              if (!d) return;
               workspace.setProjectName(d.projectName);
               workspace.setScript(d.script);
               workspace.setPayload(d.payload);
@@ -959,6 +974,7 @@ function App() {
               workspace.setNodeLabel(d.nodeLabel);
               workspace.setQueryTemplate(d.queryTemplate);
               workspace.setPayloadFilePath(d.payloadFilePath);
+              beginTransforming();
             }}
           />
         ) : isCompact ? (

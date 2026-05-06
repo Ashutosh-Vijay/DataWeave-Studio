@@ -458,10 +458,12 @@ pub async fn run_dataweave(
         .max(0);
     let script_file = write_temp_file(&run_dir, "script.dwl", &full_script)?;
 
-    // Classpath warning — server-mode classpath isn't yet wired through.
-    // For now we drop it silently; users who need custom DW modules can put
-    // them in the bundled libs folder. (TODO: hot-add via URLClassLoader.)
-    let _ = classpath;
+    // Hot-add user JARs to the server's classloader so `import java!...`
+    // resolves classes from them. The server dedupes by canonical path.
+    let cp_entries: Vec<String> = classpath
+        .as_ref()
+        .map(|v| v.iter().filter(|s| !s.is_empty()).cloned().collect())
+        .unwrap_or_default();
 
     // Build attribute / vars temp files (server reads them by path).
     let attrs_path = if has_attributes {
@@ -520,6 +522,7 @@ pub async fn run_dataweave(
                 vars_path: vars_path_str.as_deref(),
                 named_inputs: &server_named_inputs,
                 output_mime: "application/json",
+                classpath: &cp_entries,
             },
         )
     });

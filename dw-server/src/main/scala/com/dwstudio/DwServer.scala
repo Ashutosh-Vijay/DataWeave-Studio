@@ -12,6 +12,7 @@ import org.mule.weave.v2.runtime._
 import org.mule.weave.v2.sdk.ClassLoaderWeaveResourceResolver
 
 import java.io.{ByteArrayOutputStream, File}
+import java.net.{URL, URLClassLoader}
 import java.nio.charset.{Charset, StandardCharsets}
 import java.util.Properties
 
@@ -38,9 +39,30 @@ import java.util.Properties
  *   ready notice (sent once at startup):
  *             {"event": "ready", "weaveVersion": <string>}
  */
+/** A URLClassLoader that exposes addURL, so we can hot-add user JARs to the
+ *  classpath after construction without restarting the JVM. */
+class HotURLClassLoader(parent: ClassLoader) extends URLClassLoader(Array.empty[URL], parent) {
+  // Track what's been added so addJar is idempotent.
+  private val added = scala.collection.mutable.Set[String]()
+  def addJar(file: File): Unit = synchronized {
+    val canon = file.getCanonicalPath
+    if (!added.contains(canon) && file.exists()) {
+      addURL(file.toURI.toURL)
+      added += canon
+    }
+  }
+}
+
 object DwServer {
 
+  // Single classloader used as the JVM's Thread context loader. Both DW's
+  // module resolver and `import java!...` lookups go through it, so
+  // adding a user JAR here makes it visible to subsequent compilations.
+  private val hotLoader: HotURLClassLoader =
+    new HotURLClassLoader(Thread.currentThread().getContextClassLoader)
+
   def main(args: Array[String]): Unit = {
+    Thread.currentThread().setContextClassLoader(hotLoader)
     val engine = createEngine()
 
     // Tell the parent process we're ready to accept jobs.
@@ -78,6 +100,18 @@ object DwServer {
     try {
       val script = req.getString("script", "")
       val outputMime = req.getString("outputMime", "application/json")
+
+      // Hot-add any user-provided JARs to the classloader so `import java!...`
+      // can resolve classes from them. Idempotent — only new paths get added.
+      if (req.get("classpath") != null && req.get("classpath").isArray) {
+        val cp = req.get("classpath").asArray()
+        var i = 0
+        while (i < cp.size()) {
+          val entry = cp.get(i).asString()
+          if (entry != null && entry.nonEmpty) hotLoader.addJar(new File(entry))
+          i += 1
+        }
+      }
 
       val bindings = new ScriptingBindings()
       // Track mime per input — DW needs InputType(name, Some(mime)) so the
