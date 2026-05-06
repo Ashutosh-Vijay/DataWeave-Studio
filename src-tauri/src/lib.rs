@@ -59,6 +59,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             dw_runner::run_dataweave,
+            dw_runner::warm_dataweave_script,
             dw_runner::cancel_dataweave,
             dw_runner::migrate_dataweave,
             dw_runner::save_output_file,

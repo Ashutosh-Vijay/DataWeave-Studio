@@ -26,7 +26,7 @@ import { CompactLayout } from './components/CompactLayout';
 import { FocusDrawer } from './components/FocusDrawer';
 import { FirstRunPicker, shouldShowFirstRun, markFirstRunSeen } from './components/FirstRunPicker';
 import { EmptyState, readLastWorkspace, writeLastWorkspace } from './components/EmptyState';
-import { readDraft, writeDraft, hasDraft } from './draftSession';
+import { readDraft, writeDraft, hasDraft, clearDraft } from './draftSession';
 import { useWorkspace } from './hooks/useWorkspace';
 import { useDWRunner } from './hooks/useDWRunner';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -551,6 +551,33 @@ function App() {
     workspace.multipartParts, workspace.nodeLabel, workspace.queryTemplate, workspace.payloadFilePath,
   ]);
 
+  // When the workspace transitions to non-dirty (after Save, Load, or New),
+  // the draft is no longer the "freshest" state — the persistent storage is.
+  // Clear it so Resume on next launch doesn't shadow the just-saved file
+  // with stale draft state.
+  useEffect(() => {
+    if (hasStarted && !workspace.isDirty) {
+      clearDraft();
+      setHasDraftSession(false);
+    }
+  }, [hasStarted, workspace.isDirty]);
+
+  // Debounced compile-cache pre-warm: when the user pauses typing for ~800ms,
+  // ask the server to compile (and cache) the current script silently. By
+  // the time they click Run, the cache is hot — eval drops to ~10ms instead
+  // of paying ~800ms first-compile cost. Costs nothing if the user keeps
+  // typing (debounce cancels) or hasn't entered a workspace yet.
+  useEffect(() => {
+    if (!hasStarted || !runner.isWarmedUp) return;
+    const handle = setTimeout(() => {
+      invoke('warm_dataweave_script', { script: workspace.script }).catch(() => {
+        // Pre-warm is best-effort; ignore failures so a transient compile
+        // error doesn't leak as a toast or disrupt the user.
+      });
+    }, 800);
+    return () => clearTimeout(handle);
+  }, [hasStarted, runner.isWarmedUp, workspace.script]);
+
   // Push the CLI path override from localStorage into Rust state on startup,
   // then restart the warmup if the user has actually configured a custom path.
   useEffect(() => {
@@ -945,42 +972,41 @@ function App() {
             lastWorkspace={lastWorkspace}
             hasDraftSession={hasDraftSession && !lastWorkspace}
             onResumeLast={async () => {
-              // Try the named workspace file first. If it loads, beginTransforming
-              // AFTER the state is set so we don't briefly render the default
-              // script (which is what caused "Resume always shows defaults" —
-              // the workspace mounted before loadWorkspace finished, and a
-              // failed load left the default state visible forever).
+              // Prefer the draft if it exists — it's strictly newer than any
+              // saved file (auto-draft writes on every edit; explicit saves
+              // clear the draft so the file becomes source of truth, and any
+              // subsequent edits create a new draft on top). This matches
+              // user expectation: "Resume" restores the state they had at
+              // close, regardless of when they last hit Save.
+              const d = readDraft();
+              if (d) {
+                workspace.setProjectName(d.projectName);
+                workspace.setScript(d.script);
+                workspace.setPayload(d.payload);
+                workspace.setPayloadMimeType(d.payloadMimeType);
+                workspace.setContext(d.context);
+                workspace.setNamedInputs(d.namedInputs);
+                workspace.setClasspath(d.classpath);
+                workspace.setTimeoutMs(d.timeoutMs);
+                workspace.setMultipartParts(d.multipartParts);
+                workspace.setNodeLabel(d.nodeLabel);
+                workspace.setQueryTemplate(d.queryTemplate);
+                workspace.setPayloadFilePath(d.payloadFilePath);
+                beginTransforming();
+                return;
+              }
+              // No draft — fall back to the saved file if there is one.
               if (lastWorkspace) {
                 try {
                   await workspace.loadWorkspace(lastWorkspace);
                   beginTransforming();
                   return;
                 } catch (e) {
-                  console.warn('Resume: lastWorkspace load failed, falling back to draft.', e);
-                  // Stale reference (file deleted/renamed) — clear it and
-                  // try the draft path.
+                  console.warn('Resume: lastWorkspace load failed.', e);
                   writeLastWorkspace(null);
                 }
               }
-              // Restore from the in-progress draft.
-              const d = readDraft();
-              if (!d) {
-                toast('No previous session found to restore.', 'error');
-                return;
-              }
-              workspace.setProjectName(d.projectName);
-              workspace.setScript(d.script);
-              workspace.setPayload(d.payload);
-              workspace.setPayloadMimeType(d.payloadMimeType);
-              workspace.setContext(d.context);
-              workspace.setNamedInputs(d.namedInputs);
-              workspace.setClasspath(d.classpath);
-              workspace.setTimeoutMs(d.timeoutMs);
-              workspace.setMultipartParts(d.multipartParts);
-              workspace.setNodeLabel(d.nodeLabel);
-              workspace.setQueryTemplate(d.queryTemplate);
-              workspace.setPayloadFilePath(d.payloadFilePath);
-              beginTransforming();
+              toast('No previous session found to restore.', 'error');
             }}
           />
         ) : isCompact ? (

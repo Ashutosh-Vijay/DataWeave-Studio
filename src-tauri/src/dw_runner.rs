@@ -523,6 +523,7 @@ pub async fn run_dataweave(
                 named_inputs: &server_named_inputs,
                 output_mime: "application/json",
                 classpath: &cp_entries,
+                compile_only: false,
             },
         )
     });
@@ -720,4 +721,38 @@ pub fn get_log_dir(app: AppHandle) -> Result<String, String> {
     path.to_str()
         .map(|s| s.to_string())
         .ok_or_else(|| "Log dir path is not valid UTF-8".to_string())
+}
+
+/// Pre-warm the compile cache for a given script. The frontend calls this
+/// debounced as the user types so their first Run lands on the cached path
+/// (~10ms) instead of paying the ~800ms first-compile cost.
+/// Best-effort: errors are swallowed so a transient compile failure doesn't
+/// disrupt the user.
+#[tauri::command]
+pub async fn warm_dataweave_script(app: AppHandle, script: String) -> Result<(), String> {
+    if script.trim().is_empty() {
+        return Ok(());
+    }
+    // Always wrap in a minimal "input payload" so the compile picks the
+    // same input shape it would for a real run. Empty payload path means
+    // the server skips the binding but still installs the input type.
+    let app_clone = app.clone();
+    let _ = tokio::task::spawn_blocking(move || {
+        let _ = crate::dw_server::run(
+            &app_clone,
+            crate::dw_server::DwRunArgs {
+                script: &script,
+                payload_path: "",
+                payload_mime: "application/json",
+                attributes_path: None,
+                vars_path: None,
+                named_inputs: &[],
+                output_mime: "application/json",
+                classpath: &[],
+                compile_only: true,
+            },
+        );
+    })
+    .await;
+    Ok(())
 }

@@ -90,6 +90,8 @@ struct DwRequest<'a> {
     output_mime: &'a str,
     #[serde(skip_serializing_if = "<[String]>::is_empty")]
     classpath: &'a [String],
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    compile_only: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -113,6 +115,7 @@ pub struct DwRunArgs<'a> {
     pub named_inputs: &'a [DwNamedInput],
     pub output_mime: &'a str,
     pub classpath: &'a [String],
+    pub compile_only: bool,
 }
 
 /// Resolve the bundled dwstudio-server.jar path from Tauri resources.
@@ -245,6 +248,7 @@ pub fn run(app: &AppHandle, args: DwRunArgs) -> Result<DwResponse, String> {
         named_inputs: args.named_inputs,
         output_mime: args.output_mime,
         classpath: args.classpath,
+        compile_only: args.compile_only,
     };
     let line = serde_json::to_string(&req)
         .map_err(|e| format!("Failed to serialize request: {}", e))?;
