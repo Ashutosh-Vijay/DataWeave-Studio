@@ -723,25 +723,48 @@ pub fn get_log_dir(app: AppHandle) -> Result<String, String> {
         .ok_or_else(|| "Log dir path is not valid UTF-8".to_string())
 }
 
-/// Pre-warm the compile cache for a given script. The frontend calls this
-/// debounced as the user types so their first Run lands on the cached path
-/// (~10ms) instead of paying the ~800ms first-compile cost.
-/// Best-effort: errors are swallowed so a transient compile failure doesn't
-/// disrupt the user.
+/// Pre-warm the compile cache for the user's current workspace script.
+///
+/// CRITICAL: the merged script (after build_full_script injects `input
+/// payload`, `input attributes`, etc.) is what the actual Run sends to the
+/// server. The cache key includes the script text. So warm MUST also send
+/// the merged form — not the raw user script — or Run will cache-miss.
+/// That was the bug behind "first hit always ~1s" even after typing pause.
 #[tauri::command]
-pub async fn warm_dataweave_script(app: AppHandle, script: String) -> Result<(), String> {
+pub async fn warm_dataweave_script(
+    app: AppHandle,
+    script: String,
+    payload_mime_type: String,
+    has_attributes: bool,
+    has_vars: bool,
+    named_inputs_json: String,
+) -> Result<(), String> {
     if script.trim().is_empty() {
         return Ok(());
     }
-    // Always wrap in a minimal "input payload" so the compile picks the
-    // same input shape it would for a real run. Empty payload path means
-    // the server skips the binding but still installs the input type.
+
+    let named_inputs: Vec<NamedInput> =
+        if named_inputs_json.trim().is_empty() || named_inputs_json.trim() == "[]" {
+            vec![]
+        } else {
+            serde_json::from_str(&named_inputs_json).unwrap_or_default()
+        };
+
+    // Same merge logic Run uses, so the cache key matches.
+    let merged = build_full_script(
+        &script,
+        &payload_mime_type,
+        has_attributes,
+        has_vars,
+        &named_inputs,
+    );
+
     let app_clone = app.clone();
     let _ = tokio::task::spawn_blocking(move || {
         let _ = crate::dw_server::run(
             &app_clone,
             crate::dw_server::DwRunArgs {
-                script: &script,
+                script: &merged,
                 payload_path: "",
                 payload_mime: "application/json",
                 attributes_path: None,

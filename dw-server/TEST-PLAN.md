@@ -266,7 +266,7 @@ output application/json
    output application/json
    ---
    {
-     names: accounts.*.name,
+     names: accounts map ((a) -> a.name),
      regionCount: sizeOf(regions)
    }
    ```

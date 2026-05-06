@@ -573,20 +573,37 @@ function App() {
   }, [hasStarted, workspace.isDirty]);
 
   // Debounced compile-cache pre-warm: when the user pauses typing for ~200ms,
-  // ask the server to compile (and cache) the current script silently. By
-  // the time they click Run, the cache is hot — eval drops to ~10ms instead
-  // of paying ~800ms first-compile cost. Also fires right after Resume
-  // restores a script, so a quick Run-after-Resume is also cached.
+  // ask the server to compile (and cache) the *merged* current script
+  // silently. The cache key is the merged-script text, so we have to pass
+  // enough context for the Rust side to produce the same merged form Run
+  // would — otherwise Run cache-misses despite the warm having compiled.
   useEffect(() => {
     if (!hasStarted || !runner.isWarmedUp) return;
     const handle = setTimeout(() => {
-      invoke('warm_dataweave_script', { script: workspace.script }).catch(() => {
-        // Pre-warm is best-effort; ignore failures so a transient compile
-        // error doesn't leak as a toast or disrupt the user.
+      const attrJson = buildAttributesJson(
+        workspace.context.method,
+        workspace.context.queryParams,
+        workspace.context.headers,
+      );
+      const varsJson = buildVarsJson(workspace.context.vars);
+      const hasAttributes = attrJson.trim() !== '{}' && attrJson.trim() !== '';
+      const hasVars = varsJson.trim() !== '{}' && varsJson.trim() !== '';
+      invoke('warm_dataweave_script', {
+        script: workspace.script,
+        payloadMimeType: workspace.payloadMimeType,
+        hasAttributes,
+        hasVars,
+        namedInputsJson: JSON.stringify(workspace.namedInputs),
+      }).catch(() => {
+        // Pre-warm is best-effort.
       });
     }, 200);
     return () => clearTimeout(handle);
-  }, [hasStarted, runner.isWarmedUp, workspace.script]);
+  }, [
+    hasStarted, runner.isWarmedUp,
+    workspace.script, workspace.payloadMimeType,
+    workspace.context, workspace.namedInputs,
+  ]);
 
   // Push the CLI path override from localStorage into Rust state on startup,
   // then restart the warmup if the user has actually configured a custom path.
