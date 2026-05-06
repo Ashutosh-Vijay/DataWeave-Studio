@@ -26,6 +26,7 @@ export function SplashScreen({ isReady, hasError }: SplashScreenProps) {
   const [stage, setStage] = useState(0);
   const [fadeOut, setFadeOut] = useState(false);
   const [hidden, setHidden] = useState(false);
+  const [showSlowSubtitle, setShowSlowSubtitle] = useState(false);
 
   // Hand off from the static index.html boot loader. The React splash is
   // mounted now, so we can drop the early HTML loader without a flash gap.
@@ -72,6 +73,16 @@ export function SplashScreen({ isReady, hasError }: SplashScreenProps) {
       setTimeout(() => setHidden(true), 600);
     }
   }, [progress, fadeOut]);
+
+  // After 5 seconds without ready, surface a "still loading" subtitle so
+  // the user knows we're alive and waiting on the JVM rather than frozen.
+  // Slow corporate laptops with AV scanning every spawned process can take
+  // 8-15s for the JVM to come up.
+  useEffect(() => {
+    if (isReady || hasError) return;
+    const t = setTimeout(() => setShowSlowSubtitle(true), 5000);
+    return () => clearTimeout(t);
+  }, [isReady, hasError]);
 
   if (hidden) return null;
 
@@ -121,6 +132,18 @@ export function SplashScreen({ isReady, hasError }: SplashScreenProps) {
           {Math.round(progress)}%
         </span>
       </div>
+
+      {/* Slow-boot reassurance */}
+      {showSlowSubtitle && !isReady && !hasError && (
+        <div
+          className="text-[11px] text-content-ghost mt-3 text-center max-w-[340px] leading-relaxed relative"
+          style={{ animation: 'fadeIn 400ms ease-out' }}
+        >
+          The DataWeave runtime takes a few extra seconds on slow / heavily-monitored
+          machines. Hang tight — this is a one-time per-launch cost.
+          <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+        </div>
+      )}
     </div>
   );
 }
