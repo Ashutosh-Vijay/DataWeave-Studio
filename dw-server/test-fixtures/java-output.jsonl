@@ -1,0 +1,2 @@
+{"id":1,"script":"%dw 2.0\noutput application/java\n---\n{ requestBody: payload }","payloadPath":"A:/Projects/DataWeave Studio/dw-server/test-fixtures/payload.json","payloadMime":"application/json","outputMime":"application/java"}
+{"id":2,"script":"%dw 2.0\noutput application/java\n---\nwrite({ requestBody: payload }, \"application/json\")","payloadPath":"A:/Projects/DataWeave Studio/dw-server/test-fixtures/payload.json","payloadMime":"application/json","outputMime":"application/java"}

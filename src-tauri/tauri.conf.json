@@ -42,7 +42,7 @@
     "createUpdaterArtifacts": true,
     "targets": "all",
     "resources": [
-      "resources/dw-cli/**/*",
+      "resources/dw-server/**/*",
       "resources/secure-properties/**/*",
       "../licenses/*"
     ],

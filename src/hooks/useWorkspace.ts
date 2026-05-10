@@ -104,15 +104,20 @@ export function useWorkspace(): UseWorkspaceReturn {
   }, []);
 
   const setNodeLabel = useCallback((label: string) => {
-    // Save current script before switching
-    scriptsByLabel.current[currentLabel.current] = script;
+    // No-op when the label hasn't changed. This was a real bug on Resume:
+    // the resume handler called setNodeLabel(currentLabel) as part of
+    // restoring state, which used to overwrite the just-restored script
+    // with the stale-closure `script` value (defaults), undoing the resume.
+    if (label === currentLabel.current) return;
+    // scriptsByLabel.current[currentLabel] is already kept synced by
+    // setScript synchronously on every keystroke, so we don't need to
+    // write `script` here (which can be stale due to closure capture).
     currentLabel.current = label;
-    // Restore script for the new label
     const next = scriptsByLabel.current[label] ?? defaultScriptFor(label);
     setScriptState(next);
     setNodeLabelState(label);
     setIsDirty(true);
-  }, [script]);
+  }, []);
 
   const saveWorkspace = useCallback(async () => {
     const workspace: WorkspaceFile = {

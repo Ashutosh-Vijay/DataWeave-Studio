@@ -85,32 +85,6 @@ fn shift_stderr_lines(stderr: &str, offset: i64) -> String {
     }).to_string()
 }
 
-/// Strip ANSI escape codes and Java warnings from stderr
-fn clean_stderr(stderr: &str, line_offset: i64) -> String {
-    let ansi_re = regex::Regex::new(r"\x1b\[[0-9;]*m").unwrap();
-    let cleaned = ansi_re.replace_all(stderr, "");
-
-    let no_warnings = cleaned
-        .lines()
-        .filter(|line| !line.starts_with("WARNING:"))
-        .collect::<Vec<_>>()
-        .join("\n")
-        .trim()
-        .to_string();
-
-    let result = shift_stderr_lines(&no_warnings, line_offset);
-
-    if result.contains("Unknown content type `application/java`") {
-        return format!(
-            "{}\n\nHint: `application/java` is only available inside a Mule runtime. \
-            Try `output application/json` instead — the DW CLI does not support Java object output.",
-            result
-        );
-    }
-
-    result
-}
-
 /// Strip the \\?\ extended-length path prefix that Windows/Rust canonicalize adds.
 #[cfg(target_os = "windows")]
 fn strip_unc_prefix(path: std::path::PathBuf) -> std::path::PathBuf {
@@ -421,8 +395,6 @@ pub async fn run_dataweave(
     *state.cancelled.lock().unwrap() = false;
     *state.child_pid.lock().unwrap() = None;
 
-    let dw_binary_path = resolve_dw_binary(&app)?;
-
     let has_attributes = attributes_json.trim() != "{}" && !attributes_json.trim().is_empty();
     let has_vars = vars_json.trim() != "{}" && !vars_json.trim().is_empty();
 
@@ -486,102 +458,92 @@ pub async fn run_dataweave(
         .max(0);
     let script_file = write_temp_file(&run_dir, "script.dwl", &full_script)?;
 
-    let mut cmd = Command::new(&dw_binary_path);
-    cmd.arg("run");
-    cmd.arg("-s");
-    cmd.arg("-f").arg(&script_file);
-    cmd.arg("-i").arg(format!("payload={}", payload_file.display()));
+    // Hot-add user JARs to the server's classloader so `import java!...`
+    // resolves classes from them. The server dedupes by canonical path.
+    let cp_entries: Vec<String> = classpath
+        .as_ref()
+        .map(|v| v.iter().filter(|s| !s.is_empty()).cloned().collect())
+        .unwrap_or_default();
 
-    if has_attributes {
-        let attrs_file = write_temp_file(&run_dir, "attributes.json", &attributes_json)?;
-        cmd.arg("-i").arg(format!("attributes={}", attrs_file.display()));
-    }
-    if has_vars {
-        let vars_file = write_temp_file(&run_dir, "vars.json", &vars_json)?;
-        cmd.arg("-i").arg(format!("vars={}", vars_file.display()));
-    }
+    // Build attribute / vars temp files (server reads them by path).
+    let attrs_path = if has_attributes {
+        Some(write_temp_file(&run_dir, "attributes.json", &attributes_json)?)
+    } else {
+        None
+    };
+    let vars_path = if has_vars {
+        Some(write_temp_file(&run_dir, "vars.json", &vars_json)?)
+    } else {
+        None
+    };
 
+    // Named input file paths (server expects {name, path, mime}).
+    let mut ni_paths: Vec<(String, std::path::PathBuf, String)> = Vec::new();
     for (idx, ni) in named_inputs.iter().enumerate() {
-        let ni_file = if let Some(ref fp) = ni.file_path {
+        let p = if let Some(ref fp) = ni.file_path {
             std::path::PathBuf::from(fp)
         } else {
             write_temp_file(&run_dir, &format!("input_{}.dat", idx), &ni.content)?
         };
-        cmd.arg("-i").arg(format!("{}={}", ni.name, ni_file.display()));
+        ni_paths.push((ni.name.clone(), p, ni.mime_type.clone()));
     }
+    let server_named_inputs: Vec<crate::dw_server::DwNamedInput> = ni_paths
+        .iter()
+        .map(|(n, p, m)| crate::dw_server::DwNamedInput {
+            name: n.clone(),
+            path: p.display().to_string(),
+            mime: m.clone(),
+        })
+        .collect();
 
-    // Classpath for custom modules and JARs
-    if let Some(ref cp_entries) = classpath {
-        let non_empty: Vec<&String> = cp_entries.iter().filter(|s| !s.is_empty()).collect();
-        if !non_empty.is_empty() {
-            let sep = if cfg!(target_os = "windows") { ";" } else { ":" };
-            let cp_str = non_empty.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(sep);
-            cmd.arg("-cp").arg(&cp_str);
-        }
-    }
+    // Mark "running" so cancel can kill the server out from under us if needed.
+    *state.child_pid.lock().unwrap() = Some(0); // 0 = "in-flight via server"
 
-    hide_console_window(&mut cmd);
-
-    let child = cmd
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| {
-            cleanup_run_dir(&run_dir);
-            let path = dw_binary_path.display();
-            if e.kind() == std::io::ErrorKind::NotFound {
-                format!(
-                    "DataWeave CLI binary not found.\n\n\
-                     Expected at: {}\n\n\
-                     The DW CLI should be bundled in src-tauri/resources/dw-cli/. \
-                     If you're running in development, make sure the binary exists at that path.\n\n\
-                     Download it from: https://github.com/mulesoft/data-weave-cli",
-                    path
-                )
-            } else if e.kind() == std::io::ErrorKind::PermissionDenied {
-                format!(
-                    "DataWeave CLI permission denied.\n\n\
-                     Path: {}\n\n\
-                     The binary exists but cannot be executed. \
-                     On macOS/Linux, run: chmod +x \"{}\"",
-                    path, path
-                )
-            } else {
-                format!("Failed to start DataWeave CLI: {}\n\nPath: {}", e, path)
-            }
-        })?;
-
-    // Record the PID so cancel_dataweave can kill it.
-    *state.child_pid.lock().unwrap() = Some(child.id());
-
-    // Apply timeout via a killer thread
     let effective_timeout = timeout_ms.unwrap_or(0);
-    let run_dir_clone = run_dir.clone();
 
-    let output = if effective_timeout > 0 {
-        // Use tokio timeout with spawn_blocking for the blocking wait
+    let attrs_path_str = attrs_path.as_ref().map(|p| p.display().to_string());
+    let vars_path_str = vars_path.as_ref().map(|p| p.display().to_string());
+    let payload_path_str = payload_file.display().to_string();
+    let script_path_str = script_file.display().to_string();
+    let _ = script_path_str; // currently unused; server takes script inline
+    let full_script_clone = full_script.clone();
+
+    // Bridge: blocking server call inside spawn_blocking + tokio timeout.
+    let app_for_run = app.clone();
+    let payload_mime_for_run = payload_mime_type.clone();
+    let run_future = tokio::task::spawn_blocking(move || {
+        crate::dw_server::run(
+            &app_for_run,
+            crate::dw_server::DwRunArgs {
+                script: &full_script_clone,
+                payload_path: &payload_path_str,
+                payload_mime: &payload_mime_for_run,
+                attributes_path: attrs_path_str.as_deref(),
+                vars_path: vars_path_str.as_deref(),
+                named_inputs: &server_named_inputs,
+                output_mime: "application/json",
+                classpath: &cp_entries,
+                compile_only: false,
+            },
+        )
+    });
+
+    let server_result = if effective_timeout > 0 {
         match tokio::time::timeout(
             std::time::Duration::from_millis(effective_timeout),
-            tokio::task::spawn_blocking(move || child.wait_with_output()),
-        ).await {
-            Ok(Ok(Ok(out))) => {
-                cleanup_run_dir(&run_dir_clone);
-                out
-            }
-            Ok(Ok(Err(e))) => {
-                cleanup_run_dir(&run_dir_clone);
-                return Err(e.to_string());
-            }
-            Ok(Err(e)) => {
-                cleanup_run_dir(&run_dir_clone);
-                return Err(format!("Task join error: {}", e));
-            }
+            run_future,
+        )
+        .await
+        {
+            Ok(Ok(Ok(r))) => Ok(r),
+            Ok(Ok(Err(e))) => Err(e),
+            Ok(Err(e)) => Err(format!("Task join error: {}", e)),
             Err(_) => {
-                cleanup_run_dir(&run_dir_clone);
-                // Best-effort: kill the child so it doesn't keep running after the timeout.
-                if let Some(pid) = state.child_pid.lock().unwrap().take() {
-                    kill_pid(pid);
-                }
+                // Timed out — restart the server so the next run isn't stuck
+                // waiting for a leaked response.
+                let _ = crate::dw_server::restart(&app);
+                cleanup_run_dir(&run_dir);
+                *state.child_pid.lock().unwrap() = None;
                 return Ok(RunResult {
                     output: String::new(),
                     error: Some(format!(
@@ -595,22 +557,17 @@ pub async fn run_dataweave(
             }
         }
     } else {
-        let out = child.wait_with_output().map_err(|e| {
-            cleanup_run_dir(&run_dir);
-            e.to_string()
-        })?;
-        cleanup_run_dir(&run_dir);
-        out
+        match run_future.await {
+            Ok(r) => r,
+            Err(e) => Err(format!("Task join error: {}", e)),
+        }
     };
 
     let execution_time_ms = start_time.elapsed().as_millis() as u64;
-
-    // Clear the PID — the process is no longer running.
     *state.child_pid.lock().unwrap() = None;
+    cleanup_run_dir(&run_dir);
 
-    // If the user pressed Cancel while we were waiting, surface that as the
-    // result rather than reporting whatever non-zero exit the killed process
-    // produced.
+    // Cancel beat us to it — surface that, not the server response.
     if *state.cancelled.lock().unwrap() {
         *state.cancelled.lock().unwrap() = false;
         return Ok(RunResult {
@@ -622,31 +579,41 @@ pub async fn run_dataweave(
         });
     }
 
-    let stdout_str = String::from_utf8_lossy(&output.stdout).to_string();
-    let raw_stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    let stderr_str = clean_stderr(&raw_stderr, line_offset);
+    // The server rewrites `output application/java` → `output application/json`
+    // before compilation (the Java writer emits an in-memory JVM object with
+    // no text representation; the Playground does the same rewrite to render
+    // it as JSON for display). No special handling needed in Rust now.
 
-    if output.status.success() {
-        Ok(RunResult {
-            output: stdout_str,
-            error: if stderr_str.is_empty() { None } else { Some(stderr_str) },
+    match server_result {
+        Ok(resp) => {
+            if resp.ok {
+                Ok(RunResult {
+                    output: resp.output,
+                    error: None,
+                    execution_time_ms,
+                    error_line: None,
+                    error_column: None,
+                })
+            } else {
+                let raw = resp.error.unwrap_or_else(|| "(no error message)".into());
+                let shifted = shift_stderr_lines(&raw, line_offset);
+                let (error_line, error_column) = parse_error_location(&shifted);
+                Ok(RunResult {
+                    output: resp.output,
+                    error: Some(shifted),
+                    execution_time_ms,
+                    error_line,
+                    error_column,
+                })
+            }
+        }
+        Err(e) => Ok(RunResult {
+            output: String::new(),
+            error: Some(e),
             execution_time_ms,
             error_line: None,
             error_column: None,
-        })
-    } else {
-        let (error_line, error_column) = parse_error_location(&stderr_str);
-        Ok(RunResult {
-            output: stdout_str,
-            error: Some(if stderr_str.is_empty() {
-                format!("DW CLI exited with code {}", output.status.code().unwrap_or(-1))
-            } else {
-                stderr_str
-            }),
-            execution_time_ms,
-            error_line,
-            error_column,
-        })
+        }),
     }
 }
 
@@ -754,4 +721,61 @@ pub fn get_log_dir(app: AppHandle) -> Result<String, String> {
     path.to_str()
         .map(|s| s.to_string())
         .ok_or_else(|| "Log dir path is not valid UTF-8".to_string())
+}
+
+/// Pre-warm the compile cache for the user's current workspace script.
+///
+/// CRITICAL: the merged script (after build_full_script injects `input
+/// payload`, `input attributes`, etc.) is what the actual Run sends to the
+/// server. The cache key includes the script text. So warm MUST also send
+/// the merged form — not the raw user script — or Run will cache-miss.
+/// That was the bug behind "first hit always ~1s" even after typing pause.
+#[tauri::command]
+pub async fn warm_dataweave_script(
+    app: AppHandle,
+    script: String,
+    payload_mime_type: String,
+    has_attributes: bool,
+    has_vars: bool,
+    named_inputs_json: String,
+) -> Result<(), String> {
+    if script.trim().is_empty() {
+        return Ok(());
+    }
+
+    let named_inputs: Vec<NamedInput> =
+        if named_inputs_json.trim().is_empty() || named_inputs_json.trim() == "[]" {
+            vec![]
+        } else {
+            serde_json::from_str(&named_inputs_json).unwrap_or_default()
+        };
+
+    // Same merge logic Run uses, so the cache key matches.
+    let merged = build_full_script(
+        &script,
+        &payload_mime_type,
+        has_attributes,
+        has_vars,
+        &named_inputs,
+    );
+
+    let app_clone = app.clone();
+    let _ = tokio::task::spawn_blocking(move || {
+        let _ = crate::dw_server::run(
+            &app_clone,
+            crate::dw_server::DwRunArgs {
+                script: &merged,
+                payload_path: "",
+                payload_mime: "application/json",
+                attributes_path: None,
+                vars_path: None,
+                named_inputs: &[],
+                output_mime: "application/json",
+                classpath: &[],
+                compile_only: true,
+            },
+        );
+    })
+    .await;
+    Ok(())
 }

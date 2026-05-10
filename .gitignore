@@ -45,6 +45,10 @@ dw-studio-tmp/
 # Bundled DW CLI binaries (too large for git — see README for setup)
 src-tauri/resources/dw-cli/
 
+# Built dwstudio-server.jar lives here in dev (CI rebuilds it from dw-server/)
+src-tauri/resources/dw-server/*.jar
+dw-server/target/
+
 # Build artifacts / cached files
 latest_release.json
 AGENTS.md

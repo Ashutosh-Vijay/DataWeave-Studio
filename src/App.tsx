@@ -26,7 +26,7 @@ import { CompactLayout } from './components/CompactLayout';
 import { FocusDrawer } from './components/FocusDrawer';
 import { FirstRunPicker, shouldShowFirstRun, markFirstRunSeen } from './components/FirstRunPicker';
 import { EmptyState, readLastWorkspace, writeLastWorkspace } from './components/EmptyState';
-import { readDraft, writeDraft, hasDraft } from './draftSession';
+import { readDraft, writeDraft, hasDraft, clearDraft } from './draftSession';
 import { useWorkspace } from './hooks/useWorkspace';
 import { useDWRunner } from './hooks/useDWRunner';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -517,8 +517,13 @@ function App() {
   // Auto-save the in-progress draft to localStorage so the user can resume
   // even if they never explicitly saved a workspace file. Debounced so we
   // don't hammer storage on every keystroke.
+  //
+  // Only persist when the workspace is actually dirty — otherwise we'd
+  // silently snapshot the default starter script the moment the user
+  // enters the workspace (before typing anything), which triggers the
+  // Resume button on next launch and "restores" defaults. Useless UX.
   useEffect(() => {
-    if (!hasStarted) return;
+    if (!hasStarted || !workspace.isDirty) return;
     const handle = setTimeout(() => {
       writeDraft({
         projectName: workspace.projectName,
@@ -536,13 +541,68 @@ function App() {
         savedAt: Date.now(),
       });
       setHasDraftSession(true);
-    }, 600);
+    }, 500);
     return () => clearTimeout(handle);
   }, [
-    hasStarted,
+    hasStarted, workspace.isDirty,
     workspace.projectName, workspace.script, workspace.payload, workspace.payloadMimeType,
     workspace.context, workspace.namedInputs, workspace.classpath, workspace.timeoutMs,
     workspace.multipartParts, workspace.nodeLabel, workspace.queryTemplate, workspace.payloadFilePath,
+  ]);
+
+  // (Previously had an onCloseRequested handler to flush the draft on window
+  // close. Removed because Tauri 2's onCloseRequested can prevent the window
+  // from actually closing in some configurations — registering the listener
+  // alone was enough to make X-button clicks no-op. The 300 ms debounce on
+  // auto-draft + the on-Run flush below cover the same use-case without the
+  // close-blocking risk.)
+
+  // When the workspace transitions to non-dirty (after Save, Load, or New),
+  // the draft is no longer the "freshest" state — the persistent storage is.
+  // Clear it so Resume on next launch doesn't shadow the just-saved file
+  // with stale draft state.
+  //
+  // NOTE: this also fires on the FIRST entry to the workspace (Blank
+  // transform → newWorkspace sets isDirty=false). That's intentional —
+  // explicitly clicking "new" should drop any previous draft.
+  useEffect(() => {
+    if (hasStarted && !workspace.isDirty) {
+      clearDraft();
+      setHasDraftSession(false);
+    }
+  }, [hasStarted, workspace.isDirty]);
+
+  // Debounced compile-cache pre-warm: when the user pauses typing for ~200ms,
+  // ask the server to compile (and cache) the *merged* current script
+  // silently. The cache key is the merged-script text, so we have to pass
+  // enough context for the Rust side to produce the same merged form Run
+  // would — otherwise Run cache-misses despite the warm having compiled.
+  useEffect(() => {
+    if (!hasStarted || !runner.isWarmedUp) return;
+    const handle = setTimeout(() => {
+      const attrJson = buildAttributesJson(
+        workspace.context.method,
+        workspace.context.queryParams,
+        workspace.context.headers,
+      );
+      const varsJson = buildVarsJson(workspace.context.vars);
+      const hasAttributes = attrJson.trim() !== '{}' && attrJson.trim() !== '';
+      const hasVars = varsJson.trim() !== '{}' && varsJson.trim() !== '';
+      invoke('warm_dataweave_script', {
+        script: workspace.script,
+        payloadMimeType: workspace.payloadMimeType,
+        hasAttributes,
+        hasVars,
+        namedInputsJson: JSON.stringify(workspace.namedInputs),
+      }).catch(() => {
+        // Pre-warm is best-effort.
+      });
+    }, 200);
+    return () => clearTimeout(handle);
+  }, [
+    hasStarted, runner.isWarmedUp,
+    workspace.script, workspace.payloadMimeType,
+    workspace.context, workspace.namedInputs,
   ]);
 
   // Push the CLI path override from localStorage into Rust state on startup,
@@ -938,27 +998,42 @@ function App() {
             }}
             lastWorkspace={lastWorkspace}
             hasDraftSession={hasDraftSession && !lastWorkspace}
-            onResumeLast={() => {
-              beginTransforming();
-              if (lastWorkspace) {
-                workspace.loadWorkspace(lastWorkspace);
+            onResumeLast={async () => {
+              // Prefer the draft if it exists — it's strictly newer than any
+              // saved file (auto-draft writes on every edit; explicit saves
+              // clear the draft so the file becomes source of truth, and any
+              // subsequent edits create a new draft on top). This matches
+              // user expectation: "Resume" restores the state they had at
+              // close, regardless of when they last hit Save.
+              const d = readDraft();
+              if (d) {
+                workspace.setProjectName(d.projectName);
+                workspace.setScript(d.script);
+                workspace.setPayload(d.payload);
+                workspace.setPayloadMimeType(d.payloadMimeType);
+                workspace.setContext(d.context);
+                workspace.setNamedInputs(d.namedInputs);
+                workspace.setClasspath(d.classpath);
+                workspace.setTimeoutMs(d.timeoutMs);
+                workspace.setMultipartParts(d.multipartParts);
+                workspace.setNodeLabel(d.nodeLabel);
+                workspace.setQueryTemplate(d.queryTemplate);
+                workspace.setPayloadFilePath(d.payloadFilePath);
+                beginTransforming();
                 return;
               }
-              // No saved file — restore from the in-progress draft instead.
-              const d = readDraft();
-              if (!d) return;
-              workspace.setProjectName(d.projectName);
-              workspace.setScript(d.script);
-              workspace.setPayload(d.payload);
-              workspace.setPayloadMimeType(d.payloadMimeType);
-              workspace.setContext(d.context);
-              workspace.setNamedInputs(d.namedInputs);
-              workspace.setClasspath(d.classpath);
-              workspace.setTimeoutMs(d.timeoutMs);
-              workspace.setMultipartParts(d.multipartParts);
-              workspace.setNodeLabel(d.nodeLabel);
-              workspace.setQueryTemplate(d.queryTemplate);
-              workspace.setPayloadFilePath(d.payloadFilePath);
+              // No draft — fall back to the saved file if there is one.
+              if (lastWorkspace) {
+                try {
+                  await workspace.loadWorkspace(lastWorkspace);
+                  beginTransforming();
+                  return;
+                } catch (e) {
+                  console.warn('Resume: lastWorkspace load failed.', e);
+                  writeLastWorkspace(null);
+                }
+              }
+              toast('No previous session found to restore.', 'error');
             }}
           />
         ) : isCompact ? (

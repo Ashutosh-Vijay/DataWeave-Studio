@@ -193,27 +193,35 @@ licenses/               # Third-party licenses
 
 ## Known Limitations
 
-- DW CLI warmup takes a few seconds on first launch
-- Undo/redo is per-session and does not persist across workspace reloads
-- Config property autocomplete triggers on `$` — type `${` to see suggestions
+- First launch boots a long-lived DataWeave runtime — about 1-2 seconds, hidden behind the splash. Subsequent runs are ~10-50 ms.
+- Undo/redo is per-session and does not persist across workspace reloads.
+- Config property autocomplete triggers on `$` — type `${` to see suggestions.
+- Requires a JRE (Java 8 or newer) to be installed and on PATH. Most MuleSoft devs already have one for Mule 4.x.
 
-**Mule runtime-only features are not available** — the app runs the standalone DW CLI, not a full Mule runtime. Functions and capabilities that only exist inside a deployed Mule app will not work:
+**What actually works that you might expect not to:**
+
+- `import java!java::lang::Math`, `import java!java::util::UUID`, etc. — any standard JDK class works via the `java!` module. The runtime is a real JVM with full reflection, not the GraalVM native image the official `dw` CLI uses.
+- Secure config (`![encrypted]`) — implemented in-app using the bundled `secure-properties-tool.jar`, so it works fully offline without the Mule runtime.
+
+**Genuinely Mule runtime-only features (still not available)** — these need a deployed Mule application's message context, not just a JVM:
 
 | Feature | Workaround in DataWeave Studio |
 |---|---|
-| `output application/java` | Use `application/json` for logic testing |
-| `p("key")` / `Mule.p("key")` property lookup | Use the **Config YAML** panel — `${key}` is substituted before each run |
-| `Mule.lookup("flowName", payload)` | No equivalent — extract the logic into a named input or separate script |
+| `p("key")` / `Mule::p("key")` property lookup | Use the **Config YAML** panel — `${key}` is substituted before each run |
+| `Mule::lookup("flowName", payload)` | No equivalent — extract the logic into a named input or separate script |
 | Connector-specific types (Salesforce `SObject`, DB `ResultSet`, etc.) | Pass a JSON mock of the data structure as payload |
-| `java!` interop / Java object output | Not supported outside a Mule runtime |
-| Custom Java modules via `%import java!` | Not supported — standard DW modules and JAR-based DW libraries work via classpath |
 
-> **Secure config (`![encrypted]`) is the one exception** — DataWeave Studio implements this itself using the same AES/CBC algorithm as `secure-properties-tool.jar`, so it works fully offline without the Mule runtime.
+> `output application/java` is supported — we render the Java object as JSON
+> for display (the same approach the Playground uses), so you can still see
+> the value structure even though the actual JVM-object form only matters in
+> a Mule flow.
 
 ---
 
 ## Third-Party Licenses
 
-This application bundles the [DataWeave CLI](https://github.com/mulesoft/data-weave-cli) by MuleSoft/Salesforce, licensed under the BSD 3-Clause License. See [licenses/DATAWEAVE-CLI-LICENSE.txt](licenses/DATAWEAVE-CLI-LICENSE.txt).
+This application bundles the [DataWeave runtime](https://github.com/mulesoft/data-weave) and core modules by MuleSoft/Salesforce, licensed under the BSD 3-Clause License. See [licenses/DATAWEAVE-CLI-LICENSE.txt](licenses/DATAWEAVE-CLI-LICENSE.txt).
+
+It also bundles [secure-properties-tool.jar](https://docs.mulesoft.com/mule-runtime/latest/secure-configuration-properties) by MuleSoft for `![encrypted]` value handling.
 
 DataWeave Studio is not affiliated with, endorsed by, or sponsored by MuleSoft or Salesforce.
