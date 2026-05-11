@@ -88,6 +88,11 @@ pub fn run() {
             workspace::delete_workspace,
             workspace::get_workspaces_dir,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                dw_server::stop(app_handle);
+            }
+        });
 }

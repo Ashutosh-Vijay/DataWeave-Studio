@@ -348,7 +348,7 @@ function StatusBar({
         className="inline-flex items-center gap-1.5"
         style={{ color: isReady ? 'var(--accent)' : 'var(--warn)' }}
       >
-        <Icons.Dot size={8} /> {isReady ? 'CLI ready' : 'Warming up'}
+        <Icons.Dot size={8} /> {isReady ? 'Ready' : 'Warming up'}
       </span>
       <span>DW {dwVersion || '2.5.0'}</span>
       {workspaceFile && <span className="truncate max-w-[280px]">{workspaceFile}</span>}

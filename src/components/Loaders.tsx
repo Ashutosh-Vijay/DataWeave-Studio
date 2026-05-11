@@ -86,64 +86,58 @@ export function PendulumLoader({ accent, fg, size = 280 }: LoaderProps) {
   const ballR = size * 0.04;
 
   return (
-    <>
-      <style>{`
-        @keyframes pend-swing {
-          0%   { transform: rotate(-32deg); animation-timing-function: cubic-bezier(.4,0,.6,1); }
-          50%  { transform: rotate(32deg);  animation-timing-function: cubic-bezier(.4,0,.6,1); }
-          100% { transform: rotate(-32deg); }
-        }
-      `}</style>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <defs>
-          <radialGradient id="pend-ball" cx="35%" cy="35%">
-            <stop offset="0%" stopColor={accent} stopOpacity="1" />
-            <stop offset="60%" stopColor={accent} stopOpacity="0.95" />
-            <stop offset="100%" stopColor={accent} stopOpacity="0.7" />
-          </radialGradient>
-          <linearGradient id="pend-arm" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={fg} stopOpacity="0.5" />
-            <stop offset="100%" stopColor={fg} stopOpacity="0.85" />
-          </linearGradient>
-        </defs>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <defs>
+        <radialGradient id="pend-ball" cx="35%" cy="35%">
+          <stop offset="0%" stopColor={accent} stopOpacity="1" />
+          <stop offset="60%" stopColor={accent} stopOpacity="0.95" />
+          <stop offset="100%" stopColor={accent} stopOpacity="0.7" />
+        </radialGradient>
+        <linearGradient id="pend-arm" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={fg} stopOpacity="0.5" />
+          <stop offset="100%" stopColor={fg} stopOpacity="0.85" />
+        </linearGradient>
+      </defs>
 
-        <line x1={cx - size * 0.32} y1={pivotY} x2={cx + size * 0.32} y2={pivotY}
-          stroke={fg} strokeOpacity="0.25" strokeWidth="1" />
-        <circle cx={cx} cy={pivotY} r="3" fill={fg} fillOpacity="0.35" />
-        <circle cx={cx} cy={pivotY} r="6" fill="none" stroke={fg} strokeOpacity="0.15" />
-        <path d={`M ${cx - armLen * 0.55} ${pivotY + armLen * 0.85}
-                  A ${armLen} ${armLen} 0 0 1 ${cx + armLen * 0.55} ${pivotY + armLen * 0.85}`}
-          fill="none" stroke={fg} strokeOpacity="0.06" strokeDasharray="2 4" />
+      <line x1={cx - size * 0.32} y1={pivotY} x2={cx + size * 0.32} y2={pivotY}
+        stroke={fg} strokeOpacity="0.25" strokeWidth="1" />
+      <circle cx={cx} cy={pivotY} r="3" fill={fg} fillOpacity="0.35" />
+      <circle cx={cx} cy={pivotY} r="6" fill="none" stroke={fg} strokeOpacity="0.15" />
+      <path d={`M ${cx - armLen * 0.55} ${pivotY + armLen * 0.85}
+                A ${armLen} ${armLen} 0 0 1 ${cx + armLen * 0.55} ${pivotY + armLen * 0.85}`}
+        fill="none" stroke={fg} strokeOpacity="0.06" strokeDasharray="2 4" />
 
-        <g style={{
-          transformOrigin: `${cx}px ${pivotY}px`,
-          animation: 'pend-swing 2.4s infinite',
-        }}>
-          <line x1={cx} y1={pivotY} x2={cx} y2={pivotY + armLen}
-            stroke="url(#pend-arm)" strokeWidth="1.5" />
-          <circle cx={cx} cy={pivotY} r="2.5" fill={accent} />
-          <circle cx={cx} cy={pivotY + armLen} r={ballR} fill="url(#pend-ball)" />
-          <circle cx={cx} cy={pivotY + armLen} r={ballR + 8}
-            fill="none" stroke={accent} strokeOpacity="0.2" />
-          <circle cx={cx} cy={pivotY + armLen} r={ballR + 16}
-            fill="none" stroke={accent} strokeOpacity="0.08" />
-          <line x1={cx} y1={pivotY + armLen - ballR + 2}
-                x2={cx} y2={pivotY + armLen + ballR - 2}
-            stroke={fg} strokeOpacity="0.25" />
-        </g>
+      <g>
+        <animateTransform attributeName="transform" type="rotate"
+          values={`-32 ${cx} ${pivotY}; 32 ${cx} ${pivotY}; -32 ${cx} ${pivotY}`}
+          dur="2.4s" repeatCount="indefinite"
+          keyTimes="0; 0.5; 1"
+          calcMode="spline"
+          keySplines="0.4 0 0.6 1; 0.4 0 0.6 1" />
+        <line x1={cx} y1={pivotY} x2={cx} y2={pivotY + armLen}
+          stroke="url(#pend-arm)" strokeWidth="1.5" />
+        <circle cx={cx} cy={pivotY} r="2.5" fill={accent} />
+        <circle cx={cx} cy={pivotY + armLen} r={ballR} fill="url(#pend-ball)" />
+        <circle cx={cx} cy={pivotY + armLen} r={ballR + 8}
+          fill="none" stroke={accent} strokeOpacity="0.2" />
+        <circle cx={cx} cy={pivotY + armLen} r={ballR + 16}
+          fill="none" stroke={accent} strokeOpacity="0.08" />
+        <line x1={cx} y1={pivotY + armLen - ballR + 2}
+              x2={cx} y2={pivotY + armLen + ballR - 2}
+          stroke={fg} strokeOpacity="0.25" />
+      </g>
 
-        {[-30, -15, 0, 15, 30].map((deg, i) => {
-          const a = (deg * Math.PI) / 180 + Math.PI / 2;
-          const r = armLen + 14;
-          return (
-            <line key={i}
-              x1={cx + Math.cos(a) * armLen} y1={pivotY + Math.sin(a) * armLen}
-              x2={cx + Math.cos(a) * (r + 6)} y2={pivotY + Math.sin(a) * (r + 6)}
-              stroke={fg} strokeOpacity={deg === 0 ? 0.35 : 0.12} strokeWidth="1" />
-          );
-        })}
-      </svg>
-    </>
+      {[-30, -15, 0, 15, 30].map((deg, i) => {
+        const a = (deg * Math.PI) / 180 + Math.PI / 2;
+        const r = armLen + 14;
+        return (
+          <line key={i}
+            x1={cx + Math.cos(a) * armLen} y1={pivotY + Math.sin(a) * armLen}
+            x2={cx + Math.cos(a) * (r + 6)} y2={pivotY + Math.sin(a) * (r + 6)}
+            stroke={fg} strokeOpacity={deg === 0 ? 0.35 : 0.12} strokeWidth="1" />
+        );
+      })}
+    </svg>
   );
 }
 

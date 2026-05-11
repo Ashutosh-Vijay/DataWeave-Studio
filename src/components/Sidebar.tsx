@@ -354,8 +354,8 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           {/* Footer */}
           <div className="px-3 py-2 border-t border-line-subtle text-[9px] text-content-ghost space-y-0.5 shrink-0">
             <div className="truncate">Saves to AppData/Local/com.dwstudio.desktop</div>
-            <div className="truncate" title="DataWeave CLI by MuleSoft/Salesforce, BSD-3-Clause License">
-              DW CLI by MuleSoft (BSD-3-Clause)
+            <div className="truncate" title="DataWeave runtime by MuleSoft/Salesforce, BSD-3-Clause License">
+              DW runtime by MuleSoft (BSD-3-Clause)
             </div>
           </div>
         </div>
