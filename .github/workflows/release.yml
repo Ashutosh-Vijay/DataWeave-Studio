@@ -75,6 +75,13 @@ jobs:
           mkdir -p ../src-tauri/resources/dw-server
           cp target/dwstudio-server.jar ../src-tauri/resources/dw-server/
 
+      - name: Bundle minimal JRE (jlink)
+        shell: bash
+        run: |
+          MODULES=$(jdeps --print-module-deps --ignore-missing-deps --multi-release 17 src-tauri/resources/dw-server/dwstudio-server.jar 2>/dev/null || echo "java.base,java.compiler,java.desktop,java.management,java.security.sasl,java.sql.rowset")
+          jlink --add-modules "$MODULES" --strip-debug --no-man-pages --no-header-files --compress=2 --output src-tauri/resources/jre
+          echo "Bundled JRE size: $(du -sh src-tauri/resources/jre | cut -f1)"
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0.6
         env:
@@ -88,9 +95,8 @@ jobs:
             - **Windows**: `.exe` (NSIS installer), `.exe.zip` (if .exe is blocked), or `.msi`
             - **macOS**: `.dmg` (Apple Silicon and Intel)
 
-            Bundled with the DataWeave 2.11 runtime. Requires Java 8 or newer
-            (most Mule devs already have one — get it from https://adoptium.net
-            if not).
+            Fully self-contained — bundles the DataWeave 2.11 runtime and a
+            minimal JRE 17. No system Java required.
           releaseDraft: true
           prerelease: false
           updaterJsonPreferNsis: true

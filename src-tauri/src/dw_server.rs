@@ -132,12 +132,14 @@ fn resolve_server_jar(app: &AppHandle) -> Result<std::path::PathBuf, String> {
 
 /// Resolve the bundled JRE's java executable from Tauri resources.
 fn resolve_bundled_java(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let bin = if cfg!(target_os = "windows") {
+        "resources/jre/bin/java.exe"
+    } else {
+        "resources/jre/bin/java"
+    };
     let path = app
         .path()
-        .resolve(
-            "resources/jre/bin/java.exe",
-            tauri::path::BaseDirectory::Resource,
-        )
+        .resolve(bin, tauri::path::BaseDirectory::Resource)
         .map_err(|e| format!("Failed to resolve bundled JRE: {}", e))?;
     Ok(strip_unc_prefix(path))
 }
