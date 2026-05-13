@@ -130,6 +130,18 @@ fn resolve_server_jar(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     Ok(strip_unc_prefix(path))
 }
 
+/// Resolve the bundled JRE's java executable from Tauri resources.
+fn resolve_bundled_java(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let path = app
+        .path()
+        .resolve(
+            "resources/jre/bin/java.exe",
+            tauri::path::BaseDirectory::Resource,
+        )
+        .map_err(|e| format!("Failed to resolve bundled JRE: {}", e))?;
+    Ok(strip_unc_prefix(path))
+}
+
 /// Spawn the server and wait for its `{"event":"ready"}` handshake.
 pub fn start(app: &AppHandle) -> Result<(), String> {
     let jar = resolve_server_jar(app)?;
@@ -140,7 +152,18 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
         ));
     }
 
-    let mut cmd = Command::new("java");
+    // Use the bundled JRE so we don't depend on whatever Java version
+    // the system has (the DW 2.11 runtime requires Java 11+, but many
+    // MuleSoft dev machines are locked to Java 8 for Anypoint Studio).
+    let java = resolve_bundled_java(app)?;
+    let java_bin = if java.exists() {
+        java
+    } else {
+        log::warn!("Bundled JRE not found at {}, falling back to system java", java.display());
+        std::path::PathBuf::from("java")
+    };
+
+    let mut cmd = Command::new(&java_bin);
     cmd.arg("-jar")
         .arg(&jar)
         .stdin(Stdio::piped())
@@ -150,10 +173,11 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
 
     let mut child = cmd.spawn().map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
-            "Java is not installed or not on PATH.\n\n\
-             DataWeave Studio needs a Java runtime (JRE 8 or newer).\n\n\
-             Install Java from https://adoptium.net and restart the app."
-                .to_string()
+            format!(
+                "Bundled Java runtime not found at {}.\n\n\
+                 The app bundle may be corrupted — try reinstalling.",
+                java_bin.display()
+            )
         } else {
             format!("Failed to start DataWeave server: {}", e)
         }

@@ -47,6 +47,9 @@ src-tauri/resources/dw-cli/
 
 # Built dwstudio-server.jar lives here in dev (CI rebuilds it from dw-server/)
 src-tauri/resources/dw-server/*.jar
+
+# Bundled JRE (generated via jlink — too large for git)
+src-tauri/resources/jre/
 dw-server/target/
 
 # Build artifacts / cached files
