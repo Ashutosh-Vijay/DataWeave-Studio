@@ -19,45 +19,45 @@ const STEPS: TourStep[] = [
     target: null,
     title: 'Welcome to DataWeave Studio',
     description:
-      'A fast, local workbench for DataWeave 2.0. Write, run, and debug transforms entirely on your machine — JSON, XML, CSV, multipart, SOQL, SQL.',
+      'A fast, local workbench for DataWeave 2.0 — write, run, and iterate on transforms entirely on your machine. Supports JSON, XML, CSV, multipart, and more.',
   },
   {
     target: 'script-editor',
     title: 'Script editor',
     description:
-      'Write DataWeave 2.0 with syntax highlighting and payload-aware autocomplete. Errors highlight the exact line, and the Output panel shows ±2 lines of source context.',
-    tip: '⌘↵ to run · toggle Auto for live preview as you type.',
+      'Write DataWeave with full syntax highlighting, autocomplete, and inline error markers. Toggle Auto-run for live preview as you type, or hit ⌘↵ to run manually.',
+    tip: 'Import modules and functions — the function reference (⌘⇧R) covers every core and standard-library function.',
     placement: 'right',
   },
   {
     target: 'payload',
     title: 'Payload & named inputs',
     description:
-      'Drop input data here — pick the MIME (JSON, XML, CSV, multipart, binary) from the tab bar. Add named inputs for multi-source transforms.',
-    tip: 'Paste CSV, switch MIME to text/csv, run. No file needed.',
+      'Set your input data and MIME type here. Add named inputs for multi-source transforms, attach files, or build multipart payloads with the parts editor.',
+    tip: 'Paste raw data, pick the MIME, run — no files needed. DataWeave will parse it.',
     placement: 'right',
   },
   {
     target: 'context-panel',
     title: 'Context: Request · Vars · Config',
     description:
-      'Tabs for HTTP method/headers/query, DataWeave variables, and config properties (YAML, dot-notation flattening). Each tab badges its active count.',
-    tip: 'Use the secure-config block for ${key} placeholders that need decryption.',
+      'Simulate HTTP request attributes (method, headers, query params), define variables, and set config properties. Each tab badges its count so you see what\'s active.',
+    tip: 'Use Secure Properties (⌘K → "secure") for encrypted ${key} placeholders.',
     placement: 'left',
   },
   {
     target: 'output',
     title: 'Output',
     description:
-      'JSON / XML / Raw views with Copy and Export. Errors render with a DW code chip, source location, and a collapsible stack trace.',
+      'See results as formatted JSON, XML, or raw text. Copy or export with one click. Errors show the exact line, a source snippet, and a collapsible Java stack trace.',
     placement: 'left',
   },
   {
     target: 'palette',
-    title: 'Command palette',
+    title: 'Command palette — your launchpad',
     description:
-      'Press ⌘K to fuzzy-search every action — run, save, switch UI, change theme, open Settings. Layouts: ⌘⇧1 Workbench, ⌘⇧2 Focus. Theme: ⌘⇧T.',
-    tip: '⌘/ opens the full keyboard reference any time.',
+      'Press ⌘K to search every action: run, save, theme, layout, snippets, settings, function reference. Two layouts: Workbench (⌘⇧1) and Focus (⌘⇧2).',
+    tip: '⌘/ shows all keyboard shortcuts · ⌘⇧T toggles dark/light theme.',
     placement: 'bottom',
   },
 ];

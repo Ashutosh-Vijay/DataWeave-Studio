@@ -9,7 +9,7 @@ interface SplashScreenProps {
 const STAGES = [
   'Initializing...',
   'Loading editor components...',
-  'Warming up DataWeave CLI...',
+  'Warming up DataWeave runtime...',
   'Almost ready...',
 ];
 

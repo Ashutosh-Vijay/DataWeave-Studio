@@ -582,7 +582,6 @@ function EditorPanel() {
     return [v, (nv: boolean) => { setV(nv); try { localStorage.setItem(k, nv ? '1' : '0'); } catch {} }] as const;
   };
 
-  const [font, setFont] = useStoredStr('dw.font', 'JetBrains Mono');
   const [fontSize, setFontSize] = useStoredStr('dw.fontSize', '13 px');
   const [lineHeight, setLineHeight] = useStoredStr('dw.lineHeight', '1.6');
   const [tabSize, setTabSize] = useStoredStr('dw.tabSize', '2 spaces');
@@ -593,9 +592,6 @@ function EditorPanel() {
   return (
     <SectionWrap title="Editor" desc="Script editor preferences">
       <Group title="Font">
-        <SRow label="Editor font">
-          <SelectInput value={font} options={['JetBrains Mono', 'Fira Code', 'Cascadia Code', 'IBM Plex Mono', 'Geist Mono', 'SF Mono (system)', 'Consolas (system)']} onChange={(v) => { setFont(v); notifyEditorFontChanged(); }} width={200} />
-        </SRow>
         <SRow label="Font size">
           <SelectInput value={fontSize} options={['11 px', '12 px', '13 px', '14 px', '15 px', '16 px']} onChange={(v) => { setFontSize(v); notifyEditorFontChanged(); }} width={100} />
         </SRow>
@@ -743,7 +739,7 @@ function AboutPanel({ appVersion, onOpenAbout }: { appVersion: string; onOpenAbo
         View full details →
       </button>
       <div className="text-[11px] text-content-faint mt-2 text-center max-w-[400px] leading-relaxed">
-        Built on the DataWeave CLI by MuleSoft/Salesforce (BSD-3-Clause).
+        Built on the DataWeave runtime by MuleSoft/Salesforce (BSD-3-Clause).
         <br />Made with Tauri + React.
       </div>
     </div>

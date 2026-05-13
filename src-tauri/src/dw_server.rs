@@ -276,14 +276,19 @@ pub fn run(app: &AppHandle, args: DwRunArgs) -> Result<DwResponse, String> {
         .flush()
         .map_err(|e| format!("Failed to flush stdin: {}", e))?;
 
-    let mut resp_line = String::new();
+    // Read raw bytes until newline — the DW runtime can produce binary output
+    // (e.g. multipart/form-data with file parts) which the Java server base64-
+    // encodes into JSON, but edge cases can include non-UTF-8 bytes that would
+    // make read_line() fail with "stream did not contain valid UTF-8".
+    let mut resp_bytes: Vec<u8> = Vec::new();
     inner
         .stdout
-        .read_line(&mut resp_line)
+        .read_until(b'\n', &mut resp_bytes)
         .map_err(|e| format!("Failed to read from server: {}", e))?;
-    if resp_line.is_empty() {
-        return Err("DataWeave server closed unexpectedly. Try Restart CLI.".into());
+    if resp_bytes.is_empty() {
+        return Err("DataWeave server closed unexpectedly. Try restarting the runtime.".into());
     }
+    let resp_line = String::from_utf8_lossy(&resp_bytes);
 
     serde_json::from_str::<DwResponse>(&resp_line)
         .map_err(|e| format!("Bad server response: {} (line: {})", e, resp_line.trim()))

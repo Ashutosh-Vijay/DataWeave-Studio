@@ -17,7 +17,7 @@ import { Sidebar, SidebarHandle } from './components/Sidebar';
 import { QueryEditor } from './components/QueryEditor';
 import { AboutDialog } from './components/AboutDialog';
 import { SecurePropertiesTool } from './components/SecurePropertiesTool';
-import { WelcomeTour, shouldShowTour, markTourSeen } from './components/WelcomeTour';
+import { WelcomeTour, markTourSeen } from './components/WelcomeTour';
 import { SplashScreen } from './components/SplashScreen';
 import { CommandPalette, Command } from './components/CommandPalette';
 import { ShortcutsDialog } from './components/ShortcutsDialog';
@@ -395,7 +395,7 @@ function App() {
   const [autoRun, setAutoRun] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [secureToolOpen, setSecureToolOpen] = useState(false);
-  const [showTour, setShowTour] = useState(() => shouldShowTour());
+  const [showTour, setShowTour] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -499,6 +499,7 @@ function App() {
   }, [workspace]);
   const [appVersion, setAppVersion] = useState('');
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [updateBannerDismissed, setUpdateBannerDismissed] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState('');
   const autoRunTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleRunRef = useRef<() => void>(() => {});
@@ -809,7 +810,12 @@ function App() {
     { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: '⌘/', group: 'Tools', run: () => setShortcutsOpen(true) },
     { id: 'settings', label: 'Open Settings', shortcut: '⌘,', group: 'Tools', run: () => setSettingsOpen(true) },
     { id: 'about', label: 'About DataWeave Studio', group: 'Tools', run: () => setAboutOpen(true) },
-    { id: 'tour', label: 'Show guided tour', group: 'Tools', run: () => setShowTour(true) },
+    { id: 'tour', label: 'Show guided tour', group: 'Tools', run: () => {
+      beginTransforming();
+      setLayout('workbench');
+      setSidebarCollapsed(false);
+      setTimeout(() => setShowTour(true), 50);
+    } },
   ];
 
   return (
@@ -930,7 +936,7 @@ function App() {
             <Icons.Dot size={10} />
           </span>
           <div className="flex-1 min-w-0">
-            <span className="text-[12px] font-medium" style={{ color: 'var(--err)' }}>DataWeave CLI unavailable</span>
+            <span className="text-[12px] font-medium" style={{ color: 'var(--err)' }}>DataWeave runtime unavailable</span>
             <span className="text-[12px] text-content-muted ml-2">{runner.cliError}</span>
           </div>
           <button
@@ -951,6 +957,32 @@ function App() {
             title="Open the app log directory"
           >
             View logs
+          </button>
+        </div>
+      )}
+
+      {/* Update available banner */}
+      {updateAvailable && !updateBannerDismissed && (
+        <div className="shrink-0 flex items-center gap-3 px-4 py-1.5 bg-accent-dim border-b border-accent-border text-[12px]">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="var(--accent)" className="shrink-0">
+            <path d="M8 16A8 8 0 108 0a8 8 0 000 16zm.93-9.412l-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.399l-.009-.004.013-.045h2.09l-.174.82zM8 5.5a1 1 0 110-2 1 1 0 010 2z"/>
+          </svg>
+          <span className="text-accent font-medium">A new version of DataWeave Studio is available.</span>
+          <button
+            onClick={() => setAboutOpen(true)}
+            className="px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-accent text-accent-ink hover:opacity-90 transition-opacity cursor-pointer"
+          >
+            Update now
+          </button>
+          <span className="flex-1" />
+          <button
+            onClick={() => setUpdateBannerDismissed(true)}
+            className="text-accent/60 hover:text-accent transition-colors cursor-pointer p-0.5"
+            title="Dismiss"
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+            </svg>
           </button>
         </div>
       )}

@@ -286,6 +286,179 @@ function CopyableBlock({
   );
 }
 
+/** Lightweight AsciiDoc-to-JSX renderer for the function descriptions.
+ *  Handles: tables, `code`, _italics_, WARNING:/NOTE: admonitions,
+ *  _Introduced in ..._ version tags, and HTML entities like &#124;. */
+function RenderedDescription({ text }: { text: string }) {
+  // Decode HTML entities
+  const decoded = text.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+
+  // Split out AsciiDoc tables:  [%header, cols="..."] \n|===\n...\n|===
+  const parts: React.ReactNode[] = [];
+  let remaining = decoded;
+  let key = 0;
+
+  // Extract tables
+  const tableRe = /\[%header[^\]]*\]\n\|===\n([\s\S]*?)\n\|===/g;
+  let lastIdx = 0;
+  let m: RegExpExecArray | null;
+  while ((m = tableRe.exec(remaining)) !== null) {
+    if (m.index > lastIdx) {
+      parts.push(...renderInlineBlocks(remaining.slice(lastIdx, m.index), key));
+      key += 100;
+    }
+    // Parse table rows: each row is "| col1 | col2 ..."
+    const rows = m[1].split('\n').filter((r) => r.trim().startsWith('|'));
+    const parsed = rows.map((r) =>
+      r.split('|').slice(1).map((c) => c.trim()),
+    );
+    const [header, ...body] = parsed;
+    parts.push(
+      <table
+        key={`tbl-${key++}`}
+        className="text-[12.5px] border border-line rounded-md overflow-hidden my-2"
+        style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%' }}
+      >
+        {header && (
+          <thead>
+            <tr className="bg-surface-2">
+              {header.map((h, i) => (
+                <th
+                  key={i}
+                  className="text-left px-3 py-1.5 text-content-faint font-semibold text-[11px] uppercase tracking-wide border-b border-line"
+                >
+                  {renderInline(h)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {body.map((row, ri) => (
+            <tr key={ri} className={ri % 2 === 1 ? 'bg-surface-2/50' : ''}>
+              {row.map((cell, ci) => (
+                <td key={ci} className="px-3 py-1.5 text-content-secondary border-b border-line-subtle">
+                  {renderInline(cell)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>,
+    );
+    lastIdx = m.index + m[0].length;
+  }
+  if (lastIdx < remaining.length) {
+    parts.push(...renderInlineBlocks(remaining.slice(lastIdx), key));
+  }
+
+  return <div className="text-[13px] text-content-secondary leading-relaxed space-y-2">{parts}</div>;
+}
+
+/** Render a block of text, splitting paragraphs and handling special blocks
+ *  like _Introduced in..._ version tags and WARNING:/NOTE: admonitions. */
+function renderInlineBlocks(text: string, startKey: number): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  let key = startKey;
+
+  // Split into paragraphs on double newline
+  const paragraphs = text.split(/\n{2,}/).filter((p) => p.trim());
+
+  for (const para of paragraphs) {
+    const trimmed = para.trim();
+
+    // Version tag: _Introduced in DataWeave version X.Y.Z._
+    const versionMatch = trimmed.match(/^_Introduced in (.+?)\._?$/);
+    if (versionMatch) {
+      nodes.push(
+        <div
+          key={key++}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium"
+          style={{
+            background: 'color-mix(in oklch, var(--accent) 10%, transparent)',
+            color: 'var(--accent)',
+            border: '1px solid color-mix(in oklch, var(--accent) 20%, transparent)',
+          }}
+        >
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="shrink-0">
+            <path d="M8 0a8 8 0 110 16A8 8 0 018 0zm.5 3.5a.5.5 0 00-1 0v5a.5.5 0 00.27.45l3 1.5a.5.5 0 10.46-.9L8.5 8.15V3.5z" />
+          </svg>
+          {versionMatch[1]}
+        </div>,
+      );
+      continue;
+    }
+
+    // Admonitions: WARNING: ..., NOTE: ...
+    const admonitionMatch = trimmed.match(/^(WARNING|NOTE|TIP|IMPORTANT):\s*([\s\S]*)$/);
+    if (admonitionMatch) {
+      const kind = admonitionMatch[1];
+      const isWarn = kind === 'WARNING' || kind === 'IMPORTANT';
+      nodes.push(
+        <div
+          key={key++}
+          className="flex items-start gap-2 px-3 py-2 rounded-lg text-[12.5px] leading-relaxed my-1"
+          style={{
+            background: isWarn
+              ? 'color-mix(in oklch, #f59e0b 8%, transparent)'
+              : 'color-mix(in oklch, var(--accent) 6%, transparent)',
+            border: `1px solid ${isWarn
+              ? 'color-mix(in oklch, #f59e0b 25%, transparent)'
+              : 'color-mix(in oklch, var(--accent) 15%, transparent)'}`,
+            color: isWarn ? '#f59e0b' : 'var(--accent)',
+          }}
+        >
+          <span className="font-semibold text-[10.5px] uppercase tracking-wide shrink-0 mt-0.5">{kind}</span>
+          <span className="text-content-secondary">{renderInline(admonitionMatch[2])}</span>
+        </div>,
+      );
+      continue;
+    }
+
+    // Regular paragraph
+    nodes.push(
+      <p key={key++}>{renderInline(trimmed.replace(/\n/g, ' '))}</p>,
+    );
+  }
+
+  return nodes;
+}
+
+/** Render inline AsciiDoc markup: `code`, _italic_ */
+function renderInline(text: string): React.ReactNode {
+  // Process backtick code and _italic_ inline markers
+  const parts: React.ReactNode[] = [];
+  // Match `code` or _italic_ (but not __double underscores__ or mid-word underscores)
+  const inlineRe = /`([^`]+)`|(?<![a-zA-Z0-9])_([^_]+?)_(?![a-zA-Z0-9])/g;
+  let last = 0;
+  let im: RegExpExecArray | null;
+  let k = 0;
+  while ((im = inlineRe.exec(text)) !== null) {
+    if (im.index > last) parts.push(text.slice(last, im.index));
+    if (im[1] !== undefined) {
+      // Backtick code
+      parts.push(
+        <code
+          key={k++}
+          className="px-1 py-0.5 rounded text-[12px] font-mono"
+          style={{
+            background: 'var(--surface-2)',
+            color: 'var(--content)',
+          }}
+        >
+          {im[1]}
+        </code>,
+      );
+    } else if (im[2] !== undefined) {
+      // Italic
+      parts.push(<em key={k++} className="text-content-muted">{im[2]}</em>);
+    }
+    last = im.index + im[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts.length === 1 ? parts[0] : <>{parts}</>;
+}
+
 function OverloadSection({ ov, index }: { ov: FnOverload; index: number | null }) {
   return (
     <section className="space-y-3.5">
@@ -320,11 +493,7 @@ function OverloadSection({ ov, index }: { ov: FnOverload; index: number | null }
       </CopyableBlock>
 
       {/* Description */}
-      {ov.description && (
-        <div className="text-[13px] text-content-secondary leading-relaxed whitespace-pre-wrap">
-          {ov.description}
-        </div>
-      )}
+      {ov.description && <RenderedDescription text={ov.description} />}
 
       {/* Examples */}
       {ov.examples.length > 0 && (
