@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { check } from '@tauri-apps/plugin-updater';
 import { invoke } from '@tauri-apps/api/core';
@@ -8,24 +8,41 @@ import { ScriptEditor, ScriptEditorHandle } from './components/ScriptEditor';
 import { WindowControls } from './components/WindowControls';
 import { WorkspaceMenu } from './components/WorkspaceMenu';
 import { ToastHost, toast } from './components/Toast';
-import { FunctionBrowser } from './components/FunctionBrowser';
-import { FlowDesigner } from './components/FlowDesigner';
+// Lazy-loaded — pulls in dataweaveDocs (371KB) plus its own 60KB UI.
+const FunctionBrowser = lazy(() =>
+  import('./components/FunctionBrowser').then((m) => ({ default: m.FunctionBrowser }))
+);
+// Lazy-loaded — FlowDesigner is ~1800 lines and only rendered when the user
+// opens the message flow designer. Don't pay for it on initial load.
+const FlowDesigner = lazy(() =>
+  import('./components/FlowDesigner').then((m) => ({ default: m.FlowDesigner }))
+);
 import { OpenWorkspaceDialog } from './components/OpenWorkspaceDialog';
 import { PayloadTabs } from './components/PayloadTabs';
 import { OutputPane } from './components/OutputPane';
 import { ContextPanel } from './components/ContextPanel';
 import { Sidebar, SidebarHandle } from './components/Sidebar';
 import { QueryEditor } from './components/QueryEditor';
-import { AboutDialog } from './components/AboutDialog';
-import { SecurePropertiesTool } from './components/SecurePropertiesTool';
-import { WelcomeTour, markTourSeen } from './components/WelcomeTour';
+// Lazy-loaded modals — each is only mounted when the user opens it. Cuts
+// ~150-200KB off the initial bundle.
+const AboutDialog = lazy(() => import('./components/AboutDialog').then((m) => ({ default: m.AboutDialog })));
+const SecurePropertiesTool = lazy(() => import('./components/SecurePropertiesTool').then((m) => ({ default: m.SecurePropertiesTool })));
+const WelcomeTour = lazy(() => import('./components/WelcomeTour').then((m) => ({ default: m.WelcomeTour })));
+const ShortcutsDialog = lazy(() => import('./components/ShortcutsDialog').then((m) => ({ default: m.ShortcutsDialog })));
+const SettingsScreen = lazy(() => import('./components/SettingsScreen').then((m) => ({ default: m.SettingsScreen })));
+const FirstRunPicker = lazy(() => import('./components/FirstRunPicker').then((m) => ({ default: m.FirstRunPicker })));
 import { SplashScreen } from './components/SplashScreen';
 import { CommandPalette, Command } from './components/CommandPalette';
-import { ShortcutsDialog } from './components/ShortcutsDialog';
-import { SettingsScreen } from './components/SettingsScreen';
 import { CompactLayout } from './components/CompactLayout';
 import { FocusDrawer } from './components/FocusDrawer';
-import { FirstRunPicker, shouldShowFirstRun, markFirstRunSeen } from './components/FirstRunPicker';
+
+// Inlined helpers — used to be `import { shouldShowFirstRun, markFirstRunSeen }`
+// from FirstRunPicker etc. but that made the whole component bundle eager.
+const FIRST_RUN_KEY = 'dw.firstRun.seen';
+const TOUR_SEEN_KEY = 'dw.welcomeTour.seen';
+function shouldShowFirstRun(): boolean { try { return localStorage.getItem(FIRST_RUN_KEY) !== 'true'; } catch { return false; } }
+function markFirstRunSeen(): void { try { localStorage.setItem(FIRST_RUN_KEY, 'true'); } catch {} }
+function markTourSeen(): void { try { localStorage.setItem(TOUR_SEEN_KEY, 'true'); } catch {} }
 import { EmptyState, readLastWorkspace, writeLastWorkspace } from './components/EmptyState';
 import { readDraft, writeDraft, hasDraft, clearDraft } from './draftSession';
 import { useWorkspace } from './hooks/useWorkspace';
@@ -1319,14 +1336,24 @@ function App() {
       />
 
       {/* About dialog */}
-      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} appVersion={appVersion} updateAvailable={updateAvailable} onUpdateInstalled={() => setUpdateAvailable(false)} />
+      {aboutOpen && (
+        <Suspense fallback={null}>
+          <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} appVersion={appVersion} updateAvailable={updateAvailable} onUpdateInstalled={() => setUpdateAvailable(false)} />
+        </Suspense>
+      )}
 
       {/* Secure Properties Tool dialog */}
-      <SecurePropertiesTool open={secureToolOpen} onClose={() => setSecureToolOpen(false)} />
+      {secureToolOpen && (
+        <Suspense fallback={null}>
+          <SecurePropertiesTool open={secureToolOpen} onClose={() => setSecureToolOpen(false)} />
+        </Suspense>
+      )}
 
       {/* First-launch guided tour */}
       {showTour && (
-        <WelcomeTour onComplete={() => { setShowTour(false); markTourSeen(); }} />
+        <Suspense fallback={null}>
+          <WelcomeTour onComplete={() => { setShowTour(false); markTourSeen(); }} />
+        </Suspense>
       )}
 
       {/* Focus mode: context drawer */}
@@ -1347,7 +1374,11 @@ function App() {
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={paletteCommands} />
 
       {/* Shortcuts reference */}
-      <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      {shortcutsOpen && (
+        <Suspense fallback={null}>
+          <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+        </Suspense>
+      )}
 
       {/* Open workspace quick picker */}
       <OpenWorkspaceDialog
@@ -1359,47 +1390,61 @@ function App() {
       />
 
       {/* Settings */}
-      <SettingsScreen
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        appVersion={appVersion}
-        layout={layout}
-        onLayoutChange={setLayout}
-        payloadMimeType={workspace.payloadMimeType}
-        onPayloadMimeTypeChange={workspace.setPayloadMimeType}
-        classpath={workspace.classpath}
-        onClasspathChange={workspace.setClasspath}
-        timeoutMs={workspace.timeoutMs}
-        onTimeoutMsChange={workspace.setTimeoutMs}
-        onShowTour={() => { setSettingsOpen(false); setShowTour(true); }}
-        onShowAbout={() => { setSettingsOpen(false); setAboutOpen(true); }}
-        onRestartCli={runner.restartCli}
-      />
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <SettingsScreen
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            appVersion={appVersion}
+            layout={layout}
+            onLayoutChange={setLayout}
+            payloadMimeType={workspace.payloadMimeType}
+            onPayloadMimeTypeChange={workspace.setPayloadMimeType}
+            classpath={workspace.classpath}
+            onClasspathChange={workspace.setClasspath}
+            timeoutMs={workspace.timeoutMs}
+            onTimeoutMsChange={workspace.setTimeoutMs}
+            onShowTour={() => { setSettingsOpen(false); setShowTour(true); }}
+            onShowAbout={() => { setSettingsOpen(false); setAboutOpen(true); }}
+            onRestartCli={runner.restartCli}
+          />
+        </Suspense>
+      )}
 
       {/* First-run picker */}
       {showFirstRun && (
-        <FirstRunPicker
-          initialTheme={isDark ? 'dark' : 'light'}
-          initialLayout={layout}
-          onComplete={({ theme, layout: chosen }) => {
-            setTheme(theme);
-            setLayout(chosen);
-            markFirstRunSeen();
-            setShowFirstRun(false);
-          }}
-        />
+        <Suspense fallback={null}>
+          <FirstRunPicker
+            initialTheme={isDark ? 'dark' : 'light'}
+            initialLayout={layout}
+            onComplete={({ theme, layout: chosen }) => {
+              setTheme(theme);
+              setLayout(chosen);
+              markFirstRunSeen();
+              setShowFirstRun(false);
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Splash screen — covers everything until engine is ready */}
       <SplashScreen isReady={runner.isWarmedUp} hasError={!!runner.cliError} />
 
-      <FunctionBrowser
-        open={referenceOpen}
-        onClose={() => setReferenceOpen(false)}
-        onInsertAtCursor={(text) => scriptEditorRef.current?.insertAtCursor(text)}
-      />
+      {referenceOpen && (
+        <Suspense fallback={null}>
+          <FunctionBrowser
+            open={referenceOpen}
+            onClose={() => setReferenceOpen(false)}
+            onInsertAtCursor={(text) => scriptEditorRef.current?.insertAtCursor(text)}
+          />
+        </Suspense>
+      )}
 
-      <FlowDesigner open={flowDesignerOpen} onClose={() => setFlowDesignerOpen(false)} />
+      {flowDesignerOpen && (
+        <Suspense fallback={null}>
+          <FlowDesigner open={flowDesignerOpen} onClose={() => setFlowDesignerOpen(false)} />
+        </Suspense>
+      )}
 
       <ToastHost />
     </div>

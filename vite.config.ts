@@ -29,4 +29,29 @@ export default defineConfig(async () => ({
       ignored: ["**/src-tauri/**"],
     },
   },
+  build: {
+    chunkSizeWarningLimit: 5000,
+    rollupOptions: {
+      output: {
+        // Split rarely-changing vendor code into separate chunks so the parser
+        // doesn't chew through one massive file. NOTE: deliberately NOT
+        // chunking `monaco-editor` here — Rollup interprets the package name
+        // as an additional entry point, which re-pulls the default
+        // editor.main.js (with TypeScript/CSS/HTML language contributions and
+        // their ~9MB of dead worker chunks) regardless of how slimly we
+        // import. Leave monaco inside the main bundle; tree-shaking from
+        // edcore.main works correctly only without manualChunks for it.
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) {
+              return 'react-vendor';
+            }
+            if (id.includes('@tauri-apps/')) {
+              return 'tauri';
+            }
+          }
+        },
+      },
+    },
+  },
 }));

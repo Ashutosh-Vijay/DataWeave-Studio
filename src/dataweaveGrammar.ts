@@ -1,4 +1,4 @@
-import * as monaco from 'monaco-editor';
+import type * as monaco from 'monaco-editor';
 
 // Basic DataWeave 2.0 Monarch Tokenizer
 export const dwTokensProvider: monaco.languages.IMonarchLanguage = {

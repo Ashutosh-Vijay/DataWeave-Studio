@@ -7,7 +7,8 @@
  */
 
 import type * as Monaco from 'monaco-editor';
-import { DW_FUNCTIONS, FnDoc, FnOverload } from './dataweaveDocs';
+import type { FnDoc, FnOverload } from './dataweaveDocs';
+import { getDwFunctions } from './dataweaveDocsLazy';
 
 /** Trim a description to the first paragraph (or ~280 chars), so the hover
  *  popup stays compact and doesn't get clipped by adjacent panels. */
@@ -59,10 +60,11 @@ function buildHoverMarkdown(doc: FnDoc): string {
 
 export function registerDWHoverProvider(monaco: typeof Monaco): Monaco.IDisposable {
   return monaco.languages.registerHoverProvider('dataweave', {
-    provideHover(model, position) {
+    async provideHover(model, position) {
       const word = model.getWordAtPosition(position);
       if (!word) return null;
       const key = word.word.toLowerCase();
+      const DW_FUNCTIONS = await getDwFunctions();
       const doc = DW_FUNCTIONS[key];
       if (!doc) return null;
 
@@ -78,9 +80,10 @@ export function registerDWHoverProvider(monaco: typeof Monaco): Monaco.IDisposab
 }
 
 /** Markdown summary of a function for the completion-item documentation
- *  field. Shorter than the hover (one signature, no extra examples). */
-export function buildCompletionDoc(name: string): string | undefined {
-  const doc = DW_FUNCTIONS[name.toLowerCase()];
+ *  field. Shorter than the hover (one signature, no extra examples).
+ *  Takes the resolved FnDoc directly so the caller can fetch DW_FUNCTIONS
+ *  once and reuse for many lookups. */
+export function buildCompletionDoc(doc: FnDoc | undefined): string | undefined {
   if (!doc) return undefined;
   const parts: string[] = [];
   doc.overloads.slice(0, 1).forEach((ov) => {

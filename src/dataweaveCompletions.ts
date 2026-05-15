@@ -1,7 +1,7 @@
 import type * as Monaco from 'monaco-editor';
 import yaml from 'js-yaml';
 import { buildCompletionDoc } from './dataweaveHover';
-import { DW_FUNCTIONS } from './dataweaveDocs';
+import { getDwFunctions } from './dataweaveDocsLazy';
 
 export interface DWCompletionContext {
   payload: string;
@@ -347,7 +347,8 @@ export function registerDWCompletionProvider(
   return monaco.languages.registerCompletionItemProvider('dataweave', {
     triggerCharacters: ['.', ':', '/', '$'],
 
-    provideCompletionItems(model, position) {
+    async provideCompletionItems(model, position) {
+      const DW_FUNCTIONS = await getDwFunctions();
       const word = model.getWordUntilPosition(position);
       const range: Monaco.IRange = {
         startLineNumber: position.lineNumber,
@@ -572,7 +573,7 @@ export function registerDWCompletionProvider(
       // For function-kind entries, prefer the rich auto-generated docs
       // (signature + description from the official MuleSoft reference).
       const suggestions: Monaco.languages.CompletionItem[] = COMPLETIONS.map((c, i) => {
-        const richDoc = c.kind === 'function' ? buildCompletionDoc(c.label) : undefined;
+        const richDoc = c.kind === 'function' ? buildCompletionDoc(DW_FUNCTIONS[c.label.toLowerCase()]) : undefined;
         const documentation: Monaco.languages.CompletionItem['documentation'] = richDoc
           ? { value: richDoc, isTrusted: false }
           : c.documentation;
@@ -614,7 +615,7 @@ export function registerDWCompletionProvider(
           isSnippet = true;
         }
 
-        const richDoc = buildCompletionDoc(doc.name);
+        const richDoc = buildCompletionDoc(doc);
         suggestions.push({
           label: doc.name,
           kind: monaco.languages.CompletionItemKind.Function,
