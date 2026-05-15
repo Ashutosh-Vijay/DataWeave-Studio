@@ -17,8 +17,10 @@ function mimeFromExtension(filename: string): MimeType | null {
     csv:   'application/csv',
     txt:   'text/plain',
     dwl:   'application/dw',
-    ff:    'application/flatfile',
-    ffd:   'application/flatfile',
+    yaml:  'application/yaml',
+    yml:   'application/yaml',
+    ndjson:'application/x-ndjson',
+    properties: 'text/x-java-properties',
   };
   return map[ext] ?? null;
 }
@@ -53,7 +55,7 @@ function contentTypeFromFilename(filename: string): string {
 function mimeToLanguage(mime: string): string {
   if (mime.includes('json') || mime.includes('java')) return 'json';
   if (mime.includes('xml') || mime.includes('multipart')) return 'xml';
-  if (mime.includes('csv') || mime.includes('flatfile')) return 'plaintext';
+  if (mime.includes('csv') || mime.includes('yaml') || mime.includes('properties') || mime.includes('ndjson')) return 'plaintext';
   if (mime.includes('form-urlencoded')) return 'plaintext';
   if (mime.includes('dw')) return 'plaintext';
   return 'plaintext';

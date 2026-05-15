@@ -58,7 +58,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [theme]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, pref); } catch { /* ignore */ }
     setThemeState(resolveTheme(pref));
   }, [pref]);

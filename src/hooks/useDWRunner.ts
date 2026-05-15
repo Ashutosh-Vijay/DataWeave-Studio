@@ -49,6 +49,7 @@ export function useDWRunner(): UseDWRunnerReturn {
   const [isWarmedUp, setIsWarmedUp] = useState(false);
   const [cliError, setCliError] = useState<string | null>(null);
   const pollGenRef = useRef(0);
+  const runningRef = useRef(false);
 
   const startPolling = useCallback(() => {
     const myGen = ++pollGenRef.current;
@@ -74,6 +75,7 @@ export function useDWRunner(): UseDWRunnerReturn {
 
   useEffect(() => {
     startPolling();
+    return () => { ++pollGenRef.current; }; // stop polling on unmount
   }, [startPolling]);
 
   const run = useCallback(
@@ -89,6 +91,8 @@ export function useDWRunner(): UseDWRunnerReturn {
       timeoutMs?: number,
       multipartPartsJson?: string,
     ) => {
+      if (runningRef.current) return; // prevent double-clicks
+      runningRef.current = true;
       setIsRunning(true);
       setError(null);
       setErrorLine(null);
@@ -120,6 +124,7 @@ export function useDWRunner(): UseDWRunnerReturn {
       } catch (e: unknown) {
         setError(String(e));
       } finally {
+        runningRef.current = false;
         setIsRunning(false);
       }
     },

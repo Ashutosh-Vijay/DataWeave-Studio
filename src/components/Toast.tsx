@@ -15,10 +15,18 @@ export function ToastHost() {
   const [items, setItems] = useState<ToastEntry[]>([]);
   const idRef = useRef(0);
 
+  const timersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
+  useEffect(() => () => { timersRef.current.forEach(clearTimeout); }, []);
+
   const push = useCallback((message: string, variant: ToastVariant = 'info') => {
     const id = ++idRef.current;
     setItems((prev) => [...prev, { id, message, variant }]);
-    setTimeout(() => setItems((prev) => prev.filter((t) => t.id !== id)), 3500);
+    const timer = setTimeout(() => {
+      timersRef.current.delete(timer);
+      setItems((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+    timersRef.current.add(timer);
   }, []);
 
   useEffect(() => {

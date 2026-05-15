@@ -1,5 +1,6 @@
 mod dw_runner;
 mod dw_server;
+mod platform;
 mod secure_properties;
 mod workspace;
 
@@ -58,11 +59,11 @@ pub fn run() {
                     Err(e) => {
                         log::warn!("DW server start failed: {}", e);
                         let state = handle.state::<WarmupState>();
-                        *state.error.lock().unwrap() = Some(e);
+                        *state.error.lock().unwrap_or_else(|e| e.into_inner()) = Some(e);
                     }
                 }
                 let state = handle.state::<WarmupState>();
-                *state.ready.lock().unwrap() = true;
+                *state.ready.lock().unwrap_or_else(|e| e.into_inner()) = true;
             });
 
             Ok(())
@@ -71,7 +72,6 @@ pub fn run() {
             dw_runner::run_dataweave,
             dw_runner::warm_dataweave_script,
             dw_runner::cancel_dataweave,
-            dw_runner::migrate_dataweave,
             dw_runner::save_output_file,
             dw_runner::save_binary_file,
             dw_runner::read_text_file,
@@ -85,6 +85,7 @@ pub fn run() {
             workspace::save_workspace,
             workspace::load_workspace,
             workspace::list_workspaces,
+            workspace::list_workspaces_meta,
             workspace::delete_workspace,
             workspace::get_workspaces_dir,
         ])

@@ -19,31 +19,7 @@ use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
-
-#[cfg(target_os = "windows")]
-fn hide_console_window(cmd: &mut Command) {
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x08000000;
-    cmd.creation_flags(CREATE_NO_WINDOW);
-}
-
-#[cfg(not(target_os = "windows"))]
-fn hide_console_window(_cmd: &mut Command) {}
-
-#[cfg(target_os = "windows")]
-fn strip_unc_prefix(path: std::path::PathBuf) -> std::path::PathBuf {
-    let s = path.to_string_lossy();
-    if let Some(stripped) = s.strip_prefix("\\\\?\\") {
-        std::path::PathBuf::from(stripped)
-    } else {
-        path
-    }
-}
-
-#[cfg(not(target_os = "windows"))]
-fn strip_unc_prefix(path: std::path::PathBuf) -> std::path::PathBuf {
-    path
-}
+use crate::platform::{hide_console_window, strip_unc_prefix};
 
 /// Held in Tauri state. Process handles + a mutex around the pipe so
 /// concurrent calls from the UI queue serially through the server.
@@ -166,11 +142,13 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     };
 
     let mut cmd = Command::new(&java_bin);
-    cmd.arg("-jar")
+    cmd.arg("-Xmx512m")
+        .arg("-Xss2m")
+        .arg("-jar")
         .arg(&jar)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        .stderr(Stdio::null());
     hide_console_window(&mut cmd);
 
     let mut child = cmd.spawn().map_err(|e| {
@@ -200,7 +178,7 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     }
 
     let state = app.state::<DwServerState>();
-    *state.inner.lock().unwrap() = Some(DwServerInner {
+    *state.inner.lock().unwrap_or_else(|e| e.into_inner()) = Some(DwServerInner {
         child,
         stdin,
         stdout: reader,
@@ -221,7 +199,7 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
         primer_id
     );
     {
-        let mut guard = state.inner.lock().unwrap();
+        let mut guard = state.inner.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(inner) = guard.as_mut() {
             let _ = inner.stdin.write_all(primer_req.as_bytes());
             let _ = inner.stdin.write_all(b"\n");
@@ -247,7 +225,7 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
                 r#"{{"id":{},"script":"%dw 2.0\noutput application/json\n---\n1","payloadPath":"","payloadMime":"application/json","namedInputs":[],"outputMime":"application/json"}}"#,
                 id
             );
-            let mut guard = state.inner.lock().unwrap();
+            let mut guard = state.inner.lock().unwrap_or_else(|e| e.into_inner());
             let Some(inner) = guard.as_mut() else { return; };
             if inner.stdin.write_all(req.as_bytes()).is_err()
                 || inner.stdin.write_all(b"\n").is_err()
@@ -284,7 +262,7 @@ pub fn run(app: &AppHandle, args: DwRunArgs) -> Result<DwResponse, String> {
     let line = serde_json::to_string(&req)
         .map_err(|e| format!("Failed to serialize request: {}", e))?;
 
-    let mut guard = state.inner.lock().unwrap();
+    let mut guard = state.inner.lock().unwrap_or_else(|e| e.into_inner());
     let inner = guard
         .as_mut()
         .ok_or_else(|| "DataWeave server not running".to_string())?;
@@ -323,7 +301,7 @@ pub fn run(app: &AppHandle, args: DwRunArgs) -> Result<DwResponse, String> {
 /// Kill the server process. Used on shutdown or restart.
 pub fn stop(app: &AppHandle) {
     let state = app.state::<DwServerState>();
-    let taken = { state.inner.lock().unwrap().take() };
+    let taken = { state.inner.lock().unwrap_or_else(|e| e.into_inner()).take() };
     if let Some(mut inner) = taken {
         let _ = inner.child.kill();
         let _ = inner.child.wait();

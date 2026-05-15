@@ -14,13 +14,17 @@ const base = (size: number, stroke: number, fill: string): SVGProps<SVGSVGElemen
 });
 
 const mk =
-  (body: ReactNode, opts: { stroke?: number; fill?: string } = {}) =>
-  ({ size = 16, ...rest }: IconProps) =>
-    (
-      <svg {...base(size, opts.stroke ?? 1.5, opts.fill ?? 'none')} {...rest}>
+  (body: ReactNode, opts: { stroke?: number; fill?: string; viewBox?: string; strokeColor?: string } = {}) =>
+  ({ size = 16, ...rest }: IconProps) => {
+    const b = base(size, opts.stroke ?? 1.5, opts.fill ?? 'none');
+    if (opts.viewBox) b.viewBox = opts.viewBox;
+    if (opts.strokeColor !== undefined) b.stroke = opts.strokeColor;
+    return (
+      <svg {...b} {...rest}>
         {body}
       </svg>
     );
+  };
 
 export const Icons = {
   Workspaces: mk(
@@ -101,12 +105,23 @@ export const Icons = {
       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
     </>,
   ),
+  Save: mk(
+    <>
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+      <polyline points="17 21 17 13 7 13 7 21" />
+      <polyline points="7 3 7 8 15 8" />
+    </>,
+  ),
   Download: mk(
     <>
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
     </>,
+  ),
+  Flow: mk(
+    <path d="M1 10.5A1.5 1.5 0 002.5 12h3.879a2.5 2.5 0 001.768-.732l4.586-4.586A2.5 2.5 0 0012.268 6 1.533 1.533 0 0013.5 4.5a1.5 1.5 0 10-1.5-1.5 1.533 1.533 0 01-1.5 1.232A2.5 2.5 0 009.768 5L5.182 9.586A2.5 2.5 0 003.5 10.5H2.5A1.5 1.5 0 011 10.5z" />,
+    { viewBox: '0 0 16 16', fill: 'currentColor', strokeColor: 'none' },
   ),
   Trash: mk(
     <>

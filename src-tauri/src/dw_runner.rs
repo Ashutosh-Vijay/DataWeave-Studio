@@ -1,8 +1,12 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 use tauri::{AppHandle, Manager};
+
+static RE_LINE_COL: OnceLock<regex::Regex> = OnceLock::new();
+static RE_LINE_PREFIX: OnceLock<regex::Regex> = OnceLock::new();
+static RE_GUTTER: OnceLock<regex::Regex> = OnceLock::new();
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct RunResult {
@@ -45,14 +49,12 @@ fn get_dw_binary_resource_path() -> &'static str {
 
 /// Parse DW CLI stderr for line/column error info
 fn parse_error_location(stderr: &str) -> (Option<u32>, Option<u32>) {
-    let re = regex::Regex::new(r"line:?\s*(\d+),?\s*column:?\s*(\d+)").ok();
-    if let Some(re) = re {
-        if let Some(caps) = re.captures(stderr) {
-            return (
-                caps.get(1).and_then(|m| m.as_str().parse().ok()),
-                caps.get(2).and_then(|m| m.as_str().parse().ok()),
-            );
-        }
+    let re = RE_LINE_COL.get_or_init(|| regex::Regex::new(r"line:?\s*(\d+),?\s*column:?\s*(\d+)").unwrap());
+    if let Some(caps) = re.captures(stderr) {
+        return (
+            caps.get(1).and_then(|m| m.as_str().parse().ok()),
+            caps.get(2).and_then(|m| m.as_str().parse().ok()),
+        );
     }
     (None, None)
 }
@@ -64,7 +66,7 @@ fn shift_stderr_lines(stderr: &str, offset: i64) -> String {
     if offset <= 0 { return stderr.to_string(); }
 
     // (line N, column M) and (line: N, column: M) — the structured forms.
-    let pat_paren = regex::Regex::new(r"line:?\s*(\d+)").unwrap();
+    let pat_paren = RE_LINE_PREFIX.get_or_init(|| regex::Regex::new(r"line:?\s*(\d+)").unwrap());
     let shifted = pat_paren.replace_all(stderr, |caps: &regex::Captures| {
         let n: i64 = caps[1].parse().unwrap_or(0);
         let mapped = (n - offset).max(1);
@@ -76,7 +78,7 @@ fn shift_stderr_lines(stderr: &str, offset: i64) -> String {
 
     // `N| user code` — the source-line gutter the DW CLI prints. Match digits
     // followed by `|` at start of a line.
-    let pat_gutter = regex::Regex::new(r"(?m)^(\s*)(\d+)\|").unwrap();
+    let pat_gutter = RE_GUTTER.get_or_init(|| regex::Regex::new(r"(?m)^(\s*)(\d+)\|").unwrap());
     pat_gutter.replace_all(&shifted, |caps: &regex::Captures| {
         let indent = &caps[1];
         let n: i64 = caps[2].parse().unwrap_or(0);
@@ -85,32 +87,7 @@ fn shift_stderr_lines(stderr: &str, offset: i64) -> String {
     }).to_string()
 }
 
-/// Strip the \\?\ extended-length path prefix that Windows/Rust canonicalize adds.
-#[cfg(target_os = "windows")]
-fn strip_unc_prefix(path: std::path::PathBuf) -> std::path::PathBuf {
-    let s = path.to_string_lossy();
-    if let Some(stripped) = s.strip_prefix("\\\\?\\") {
-        std::path::PathBuf::from(stripped)
-    } else {
-        path
-    }
-}
-
-#[cfg(not(target_os = "windows"))]
-fn strip_unc_prefix(path: std::path::PathBuf) -> std::path::PathBuf {
-    path
-}
-
-/// Hide the console window for child processes on Windows.
-#[cfg(target_os = "windows")]
-fn hide_console_window(cmd: &mut Command) {
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x08000000;
-    cmd.creation_flags(CREATE_NO_WINDOW);
-}
-
-#[cfg(not(target_os = "windows"))]
-fn hide_console_window(_cmd: &mut Command) {}
+use crate::platform::{hide_console_window, strip_unc_prefix};
 
 /// Resolve the DW CLI binary path. If the user has set a CLI override and the
 /// path exists, use it; otherwise fall back to the bundled binary.
@@ -147,14 +124,14 @@ pub fn set_cli_path_override(state: tauri::State<'_, CliOverride>, path: Option<
         Some(p) => Some(p),
         None => None,
     };
-    *state.path.lock().unwrap() = normalized;
+    *state.path.lock().unwrap_or_else(|e| e.into_inner()) = normalized;
     Ok(())
 }
 
 /// Get the current CLI path override (None if using bundled).
 #[tauri::command]
 pub fn get_cli_path_override(state: tauri::State<'_, CliOverride>) -> Option<String> {
-    state.path.lock().unwrap().clone()
+    state.path.lock().unwrap_or_else(|e| e.into_inner()).clone()
 }
 
 /// Run a dummy DW script to warm up the CLI (eats the worst cold start)
@@ -183,14 +160,14 @@ pub struct WarmupStatus {
 
 #[tauri::command]
 pub fn is_warmed_up(state: tauri::State<'_, WarmupState>) -> bool {
-    *state.ready.lock().unwrap()
+    *state.ready.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 #[tauri::command]
 pub fn get_warmup_status(state: tauri::State<'_, WarmupState>) -> WarmupStatus {
     WarmupStatus {
-        ready: *state.ready.lock().unwrap(),
-        error: state.error.lock().unwrap().clone(),
+        ready: *state.ready.lock().unwrap_or_else(|e| e.into_inner()),
+        error: state.error.lock().unwrap_or_else(|e| e.into_inner()).clone(),
     }
 }
 
@@ -362,7 +339,10 @@ fn create_run_dir() -> Result<std::path::PathBuf, String> {
     let dir = std::env::temp_dir()
         .join("dw-studio")
         .join(format!("run-{}", std::process::id()))
-        .join(format!("{}", Instant::now().elapsed().as_nanos()));
+        .join(format!("{}", std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()));
     std::fs::create_dir_all(&dir)
         .map_err(|e| format!("Failed to create temp dir: {}", e))?;
     Ok(dir)
@@ -371,6 +351,21 @@ fn create_run_dir() -> Result<std::path::PathBuf, String> {
 /// Clean up the temp directory after execution
 fn cleanup_run_dir(dir: &std::path::Path) {
     let _ = std::fs::remove_dir_all(dir);
+}
+
+/// RAII guard that cleans up the run directory on drop, ensuring cleanup on
+/// early `?` returns and panics.
+struct RunDirGuard(Option<std::path::PathBuf>);
+
+impl RunDirGuard {
+    fn new(path: std::path::PathBuf) -> Self { Self(Some(path)) }
+    fn path(&self) -> &std::path::Path { self.0.as_deref().unwrap() }
+}
+
+impl Drop for RunDirGuard {
+    fn drop(&mut self) {
+        if let Some(ref p) = self.0 { cleanup_run_dir(p); }
+    }
 }
 
 /// Run a DW script with optional classpath, timeout, and binary payload support.
@@ -392,8 +387,8 @@ pub async fn run_dataweave(
     let start_time = Instant::now();
 
     // Reset cancellation flag and any stale PID at the start of every run.
-    *state.cancelled.lock().unwrap() = false;
-    *state.child_pid.lock().unwrap() = None;
+    *state.cancelled.lock().unwrap_or_else(|e| e.into_inner()) = false;
+    *state.child_pid.lock().unwrap_or_else(|e| e.into_inner()) = None;
 
     let has_attributes = attributes_json.trim() != "{}" && !attributes_json.trim().is_empty();
     let has_vars = vars_json.trim() != "{}" && !vars_json.trim().is_empty();
@@ -417,7 +412,8 @@ pub async fn run_dataweave(
         payload
     };
 
-    let run_dir = create_run_dir()?;
+    let run_dir_guard = RunDirGuard::new(create_run_dir()?);
+    let run_dir = run_dir_guard.path().to_path_buf();
 
     // Build real multipart body when parts are provided (must happen before build_full_script)
     let multipart_mime_override: Option<String>;
@@ -497,9 +493,9 @@ pub async fn run_dataweave(
         .collect();
 
     // Mark "running" so cancel can kill the server out from under us if needed.
-    *state.child_pid.lock().unwrap() = Some(0); // 0 = "in-flight via server"
+    *state.child_pid.lock().unwrap_or_else(|e| e.into_inner()) = Some(0); // 0 = "in-flight via server"
 
-    let effective_timeout = timeout_ms.unwrap_or(0);
+    let effective_timeout = timeout_ms.unwrap_or(30000);
 
     let attrs_path_str = attrs_path.as_ref().map(|p| p.display().to_string());
     let vars_path_str = vars_path.as_ref().map(|p| p.display().to_string());
@@ -542,8 +538,7 @@ pub async fn run_dataweave(
                 // Timed out — restart the server so the next run isn't stuck
                 // waiting for a leaked response.
                 let _ = crate::dw_server::restart(&app);
-                cleanup_run_dir(&run_dir);
-                *state.child_pid.lock().unwrap() = None;
+                *state.child_pid.lock().unwrap_or_else(|e| e.into_inner()) = None;
                 return Ok(RunResult {
                     output: String::new(),
                     error: Some(format!(
@@ -564,12 +559,12 @@ pub async fn run_dataweave(
     };
 
     let execution_time_ms = start_time.elapsed().as_millis() as u64;
-    *state.child_pid.lock().unwrap() = None;
-    cleanup_run_dir(&run_dir);
+    *state.child_pid.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    drop(run_dir_guard); // explicit cleanup (guard handles it)
 
     // Cancel beat us to it — surface that, not the server response.
-    if *state.cancelled.lock().unwrap() {
-        *state.cancelled.lock().unwrap() = false;
+    if *state.cancelled.lock().unwrap_or_else(|e| e.into_inner()) {
+        *state.cancelled.lock().unwrap_or_else(|e| e.into_inner()) = false;
         return Ok(RunResult {
             output: String::new(),
             error: Some("Cancelled".to_string()),
@@ -617,15 +612,6 @@ pub async fn run_dataweave(
     }
 }
 
-/// Placeholder — DW CLI does not expose a migrate subcommand.
-/// Migration is handled entirely in the frontend (TypeScript).
-#[tauri::command]
-pub async fn migrate_dataweave(
-    _app: AppHandle,
-    _script: String,
-) -> Result<String, String> {
-    Err("migrate_not_supported".to_string())
-}
 
 /// Save text content to a file at the given absolute path.
 #[tauri::command]
@@ -672,11 +658,16 @@ fn kill_pid(pid: u32) {
 /// `run_dataweave` call will see the flag and return a Cancelled result.
 #[tauri::command]
 pub fn cancel_dataweave(state: tauri::State<'_, RunState>) -> Result<bool, String> {
-    let pid_opt = *state.child_pid.lock().unwrap();
+    let pid_opt = *state.child_pid.lock().unwrap_or_else(|e| e.into_inner());
     match pid_opt {
-        Some(pid) => {
-            *state.cancelled.lock().unwrap() = true;
+        Some(pid) if pid > 0 => {
+            *state.cancelled.lock().unwrap_or_else(|e| e.into_inner()) = true;
             kill_pid(pid);
+            Ok(true)
+        }
+        Some(_) => {
+            // Sentinel PID 0 from server-based runs — mark cancelled but don't kill
+            *state.cancelled.lock().unwrap_or_else(|e| e.into_inner()) = true;
             Ok(true)
         }
         None => Ok(false),
@@ -689,8 +680,8 @@ pub fn cancel_dataweave(state: tauri::State<'_, RunState>) -> Result<bool, Strin
 pub fn restart_cli(app: AppHandle) -> Result<(), String> {
     {
         let state = app.state::<WarmupState>();
-        *state.ready.lock().unwrap() = false;
-        *state.error.lock().unwrap() = None;
+        *state.ready.lock().unwrap_or_else(|e| e.into_inner()) = false;
+        *state.error.lock().unwrap_or_else(|e| e.into_inner()) = None;
     }
     let handle = app.clone();
     std::thread::spawn(move || {
@@ -698,11 +689,11 @@ pub fn restart_cli(app: AppHandle) -> Result<(), String> {
             Ok(_) => {}
             Err(e) => {
                 let state = handle.state::<WarmupState>();
-                *state.error.lock().unwrap() = Some(e);
+                *state.error.lock().unwrap_or_else(|e| e.into_inner()) = Some(e);
             }
         }
         let state = handle.state::<WarmupState>();
-        *state.ready.lock().unwrap() = true;
+        *state.ready.lock().unwrap_or_else(|e| e.into_inner()) = true;
     });
     Ok(())
 }

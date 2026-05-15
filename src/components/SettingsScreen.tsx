@@ -480,14 +480,14 @@ function RuntimePanel({
     } catch { /* ignore */ }
     try {
       await invoke('set_cli_path_override', { path: next || null });
-    } catch { /* ignore */ }
+    } catch (e) { console.warn('Failed to set engine path:', e); }
     onRestartCli();
   };
 
   return (
-    <SectionWrap title="Runtime" desc="DataWeave CLI execution settings">
-      <Group title="DataWeave CLI">
-        <SRow label="CLI path" desc="Path to the DataWeave CLI binary. Leave empty for bundled.">
+    <SectionWrap title="Runtime" desc="DataWeave runtime execution settings">
+      <Group title="DataWeave Engine">
+        <SRow label="Engine path" desc="Path to the DataWeave runtime. Leave empty for bundled.">
           <div className="flex items-center gap-1.5">
             <span
               className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-surface-2 border border-line font-mono text-[11.5px] text-content-secondary max-w-[280px] truncate"
@@ -515,7 +515,7 @@ function RuntimePanel({
             className="h-7 w-[120px] bg-surface-2 border border-line rounded-md px-2 text-[12px] font-mono text-content focus:border-accent focus:outline-none text-right"
           />
         </SRow>
-        <SRow label="Warm-up on start" desc="Launch the CLI in the background so the first run is instant.">
+        <SRow label="Warm-up on start" desc="Launch the engine in the background so the first run is instant.">
           <Toggle on={warmup} onChange={(v) => { setWarmup(v); try { localStorage.setItem('dw.warmup', v ? '1' : '0'); } catch {} }} />
         </SRow>
         <SRow label="Default input format" desc="MIME type used for the payload pane.">
@@ -617,7 +617,8 @@ function AdvancedPanel() {
     try { return localStorage.getItem('dw.verbose') === '1'; } catch { return false; }
   });
 
-  const dataPath = navigator.platform.startsWith('Win')
+  const isWin = navigator.userAgent.includes('Windows') || (navigator as any).userAgentData?.platform === 'Windows';
+  const dataPath = isWin
     ? '%APPDATA%\\com.dwstudio.desktop'
     : '~/Library/Application Support/com.dwstudio.desktop';
 

@@ -1,6 +1,7 @@
 import type * as Monaco from 'monaco-editor';
 import yaml from 'js-yaml';
 import { buildCompletionDoc } from './dataweaveHover';
+import { DW_FUNCTIONS } from './dataweaveDocs';
 
 export interface DWCompletionContext {
   payload: string;
@@ -34,11 +35,14 @@ const COMPLETIONS: DWCompletion[] = [
   { label: 'application/xml', kind: 'constant', detail: 'XML MIME type' },
   { label: 'application/csv', kind: 'constant', detail: 'CSV MIME type' },
   { label: 'application/java', kind: 'constant', detail: 'Java object MIME type' },
-  { label: 'application/flatfile', kind: 'constant', detail: 'Flat file MIME type' },
   { label: 'text/plain', kind: 'constant', detail: 'Plain text MIME type' },
   { label: 'application/dw', kind: 'constant', detail: 'DataWeave MIME type' },
   { label: 'multipart/form-data', kind: 'constant', detail: 'Multipart MIME type' },
   { label: 'application/x-www-form-urlencoded', kind: 'constant', detail: 'URL-encoded form MIME type' },
+  { label: 'application/yaml', kind: 'constant', detail: 'YAML MIME type' },
+  { label: 'application/x-ndjson', kind: 'constant', detail: 'Newline-delimited JSON MIME type' },
+  { label: 'text/x-java-properties', kind: 'constant', detail: 'Java properties MIME type' },
+  { label: 'application/octet-stream', kind: 'constant', detail: 'Binary MIME type' },
 
   // === Context variables ===
   { label: 'payload', kind: 'variable', detail: 'Input payload', documentation: 'The main input data of the current message' },
@@ -115,7 +119,7 @@ const COMPLETIONS: DWCompletion[] = [
   { label: 'sqrt', kind: 'function', detail: '(Number) -> Number', documentation: 'Square root' },
   { label: 'mod', kind: 'function', detail: '(Number, Number) -> Number', documentation: 'Modulo operation' },
   { label: 'pow', kind: 'function', detail: '(Number, Number) -> Number', documentation: 'Power/exponentiation' },
-  { label: 'random', kind: 'function', detail: '() -> Number', documentation: 'Random number between 0 and 1' },
+  { label: 'random', kind: 'function', detail: '() -> Number', documentation: 'Random number between 0 and 1', insertText: 'random()' },
 
   // === Type checking / coercion ===
   { label: 'isEmpty', kind: 'function', detail: '(Any) -> Boolean', documentation: 'Checks if value is null, empty string, or empty array/object' },
@@ -124,8 +128,8 @@ const COMPLETIONS: DWCompletion[] = [
   { label: 'log', kind: 'function', detail: '(Any) -> Any', documentation: 'Logs the value and returns it (debugging)' },
   { label: 'read', kind: 'function', detail: '(String, String) -> Any', documentation: 'Parses a string as given MIME type', insertText: 'read(${1:value}, "${2:application/json}")', isSnippet: true },
   { label: 'write', kind: 'function', detail: '(Any, String) -> String', documentation: 'Serializes a value as given MIME type', insertText: 'write(${1:value}, "${2:application/json}")', isSnippet: true },
-  { label: 'uuid', kind: 'function', detail: '() -> String', documentation: 'Generates a random UUID' },
-  { label: 'now', kind: 'function', detail: '() -> DateTime', documentation: 'Current date and time' },
+  { label: 'uuid', kind: 'function', detail: '() -> String', documentation: 'Generates a random UUID', insertText: 'uuid()' },
+  { label: 'now', kind: 'function', detail: '() -> DateTime', documentation: 'Current date and time', insertText: 'now()' },
 
   // === Object utility ===
   { label: 'keysOf', kind: 'function', detail: '(Object) -> Array<Key>', documentation: 'Returns all keys of an object' },
@@ -183,6 +187,62 @@ const COMPLETIONS: DWCompletion[] = [
     isSnippet: true,
   },
 ];
+
+// Set of function names already defined in COMPLETIONS (hand-tuned snippets)
+const STATIC_FN_NAMES = new Set(
+  COMPLETIONS.filter((c) => c.kind === 'function').map((c) => c.label.toLowerCase())
+);
+
+/**
+ * Parse a DW function signature to extract parameter names.
+ * e.g. "upper(text: String): String" → ["text"]
+ *      "uuid(): String" → []
+ *      "map<T,R>(items: Array<T>, mapper: (T,Number) -> R): Array<R>" → ["items", "mapper"]
+ */
+function parseSignatureParams(sig: string): string[] {
+  let i = 0;
+  // Skip function name
+  while (i < sig.length && sig[i] !== '(' && sig[i] !== '<') i++;
+  // Skip generics <...>
+  if (i < sig.length && sig[i] === '<') {
+    let depth = 1;
+    i++;
+    while (i < sig.length && depth > 0) {
+      if (sig[i] === '<') depth++;
+      if (sig[i] === '>') depth--;
+      i++;
+    }
+  }
+  if (i >= sig.length || sig[i] !== '(') return [];
+  i++; // skip (
+  let depth = 1;
+  const start = i;
+  while (i < sig.length && depth > 0) {
+    if (sig[i] === '(') depth++;
+    if (sig[i] === ')') depth--;
+    i++;
+  }
+  const paramStr = sig.substring(start, i - 1).trim();
+  if (!paramStr) return [];
+
+  // Split by commas at depth 0
+  const params: string[] = [];
+  let current = '';
+  let d = 0;
+  for (const ch of paramStr) {
+    if (ch === '(' || ch === '<') d++;
+    if (ch === ')' || ch === '>') d--;
+    if (ch === ',' && d === 0) {
+      params.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  if (current.trim()) params.push(current.trim());
+
+  return params.map((p) => p.split(':')[0].trim());
+}
 
 function getCompletionKind(kind: DWCompletion['kind'], m: typeof Monaco): Monaco.languages.CompletionItemKind {
   switch (kind) {
@@ -529,6 +589,45 @@ export function registerDWCompletionProvider(
           sortText: String(i).padStart(4, '0'),
         };
       });
+
+      // --- DW_FUNCTIONS completions (309 functions from MuleSoft docs) ---
+      // Add any function from the auto-generated docs that isn't already
+      // in the hand-tuned static list. Parses the signature to build
+      // proper insertText with parentheses and param placeholders.
+      let dynIdx = COMPLETIONS.length;
+      for (const [key, doc] of Object.entries(DW_FUNCTIONS)) {
+        if (STATIC_FN_NAMES.has(key)) continue;
+        // Skip operators like ++, --, ~=, etc.
+        if (/^[^a-zA-Z]/.test(key)) continue;
+
+        const ov = doc.overloads[0];
+        if (!ov) continue;
+
+        const params = parseSignatureParams(ov.signature);
+        let insertText: string;
+        let isSnippet = false;
+        if (params.length === 0) {
+          insertText = `${doc.name}()`;
+        } else {
+          const placeholders = params.map((p, pi) => `\${${pi + 1}:${p}}`).join(', ');
+          insertText = `${doc.name}(${placeholders})`;
+          isSnippet = true;
+        }
+
+        const richDoc = buildCompletionDoc(doc.name);
+        suggestions.push({
+          label: doc.name,
+          kind: monaco.languages.CompletionItemKind.Function,
+          detail: `dw::${ov.module} · ${ov.signature.includes('):') ? ov.signature.split('):')[0] + ')' : ov.signature}`,
+          documentation: richDoc ? { value: richDoc, isTrusted: false } : ov.description,
+          insertText,
+          insertTextRules: isSnippet
+            ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
+            : undefined,
+          range,
+          sortText: String(dynIdx++).padStart(4, '0'),
+        });
+      }
 
       return { suggestions };
     },

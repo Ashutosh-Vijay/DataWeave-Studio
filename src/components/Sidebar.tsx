@@ -44,6 +44,7 @@ interface SidebarProps {
   onInsertSnippet?: (body: string) => void;
   onOpenReference: () => void;
   onOpenSecure: () => void;
+  onOpenFlowDesigner: () => void;
   onOpenSettings: () => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
@@ -126,7 +127,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const {
     projectName, onProjectNameChange, currentFile, isDirty, currentMethod,
     onNew, onSave, onLoad, onDelete, listWorkspaces,
-    onCurlImport, onInsertSnippet, onOpenSecure, onOpenSettings,
+    onCurlImport, onInsertSnippet, onOpenSecure, onOpenFlowDesigner, onOpenSettings,
     onOpenReference,
     collapsed, onToggleCollapse,
   } = props;
@@ -201,6 +202,14 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
         >
           <Icons.Braces size={18} />
+        </button>
+        <button
+          onClick={onOpenFlowDesigner}
+          title="Message Flow designer"
+          aria-label="Message Flow designer"
+          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
+        >
+          <Icons.Flow size={18} />
         </button>
         <div className="mx-2 my-1.5 h-px bg-line-subtle" />
         {RAIL_ITEMS.map(({ id, title, Icon }) => {

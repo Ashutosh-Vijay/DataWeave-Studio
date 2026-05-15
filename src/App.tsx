@@ -9,6 +9,7 @@ import { WindowControls } from './components/WindowControls';
 import { WorkspaceMenu } from './components/WorkspaceMenu';
 import { ToastHost, toast } from './components/Toast';
 import { FunctionBrowser } from './components/FunctionBrowser';
+import { FlowDesigner } from './components/FlowDesigner';
 import { OpenWorkspaceDialog } from './components/OpenWorkspaceDialog';
 import { PayloadTabs } from './components/PayloadTabs';
 import { OutputPane } from './components/OutputPane';
@@ -86,7 +87,7 @@ function substituteQueryParams(
   }
 }
 
-function context_count(pairs: KeyValuePair[]): number {
+function contextCount(pairs: KeyValuePair[]): number {
   return pairs.filter((p) => p.enabled !== false && p.key && p.value !== '').length;
 }
 
@@ -350,7 +351,7 @@ function StatusBar({
       >
         <Icons.Dot size={8} /> {isReady ? 'Ready' : 'Warming up'}
       </span>
-      <span>DW {dwVersion || '2.5.0'}</span>
+      <span>DW {dwVersion || '2.11.0'}</span>
       {workspaceFile && <span className="truncate max-w-[280px]">{workspaceFile}</span>}
       {focusToggles && (
         <span className="flex items-center gap-1 ml-1">
@@ -400,6 +401,7 @@ function App() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [referenceOpen, setReferenceOpen] = useState(false);
+  const [flowDesignerOpen, setFlowDesignerOpen] = useState(false);
   const [focusDrawerOpen, setFocusDrawerOpen] = useState(false);
   const [showFirstRun, setShowFirstRun] = useState(() => shouldShowFirstRun());
   const [hasStarted, setHasStarted] = useState(false);
@@ -415,6 +417,7 @@ function App() {
   const [focusDrawerTab, setFocusDrawerTab] = useState<'Request' | 'Vars' | 'Config'>('Request');
   const scriptEditorRef = useRef<ScriptEditorHandle>(null);
   const sidebarRef = useRef<SidebarHandle>(null);
+  const savePendingRef = useRef(false);
   const [layout, setLayout] = useState<'workbench' | 'focus'>(() => {
     try { return (localStorage.getItem('dw.layout') as 'workbench' | 'focus') || 'workbench'; } catch { return 'workbench'; }
   });
@@ -616,9 +619,9 @@ function App() {
       if (cancelled) return;
       try {
         await invoke('set_cli_path_override', { path: stored && stored.trim() ? stored : null });
-      } catch { /* ignore */ }
+      } catch (e) { console.warn('Failed to set engine path override:', e); }
       if (stored && stored.trim() && !cancelled) {
-        try { await invoke('restart_cli'); } catch { /* ignore */ }
+        try { await invoke('restart_cli'); } catch (e) { console.warn('Failed to restart engine:', e); }
       }
     })();
     return () => { cancelled = true; };
@@ -699,7 +702,10 @@ function App() {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        workspace.saveWorkspace();
+        if (!savePendingRef.current) {
+          savePendingRef.current = true;
+          workspace.saveWorkspace().finally(() => { savePendingRef.current = false; });
+        }
       } else if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
         setPaletteOpen((o) => !o);
@@ -758,7 +764,7 @@ function App() {
     return () => {
       if (autoRunTimerRef.current) clearTimeout(autoRunTimerRef.current);
     };
-  }, [autoRun, workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, workspace.queryTemplate]);
+  }, [autoRun, workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs]);
 
   const canRun = runner.isWarmedUp && !runner.isRunning;
   const isQueryMode = workspace.nodeLabel === 'Salesforce Query' || workspace.nodeLabel === 'DB Query';
@@ -806,6 +812,7 @@ function App() {
       run: () => workspace.setNodeLabel(l),
     })),
     { id: 'reference', label: 'Open DataWeave function reference', group: 'Tools', run: () => setReferenceOpen(true) },
+    { id: 'flow', label: 'Open Message Flow designer', group: 'Tools', run: () => setFlowDesignerOpen(true) },
     { id: 'secure', label: 'Open Secure Properties tool', group: 'Tools', run: () => setSecureToolOpen(true) },
     { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: '⌘/', group: 'Tools', run: () => setShortcutsOpen(true) },
     { id: 'settings', label: 'Open Settings', shortcut: '⌘,', group: 'Tools', run: () => setSettingsOpen(true) },
@@ -923,7 +930,7 @@ function App() {
         <WindowControls />
       </header>
 
-      {/* CLI error banner */}
+      {/* Runtime error banner */}
       {runner.cliError && (
         <div
           className="px-4 py-2 flex items-center gap-3 shrink-0 border-b"
@@ -944,7 +951,7 @@ function App() {
             className="shrink-0 h-6 px-2 rounded text-[11px] font-medium text-content-secondary hover:text-content border border-line hover:bg-surface-2 cursor-pointer"
             title="Re-run the warm-up probe"
           >
-            Restart CLI
+            Restart Engine
           </button>
           <button
             onClick={async () => {
@@ -1005,6 +1012,7 @@ function App() {
           onCurlImport={handleCurlImport}
           onInsertSnippet={(body) => scriptEditorRef.current?.insertSnippet(body)}
           onOpenSecure={() => setSecureToolOpen(true)}
+          onOpenFlowDesigner={() => setFlowDesignerOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenReference={() => setReferenceOpen(true)}
           collapsed={sidebarCollapsed}
@@ -1028,6 +1036,7 @@ function App() {
               // Wait for the workspace to render before the tour measures rects
               setTimeout(() => setShowTour(true), 50);
             }}
+            onOpenFlowDesigner={() => setFlowDesignerOpen(true)}
             lastWorkspace={lastWorkspace}
             hasDraftSession={hasDraftSession && !lastWorkspace}
             onResumeLast={async () => {
@@ -1073,8 +1082,8 @@ function App() {
             <CompactLayout
               badges={{
                 context:
-                  context_count(workspace.context.queryParams) +
-                  context_count(workspace.context.headers) +
+                  contextCount(workspace.context.queryParams) +
+                  contextCount(workspace.context.headers) +
                   workspace.context.vars.filter((v) => v.key).length,
                 output: runner.error ? '!' : (runner.executionTimeMs ? `${runner.executionTimeMs}ms` : undefined),
               }}
@@ -1377,7 +1386,7 @@ function App() {
         />
       )}
 
-      {/* Splash screen — covers everything until CLI is ready */}
+      {/* Splash screen — covers everything until engine is ready */}
       <SplashScreen isReady={runner.isWarmedUp} hasError={!!runner.cliError} />
 
       <FunctionBrowser
@@ -1385,6 +1394,8 @@ function App() {
         onClose={() => setReferenceOpen(false)}
         onInsertAtCursor={(text) => scriptEditorRef.current?.insertAtCursor(text)}
       />
+
+      <FlowDesigner open={flowDesignerOpen} onClose={() => setFlowDesignerOpen(false)} />
 
       <ToastHost />
     </div>

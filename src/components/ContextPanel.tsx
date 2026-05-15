@@ -38,7 +38,7 @@ interface ContextPanelProps {
 }
 
 function activeCount(pairs: KeyValuePair[]): number {
-  return pairs.filter((p) => p.key && p.value !== '').length;
+  return pairs.filter((p) => p.enabled !== false && p.key && p.value !== '').length;
 }
 
 export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKeyChange, defaultTab }: ContextPanelProps) {

@@ -69,20 +69,7 @@ export interface WorkspaceFile {
   mode: string;
   singleTransform: SingleTransform;
   context: ContextState;
-}
-
-// === DW Runner Types ===
-
-export interface RunResult {
-  output: string;
-  error: string | null;
-  execution_time_ms: number;
-}
-
-export interface DWError {
-  message: string;
-  line: number | null;
-  column: number | null;
+  flowNodes?: unknown[];
 }
 
 // === MIME type options ===
@@ -96,8 +83,10 @@ export type MimeType =
   | 'multipart/form-data'
   | 'application/java'
   | 'application/dw'
-  | 'application/flatfile'
-  | 'application/octet-stream';
+  | 'application/octet-stream'
+  | 'application/yaml'
+  | 'application/x-ndjson'
+  | 'text/x-java-properties';
 
 export const MIME_OPTIONS: { label: string; value: MimeType }[] = [
   { label: 'JSON', value: 'application/json' },
@@ -108,7 +97,9 @@ export const MIME_OPTIONS: { label: string; value: MimeType }[] = [
   { label: 'Multipart Form Data', value: 'multipart/form-data' },
   { label: 'Java Object', value: 'application/java' },
   { label: 'DataWeave', value: 'application/dw' },
-  { label: 'Flat File', value: 'application/flatfile' },
+  { label: 'YAML', value: 'application/yaml' },
+  { label: 'NDJSON', value: 'application/x-ndjson' },
+  { label: 'Java Properties', value: 'text/x-java-properties' },
   { label: 'Binary', value: 'application/octet-stream' },
 ];
 

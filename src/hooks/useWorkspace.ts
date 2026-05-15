@@ -89,9 +89,12 @@ export function useWorkspace(): UseWorkspaceReturn {
   });
   const currentLabel = useRef('Transform');
 
-  const wrapSetter = <T,>(setter: React.Dispatch<React.SetStateAction<T>>) =>
-    (val: T) => { setter(val); setIsDirty(true); };
-
+  const wrappedSetProjectName = useCallback((val: string) => { setProjectName(val); setIsDirty(true); }, []);
+  const wrappedSetPayload = useCallback((val: string) => { setPayload(val); setIsDirty(true); }, []);
+  const wrappedSetPayloadMimeType = useCallback((val: MimeType) => { setPayloadMimeType(val); setIsDirty(true); }, []);
+  const wrappedSetContext = useCallback((val: ContextState) => { setContext(val); setIsDirty(true); }, []);
+  const wrappedSetNamedInputs = useCallback((val: NamedInput[]) => { setNamedInputs(val); setIsDirty(true); }, []);
+  const wrappedSetQueryTemplate = useCallback((val: string) => { setQueryTemplate(val); setIsDirty(true); }, []);
   const setClasspath = useCallback((cp: string[]) => { setClasspathState(cp); setIsDirty(true); }, []);
   const setTimeoutMs = useCallback((ms: number) => { setTimeoutMsState(ms); setIsDirty(true); }, []);
   const setPayloadFilePath = useCallback((path: string | null) => { setPayloadFilePathState(path); setIsDirty(true); }, []);
@@ -174,7 +177,8 @@ export function useWorkspace(): UseWorkspaceReturn {
   }, []);
 
   const listWorkspaces = useCallback(async () => {
-    return invoke<string[]>('list_workspaces');
+    const metas = await invoke<{ filename: string; projectName: string; mode: string }[]>('list_workspaces_meta');
+    return metas.filter(m => m.mode !== 'flow').map(m => m.filename);
   }, []);
 
   const deleteWorkspace = useCallback(async (filename: string) => {
@@ -225,16 +229,16 @@ export function useWorkspace(): UseWorkspaceReturn {
     queryTemplate,
     classpath,
     timeoutMs,
-    setProjectName: wrapSetter(setProjectName),
+    setProjectName: wrappedSetProjectName,
     setScript,
-    setPayload: wrapSetter(setPayload),
-    setPayloadMimeType: wrapSetter(setPayloadMimeType),
+    setPayload: wrappedSetPayload,
+    setPayloadMimeType: wrappedSetPayloadMimeType,
     setPayloadFilePath,
     setMultipartParts,
     setNodeLabel,
-    setContext: wrapSetter(setContext),
-    setNamedInputs: wrapSetter(setNamedInputs),
-    setQueryTemplate: wrapSetter(setQueryTemplate),
+    setContext: wrappedSetContext,
+    setNamedInputs: wrappedSetNamedInputs,
+    setQueryTemplate: wrappedSetQueryTemplate,
     setClasspath,
     setTimeoutMs,
     saveWorkspace,

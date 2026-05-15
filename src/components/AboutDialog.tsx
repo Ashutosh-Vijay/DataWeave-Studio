@@ -167,11 +167,7 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
             <button
               onClick={handleCheckForUpdates}
               disabled={isUpdating}
-              className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${
-                updateStatus === 'update-available'
-                  ? 'bg-accent-dim hover:bg-accent-dim text-accent border-accent-border'
-                  : 'bg-accent-dim hover:bg-accent-dim text-accent border-accent-border'
-              }`}
+              className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer bg-accent-dim hover:bg-accent-dim text-accent border-accent-border"
             >
               {isUpdating ? '…' : updateStatus === 'update-available' ? 'Update now' : 'Check for updates'}
             </button>

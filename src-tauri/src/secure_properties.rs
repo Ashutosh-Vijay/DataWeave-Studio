@@ -1,30 +1,6 @@
 use std::process::{Command, Stdio};
 use tauri::{AppHandle, Manager};
-
-#[cfg(target_os = "windows")]
-fn hide_console_window(cmd: &mut Command) {
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x08000000;
-    cmd.creation_flags(CREATE_NO_WINDOW);
-}
-
-#[cfg(not(target_os = "windows"))]
-fn hide_console_window(_cmd: &mut Command) {}
-
-#[cfg(target_os = "windows")]
-fn strip_unc_prefix(path: std::path::PathBuf) -> std::path::PathBuf {
-    let s = path.to_string_lossy();
-    if let Some(stripped) = s.strip_prefix("\\\\?\\") {
-        std::path::PathBuf::from(stripped)
-    } else {
-        path
-    }
-}
-
-#[cfg(not(target_os = "windows"))]
-fn strip_unc_prefix(path: std::path::PathBuf) -> std::path::PathBuf {
-    path
-}
+use crate::platform::{hide_console_window, strip_unc_prefix};
 
 fn resolve_jar(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     let path = app
@@ -34,6 +10,19 @@ fn resolve_jar(app: &AppHandle) -> Result<std::path::PathBuf, String> {
             tauri::path::BaseDirectory::Resource,
         )
         .map_err(|e| format!("Failed to resolve secure-properties-tool.jar: {}", e))?;
+    Ok(strip_unc_prefix(path))
+}
+
+fn resolve_bundled_java(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let bin = if cfg!(target_os = "windows") {
+        "resources/jre/bin/java.exe"
+    } else {
+        "resources/jre/bin/java"
+    };
+    let path = app
+        .path()
+        .resolve(bin, tauri::path::BaseDirectory::Resource)
+        .map_err(|e| format!("Failed to resolve bundled JRE: {}", e))?;
     Ok(strip_unc_prefix(path))
 }
 
@@ -53,6 +42,14 @@ pub fn secure_properties_invoke(
     if operation != "encrypt" && operation != "decrypt" {
         return Err(format!("Invalid operation '{}', expected 'encrypt' or 'decrypt'.", operation));
     }
+    const VALID_ALGORITHMS: &[&str] = &["AES", "Blowfish", "DES", "DESede", "RC2"];
+    if !VALID_ALGORITHMS.contains(&algorithm.as_str()) {
+        return Err(format!("Invalid algorithm '{}', expected one of: {}", algorithm, VALID_ALGORITHMS.join(", ")));
+    }
+    const VALID_MODES: &[&str] = &["CBC", "CFB", "ECB", "OFB"];
+    if !VALID_MODES.contains(&mode.as_str()) {
+        return Err(format!("Invalid mode '{}', expected one of: {}", mode, VALID_MODES.join(", ")));
+    }
     if key.is_empty() {
         return Err("Key is required.".into());
     }
@@ -62,7 +59,10 @@ pub fn secure_properties_invoke(
 
     let jar = resolve_jar(&app)?;
 
-    let mut cmd = Command::new("java");
+    let java = resolve_bundled_java(&app)?;
+    let java_bin = if java.exists() { java } else { std::path::PathBuf::from("java") };
+
+    let mut cmd = Command::new(&java_bin);
     cmd.arg("-cp").arg(&jar);
     cmd.arg("com.mulesoft.tools.SecurePropertiesTool");
     cmd.arg("string");
@@ -79,10 +79,8 @@ pub fn secure_properties_invoke(
 
     let output = cmd.output().map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
-            "Java is not installed or not on PATH.\n\n\
-             The Secure Properties tool requires a Java runtime (JRE 8 or newer; \
-             the bundled JAR supports up to Java 17).\n\n\
-             Install Java from https://adoptium.net and restart DataWeave Studio."
+            "Bundled Java runtime not found and no system Java on PATH.\n\n\
+             The Secure Properties tool requires a Java runtime."
                 .to_string()
         } else {
             format!("Failed to run Java: {}", e)

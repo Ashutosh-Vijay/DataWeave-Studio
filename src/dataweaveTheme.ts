@@ -33,7 +33,8 @@ export function defineDataWeaveTheme(monaco: typeof Monaco) {
   const canvas = document.createElement('canvas');
   canvas.width = 1;
   canvas.height = 1;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return { duskTheme: {}, paperTheme: {} } as any;
 
   const isLight = document.documentElement.classList.contains('light');
 

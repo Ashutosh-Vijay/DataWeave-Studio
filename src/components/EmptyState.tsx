@@ -20,6 +20,7 @@ interface EmptyStateProps {
   onOpenSnippets: () => void;
   onOpenWorkspace: () => void;
   onStartTour: () => void;
+  onOpenFlowDesigner: () => void;
   lastWorkspace: string | null;
   /** True when no saved file exists but a recoverable in-progress draft does. */
   hasDraftSession?: boolean;
@@ -28,7 +29,7 @@ interface EmptyStateProps {
 
 export function EmptyState({
   onBlankTransform, onImportCurl, onImportPlayground, onOpenSnippets, onOpenWorkspace,
-  onStartTour, lastWorkspace, hasDraftSession, onResumeLast,
+  onStartTour, onOpenFlowDesigner, lastWorkspace, hasDraftSession, onResumeLast,
 }: EmptyStateProps) {
   const lastName = lastWorkspace ? lastWorkspace.replace(/\.json$/, '').replace(/\.dwstudio$/, '') : null;
   const showResume = !!lastName || !!hasDraftSession;
@@ -79,8 +80,9 @@ export function EmptyState({
           <Card icon={<Icons.Import size={14} />} label="Import cURL" desc="Paste a request, scaffold the script" shortcut="⌘⇧I" onClick={onImportCurl} />
           <Card icon={<Icons.Library size={14} />} label="From a snippet" desc="Map, filter, group templates" shortcut="⌘L" onClick={onOpenSnippets} />
         </div>
-        <div className="grid grid-cols-1 gap-2.5 mb-5">
+        <div className="grid grid-cols-2 gap-2.5 mb-2.5">
           <Card icon={<Icons.Import size={14} />} label="Import from Playground" desc="Open a .zip exported from DataWeave Playground" shortcut="" onClick={onImportPlayground} />
+          <Card icon={<FlowIcon />} label="Message Flow" desc="Chain transforms with mock SF/DB connectors" shortcut="" onClick={onOpenFlowDesigner} />
         </div>
 
         <button
@@ -92,6 +94,10 @@ export function EmptyState({
       </div>
     </div>
   );
+}
+
+function FlowIcon() {
+  return <Icons.Flow size={14} />;
 }
 
 function Card({ icon, label, desc, shortcut, onClick }: { icon: React.ReactNode; label: string; desc: string; shortcut: string; onClick: () => void }) {
