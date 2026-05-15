@@ -418,6 +418,8 @@ function App() {
   const scriptEditorRef = useRef<ScriptEditorHandle>(null);
   const sidebarRef = useRef<SidebarHandle>(null);
   const savePendingRef = useRef(false);
+  const contextRef = useRef(workspace.context);
+  contextRef.current = workspace.context;
   const [layout, setLayout] = useState<'workbench' | 'focus'>(() => {
     try { return (localStorage.getItem('dw.layout') as 'workbench' | 'focus') || 'workbench'; } catch { return 'workbench'; }
   });
@@ -689,8 +691,10 @@ function App() {
     if (result.multipartParts) {
       workspace.setMultipartParts(result.multipartParts);
     }
+    // Read from ref to avoid stale closure — workspace.context captured at
+    // callback creation can be behind if the user edited context mid-session.
     workspace.setContext({
-      ...workspace.context,
+      ...contextRef.current,
       method: result.method,
       headers: result.headers,
       queryParams: result.queryParams,

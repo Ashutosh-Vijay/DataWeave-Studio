@@ -100,7 +100,7 @@ The JVM is spawned with `java -jar dwstudio-server.jar` — no `-Xmx`, `-Xms`, o
 
 **Fix:** Add `-Xmx512m -Xss2m` to the JVM launch args. Detect process exit on the Rust side and auto-restart.
 
-### C6. Stale closure in `handleCurlImport` can silently discard user edits -- DEFERRED (needs callback refactor)
+### C6. Stale closure in `handleCurlImport` can silently discard user edits -- FIXED (contextRef.current)
 **File:** `src/App.tsx:684-697`
 
 ```js
@@ -512,8 +512,8 @@ Always returns `Err("migrate_not_supported")`. Still registered in `lib.rs`.
 ---
 
 *Total findings: 77 across all severity levels.*
-*Fixed: 47 findings (4 critical, 11 high, 14 medium, 14 low, 4 info).*
+*Fixed: 48 findings (5 critical, 11 high, 14 medium, 14 low, 4 info).*
 *Won't fix: 18 findings (by design, harmless, or requiring architectural changes).*
-*Deferred: 6 findings (needs Scala server changes, focus traps, callback refactor, Linux CI).*
+*Deferred: 5 findings (needs Scala server changes, focus traps, Linux CI).*
 *Partial fix: 1 (H3 bundled JRE; key-as-arg is third-party tool limitation).*
 *All 77 findings resolved — 0 remaining.*
