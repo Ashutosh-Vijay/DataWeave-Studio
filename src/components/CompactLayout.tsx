@@ -18,8 +18,21 @@ const PANES: { id: Pane; label: string }[] = [
   { id: 'output', label: 'Output' },
 ];
 
+const COMPACT_PANE_KEY = 'dw.compactPane';
+
 export function CompactLayout({ scriptPane, payloadPane, contextPane, outputPane, badges, initial = 'script' }: CompactLayoutProps) {
-  const [active, setActive] = useState<Pane>(initial);
+  const [active, setActive] = useState<Pane>(() => {
+    try {
+      const stored = localStorage.getItem(COMPACT_PANE_KEY) as Pane | null;
+      if (stored && PANES.some((p) => p.id === stored)) return stored;
+    } catch {}
+    return initial;
+  });
+
+  const handleSetActive = (pane: Pane) => {
+    setActive(pane);
+    try { localStorage.setItem(COMPACT_PANE_KEY, pane); } catch {}
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-bg">
@@ -31,7 +44,7 @@ export function CompactLayout({ scriptPane, payloadPane, contextPane, outputPane
           return (
             <button
               key={p.id}
-              onClick={() => setActive(p.id)}
+              onClick={() => handleSetActive(p.id)}
               className={`relative h-full px-3 inline-flex items-center gap-1.5 text-[12px] font-medium cursor-pointer transition-colors whitespace-nowrap ${
                 isActive ? 'text-content' : 'text-content-faint hover:text-content-secondary'
               }`}

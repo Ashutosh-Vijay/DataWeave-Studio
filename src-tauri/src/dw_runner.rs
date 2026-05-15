@@ -752,7 +752,7 @@ pub async fn warm_dataweave_script(
 
     let app_clone = app.clone();
     let _ = tokio::task::spawn_blocking(move || {
-        let _ = crate::dw_server::run(
+        if let Err(e) = crate::dw_server::run(
             &app_clone,
             crate::dw_server::DwRunArgs {
                 script: &merged,
@@ -765,7 +765,9 @@ pub async fn warm_dataweave_script(
                 classpath: &[],
                 compile_only: true,
             },
-        );
+        ) {
+            log::warn!("Warm compile failed: {}", e);
+        }
     })
     .await;
     Ok(())

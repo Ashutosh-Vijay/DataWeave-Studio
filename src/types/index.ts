@@ -88,6 +88,17 @@ export type MimeType =
   | 'application/x-ndjson'
   | 'text/x-java-properties';
 
+const VALID_MIMES = new Set<string>([
+  'application/json', 'application/xml', 'application/csv', 'text/plain',
+  'application/x-www-form-urlencoded', 'multipart/form-data', 'application/java',
+  'application/dw', 'application/octet-stream', 'application/yaml',
+  'application/x-ndjson', 'text/x-java-properties',
+]);
+
+export function isValidMimeType(v: string): v is MimeType {
+  return VALID_MIMES.has(v);
+}
+
 export const MIME_OPTIONS: { label: string; value: MimeType }[] = [
   { label: 'JSON', value: 'application/json' },
   { label: 'XML', value: 'application/xml' },

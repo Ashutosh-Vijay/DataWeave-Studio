@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { WorkspaceFile, ContextState, MimeType, NamedInput, MultipartPart } from '../types';
+import { WorkspaceFile, ContextState, MimeType, NamedInput, MultipartPart, isValidMimeType } from '../types';
 
 const DEFAULT_CONTEXT: ContextState = {
   method: 'GET',
@@ -163,7 +163,7 @@ export function useWorkspace(): UseWorkspaceReturn {
     setProjectName(ws.projectName);
     setScriptState(ws.singleTransform.script);
     setPayload(ws.singleTransform.payload);
-    setPayloadMimeType(ws.singleTransform.payloadMimeType as MimeType);
+    setPayloadMimeType(isValidMimeType(ws.singleTransform.payloadMimeType) ? ws.singleTransform.payloadMimeType : 'application/json');
     setNodeLabelState(ws.singleTransform.nodeLabel);
     setNamedInputs(ws.singleTransform.namedInputs || []);
     setQueryTemplate(ws.singleTransform.queryTemplate || '');

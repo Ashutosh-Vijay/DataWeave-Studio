@@ -124,12 +124,17 @@ pub fn get_workspaces_dir(app: AppHandle) -> Result<String, String> {
 pub fn save_workspace(app: AppHandle, workspace: WorkspaceFile) -> Result<String, String> {
     let dir = get_workspaces_directory(&app)?;
 
-    // Sanitize project name for filename
+    // Sanitize project name for filename — collapse runs of non-alnum to a
+    // single dash and trim leading/trailing dashes to keep names clean.
     let safe_name: String = workspace
         .project_name
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
-        .collect();
+        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '-' })
+        .collect::<String>()
+        .split('-')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
     let filename = if safe_name.is_empty() {
         "untitled".to_string()
     } else {
