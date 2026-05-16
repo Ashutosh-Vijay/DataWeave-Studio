@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import Editor, { BeforeMount, useMonaco } from '@monaco-editor/react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
@@ -75,7 +75,7 @@ interface PayloadTabsProps {
   onNamedInputsChange: (inputs: NamedInput[]) => void;
 }
 
-export function PayloadTabs({
+export const PayloadTabs = memo(function PayloadTabs({
   payload,
   onPayloadChange,
   payloadMimeType,
@@ -546,4 +546,4 @@ export function PayloadTabs({
       )}
     </div>
   );
-}
+});

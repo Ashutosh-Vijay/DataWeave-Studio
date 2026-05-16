@@ -19,30 +19,38 @@ const STEPS: TourStep[] = [
     target: null,
     title: 'Welcome to DataWeave Studio',
     description:
-      'A fast, local workbench for DataWeave 2.0 — write, run, and iterate on transforms entirely on your machine. Supports JSON, XML, CSV, multipart, and more.',
+      'A fast, local workbench for DataWeave 2.0 — write, run, and iterate on transforms entirely on your machine. JSON, XML, CSV, multipart, YAML, NDJSON, Java Properties — all parsed locally by the bundled DataWeave 2.11 runtime.',
+  },
+  {
+    target: 'sidebar',
+    title: 'Sidebar — your toolbox',
+    description:
+      'Snippets, function reference, cURL import, secure properties, message flow designer — every tool lives here. Click an icon to dock its panel; ⌘B toggles the whole rail.',
+    tip: 'New: the Message Flow designer (chain icon) lets you wire transforms together as a pipeline.',
+    placement: 'right',
   },
   {
     target: 'script-editor',
     title: 'Script editor',
     description:
-      'Write DataWeave with full syntax highlighting, autocomplete, and inline error markers. Toggle Auto-run for live preview as you type, or hit ⌘↵ to run manually.',
-    tip: 'Import modules and functions — the function reference (⌘⇧R) covers every core and standard-library function.',
+      'Write DataWeave with syntax highlighting, autocomplete (300+ functions from the official docs), inline error markers, and hover docs. Toggle Auto-run for live preview, or hit ⌘↵ from the editor to run manually.',
+    tip: 'The node-label chip beside the project name picks the script\'s role — Transform, Salesforce Query, DB Query — and swaps to a relevant starter template.',
     placement: 'right',
   },
   {
     target: 'payload',
     title: 'Payload & named inputs',
     description:
-      'Set your input data and MIME type here. Add named inputs for multi-source transforms, attach files, or build multipart payloads with the parts editor.',
-    tip: 'Paste raw data, pick the MIME, run — no files needed. DataWeave will parse it.',
+      'Set your input data and MIME type here. Add named inputs for multi-source transforms, attach binary files, or build multipart/form-data payloads with the parts editor.',
+    tip: 'Paste raw data, pick the MIME, run — no files needed. Use the file-attach icon to load larger payloads off disk.',
     placement: 'right',
   },
   {
     target: 'context-panel',
     title: 'Context: Request · Vars · Config',
     description:
-      'Simulate HTTP request attributes (method, headers, query params), define variables, and set config properties. Each tab badges its count so you see what\'s active.',
-    tip: 'Use Secure Properties (⌘K → "secure") for encrypted ${key} placeholders.',
+      'Simulate HTTP request attributes (method, headers, query params), define variables, and paste config / secure-config YAML. Each tab badges its active count so you see what\'s wired in.',
+    tip: '⌘⇧E opens the Secure Properties tool — encrypt/decrypt values for ${secure::key} placeholders.',
     placement: 'left',
   },
   {
@@ -53,11 +61,19 @@ const STEPS: TourStep[] = [
     placement: 'left',
   },
   {
+    target: 'run-controls',
+    title: 'Run controls',
+    description:
+      'Hit Run (⌘↵ in the editor) or flip on Auto (⌘⇧R) to re-execute 1.5s after you stop typing. The dot indicator turns green once the engine is warm — first launch takes ~2-3s.',
+    tip: '⌘. cancels a running script. Long-running scripts have a 30s default timeout you can change in Settings.',
+    placement: 'bottom',
+  },
+  {
     target: 'palette',
     title: 'Command palette — your launchpad',
     description:
-      'Press ⌘K to search every action: run, save, theme, layout, snippets, settings, function reference. Two layouts: Workbench (⌘⇧1) and Focus (⌘⇧2).',
-    tip: '⌘/ shows all keyboard shortcuts · ⌘⇧T toggles dark/light theme.',
+      'Press ⌘K to search every action: run, save, open, theme, layout, snippets, settings, function reference, flow designer. Two layouts: Workbench (⌘⇧1) and Focus (⌘⇧2).',
+    tip: '⌘/ shows all keyboard shortcuts · ⌘⇧T toggles dark/light theme · ⌘N for a fresh workspace.',
     placement: 'bottom',
   },
 ];

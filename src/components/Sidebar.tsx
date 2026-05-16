@@ -51,9 +51,9 @@ interface SidebarProps {
 }
 
 const RAIL_ITEMS: { id: RailTab; title: string; Icon: (typeof Icons)[keyof typeof Icons] }[] = [
-  { id: 'workspaces', title: 'Workspaces', Icon: Icons.Workspaces },
-  { id: 'import', title: 'Import (cURL)', Icon: Icons.Import },
-  { id: 'snippets', title: 'Snippets library', Icon: Icons.Library },
+  { id: 'workspaces', title: 'Workspaces (⌘O)', Icon: Icons.Workspaces },
+  { id: 'import', title: 'Import (cURL) — ⌘⇧I', Icon: Icons.Import },
+  { id: 'snippets', title: 'Snippets library (⌘L)', Icon: Icons.Library },
 ];
 
 const SNIPPETS: { name: string; desc: string; body: string }[] = [
@@ -189,7 +189,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
       <div className="w-12 shrink-0 bg-rail border-r border-line flex flex-col py-2.5">
         <button
           onClick={onOpenSecure}
-          title="Secure Properties tool"
+          title="Secure Properties tool (⌘⇧E)"
           aria-label="Secure Properties tool"
           className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
         >
@@ -260,7 +260,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
             {tab === 'workspaces' && (
               <button
                 onClick={() => { onNew(); refreshFiles(); }}
-                title="New workspace"
+                title="New workspace (⌘N)"
                 aria-label="New workspace"
                 className="w-[22px] h-[22px] rounded flex items-center justify-center text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer"
               >

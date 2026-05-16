@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import Editor, { BeforeMount, useMonaco } from '@monaco-editor/react';
 import { ContextState, HTTP_METHODS, METHOD_COLORS, KeyValuePair, VarEntry } from '../types';
 import { KeyValueRows } from './KeyValueRows';
@@ -41,7 +41,7 @@ function activeCount(pairs: KeyValuePair[]): number {
   return pairs.filter((p) => p.enabled !== false && p.key && p.value !== '').length;
 }
 
-export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKeyChange, defaultTab }: ContextPanelProps) {
+export const ContextPanel = memo(function ContextPanel({ context, onChange, encryptionKey, onEncryptionKeyChange, defaultTab }: ContextPanelProps) {
   const [tab, setTab] = useState<Tab>(defaultTab ?? 'Request');
   const [showKey, setShowKey] = useState(false);
   const { isDark } = useTheme();
@@ -356,4 +356,4 @@ export function ContextPanel({ context, onChange, encryptionKey, onEncryptionKey
       </div>
     </div>
   );
-}
+});

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import Editor, { BeforeMount, useMonaco } from '@monaco-editor/react';
 import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
@@ -68,7 +68,7 @@ function extractDetails(message: string): string {
   return out.join('\n');
 }
 
-export function OutputPane({
+export const OutputPane = memo(function OutputPane({
   output,
   error,
   isRunning,
@@ -254,7 +254,7 @@ export function OutputPane({
       </div>
     </div>
   );
-}
+});
 
 function RunLoadingBanner({ onCancel }: { onCancel?: () => void }) {
   return (

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { check } from '@tauri-apps/plugin-updater';
 import { invoke } from '@tauri-apps/api/core';
@@ -39,7 +39,7 @@ import { FocusDrawer } from './components/FocusDrawer';
 // Inlined helpers — used to be `import { shouldShowFirstRun, markFirstRunSeen }`
 // from FirstRunPicker etc. but that made the whole component bundle eager.
 const FIRST_RUN_KEY = 'dw.firstRun.seen';
-const TOUR_SEEN_KEY = 'dw.welcomeTour.seen';
+const TOUR_SEEN_KEY = 'dwstudio_tour_seen'; // matches WelcomeTour's own key — existing users keep state
 function shouldShowFirstRun(): boolean { try { return localStorage.getItem(FIRST_RUN_KEY) !== 'true'; } catch { return false; } }
 function markFirstRunSeen(): void { try { localStorage.setItem(FIRST_RUN_KEY, 'true'); } catch {} }
 function markTourSeen(): void { try { localStorage.setItem(TOUR_SEEN_KEY, 'true'); } catch {} }
@@ -53,6 +53,7 @@ import { KeyValuePair, VarEntry, METHOD_COLORS, NODE_LABEL_COLORS, NODE_LABELS }
 import { Icons } from './components/Icons';
 import yaml from 'js-yaml';
 import { CurlImportResult } from './components/CurlImporter';
+import { publishCursor, useCursor } from './cursorStore';
 import { decryptFlatMap, hasEncryptedValues, DEFAULT_ENCRYPTION_SETTINGS } from './cryptoUtils';
 
 // Version is loaded dynamically from tauri.conf.json at runtime
@@ -338,19 +339,24 @@ function IconBtn({
   );
 }
 
+// Tiny self-subscribing component — only this re-renders on cursor change,
+// not the entire StatusBar / App tree.
+function CursorIndicator() {
+  const cursor = useCursor();
+  return <span>Ln {cursor.line}, Col {cursor.col}</span>;
+}
+
 function StatusBar({
   isReady,
   appVersion,
   dwVersion,
   workspaceFile,
-  cursor,
   focusToggles,
 }: {
   isReady: boolean;
   appVersion: string;
   dwVersion?: string;
   workspaceFile?: string;
-  cursor?: { line: number; col: number };
   focusToggles?: {
     drawerOpen: boolean;
     activeTab: 'Request' | 'Vars' | 'Config';
@@ -396,7 +402,7 @@ function StatusBar({
         </span>
       )}
       <span className="flex-1" />
-      {cursor && <span>Ln {cursor.line}, Col {cursor.col}</span>}
+      <CursorIndicator />
       <span>UTF-8</span>
       <span>LF</span>
       {appVersion && <span className="text-content-ghost">v{appVersion}</span>}
@@ -429,7 +435,9 @@ function App() {
   const beginTransforming = useCallback(() => {
     setHasStarted(true);
   }, []);
-  const [cursor, setCursor] = useState<{ line: number; col: number }>({ line: 1, col: 1 });
+  // Cursor position is published to a module-level pub-sub (cursorStore) so
+  // only the tiny <CursorIndicator/> re-renders on cursor moves — not the
+  // entire 1500-line App tree.
   const [openWsOpen, setOpenWsOpen] = useState(false);
   const [focusDrawerTab, setFocusDrawerTab] = useState<'Request' | 'Vars' | 'Config'>('Request');
   const scriptEditorRef = useRef<ScriptEditorHandle>(null);
@@ -523,6 +531,25 @@ function App() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [updateBannerDismissed, setUpdateBannerDismissed] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState('');
+
+  // === Stable props for memoized children ===
+  // Without these, every App re-render passes fresh refs to ScriptEditor /
+  // OutputPane / PayloadTabs / ContextPanel, defeating their React.memo.
+  // Wrapping setters here lets the editors skip re-render when their actual
+  // data didn't change (e.g. when only a modal opened/closed).
+  const handleScriptChange = useCallback((val: string | undefined) => workspace.setScript(val || ''), [workspace.setScript]);
+  const handlePayloadChange = useCallback((val: string | undefined) => workspace.setPayload(val || ''), [workspace.setPayload]);
+  const contextDataMemo = useMemo(() => ({
+    vars: workspace.context.vars,
+    headers: workspace.context.headers,
+    queryParams: workspace.context.queryParams,
+    namedInputs: workspace.namedInputs,
+    configYaml: workspace.context.configYaml,
+    secureConfigYaml: workspace.context.secureConfigYaml,
+  }), [
+    workspace.context.vars, workspace.context.headers, workspace.context.queryParams,
+    workspace.namedInputs, workspace.context.configYaml, workspace.context.secureConfigYaml,
+  ]);
   const autoRunTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleRunRef = useRef<() => void>(() => {});
   const canRunRef = useRef(false);
@@ -767,11 +794,31 @@ function App() {
       } else if (e.altKey && e.shiftKey && (e.key === 'F' || e.key === 'f' || e.code === 'KeyF')) {
         e.preventDefault();
         scriptEditorRef.current?.format();
+      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'n' || e.key === 'N')) {
+        // ⌘N — New workspace
+        e.preventDefault();
+        handleNewScript();
+      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'b' || e.key === 'B')) {
+        // ⌘B — Toggle sidebar
+        e.preventDefault();
+        setSidebarCollapsed((c) => !c);
+      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'l' || e.key === 'L')) {
+        // ⌘L — Snippets (opens sidebar's Snippets tab)
+        e.preventDefault();
+        handleOpenSnippets();
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i')) {
+        // ⌘⇧I — Import cURL (focuses sidebar's Import tab)
+        e.preventDefault();
+        handleOpenImport();
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'E' || e.key === 'e')) {
+        // ⌘⇧E — Secure properties tool
+        e.preventDefault();
+        setSecureToolOpen(true);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [workspace.saveWorkspace, workspace.duplicateWorkspace, toggle, runner.isRunning, runner.cancel]);
+  }, [workspace.saveWorkspace, workspace.duplicateWorkspace, toggle, runner.isRunning, runner.cancel, handleNewScript, handleOpenImport, handleOpenSnippets]);
 
   // Auto-run with 1.5s debounce — only fires when inputs change
   useEffect(() => {
@@ -815,7 +862,7 @@ function App() {
     { id: 'import-playground', label: 'Import from Playground zip…', group: 'Workspace', run: handleImportPlayground },
     { id: 'export-playground', label: 'Export as Playground zip…', group: 'Workspace', run: handleExportPlayground },
     { id: 'format', label: 'Format script', shortcut: '⌥⇧F', group: 'Editor', run: () => scriptEditorRef.current?.format() },
-    { id: 'sidebar', label: sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar', group: 'View', run: () => setSidebarCollapsed(!sidebarCollapsed) },
+    { id: 'sidebar', label: sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar', shortcut: '⌘B', group: 'View', run: () => setSidebarCollapsed(!sidebarCollapsed) },
     { id: 'layout-workbench', label: 'Switch UI → Workbench', hint: layout === 'workbench' ? 'current' : 'Icon rail · sidebar · tabs', shortcut: '⌘⇧1', group: 'View', run: () => setLayout('workbench') },
     { id: 'layout-focus', label: 'Switch UI → Focus', hint: layout === 'focus' ? 'current' : 'Editor · payload · drawer', shortcut: '⌘⇧2', group: 'View', run: () => setLayout('focus') },
     ...(effectiveLayout === 'focus' && !isCompact
@@ -834,7 +881,9 @@ function App() {
     })),
     { id: 'reference', label: 'Open DataWeave function reference', group: 'Tools', run: () => setReferenceOpen(true) },
     { id: 'flow', label: 'Open Message Flow designer', group: 'Tools', run: () => setFlowDesignerOpen(true) },
-    { id: 'secure', label: 'Open Secure Properties tool', group: 'Tools', run: () => setSecureToolOpen(true) },
+    { id: 'secure', label: 'Open Secure Properties tool', shortcut: '⌘⇧E', group: 'Tools', run: () => setSecureToolOpen(true) },
+    { id: 'import-curl', label: 'Import cURL', shortcut: '⌘⇧I', group: 'Tools', run: handleOpenImport },
+    { id: 'snippets', label: 'Open snippets library', shortcut: '⌘L', group: 'Tools', run: handleOpenSnippets },
     { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: '⌘/', group: 'Tools', run: () => setShortcutsOpen(true) },
     { id: 'settings', label: 'Open Settings', shortcut: '⌘,', group: 'Tools', run: () => setSettingsOpen(true) },
     { id: 'about', label: 'About DataWeave Studio', group: 'Tools', run: () => setAboutOpen(true) },
@@ -1112,26 +1161,19 @@ function App() {
                 <ScriptEditor
                   ref={scriptEditorRef}
                   code={workspace.script}
-                  onChange={(val) => workspace.setScript(val || '')}
+                  onChange={handleScriptChange}
                   onRun={handleRun}
                   errorLine={runner.errorLine}
                   payload={workspace.payload}
                   payloadMimeType={workspace.payloadMimeType}
-                  contextData={{
-                    vars: workspace.context.vars,
-                    headers: workspace.context.headers,
-                    queryParams: workspace.context.queryParams,
-                    namedInputs: workspace.namedInputs,
-                    configYaml: workspace.context.configYaml,
-                    secureConfigYaml: workspace.context.secureConfigYaml,
-                  }}
-                  onCursorChange={(line, col) => setCursor({ line, col })}
+                  contextData={contextDataMemo}
+                  onCursorChange={publishCursor}
                 />
               }
               payloadPane={
                 <PayloadTabs
                   payload={workspace.payload}
-                  onPayloadChange={(val) => workspace.setPayload(val || '')}
+                  onPayloadChange={handlePayloadChange}
                   payloadMimeType={workspace.payloadMimeType}
                   onPayloadMimeTypeChange={workspace.setPayloadMimeType}
                   payloadFilePath={workspace.payloadFilePath}
@@ -1224,21 +1266,14 @@ function App() {
                     <ScriptEditor
                       ref={scriptEditorRef}
                       code={workspace.script}
-                      onChange={(val) => workspace.setScript(val || '')}
+                      onChange={handleScriptChange}
                       onRun={handleRun}
                       errorLine={runner.errorLine}
                       payload={workspace.payload}
                       payloadMimeType={workspace.payloadMimeType}
                       headerLabel={isQueryMode ? 'Parameters (DataWeave 2.0)' : undefined}
-                      contextData={{
-                        vars: workspace.context.vars,
-                        headers: workspace.context.headers,
-                        queryParams: workspace.context.queryParams,
-                        namedInputs: workspace.namedInputs,
-                        configYaml: workspace.context.configYaml,
-                        secureConfigYaml: workspace.context.secureConfigYaml,
-                      }}
-                      onCursorChange={(line, col) => setCursor({ line, col })}
+                      contextData={contextDataMemo}
+                      onCursorChange={publishCursor}
                     />
                     </div>
                   </div>
@@ -1250,7 +1285,7 @@ function App() {
                   <div className="h-full pt-1" data-tour="payload">
                     <PayloadTabs
                       payload={workspace.payload}
-                      onPayloadChange={(val) => workspace.setPayload(val || '')}
+                      onPayloadChange={handlePayloadChange}
                       payloadMimeType={workspace.payloadMimeType}
                       onPayloadMimeTypeChange={workspace.setPayloadMimeType}
                       payloadFilePath={workspace.payloadFilePath}
@@ -1315,7 +1350,6 @@ function App() {
         isReady={runner.isWarmedUp}
         appVersion={appVersion}
         workspaceFile={workspace.currentFile || undefined}
-        cursor={cursor}
         focusToggles={effectiveLayout === 'focus' && !isCompact ? {
           drawerOpen: focusDrawerOpen,
           activeTab: focusDrawerTab,

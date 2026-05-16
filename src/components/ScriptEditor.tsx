@@ -1,5 +1,5 @@
 import Editor, { useMonaco, BeforeMount } from '@monaco-editor/react';
-import { useEffect, useRef, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
+import { useEffect, useRef, useCallback, useState, forwardRef, useImperativeHandle, memo } from 'react';
 import { dwTokensProvider } from '../dataweaveGrammar';
 import { registerDWCompletionProvider, DWCompletionContext } from '../dataweaveCompletions';
 import { registerDWHoverProvider } from '../dataweaveHover';
@@ -151,7 +151,11 @@ function migrateDW1to2(src: string): string {
   return result;
 }
 
-export const ScriptEditor = forwardRef<ScriptEditorHandle, ScriptEditorProps>(function ScriptEditor(
+// Memoized to skip re-renders when irrelevant App state changes (modals,
+// cursor moves now isolated in cursorStore, etc.). Re-renders only when
+// `code`/`payload`/`contextData`/etc. actually change (shallow compare).
+// Callers MUST stabilize object/function props for the memo to be effective.
+export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProps>(function ScriptEditor(
   { code, onChange, onRun, errorLine, headerLabel, payload, payloadMimeType, contextData, onCursorChange },
   ref,
 ) {
@@ -506,4 +510,4 @@ export const ScriptEditor = forwardRef<ScriptEditorHandle, ScriptEditorProps>(fu
       `}</style>
     </div>
   );
-});
+}));

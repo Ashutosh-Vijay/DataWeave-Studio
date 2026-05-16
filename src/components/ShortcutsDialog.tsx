@@ -33,10 +33,8 @@ const GROUPS: { title: string; items: Shortcut[] }[] = [
     title: 'Navigation',
     items: [
       { keys: ['⌘', 'K'], label: 'Command palette' },
-      { keys: ['⌘', '1'], label: 'Go to script' },
-      { keys: ['⌘', '2'], label: 'Go to payload' },
-      { keys: ['⌘', '3'], label: 'Go to context' },
-      { keys: ['⌘', '4'], label: 'Go to output' },
+      { keys: ['⌘', '/'], label: 'Keyboard shortcuts (this dialog)' },
+      { keys: ['⌘', '.'], label: 'Toggle focus drawer / cancel run' },
     ],
   },
   {
@@ -53,7 +51,7 @@ const GROUPS: { title: string; items: Shortcut[] }[] = [
     title: 'Import & tools',
     items: [
       { keys: ['⌘', '⇧', 'I'], label: 'Import cURL' },
-      { keys: ['⌘', '⇧', 'E'], label: 'Encrypt value' },
+      { keys: ['⌘', '⇧', 'E'], label: 'Secure Properties tool' },
       { keys: ['⌥', '⇧', 'F'], label: 'Format script' },
     ],
   },

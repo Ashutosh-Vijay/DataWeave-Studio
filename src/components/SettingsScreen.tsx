@@ -29,7 +29,7 @@ interface SettingsScreenProps {
 const SECTIONS: { id: Section; label: string; icon: keyof typeof Icons; keywords: string[] }[] = [
   { id: 'appearance', label: 'Appearance', icon: 'Panel', keywords: ['theme', 'dark', 'light', 'dusk', 'paper', 'accent', 'color', 'layout', 'workbench', 'focus', 'compact', 'density'] },
   { id: 'general',    label: 'General',    icon: 'Settings', keywords: ['startup', 'autosave', 'tour', 'updates', 'last workspace'] },
-  { id: 'runtime',    label: 'Runtime',    icon: 'Terminal', keywords: ['cli', 'timeout', 'classpath', 'jar', 'mime', 'input format', 'warm-up'] },
+  { id: 'runtime',    label: 'Runtime',    icon: 'Terminal', keywords: ['engine', 'cli', 'jvm', 'java', 'timeout', 'classpath', 'jar', 'mime', 'input format', 'warm-up'] },
   { id: 'editor',     label: 'Editor',     icon: 'Braces', keywords: ['font', 'size', 'line height', 'tab', 'word wrap', 'bracket', 'minimap'] },
   { id: 'shortcuts',  label: 'Shortcuts',  icon: 'Command', keywords: ['keyboard', 'hotkey', 'binding'] },
   { id: 'advanced',   label: 'Advanced',   icon: 'Activity', keywords: ['data location', 'diagnostics', 'logging', 'reset', 'danger', 'delete'] },
@@ -639,7 +639,7 @@ function AdvancedPanel() {
       </Group>
 
       <Group title="Diagnostics">
-        <SRow label="Enable verbose logging" desc="Includes CLI stderr and stack traces in app logs.">
+        <SRow label="Enable verbose logging" desc="Includes engine stderr and stack traces in app logs.">
           <Toggle on={verbose} onChange={(v) => { setVerbose(v); try { localStorage.setItem('dw.verbose', v ? '1' : '0'); } catch {} }} />
         </SRow>
       </Group>
