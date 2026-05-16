@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { TestCase, Request, ContextState, NamedInput } from '../types';
+import { TestCase, Request, ContextState } from '../types';
 
 /**
  * Runs DataWeave tests against a request. Each test reuses the request's
@@ -15,14 +15,6 @@ interface RunResult {
   execution_time_ms: number;
   error_line: number | null;
   error_column: number | null;
-}
-
-interface RunnableContext {
-  script: string;
-  context: ContextState;
-  namedInputs: NamedInput[];
-  classpath: string[];
-  timeoutMs?: number;
 }
 
 export interface TestRunOutcome {

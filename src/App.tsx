@@ -20,6 +20,7 @@ const FlowDesigner = lazy(() =>
 );
 import { OpenWorkspaceDialog } from './components/OpenWorkspaceDialog';
 import { RequestTabs } from './components/RequestTabs';
+import { TestsView } from './components/TestsView';
 import { PayloadTabs } from './components/PayloadTabs';
 import { OutputPane } from './components/OutputPane';
 import { ContextPanel } from './components/ContextPanel';
@@ -419,6 +420,10 @@ function App() {
   const [outputFormat, setOutputFormat] = useState<'json' | 'xml' | 'raw'>('json');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [autoRun, setAutoRun] = useState(false);
+  /** Pane switch — 'script' shows the editor splits, 'tests' shows the
+   *  per-request Tests panel. Per-workspace state, not per-request, so the
+   *  user's view sticks when they switch between requests. */
+  const [viewMode, setViewMode] = useState<'script' | 'tests'>('script');
   const [aboutOpen, setAboutOpen] = useState(false);
   const [secureToolOpen, setSecureToolOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
@@ -1011,6 +1016,52 @@ function App() {
 
           <div className="w-px h-4 bg-line mx-1" />
 
+          {/* Pane switch — Script vs Tests. Test count badge appears when
+              the active request has at least one test. */}
+          <div
+            className="inline-flex gap-0.5 p-0.5 rounded-md border"
+            style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}
+            title="Switch between the script editor and the tests panel"
+          >
+            {(['script', 'tests'] as const).map((m) => {
+              const active = viewMode === m;
+              const isTests = m === 'tests';
+              const failingCount = isTests
+                ? workspace.tests.filter((t) => t.lastStatus === 'fail').length
+                : 0;
+              return (
+                <button
+                  key={m}
+                  onClick={() => setViewMode(m)}
+                  className="inline-flex items-center gap-1.5 h-5 px-2.5 rounded text-[11px] cursor-pointer transition-colors"
+                  style={{
+                    background: active ? 'var(--surface)' : 'transparent',
+                    color: active ? 'var(--content)' : 'var(--content-faint)',
+                    fontWeight: active ? 600 : 500,
+                  }}
+                >
+                  {isTests ? <Icons.Activity size={10} /> : <Icons.Braces size={10} />}
+                  {isTests ? 'Tests' : 'Script'}
+                  {isTests && workspace.tests.length > 0 && (
+                    <span
+                      className="font-mono text-[9.5px] px-1 rounded"
+                      style={{
+                        background: failingCount > 0
+                          ? 'color-mix(in oklch, var(--err) 14%, transparent)'
+                          : 'var(--accent-dim)',
+                        color: failingCount > 0 ? 'var(--err)' : 'var(--accent)',
+                      }}
+                    >
+                      {workspace.tests.length}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="w-px h-4 bg-line mx-1" />
+
           {!runner.isWarmedUp && (
             <div className="flex items-center gap-1.5 text-[11px] text-accent mr-1">
               <div className="w-3 h-3 rounded-full border-2 border-t-transparent border-accent animate-spin" />
@@ -1278,6 +1329,13 @@ function App() {
                   onCancel={runner.cancel}
                 />
               }
+            />
+          </main>
+        ) : viewMode === 'tests' ? (
+          <main className="flex-1 overflow-hidden bg-bg flex">
+            <TestsView
+              request={workspace.request}
+              onTestsChange={workspace.setTests}
             />
           </main>
         ) : (
