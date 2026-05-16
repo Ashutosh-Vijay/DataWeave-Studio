@@ -1368,6 +1368,7 @@ function App() {
             <TestsView
               request={workspace.request}
               onTestsChange={workspace.setTests}
+              onScriptChange={workspace.setScript}
             />
           </main>
         ) : (

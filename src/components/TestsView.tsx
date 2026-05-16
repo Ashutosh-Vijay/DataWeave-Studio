@@ -3,11 +3,15 @@ import { Icons } from './Icons';
 import { Request, TestCase } from '../types';
 import { useTestRunner, TestRunOutcome } from '../hooks/useTestRunner';
 import { diffJson, DiffLine } from '../jsonDiff';
+import { MiniEditor } from './MiniEditor';
 
 interface TestsViewProps {
   request: Request;
   /** Update the request's tests array — used to add / remove / capture. */
   onTestsChange: (tests: TestCase[]) => void;
+  /** Update the request's DataWeave script. The script is shared between
+   *  Script mode and Tests mode — editing it here updates both. */
+  onScriptChange: (script: string) => void;
 }
 
 /**
@@ -17,7 +21,7 @@ interface TestsViewProps {
  * passing/failing detail for a selected test, or a "capture expected" CTA
  * for tests that haven't been snapshotted yet.
  */
-export function TestsView({ request, onTestsChange }: TestsViewProps) {
+export function TestsView({ request, onTestsChange, onScriptChange }: TestsViewProps) {
   const { outcomes, running, runOne, runAll, reset } = useTestRunner();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'fail' | 'untested'>('all');
@@ -248,6 +252,7 @@ export function TestsView({ request, onTestsChange }: TestsViewProps) {
           }}
           onCapture={(value) => setExpected(selected.id, value)}
           onPayloadChange={(value) => setPayload(selected.id, value)}
+          onScriptChange={onScriptChange}
           onRename={(name) => renameTest(selected.id, name)}
         />
       ) : (
@@ -451,7 +456,7 @@ function TestsOverview({
 }
 
 function TestDetail({
-  test, request, outcome, isRunning, onRun, onCapture, onPayloadChange, onRename,
+  test, request, outcome, isRunning, onRun, onCapture, onPayloadChange, onScriptChange, onRename,
 }: {
   test: TestCase;
   request: Request;
@@ -461,6 +466,9 @@ function TestDetail({
   /** Pass a string to set the expected output; pass undefined to clear it. */
   onCapture: (value: string | undefined) => void;
   onPayloadChange: (value: string) => void;
+  /** Update the SHARED request script. All tests use this same script —
+   *  edits here also update Script mode. */
+  onScriptChange: (script: string) => void;
   onRename: (name: string) => void;
 }) {
   const [editingName, setEditingName] = useState(false);
@@ -570,18 +578,39 @@ function TestDetail({
         </div>
       )}
 
-      {/* Body: payload | (capture | passing-output | diff) */}
+      {/* Body: (script / payload) | (capture | passing-output | diff)
+          The left column splits vertically: the SHARED request script on
+          top, this test's payload below. Edits to the script also update
+          Script-mode (same underlying field). */}
       <div className="flex-1 flex min-h-0">
-        {/* Left: payload editor */}
+        {/* Left: script (top) + payload (bottom) */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0" style={{ borderRight: '1px solid var(--line)' }}>
-          <SubHeader title="Payload (input)" right={<span className="text-[10.5px] font-mono" style={{ color: 'var(--content-faint)' }}>{test.payloadMimeType}</span>} />
-          <textarea
-            value={test.payload}
-            onChange={(e) => onPayloadChange(e.target.value)}
-            spellCheck={false}
-            className="flex-1 w-full p-3 font-mono text-[12px] leading-[1.55] outline-none resize-none"
-            style={{ background: 'var(--surface)', color: 'var(--content)' }}
-          />
+          {/* Script */}
+          <div className="flex flex-col min-h-0" style={{ flex: '1 1 50%' }}>
+            <SubHeader
+              title={<span>Script <span className="font-mono ml-1" style={{ color: 'var(--content-faint)' }}>(shared)</span></span>}
+              right={<span className="text-[10.5px] font-mono" style={{ color: 'var(--content-faint)' }}>dw 2.0</span>}
+            />
+            <div className="flex-1 min-h-0">
+              <MiniEditor
+                language="dataweave"
+                value={request.script}
+                onChange={onScriptChange}
+                height="100%"
+              />
+            </div>
+          </div>
+          {/* Payload */}
+          <div className="flex flex-col min-h-0" style={{ flex: '1 1 50%', borderTop: '1px solid var(--line)' }}>
+            <SubHeader title="Payload (input)" right={<span className="text-[10.5px] font-mono" style={{ color: 'var(--content-faint)' }}>{test.payloadMimeType}</span>} />
+            <textarea
+              value={test.payload}
+              onChange={(e) => onPayloadChange(e.target.value)}
+              spellCheck={false}
+              className="flex-1 w-full p-3 font-mono text-[12px] leading-[1.55] outline-none resize-none"
+              style={{ background: 'var(--surface)', color: 'var(--content)' }}
+            />
+          </div>
         </div>
 
         {/* Right: expected / actual / diff / capture CTA */}
