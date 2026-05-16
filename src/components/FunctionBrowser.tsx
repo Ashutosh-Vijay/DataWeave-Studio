@@ -79,7 +79,7 @@ export function FunctionBrowser({ open, onClose, onInsertAtCursor }: FunctionBro
   return (
     <div className="fixed inset-0 z-[80] flex flex-col bg-bg">
       {/* Header bar */}
-      <header data-tauri-drag-region className="h-11 shrink-0 flex items-center gap-3 pl-4 bg-surface border-b border-line">
+      <header data-tauri-drag-region className="h-11 shrink-0 flex items-center gap-3 pl-4 pr-3 bg-surface border-b border-line">
         <button
           onClick={onClose}
           className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer transition-colors"
