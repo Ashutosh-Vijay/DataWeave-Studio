@@ -91,14 +91,14 @@ interface RunResult {
 const NODE_W = 220;
 const PORT_R = 6;
 
-const NODE_META: Record<NodeType, { label: string; color: string; desc: string }> = {
-  'set-payload':  { label: 'Set Payload',    color: '#f59e0b', desc: 'Initial payload data' },
-  'transform':    { label: 'Transform',      color: 'var(--accent)', desc: 'DataWeave 2.0 script' },
-  'set-variable': { label: 'Set Variable',   color: '#10b981', desc: 'Store a value in vars' },
-  'salesforce':   { label: 'Salesforce',     color: '#00a1e0', desc: 'SF query / operation' },
-  'database':     { label: 'Database',       color: '#a855f7', desc: 'DB query / operation' },
-  'http-request': { label: 'HTTP Request',   color: '#f97316', desc: 'HTTP endpoint mock' },
-  'logger':       { label: 'Logger',         color: '#6b7280', desc: 'Inspect payload (pass-through)' },
+const NODE_META: Record<NodeType, { label: string; color: string; desc: string; badge: string }> = {
+  'set-payload':  { label: 'Set Payload',    color: '#f59e0b',       desc: 'Initial payload data',           badge: 'PAYL' },
+  'transform':    { label: 'Transform',      color: 'var(--accent)', desc: 'DataWeave 2.0 script',           badge: 'DW'   },
+  'set-variable': { label: 'Set Variable',   color: '#10b981',       desc: 'Store a value in vars',          badge: 'VAR'  },
+  'salesforce':   { label: 'Salesforce',     color: '#00a1e0',       desc: 'SF query / operation',           badge: 'SOQL' },
+  'database':     { label: 'Database',       color: '#a855f7',       desc: 'DB query / operation',           badge: 'SQL'  },
+  'http-request': { label: 'HTTP Request',   color: '#f97316',       desc: 'HTTP endpoint mock',             badge: 'HTTP' },
+  'logger':       { label: 'Logger',         color: '#6b7280',       desc: 'Inspect payload (pass-through)', badge: 'LOG'  },
 };
 
 const DEFAULT_SCRIPT = `%dw 2.0
@@ -961,24 +961,45 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                     }`}
                     style={{ background: 'var(--surface)' }}
                   >
-                    {/* Colored header */}
+                    {/* Colored header — small status dot, icon, title, type badge */}
                     <div
-                      className="flex items-center gap-2 px-3 py-2 cursor-grab active:cursor-grabbing"
-                      style={{ background: `color-mix(in oklch, ${meta.color} 12%, var(--surface))` }}
+                      className="flex items-center gap-1.5 px-3 py-2 cursor-grab active:cursor-grabbing"
+                      style={{ background: `color-mix(in oklch, ${meta.color} 10%, var(--surface))` }}
                     >
-                      <div style={{ color: node.disabled ? 'var(--content-faint)' : meta.color }}><NodeIcon type={node.type} size={13} /></div>
+                      <span
+                        className="inline-block rounded-full shrink-0"
+                        style={{
+                          width: 7,
+                          height: 7,
+                          background: node.disabled ? 'var(--content-faint)' : meta.color,
+                        }}
+                      />
+                      <div style={{ color: node.disabled ? 'var(--content-faint)' : meta.color }}><NodeIcon type={node.type} size={12} /></div>
                       <span className={`text-[11.5px] font-semibold truncate flex-1 ${node.disabled ? 'text-content-faint line-through' : 'text-content'}`}>{node.label}</span>
                       {node.disabled && (
                         <span className="text-[8px] uppercase tracking-wider font-bold text-content-ghost bg-surface-2 px-1.5 py-0.5 rounded">// out</span>
                       )}
+                      {!node.disabled && (
+                        <span
+                          className="text-[9px] font-bold font-mono px-[5px] py-px rounded shrink-0"
+                          style={{
+                            background: `color-mix(in oklch, ${meta.color} 14%, transparent)`,
+                            color: meta.color,
+                            letterSpacing: '0.4px',
+                          }}
+                          title={meta.label}
+                        >
+                          {meta.badge}
+                        </span>
+                      )}
                       {node.status === 'running' && (
-                        <div className="w-3 h-3 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: meta.color, borderTopColor: 'transparent' }} />
+                        <div className="w-3 h-3 rounded-full border-2 border-t-transparent animate-spin shrink-0" style={{ borderColor: meta.color, borderTopColor: 'transparent' }} />
                       )}
                       {node.status === 'success' && (
-                        <svg width="12" height="12" viewBox="0 0 16 16" fill={meta.color}><path d="M13.485 3.929a1 1 0 01.036 1.414l-6 6.5a1 1 0 01-1.45.022l-3-3a1 1 0 111.414-1.414L6.95 9.915l5.293-5.95a1 1 0 011.242-.036z"/></svg>
+                        <svg className="shrink-0" width="12" height="12" viewBox="0 0 16 16" fill={meta.color}><path d="M13.485 3.929a1 1 0 01.036 1.414l-6 6.5a1 1 0 01-1.45.022l-3-3a1 1 0 111.414-1.414L6.95 9.915l5.293-5.95a1 1 0 011.242-.036z"/></svg>
                       )}
                       {node.status === 'error' && (
-                        <svg width="12" height="12" viewBox="0 0 16 16" fill="var(--err)"><path d="M8 1a7 7 0 110 14A7 7 0 018 1zm0 3a.75.75 0 00-.75.75v4.5a.75.75 0 001.5 0v-4.5A.75.75 0 008 4zm0 8a1 1 0 100-2 1 1 0 000 2z"/></svg>
+                        <svg className="shrink-0" width="12" height="12" viewBox="0 0 16 16" fill="var(--err)"><path d="M8 1a7 7 0 110 14A7 7 0 018 1zm0 3a.75.75 0 00-.75.75v4.5a.75.75 0 001.5 0v-4.5A.75.75 0 008 4zm0 8a1 1 0 100-2 1 1 0 000 2z"/></svg>
                       )}
                     </div>
 

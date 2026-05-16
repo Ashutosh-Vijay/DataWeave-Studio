@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { Icons } from './Icons';
+import { ConfirmDialog } from './ConfirmDialog';
 import { MIME_OPTIONS, MimeType } from '../types';
 import { notifyEditorFontChanged } from '../hooks/useEditorFont';
 import { useTheme } from '../ThemeContext';
@@ -291,6 +292,10 @@ function AppearancePanel({
     root.style.setProperty('--accent-dim', `oklch(${lightness}% ${sw.chroma} ${sw.hue} / 0.14)`);
     root.style.setProperty('--accent-border', `oklch(${lightness}% ${sw.chroma} ${sw.hue} / 0.32)`);
     try { localStorage.setItem('dw.accent', id); } catch { /* ignore */ }
+    // Notify Monaco editors to re-bake their themes — the cursor, selection,
+    // and suggest-widget highlight color all live inside Monaco's cached
+    // theme definition and don't pick up CSS-var changes on their own.
+    window.dispatchEvent(new CustomEvent('dw:accent-changed'));
   };
 
   return (
@@ -616,14 +621,14 @@ function AdvancedPanel() {
   const [verbose, setVerbose] = useState<boolean>(() => {
     try { return localStorage.getItem('dw.verbose') === '1'; } catch { return false; }
   });
+  const [resetOpen, setResetOpen] = useState(false);
 
   const isWin = navigator.userAgent.includes('Windows') || (navigator as any).userAgentData?.platform === 'Windows';
   const dataPath = isWin
     ? '%APPDATA%\\com.dwstudio.desktop'
     : '~/Library/Application Support/com.dwstudio.desktop';
 
-  const handleResetSettings = () => {
-    if (!confirm('Reset all settings? Layout, theme, fonts, preferences will return to defaults. Workspaces are not affected.')) return;
+  const doResetSettings = () => {
     const keys = Object.keys(localStorage).filter(k => k.startsWith('dw.'));
     keys.forEach(k => localStorage.removeItem(k));
     location.reload();
@@ -646,9 +651,24 @@ function AdvancedPanel() {
 
       <Group title="Danger zone">
         <SRow label="Reset all settings" desc="Layout, theme, fonts, preferences. Workspaces are not affected.">
-          <OutlineBtn onClick={handleResetSettings} danger>Reset</OutlineBtn>
+          <OutlineBtn onClick={() => setResetOpen(true)} danger>Reset</OutlineBtn>
         </SRow>
       </Group>
+
+      <ConfirmDialog
+        open={resetOpen}
+        title="Reset all settings?"
+        description={
+          <>
+            Layout, theme, accent, fonts, and preferences will return to defaults.
+            Your saved workspaces are <span style={{ color: 'var(--content)', fontWeight: 500 }}>not</span> affected.
+          </>
+        }
+        tone="warn"
+        confirmLabel="Reset"
+        onConfirm={doResetSettings}
+        onClose={() => setResetOpen(false)}
+      />
     </SectionWrap>
   );
 }

@@ -5,6 +5,7 @@
  */
 
 import Editor, { useMonaco, BeforeMount } from '@monaco-editor/react';
+import { configureEditor } from '../editorInit';
 import { useEffect, useCallback, memo } from 'react';
 import { dwTokensProvider } from '../dataweaveGrammar';
 import { registerDWCompletionProvider } from '../dataweaveCompletions';
@@ -111,11 +112,16 @@ export const MiniEditor = memo(function MiniEditor({
     };
   }, [monaco, language]);
 
-  // Sync theme
+  // Sync theme — re-bake on light/dark toggle and on accent change.
   useEffect(() => {
-    if (!monaco) return;
-    defineDataWeaveTheme(monaco);
-    monaco.editor.setTheme(isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME);
+    const apply = () => {
+      if (!monaco) return;
+      defineDataWeaveTheme(monaco);
+      monaco.editor.setTheme(isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME);
+    };
+    apply();
+    window.addEventListener('dw:accent-changed', apply);
+    return () => window.removeEventListener('dw:accent-changed', apply);
   }, [isDark, monaco]);
 
   const theme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
@@ -129,6 +135,7 @@ export const MiniEditor = memo(function MiniEditor({
         value={value}
         onChange={(v) => onChange(v ?? '')}
         beforeMount={handleBeforeMount}
+        onMount={configureEditor}
         options={{
           ...editorFont,
           minimap: { enabled: false },

@@ -1,6 +1,7 @@
 import Editor, { BeforeMount, useMonaco } from '@monaco-editor/react';
 import { useEffect } from 'react';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
+import { configureEditor } from '../editorInit';
 import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';
 
@@ -21,7 +22,12 @@ export function QueryEditor({ query, onChange, language }: QueryEditorProps) {
   const { isDark } = useTheme();
   const monaco = useMonaco();
   const editorFont = useEditorFont();
-  useEffect(() => { if (monaco) defineDataWeaveTheme(monaco); }, [isDark, monaco]);
+  useEffect(() => {
+    const apply = () => { if (monaco) defineDataWeaveTheme(monaco); };
+    apply();
+    window.addEventListener('dw:accent-changed', apply);
+    return () => window.removeEventListener('dw:accent-changed', apply);
+  }, [isDark, monaco]);
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
 
   return (
@@ -36,6 +42,7 @@ export function QueryEditor({ query, onChange, language }: QueryEditorProps) {
           language="sql"
           theme={editorTheme}
           beforeMount={handleBeforeMount}
+          onMount={configureEditor}
           value={query}
           onChange={onChange}
           options={{

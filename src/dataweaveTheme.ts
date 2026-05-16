@@ -111,9 +111,19 @@ export function defineDataWeaveTheme(monaco: typeof Monaco) {
         'editorGutter.background':            '#' + surface,
         'editorWidget.background':            '#' + surface2,
         'editorWidget.border':                '#' + line,
-        'editorSuggestWidget.background':     '#' + surface2,
-        'editorSuggestWidget.border':         '#' + line,
+        'editorSuggestWidget.background':         '#' + surface2,
+        'editorSuggestWidget.border':             '#' + line,
+        'editorSuggestWidget.foreground':         '#' + content,
         'editorSuggestWidget.selectedBackground': '#' + surface3,
+        'editorSuggestWidget.selectedForeground': '#' + content,
+        // Color used to highlight the user's typed substring inside each
+        // suggestion. The Monaco default in 'vs' theme is a washed-out blue
+        // (oklch ~70% 0.2 240) that disappears on our paper surface. Force
+        // the accent so it's always legible in both modes.
+        'editorSuggestWidget.highlightForeground':         '#' + accent,
+        'editorSuggestWidget.focusHighlightForeground':    '#' + accent,
+        // Same situation in inline parameter hints and quick-suggest popups.
+        'list.highlightForeground':           '#' + accent,
       },
     });
   }

@@ -1,5 +1,6 @@
 import { useEffect, useState, memo } from 'react';
 import Editor, { BeforeMount, useMonaco } from '@monaco-editor/react';
+import { configureEditor } from '../editorInit';
 import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
@@ -88,7 +89,12 @@ export const OutputPane = memo(function OutputPane({
   const { isDark } = useTheme();
   const editorFont = useEditorFont();
   const monaco = useMonaco();
-  useEffect(() => { if (monaco) defineDataWeaveTheme(monaco); }, [isDark, monaco]);
+  useEffect(() => {
+    const apply = () => { if (monaco) defineDataWeaveTheme(monaco); };
+    apply();
+    window.addEventListener('dw:accent-changed', apply);
+    return () => window.removeEventListener('dw:accent-changed', apply);
+  }, [isDark, monaco]);
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
 
   const handleExport = async () => {
@@ -236,6 +242,7 @@ export const OutputPane = memo(function OutputPane({
             language={editorLanguage}
             theme={editorTheme}
             beforeMount={handleBeforeMount}
+            onMount={configureEditor}
             value={output}
             options={{
               readOnly: true,

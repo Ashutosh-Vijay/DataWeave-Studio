@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } fro
 import { CurlImporter, CurlImportResult } from './CurlImporter';
 import { METHOD_COLORS } from '../types';
 import { Icons } from './Icons';
+import { ConfirmDialog, ConfirmFile } from './ConfirmDialog';
 
 const PINNED_KEY = 'dw.pinned';
 
@@ -144,6 +145,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const [saving, setSaving] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [pinned, setPinned] = useState<Set<string>>(() => getPinned());
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const togglePin = (filename: string) => {
     setPinned((prev) => {
@@ -318,10 +320,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                     currentMethod={currentMethod}
                     isDirty={isDirty}
                     onLoad={onLoad}
-                    onDelete={async (f) => {
-                      await onDelete(f);
-                      setFiles((prev) => prev.filter((x) => x !== f));
-                    }}
+                    onDelete={(f) => setConfirmDelete(f)}
                     onTogglePin={togglePin}
                   />
                 )}
@@ -370,6 +369,28 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           </div>
         </div>
       )}
+
+      {/* Workspace delete confirmation — replaces the silent delete with a
+          small modal that names the file being removed. */}
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        title="Delete workspace?"
+        description={
+          <>
+            <ConfirmFile name={(confirmDelete || '').replace(/\.dwstudio$|\.json$/, '')} /> will be permanently removed.
+            This can&rsquo;t be undone.
+          </>
+        }
+        tone="danger"
+        confirmLabel="Delete"
+        onConfirm={async () => {
+          const f = confirmDelete;
+          if (!f) return;
+          await onDelete(f);
+          setFiles((prev) => prev.filter((x) => x !== f));
+        }}
+        onClose={() => setConfirmDelete(null)}
+      />
     </div>
   );
 });
@@ -383,7 +404,7 @@ function WorkspaceList({
   currentMethod: string;
   isDirty: boolean;
   onLoad: (f: string) => Promise<void>;
-  onDelete: (f: string) => Promise<void>;
+  onDelete: (f: string) => void;
   onTogglePin: (f: string) => void;
 }) {
   const pinnedFiles = files.filter(f => pinned.has(f));

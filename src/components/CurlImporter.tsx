@@ -553,109 +553,260 @@ export function CurlImporter({ onImport }: CurlImporterProps) {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="w-full text-left bg-surface-elevated hover:bg-surface-active border border-line rounded px-2 py-1.5 text-xs text-content-secondary transition-colors cursor-pointer"
-        title="Import from curl — auto-fills payload, context, and generates a DW transform"
+        className="w-full text-left rounded-md px-2.5 py-2 text-[12px] cursor-pointer transition-colors"
+        style={{
+          background: 'var(--surface-2)',
+          border: '1px solid var(--line)',
+          color: 'var(--content-secondary)',
+        }}
+        title="Import from cURL — auto-fills payload, context, and generates a DW transform"
       >
-        Paste cURL
+        <span className="inline-flex items-center gap-1.5">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)' }}>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          Paste cURL
+        </span>
       </button>
     );
   }
 
+  // Derive payload shape for the "Detected" pane (top-level fields + types).
+  const shape = preview ? deriveShape(preview.payload, preview.payloadMimeType) : null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-surface-elevated border border-line rounded-lg shadow-2xl w-[700px] max-h-[85vh] flex flex-col">
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[6vh] px-4"
+      style={{
+        background: 'color-mix(in oklch, var(--bg) 60%, transparent)',
+        backdropFilter: 'blur(3px)',
+      }}
+      onClick={handleClose}
+    >
+      <div
+        className="w-full max-w-[780px] rounded-xl flex flex-col overflow-hidden"
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--line)',
+          boxShadow: '0 28px 80px color-mix(in oklch, oklch(0% 0 0) 55%, transparent)',
+          maxHeight: '88vh',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-          <h2 className="text-sm font-medium text-content">Import from cURL</h2>
-          <button onClick={handleClose} className="text-content-faint hover:text-content-secondary cursor-pointer">✕</button>
+        <div className="p-4 flex items-start gap-3 shrink-0" style={{ borderBottom: '1px solid var(--line-subtle)' }}>
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+            style={{ background: 'var(--surface-2)', color: 'var(--accent)' }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[14.5px] font-semibold" style={{ color: 'var(--content)' }}>Import from cURL</div>
+            <div className="text-[12px] mt-[3px]" style={{ color: 'var(--content-muted)' }}>
+              Paste a curl command — we'll detect method, headers, params, and generate a DW transform from the payload.
+            </div>
+          </div>
+          <button
+            onClick={handleClose}
+            className="w-7 h-7 rounded-md flex items-center justify-center cursor-pointer hover:bg-surface-2 shrink-0"
+            style={{ color: 'var(--content-faint)' }}
+            aria-label="Close"
+          >
+            ✕
+          </button>
         </div>
 
-        {/* Body */}
-        <div className="p-4 flex-1 overflow-auto space-y-3">
-          <p className="text-xs text-content-muted">
-            Paste any curl command — JSON, XML, CSV, form-urlencoded, or multipart.
-            It will auto-detect the format and generate a matching DW transform.
-          </p>
-          <textarea
-            value={curlText}
-            onChange={(e) => { setCurlText(e.target.value); setError(''); setPreview(null); }}
-            placeholder={`Examples:
-curl -X POST 'https://api.example.com/data' -H 'Content-Type: application/json' -d '{"name":"test"}'
-curl -F "file=@report.pdf" -F "name=John" 'https://upload.example.com/files'
-curl -d "user=john&pass=secret" 'https://auth.example.com/login'
-curl -H 'Content-Type: application/xml' -d '<user><name>John</name></user>' 'https://api.example.com'`}
-            rows={7}
-            className="w-full bg-surface-panel border border-line rounded px-3 py-2 text-xs text-content font-mono placeholder-content-ghost focus:border-accent focus:outline-none resize-y"
-            autoFocus
-          />
-          {error && <div className="text-xs text-err">{error}</div>}
-
-          {/* Preview */}
-          {preview && (
-            <div className="space-y-3 border-t border-line pt-3">
-              <div className="text-xs font-medium text-content-secondary">Preview</div>
-
-              <div className="flex flex-wrap gap-3 text-[11px]">
-                <div>
-                  <span className="text-content-faint">Method:</span>{' '}
-                  <span className="text-cyan">{preview.method}</span>
-                </div>
-                <div>
-                  <span className="text-content-faint">Type:</span>{' '}
-                  <span className="text-violet">{preview.payloadMimeType}</span>
-                </div>
-                {preview.queryParams.length > 0 && (
-                  <div>
-                    <span className="text-content-faint">Params:</span>{' '}
-                    <span className="text-content-secondary">{preview.queryParams.length}</span>
-                  </div>
-                )}
-                {preview.headers.length > 0 && (
-                  <div>
-                    <span className="text-content-faint">Headers:</span>{' '}
-                    <span className="text-content-secondary">{preview.headers.length}</span>
-                  </div>
-                )}
+        <div className="flex-1 overflow-y-auto">
+          {/* Two-column: input | detected */}
+          <div className="p-4 grid gap-3.5" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            {/* Left: input */}
+            <div>
+              <div
+                className="text-[10.5px] font-semibold uppercase tracking-[0.4px] mb-1.5 flex items-center gap-2"
+                style={{ color: 'var(--content-faint)' }}
+              >
+                <span className="flex-1">cURL command</span>
+                <span className="font-mono normal-case tracking-normal font-medium" style={{ color: 'var(--content-faint)' }}>⌘V to paste</span>
               </div>
-
-              <div>
-                <div className="text-[11px] text-content-faint mb-1">Generated Script</div>
-                <pre className="bg-surface-panel border border-line rounded p-3 text-xs text-accent font-mono whitespace-pre overflow-x-auto max-h-52">
-                  {preview.generatedScript}
-                </pre>
-              </div>
-
-              {preview.payload && (
-                <div>
-                  <div className="text-[11px] text-content-faint mb-1">Payload</div>
-                  <pre className="bg-surface-panel border border-line rounded p-3 text-xs text-content-secondary font-mono whitespace-pre overflow-x-auto max-h-32">
-                    {preview.payload}
-                  </pre>
-                </div>
+              <textarea
+                value={curlText}
+                onChange={(e) => { setCurlText(e.target.value); setError(''); setPreview(null); }}
+                placeholder={"curl -X POST 'https://api.example.com/data' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"test\"}'"}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+                rows={12}
+                className="w-full rounded-md px-3 py-2.5 text-[11.5px] font-mono leading-[1.55] resize-none outline-none"
+                style={{
+                  background: 'var(--surface-2)',
+                  border: `1px solid ${error ? 'var(--err)' : 'var(--line)'}`,
+                  color: 'var(--content-secondary)',
+                  height: 280,
+                }}
+                autoFocus
+              />
+              {error && (
+                <div className="text-[11px] mt-1.5" style={{ color: 'var(--err)' }}>{error}</div>
               )}
+            </div>
+
+            {/* Right: detected */}
+            <div>
+              <div
+                className="text-[10.5px] font-semibold uppercase tracking-[0.4px] mb-1.5"
+                style={{ color: 'var(--content-faint)' }}
+              >
+                Detected
+              </div>
+              <div
+                className="rounded-md p-3 flex flex-col gap-2.5"
+                style={{
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--line)',
+                  height: 280,
+                  overflow: 'auto',
+                }}
+              >
+                {preview ? (
+                  <>
+                    {/* Method + URL */}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="font-mono font-bold text-[10.5px] px-2 py-[3px] rounded"
+                        style={{
+                          background: 'var(--accent-dim)',
+                          color: 'var(--accent)',
+                          border: '1px solid var(--accent-border)',
+                        }}
+                      >
+                        {preview.method}
+                      </span>
+                      <span className="flex-1 text-[11.5px] font-mono truncate" style={{ color: 'var(--content-secondary)' }}>
+                        {extractUrlHost(curlText)}
+                      </span>
+                    </div>
+
+                    {/* Type */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] w-[60px]" style={{ color: 'var(--content-faint)' }}>Type</span>
+                      <span className="text-[11.5px] font-mono" style={{ color: 'var(--violet)' }}>{preview.payloadMimeType}</span>
+                    </div>
+
+                    {/* Query params */}
+                    {preview.queryParams.length > 0 && (
+                      <Section label="Query" count={preview.queryParams.length}>
+                        {preview.queryParams.map((p, i) => (
+                          <KVLine key={i} k={p.key} v={p.value} />
+                        ))}
+                      </Section>
+                    )}
+
+                    {/* Headers */}
+                    {preview.headers.length > 0 && (
+                      <Section label="Headers" count={preview.headers.length}>
+                        {preview.headers.map((h, i) => (
+                          <KVLine key={i} k={h.key} v={h.value} />
+                        ))}
+                      </Section>
+                    )}
+
+                    {/* Payload shape */}
+                    {shape && shape.length > 0 && (
+                      <Section label="Payload shape" count={`${shape.length} field${shape.length === 1 ? '' : 's'}`} accent>
+                        {shape.map((f, i) => (
+                          <div key={i} className="flex gap-2 text-[11px] font-mono">
+                            <span style={{ color: 'var(--violet)' }}>{f.key}</span>
+                            <span style={{ color: 'var(--content-muted)' }}>:</span>
+                            <span style={{ color: 'var(--cyan)' }}>{f.type}</span>
+                            {f.note && <span style={{ color: 'var(--content-faint)' }}>· {f.note}</span>}
+                          </div>
+                        ))}
+                      </Section>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-center px-3 text-[12px]" style={{ color: 'var(--content-faint)' }}>
+                    Paste a cURL command and click <span className="font-semibold mx-1" style={{ color: 'var(--accent)' }}>Parse</span> to see the detected method, headers, and payload shape here.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Preview script */}
+          {preview && (
+            <div className="px-4 pb-4">
+              <div
+                className="text-[10.5px] font-semibold uppercase tracking-[0.4px] mb-1.5 flex items-center gap-2"
+                style={{ color: 'var(--content-faint)' }}
+              >
+                <span className="flex-1">Generated DataWeave script</span>
+                <button
+                  onClick={async () => {
+                    try { await navigator.clipboard.writeText(preview.generatedScript); } catch { /* ignore */ }
+                  }}
+                  className="text-[11px] font-medium normal-case tracking-normal cursor-pointer bg-transparent border-none inline-flex items-center gap-1"
+                  style={{ color: 'var(--content-muted)' }}
+                >
+                  📋 Copy
+                </button>
+              </div>
+              <pre
+                className="rounded-md py-2.5 px-3 text-[11.5px] font-mono overflow-x-auto m-0 select-text"
+                style={{
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--line)',
+                  color: 'var(--content)',
+                  maxHeight: 200,
+                }}
+              >
+                {preview.generatedScript}
+              </pre>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 px-4 py-3 border-t border-line">
+        <div
+          className="px-4 py-3 flex items-center gap-2 shrink-0"
+          style={{ borderTop: '1px solid var(--line-subtle)', background: 'var(--surface-2)' }}
+        >
+          <span className="text-[11.5px]" style={{ color: 'var(--content-faint)' }}>
+            {preview ? 'Replaces current script and payload' : 'Paste a cURL command to start'}
+          </span>
+          <span className="flex-1" />
           <button
             onClick={handleClose}
-            className="px-3 py-1.5 text-xs text-content-muted hover:text-content border border-line rounded transition-colors cursor-pointer"
+            className="h-7 px-3 rounded-md text-[12px] font-medium cursor-pointer"
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--line)',
+              color: 'var(--content-secondary)',
+            }}
           >
             Cancel
           </button>
           {!preview ? (
             <button
               onClick={handlePreview}
-              className="px-3 py-1.5 text-xs text-[var(--accent-ink)] bg-cyan hover:opacity-90 rounded transition-colors cursor-pointer"
+              disabled={!curlText.trim()}
+              className="h-7 px-3 rounded-md text-[12px] font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+              style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
             >
               Parse
             </button>
           ) : (
             <button
               onClick={handleImport}
-              className="px-3 py-1.5 text-xs text-[var(--accent-ink)] bg-accent hover:bg-accent-hover rounded transition-colors cursor-pointer"
+              className="h-7 px-3 rounded-md text-[12px] font-semibold cursor-pointer"
+              style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
             >
               Import
             </button>
@@ -665,3 +816,72 @@ curl -H 'Content-Type: application/xml' -d '<user><name>John</name></user>' 'htt
     </div>
   );
 }
+
+// ---- helpers ----
+
+function Section({ label, count, children, accent }: { label: string; count: number | string; children: React.ReactNode; accent?: boolean }) {
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-1">
+        <span className="text-[11px]" style={{ color: 'var(--content-faint)' }}>{label}</span>
+        <span
+          className="font-mono text-[9.5px] font-semibold px-1.5 py-px rounded"
+          style={{
+            background: accent ? 'var(--accent-dim)' : 'var(--surface-3)',
+            color: accent ? 'var(--accent)' : 'var(--content-muted)',
+          }}
+        >
+          {count}
+        </span>
+      </div>
+      <div className="flex flex-col gap-px pl-1">{children}</div>
+    </div>
+  );
+}
+
+function KVLine({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex gap-2 text-[11px] font-mono">
+      <span className="truncate" style={{ color: 'var(--violet)', minWidth: 110, maxWidth: 130 }}>{k}</span>
+      <span className="flex-1 truncate" style={{ color: 'var(--content-muted)' }}>{v}</span>
+    </div>
+  );
+}
+
+function extractUrlHost(curl: string): string {
+  const m = curl.match(/['"](https?:\/\/[^'"]+)['"]/) || curl.match(/(https?:\/\/[^\s'"]+)/);
+  if (!m) return '';
+  try {
+    const u = new URL(m[1]);
+    return u.host + u.pathname;
+  } catch {
+    return m[1];
+  }
+}
+
+interface ShapeField { key: string; type: string; note?: string }
+
+function deriveShape(payload: string, mime: string): ShapeField[] | null {
+  if (!payload || !payload.trim()) return null;
+  if (!mime.includes('json')) return null;
+  try {
+    const obj = JSON.parse(payload);
+    if (Array.isArray(obj)) {
+      return [{ key: '[]', type: `Array<${typeof obj[0] === 'object' ? 'Object' : typeof obj[0]}>`, note: `${obj.length} item${obj.length === 1 ? '' : 's'}` }];
+    }
+    if (obj && typeof obj === 'object') {
+      return Object.entries(obj).slice(0, 6).map(([key, val]) => {
+        let type = typeof val === 'object' ? (Array.isArray(val) ? 'Array' : 'Object') : capitalize(typeof val);
+        let note: string | undefined;
+        if (val && typeof val === 'object' && !Array.isArray(val)) {
+          note = `${Object.keys(val).length} field${Object.keys(val).length === 1 ? '' : 's'}`;
+        }
+        if (Array.isArray(val)) note = `${val.length} item${val.length === 1 ? '' : 's'}`;
+        return { key, type, note };
+      });
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+function capitalize(s: string): string { return s.charAt(0).toUpperCase() + s.slice(1); }

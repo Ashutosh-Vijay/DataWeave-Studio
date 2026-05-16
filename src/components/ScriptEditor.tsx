@@ -1,5 +1,6 @@
 import Editor, { useMonaco, BeforeMount } from '@monaco-editor/react';
 import { useEffect, useRef, useCallback, useState, forwardRef, useImperativeHandle, memo } from 'react';
+import { Icons } from './Icons';
 import { dwTokensProvider } from '../dataweaveGrammar';
 import { registerDWCompletionProvider, DWCompletionContext } from '../dataweaveCompletions';
 import { registerDWHoverProvider } from '../dataweaveHover';
@@ -57,61 +58,68 @@ export interface ScriptEditorHandle {
   insertAtCursor: (text: string) => void;
 }
 
+interface MigrationChange { label: string; count: number; kind: 'ok' | 'warn' }
+
 /** Best-effort DW 1.0 → 2.0 source migration (client-side) */
-function migrateDW1to2(src: string): string {
+function migrateDW1to2(src: string): { output: string; warnings: string[]; changes: MigrationChange[] } {
   const lines = src.split('\n');
   const out: string[] = [];
   const warnings: string[] = [];
+  // Tally of what actually got rewritten so the modal can show a summary.
+  const tally: Record<string, number> = {};
+  const bump = (k: string) => { tally[k] = (tally[k] || 0) + 1; };
 
   for (let raw of lines) {
     let line = raw;
+    let before = line;
 
     // %dw 1.0 → %dw 2.0
-    line = line.replace(/^(\s*)%dw\s+1\.0\b/, '$1%dw 2.0');
+    line = line.replace(/^(\s*)%dw\s+1\.0\b/, (_, s) => { bump('header'); return `${s}%dw 2.0`; });
 
     // %input name mime → input name mime
-    line = line.replace(/^(\s*)%input\b/, '$1input');
+    line = line.replace(/^(\s*)%input\b/, (_, s) => { bump('directive'); return `${s}input`; });
 
     // %output mime → output mime
-    line = line.replace(/^(\s*)%output\b/, '$1output');
+    line = line.replace(/^(\s*)%output\b/, (_, s) => { bump('directive'); return `${s}output`; });
 
     // %var name = expr → var name = expr
-    line = line.replace(/^(\s*)%var\b/, '$1var');
+    line = line.replace(/^(\s*)%var\b/, (_, s) => { bump('directive'); return `${s}var`; });
 
     // %namespace prefix = uri → (removed — DW 2.0 uses import)
     if (/^\s*%namespace\b/.test(line)) {
       out.push('// TODO: convert %namespace to import statement');
       warnings.push('%namespace: convert manually to `import * from <namespace>`');
+      bump('warn');
       out.push(line.replace(/^\s*%namespace\b/, '// %namespace'));
       continue;
     }
 
     // %function name(params) = body → fun name(params) = body
-    line = line.replace(/^(\s*)%function\b/, '$1fun');
+    line = line.replace(/^(\s*)%function\b/, (_, s) => { bump('directive'); return `${s}fun`; });
 
     // flowVars → vars
-    line = line.replace(/\bflowVars\b/g, 'vars');
+    line = line.replace(/\bflowVars\b/g, () => { bump('mule'); return 'vars'; });
 
     // inboundProperties."http.method" → attributes.method (common case)
-    line = line.replace(/\binboundProperties\["http\.method"\]/g, 'attributes.method');
-    line = line.replace(/\binboundProperties\.'http\.method'/g, 'attributes.method');
+    line = line.replace(/\binboundProperties\["http\.method"\]/g, () => { bump('mule'); return 'attributes.method'; });
+    line = line.replace(/\binboundProperties\.'http\.method'/g, () => { bump('mule'); return 'attributes.method'; });
     // inboundProperties."header-name" → attributes.headers."header-name"
-    line = line.replace(/\binboundProperties\b/g, 'attributes.headers');
+    line = line.replace(/\binboundProperties\b/g, () => { bump('mule'); return 'attributes.headers'; });
 
     // outboundProperties → (no direct equivalent)
     if (/\boutboundProperties\b/.test(line)) {
       warnings.push('outboundProperties: no direct DW 2.0 equivalent — remove or pass as named input');
+      bump('warn');
     }
 
     // sessionVars → (no direct equivalent)
     if (/\bsessionVars\b/.test(line)) {
       warnings.push('sessionVars: no direct DW 2.0 equivalent');
+      bump('warn');
     }
 
-    // when <cond> is → if (<cond> ==) — pattern match approximation
-    // "expr when condition otherwise alt" stays valid in DW 2.0 — no change needed
-
     // as :string → as String  (type coercion syntax)
+    const beforeCoerce = line;
     line = line.replace(/\bas\s+:string\b/gi, 'as String');
     line = line.replace(/\bas\s+:number\b/gi, 'as Number');
     line = line.replace(/\bas\s+:boolean\b/gi, 'as Boolean');
@@ -122,33 +130,44 @@ function migrateDW1to2(src: string): string {
     line = line.replace(/\bas\s+:time\b/gi, 'as Time');
     line = line.replace(/\bas\s+:object\b/gi, 'as Object');
     line = line.replace(/\bas\s+:array\b/gi, 'as Array');
+    if (line !== beforeCoerce) bump('coerce');
 
     // @(...) metadata annotation — warn
     if (/@\(/.test(line)) {
       warnings.push('@(...) metadata annotations: syntax may differ in DW 2.0');
+      bump('warn');
     }
 
     // p("key") — not available in standalone DW CLI; use Config YAML + ${key} substitution
     if (/\bp\s*\(/.test(line) && !/\bapp\b/.test(line)) {
       warnings.push('p("key"): not available in DW CLI. Use ${key} / ${secure::key} placeholders with the Config YAML panel instead.');
+      bump('warn');
     }
 
     // lookup("flowName", payload) → warn — no equivalent
     if (/\blookup\s*\(/.test(line)) {
       warnings.push('lookup(): not available in DW 2.0 standalone CLI');
+      bump('warn');
     }
 
     out.push(line);
+    void before;
   }
 
   let result = out.join('\n');
-
   if (warnings.length > 0) {
     const header = warnings.map(w => `// ⚠ ${w}`).join('\n');
     result = header + '\n' + result;
   }
 
-  return result;
+  const changes: MigrationChange[] = [];
+  if (tally.header) changes.push({ label: '%dw 1.0 → 2.0', count: tally.header, kind: 'ok' });
+  if (tally.directive) changes.push({ label: '%output / %var / %function / %input → 2.0', count: tally.directive, kind: 'ok' });
+  if (tally.mule) changes.push({ label: 'flowVars / inboundProperties → vars / attributes', count: tally.mule, kind: 'ok' });
+  if (tally.coerce) changes.push({ label: ':string / :number → String / Number', count: tally.coerce, kind: 'ok' });
+  if (tally.warn) changes.push({ label: 'No direct DW 2.0 equivalent', count: tally.warn, kind: 'warn' });
+
+  return { output: result, warnings, changes };
 }
 
 // Memoized to skip re-renders when irrelevant App state changes (modals,
@@ -163,22 +182,35 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
   const { isDark } = useTheme();
   const editorFont = useEditorFont();
   const editorRef = useRef<any>(null);
-  const [migrateResult, setMigrateResult] = useState<{ output: string; error?: string } | null>(null);
+  const [migrateResult, setMigrateResult] = useState<
+    | { kind: 'error'; message: string }
+    | { kind: 'ok'; before: string; output: string; changes: MigrationChange[]; warnings: string[] }
+    | null
+  >(null);
 
   const handleMigrate = () => {
     if (!code.trim()) {
-      setMigrateResult({ output: '', error: 'Script is empty.' });
+      setMigrateResult({ kind: 'error', message: 'Script is empty.' });
       return;
     }
     if (!/^\s*%dw\s+1\.0\b/m.test(code)) {
-      setMigrateResult({ output: '', error: 'Script does not appear to be DW 1.0 (missing `%dw 1.0`). No migration needed.' });
+      setMigrateResult({
+        kind: 'error',
+        message: 'This script doesn’t look like DataWeave 1.0 — missing `%dw 1.0` header. Nothing to migrate.',
+      });
       return;
     }
     try {
       const result = migrateDW1to2(code);
-      setMigrateResult({ output: result });
+      setMigrateResult({
+        kind: 'ok',
+        before: code,
+        output: result.output,
+        changes: result.changes,
+        warnings: result.warnings,
+      });
     } catch (e) {
-      setMigrateResult({ output: '', error: String(e) });
+      setMigrateResult({ kind: 'error', message: String(e) });
     }
   };
   const decorationsRef = useRef<string[]>([]);
@@ -345,10 +377,13 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
 
   // Switch Monaco theme when app theme changes (redefine first so colors reflect current CSS vars)
   useEffect(() => {
-    if (monaco) {
-      defineDataWeaveTheme(monaco);
-      monaco.editor.setTheme(isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME);
-    }
+    const apply = () => {
+      if (monaco) {
+        defineDataWeaveTheme(monaco);
+        monaco.editor.setTheme(isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME);
+      }
+    };
+    apply();
     // Mirror the active theme class on the body-attached overflow widgets
     // node so hover/suggest popovers pick up the right background colors.
     const overflowNode = _overflowDomNode;
@@ -360,6 +395,9 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
       );
       overflowNode.classList.add(isDark ? 'vs-dark' : 'vs');
     }
+    // Re-bake on accent change so cursor + suggest highlight color update.
+    window.addEventListener('dw:accent-changed', apply);
+    return () => window.removeEventListener('dw:accent-changed', apply);
   }, [isDark, monaco]);
 
   // Highlight error line when it changes
@@ -402,6 +440,17 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
     });
     const pos = editor.getPosition();
     if (pos) onCursorChangeRef.current?.(pos.lineNumber, pos.column);
+
+    // Kill the browser's red-squiggly spell-check on Monaco's hidden
+    // <textarea>. DW keywords like `payload.message` aren't real English
+    // words, so the OS spell-checker underlines half the script.
+    const dom = editor.getDomNode?.() as HTMLElement | null;
+    const ta = dom?.querySelector?.('textarea');
+    if (ta) {
+      ta.setAttribute('spellcheck', 'false');
+      ta.setAttribute('autocorrect', 'off');
+      ta.setAttribute('autocapitalize', 'off');
+    }
   };
 
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
@@ -463,33 +512,210 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
       </div>
       {/* Migrate result dialog */}
       {migrateResult && (
-        <div className="absolute inset-0 z-20 bg-black/70 flex items-center justify-center p-4">
-          <div className="bg-surface-sidebar border border-amber-500/30 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
-            <div className="px-4 py-3 border-b border-amber-500/20 flex items-center justify-between">
-              <span className="text-sm font-semibold text-warn">DW 1.0 → 2.0 Migration Result</span>
-              <button onClick={() => setMigrateResult(null)} className="text-content-faint hover:text-content cursor-pointer">✕</button>
+        <div
+          className="fixed inset-0 z-[60] flex items-start justify-center pt-[8vh] px-4"
+          style={{
+            background: 'color-mix(in oklch, var(--bg) 65%, transparent)',
+            backdropFilter: 'blur(3px)',
+          }}
+          onClick={() => setMigrateResult(null)}
+        >
+          {migrateResult.kind === 'error' ? (
+            <div
+              className="w-full max-w-md rounded-xl overflow-hidden"
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--line)',
+                boxShadow: '0 20px 60px color-mix(in oklch, oklch(0% 0 0) 50%, transparent)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-5 flex items-start gap-3">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                  style={{
+                    background: 'color-mix(in oklch, var(--warn) 12%, transparent)',
+                    color: 'var(--warn)',
+                  }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[14px] font-semibold mb-1" style={{ color: 'var(--content)' }}>
+                    No migration needed
+                  </div>
+                  <div className="text-[12.5px] leading-relaxed" style={{ color: 'var(--content-muted)' }}>
+                    {migrateResult.message}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setMigrateResult(null)}
+                  className="w-6 h-6 rounded flex items-center justify-center cursor-pointer hover:bg-surface-2 shrink-0"
+                  style={{ color: 'var(--content-faint)' }}
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+              <div
+                className="px-5 py-3 flex justify-end"
+                style={{ borderTop: '1px solid var(--line-subtle)', background: 'var(--surface-2)' }}
+              >
+                <button
+                  onClick={() => setMigrateResult(null)}
+                  className="px-3 h-7 rounded-md text-[12px] font-medium cursor-pointer"
+                  style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+                >
+                  OK
+                </button>
+              </div>
             </div>
-            <div className="p-4 space-y-3">
-              {migrateResult.error ? (
-                <pre className="text-xs text-err bg-err-tint border border-err-border/40 rounded p-3 whitespace-pre-wrap max-h-60 overflow-auto">{migrateResult.error}</pre>
-              ) : (
-                <pre className="text-xs text-accent font-mono bg-surface-input border border-line-secondary rounded p-3 whitespace-pre-wrap max-h-60 overflow-auto select-text">{migrateResult.output}</pre>
-              )}
-              {!migrateResult.error && migrateResult.output && (
-                <div className="flex gap-2 justify-end">
-                  <button onClick={() => setMigrateResult(null)} className="px-3 py-1.5 text-xs border border-line-secondary text-content-faint rounded cursor-pointer hover:text-content transition-colors">
-                    Discard
-                  </button>
-                  <button
-                    onClick={() => { onChange(migrateResult.output); setMigrateResult(null); }}
-                    className="px-3 py-1.5 text-xs bg-warn hover:opacity-90 text-[var(--accent-ink)] rounded cursor-pointer transition-colors"
+          ) : (
+            <div
+              className="w-full max-w-[860px] rounded-xl overflow-hidden flex flex-col"
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--line)',
+                boxShadow: '0 28px 80px color-mix(in oklch, oklch(0% 0 0) 55%, transparent)',
+                maxHeight: '85vh',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div
+                className="p-4 flex items-start gap-3 shrink-0"
+                style={{ borderBottom: '1px solid var(--line-subtle)' }}
+              >
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: 'var(--surface-2)', color: 'var(--accent)' }}
+                >
+                  <Icons.Zap size={15} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[14.5px] font-semibold" style={{ color: 'var(--content)' }}>
+                    DataWeave 1.0 → 2.0 migration
+                  </div>
+                  <div className="text-[12px] mt-[3px]" style={{ color: 'var(--content-muted)' }}>
+                    {migrateResult.changes.reduce((n, c) => n + c.count, 0)} change{migrateResult.changes.reduce((n, c) => n + c.count, 0) === 1 ? '' : 's'} applied
+                    {migrateResult.warnings.length > 0 && ` · ${migrateResult.warnings.length} warning${migrateResult.warnings.length === 1 ? '' : 's'}`}
+                    . Review before replacing the script.
+                  </div>
+                </div>
+                <button
+                  onClick={() => setMigrateResult(null)}
+                  className="w-7 h-7 rounded-md flex items-center justify-center cursor-pointer hover:bg-surface-2 shrink-0"
+                  style={{ color: 'var(--content-faint)' }}
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Before / After side-by-side */}
+              <div className="p-4 grid gap-3.5 overflow-y-auto" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                <DiffPane label="Before" pillLabel="1.0" pillColor="var(--warn)" code={migrateResult.before} accent={false} />
+                <DiffPane label="After" pillLabel="2.0" pillColor="var(--accent)" code={migrateResult.output} accent />
+              </div>
+
+              {/* Change summary */}
+              {migrateResult.changes.length > 0 && (
+                <div className="px-4 pb-4">
+                  <div
+                    className="text-[10.5px] font-semibold uppercase tracking-[0.5px] mb-2"
+                    style={{ color: 'var(--content-faint)' }}
                   >
-                    Replace Script
-                  </button>
+                    What changed
+                  </div>
+                  <div className="grid gap-1.5" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                    {migrateResult.changes.map((c, i) => {
+                      const isWarn = c.kind === 'warn';
+                      const color = isWarn ? 'var(--warn)' : 'var(--accent)';
+                      return (
+                        <div
+                          key={i}
+                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-md"
+                          style={{
+                            background: isWarn
+                              ? `color-mix(in oklch, ${color} 8%, transparent)`
+                              : 'var(--surface-2)',
+                            border: `1px solid ${isWarn
+                              ? `color-mix(in oklch, ${color} 25%, transparent)`
+                              : 'var(--line-subtle)'}`,
+                          }}
+                        >
+                          {isWarn ? (
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                              <line x1="12" y1="9" x2="12" y2="13" />
+                              <line x1="12" y1="17" x2="12.01" y2="17" />
+                            </svg>
+                          ) : (
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                          <span className="text-[11.5px] flex-1" style={{ color: 'var(--content-secondary)' }}>{c.label}</span>
+                          <span
+                            className="text-[10px] font-mono font-semibold px-1.5 rounded"
+                            style={{ background: `color-mix(in oklch, ${color} 14%, transparent)`, color }}
+                          >
+                            {c.count}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
+
+              {/* Footer */}
+              <div
+                className="px-4 py-3 flex items-center gap-2 shrink-0"
+                style={{ borderTop: '1px solid var(--line-subtle)', background: 'var(--surface-2)' }}
+              >
+                <span className="text-[11.5px]" style={{ color: 'var(--content-faint)' }}>
+                  Original kept in undo history (⌘Z)
+                </span>
+                <span className="flex-1" />
+                <button
+                  onClick={() => setMigrateResult(null)}
+                  className="h-7 px-3 rounded-md text-[12px] font-medium cursor-pointer"
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid var(--line)',
+                    color: 'var(--content-secondary)',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    try { await navigator.clipboard.writeText(migrateResult.output); } catch { /* ignore */ }
+                  }}
+                  className="h-7 px-3 rounded-md text-[12px] font-medium cursor-pointer"
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid var(--line)',
+                    color: 'var(--content-secondary)',
+                  }}
+                >
+                  Copy 2.0
+                </button>
+                <button
+                  onClick={() => { onChange(migrateResult.output); setMigrateResult(null); }}
+                  className="h-7 px-3 rounded-md text-[12px] font-semibold cursor-pointer inline-flex items-center gap-1.5"
+                  style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+                >
+                  <Icons.Zap size={11} /> Replace script
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -511,3 +737,50 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
     </div>
   );
 }));
+
+/** Side-by-side code pane for the migration diff. Plain text rendering so we
+ *  don't have to spin up two Monaco instances inside a modal. */
+function DiffPane({
+  label, pillLabel, pillColor, code, accent,
+}: {
+  label: string;
+  pillLabel: string;
+  pillColor: string;
+  code: string;
+  accent: boolean;
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1.5">
+        <span
+          className="text-[10px] font-semibold font-mono px-1.5 py-0.5 rounded"
+          style={{
+            background: `color-mix(in oklch, ${pillColor} 14%, transparent)`,
+            color: pillColor,
+          }}
+        >
+          {pillLabel}
+        </span>
+        <span
+          className="text-[11px] font-medium uppercase tracking-[0.4px]"
+          style={{ color: 'var(--content-faint)' }}
+        >
+          {label}
+        </span>
+      </div>
+      <pre
+        className="font-mono text-[11.5px] leading-relaxed overflow-auto rounded-md p-2.5 select-text"
+        style={{
+          background: 'var(--surface-2)',
+          border: `1px solid ${accent ? 'var(--accent-border)' : 'var(--line)'}`,
+          color: 'var(--content)',
+          height: 320,
+          whiteSpace: 'pre',
+          margin: 0,
+        }}
+      >
+        {code}
+      </pre>
+    </div>
+  );
+}
