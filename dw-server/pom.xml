@@ -66,6 +66,31 @@
             <artifactId>ndjson-module</artifactId>
             <version>${weave.version}</version>
         </dependency>
+        <!-- Optional format modules that the standalone DW runtime supports
+             when present on the classpath. Bundling them gives the app
+             parity with the MuleSoft docs' "supported formats" list:
+             application/xlsx, application/avro, application/protobuf,
+             application/flatfile (incl. COBOL Copybook + Fixed Width). -->
+        <dependency>
+            <groupId>org.mule.weave</groupId>
+            <artifactId>excel-module</artifactId>
+            <version>${weave.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mule.weave</groupId>
+            <artifactId>avro-module</artifactId>
+            <version>${weave.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mule.weave</groupId>
+            <artifactId>protobuf-module</artifactId>
+            <version>${weave.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mule.weave</groupId>
+            <artifactId>flatfile-module</artifactId>
+            <version>${weave.version}</version>
+        </dependency>
 
         <!-- Tiny JSON parser/encoder. jackson would be heavier; we only need
              4 ops on flat structures so we use minimal-json. -->

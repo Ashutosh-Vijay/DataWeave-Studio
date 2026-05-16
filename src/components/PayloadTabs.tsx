@@ -22,6 +22,17 @@ function mimeFromExtension(filename: string): MimeType | null {
     yml:   'application/yaml',
     ndjson:'application/x-ndjson',
     properties: 'text/x-java-properties',
+    // Binary formats backed by separate DW modules (excel-module, avro-module,
+    // protobuf-module, flatfile-module). When loaded via "Load file" the
+    // content is the raw bytes and the module on the JVM side reads them.
+    xlsx:  'application/xlsx',
+    xls:   'application/xlsx',
+    avro:  'application/avro',
+    proto: 'application/protobuf',
+    pb:    'application/protobuf',
+    cpy:   'application/flatfile', // COBOL copybook
+    ff:    'application/flatfile',
+    ffd:   'application/flatfile',
   };
   return map[ext] ?? null;
 }
@@ -45,10 +56,18 @@ function contentTypeFromFilename(filename: string): string {
     gz: 'application/octet-stream',
     doc: 'application/octet-stream',
     docx: 'application/octet-stream',
-    xls: 'application/octet-stream',
-    xlsx: 'application/octet-stream',
     mp4: 'application/octet-stream',
     mp3: 'application/octet-stream',
+    // Map common binary-format extensions to their DW MIME so the engine
+    // picks the right reader instead of treating the bytes as opaque.
+    xlsx: 'application/xlsx',
+    xls: 'application/xlsx',
+    avro: 'application/avro',
+    proto: 'application/protobuf',
+    pb: 'application/protobuf',
+    cpy: 'application/flatfile',
+    ff: 'application/flatfile',
+    ffd: 'application/flatfile',
   };
   return map[ext] || 'application/octet-stream';
 }

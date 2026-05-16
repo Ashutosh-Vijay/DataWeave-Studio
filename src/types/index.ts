@@ -115,13 +115,19 @@ export type MimeType =
   | 'application/octet-stream'
   | 'application/yaml'
   | 'application/x-ndjson'
-  | 'text/x-java-properties';
+  | 'text/x-java-properties'
+  | 'application/xlsx'
+  | 'application/avro'
+  | 'application/protobuf'
+  | 'application/flatfile';
 
 const VALID_MIMES = new Set<string>([
   'application/json', 'application/xml', 'application/csv', 'text/plain',
   'application/x-www-form-urlencoded', 'multipart/form-data', 'application/java',
   'application/dw', 'application/octet-stream', 'application/yaml',
   'application/x-ndjson', 'text/x-java-properties',
+  'application/xlsx', 'application/avro', 'application/protobuf',
+  'application/flatfile',
 ]);
 
 export function isValidMimeType(v: string): v is MimeType {
@@ -140,6 +146,10 @@ export const MIME_OPTIONS: { label: string; value: MimeType }[] = [
   { label: 'YAML', value: 'application/yaml' },
   { label: 'NDJSON', value: 'application/x-ndjson' },
   { label: 'Java Properties', value: 'text/x-java-properties' },
+  { label: 'Excel (xlsx)', value: 'application/xlsx' },
+  { label: 'Avro', value: 'application/avro' },
+  { label: 'Protobuf', value: 'application/protobuf' },
+  { label: 'Flat File', value: 'application/flatfile' },
   { label: 'Binary', value: 'application/octet-stream' },
 ];
 

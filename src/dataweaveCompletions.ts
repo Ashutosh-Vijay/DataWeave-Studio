@@ -42,6 +42,10 @@ const COMPLETIONS: DWCompletion[] = [
   { label: 'application/yaml', kind: 'constant', detail: 'YAML MIME type' },
   { label: 'application/x-ndjson', kind: 'constant', detail: 'Newline-delimited JSON MIME type' },
   { label: 'text/x-java-properties', kind: 'constant', detail: 'Java properties MIME type' },
+  { label: 'application/xlsx', kind: 'constant', detail: 'Excel (xlsx) MIME type' },
+  { label: 'application/avro', kind: 'constant', detail: 'Avro MIME type' },
+  { label: 'application/protobuf', kind: 'constant', detail: 'Protobuf MIME type' },
+  { label: 'application/flatfile', kind: 'constant', detail: 'Flat file / COBOL copybook / fixed-width MIME type' },
   { label: 'application/octet-stream', kind: 'constant', detail: 'Binary MIME type' },
 
   // === Context variables ===
