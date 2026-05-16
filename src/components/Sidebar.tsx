@@ -3,6 +3,7 @@ import { CurlImporter, CurlImportResult } from './CurlImporter';
 import { METHOD_COLORS } from '../types';
 import { Icons } from './Icons';
 import { ConfirmDialog, ConfirmFile } from './ConfirmDialog';
+import { toast } from './Toast';
 
 const PINNED_KEY = 'dw.pinned';
 
@@ -296,12 +297,12 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                   >
                     This workspace
                   </div>
-                  <input
-                    type="text"
-                    value={projectName}
-                    onChange={(e) => onProjectNameChange(e.target.value)}
-                    className="w-full bg-surface-2 border border-line rounded px-2 py-1.5 text-xs text-content placeholder-content-ghost focus:border-accent focus:outline-none"
-                    placeholder="Untitled"
+                  <WorkspaceNameRow
+                    name={projectName}
+                    onRename={(next) => {
+                      onProjectNameChange(next);
+                      toast({ title: 'Workspace renamed', message: next, variant: 'success' });
+                    }}
                   />
                   <button
                     onClick={handleSave}
@@ -343,7 +344,10 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                         active={r.id === activeRequestId}
                         canRemove={requests.length > 1}
                         onClick={() => onSelectRequest(r.id)}
-                        onRename={(name) => onRenameRequest(r.id, name)}
+                        onRename={(next) => {
+                          onRenameRequest(r.id, next);
+                          toast({ title: 'Request renamed', message: next, variant: 'success' });
+                        }}
                         onDuplicate={() => onDuplicateRequest(r.id)}
                         onRemove={() => onRemoveRequest(r.id)}
                       />
@@ -661,14 +665,19 @@ function RequestNode({
           {name}
         </span>
       )}
-      {canRemove && !editing && (
+      {!editing && (
         <button
-          onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          title="Remove request"
-          className="w-4 h-4 rounded inline-flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-surface-2"
+          onClick={(e) => {
+            e.stopPropagation();
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            setMenu({ x: rect.right - 4, y: rect.bottom + 2 });
+          }}
+          title="Request actions"
+          aria-label="Request actions"
+          className="w-5 h-5 rounded inline-flex items-center justify-center opacity-0 group-hover:opacity-70 hover:!opacity-100 hover:bg-surface-2"
           style={{ color: 'var(--content-faint)' }}
         >
-          <Icons.X size={9} />
+          <DotsGlyph />
         </button>
       )}
 
@@ -676,7 +685,10 @@ function RequestNode({
         <div
           className="fixed z-[70] py-1 rounded-md min-w-[140px]"
           style={{
-            top: menu.y, left: menu.x,
+            top: menu.y,
+            // Anchor by the right edge so the menu opens *into* the sidebar
+            // (toward the content area), not off the screen to the right.
+            right: window.innerWidth - menu.x,
             background: 'var(--surface)',
             border: '1px solid var(--line)',
             boxShadow: '0 8px 24px color-mix(in oklch, oklch(0% 0 0) 40%, transparent)',
@@ -713,6 +725,126 @@ function RequestNode({
         </div>
       )}
     </div>
+  );
+}
+
+/** Workspace-name row in the sidebar header. Display-only by default;
+ *  the `…` button opens a menu with Rename / Duplicate. Inline editing
+ *  is the *commit path* for rename — picking 'Rename' swaps the row
+ *  into an input, Enter commits and fires the rename toast. */
+function WorkspaceNameRow({
+  name, onRename,
+}: {
+  name: string;
+  onRename: (next: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) requestAnimationFrame(() => inputRef.current?.select());
+  }, [editing]);
+
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    window.addEventListener('mousedown', close);
+    return () => window.removeEventListener('mousedown', close);
+  }, [menu]);
+
+  const commit = () => {
+    const next = draft.trim();
+    if (next && next !== name) onRename(next);
+    setEditing(false);
+  };
+
+  return (
+    <div
+      className="group flex items-center gap-2 h-8 px-2 rounded-md"
+      style={{
+        background: 'var(--surface-2)',
+        border: '1px solid var(--line)',
+      }}
+    >
+      <Icons.Braces size={11} className="shrink-0" style={{ color: 'var(--accent)' }} />
+      {editing ? (
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commit(); }
+            if (e.key === 'Escape') { setEditing(false); setDraft(name); }
+          }}
+          className="flex-1 bg-transparent outline-none text-[12.5px]"
+          style={{ color: 'var(--content)' }}
+          placeholder="Untitled"
+          spellCheck={false}
+        />
+      ) : (
+        <span
+          className="flex-1 truncate text-[12.5px]"
+          style={{ color: 'var(--content)', fontWeight: 500 }}
+          onDoubleClick={() => { setEditing(true); setDraft(name); }}
+          title={name}
+        >
+          {name || 'Untitled'}
+        </span>
+      )}
+      {!editing && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            setMenu({ x: rect.right, y: rect.bottom + 2 });
+          }}
+          title="Workspace actions"
+          aria-label="Workspace actions"
+          className="w-5 h-5 rounded inline-flex items-center justify-center cursor-pointer hover:bg-surface-3 opacity-60 hover:opacity-100"
+          style={{ color: 'var(--content-faint)' }}
+        >
+          <DotsGlyph />
+        </button>
+      )}
+
+      {menu && (
+        <div
+          className="fixed z-[70] py-1 rounded-md min-w-[160px]"
+          style={{
+            top: menu.y,
+            right: window.innerWidth - menu.x,
+            background: 'var(--surface)',
+            border: '1px solid var(--line)',
+            boxShadow: '0 8px 24px color-mix(in oklch, oklch(0% 0 0) 40%, transparent)',
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => { setMenu(null); setEditing(true); setDraft(name); }}
+            className="w-full text-left px-3 py-1.5 text-[12px] cursor-pointer hover:bg-surface-2"
+            style={{ color: 'var(--content-secondary)' }}
+          >
+            Rename
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Mini three-dot horizontal "more actions" glyph used throughout the
+ *  sidebar tree. Inline SVG so it tracks `color` via currentColor. */
+function DotsGlyph() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="6" cy="12" r="1.5" />
+      <circle cx="12" cy="12" r="1.5" />
+      <circle cx="18" cy="12" r="1.5" />
+    </svg>
   );
 }
 

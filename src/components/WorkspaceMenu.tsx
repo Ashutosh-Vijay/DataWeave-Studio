@@ -3,7 +3,10 @@ import { Icons } from './Icons';
 
 interface WorkspaceMenuProps {
   projectName: string;
-  currentFile: string | null;
+  /** Display name of the active request — shown after the workspace name
+   *  in the breadcrumb so the user can see *which* request inside the
+   *  workspace they're editing. */
+  activeRequestName?: string;
   isDirty: boolean;
   onSave: () => void;
   onNew: () => void;
@@ -14,7 +17,7 @@ interface WorkspaceMenuProps {
 }
 
 export function WorkspaceMenu({
-  projectName, currentFile, isDirty,
+  projectName, activeRequestName, isDirty,
   onSave, onNew, onOpen, onDuplicate, onImportPlayground, onExportPlayground,
 }: WorkspaceMenuProps) {
   const [open, setOpen] = useState(false);
@@ -55,11 +58,11 @@ export function WorkspaceMenu({
       >
         <Icons.Braces size={13} className="text-content-faint shrink-0" />
         <span className="text-[13px] text-content-faint truncate">{projectName}</span>
-        {currentFile && (
+        {activeRequestName && (
           <>
             <span className="text-content-ghost">/</span>
             <span className="text-[13px] text-content font-medium truncate">
-              {currentFile.replace(/\.json$/, '').replace(/\.dwstudio$/, '')}
+              {activeRequestName}
             </span>
           </>
         )}

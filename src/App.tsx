@@ -1017,7 +1017,7 @@ function App() {
         {/* Workspace menu — project name doubles as a dropdown trigger */}
         <WorkspaceMenu
           projectName={workspace.projectName}
-          currentFile={workspace.currentFile}
+          activeRequestName={workspace.request.name}
           isDirty={workspace.isDirty}
           onSave={() => { beginTransforming(); handleSave(); }}
           onNew={handleNewScript}
