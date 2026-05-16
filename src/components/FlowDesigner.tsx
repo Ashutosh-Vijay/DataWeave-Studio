@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Icons } from './Icons';
 import { MiniEditor } from './MiniEditor';
+import { WindowControls } from './WindowControls';
 import { MIME_OPTIONS } from '../types';
 import { toast } from './Toast';
 import { open as tauriOpen } from '@tauri-apps/plugin-dialog';
@@ -690,10 +691,11 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   return (
     <div className="fixed inset-0 z-[80] flex flex-col bg-bg">
       {/* ── Header ───────────────────────────────────────────────── */}
-      <header className="h-11 shrink-0 flex items-center gap-3 px-4 bg-surface border-b border-line">
+      <header data-tauri-drag-region className="h-11 shrink-0 flex items-center gap-3 pl-4 bg-surface border-b border-line">
         <button
           onClick={onClose}
           className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer transition-colors"
+          title="Back to workspace"
         >
           <Icons.ChevronRight size={12} className="rotate-180" />
           Back
@@ -800,6 +802,10 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
             title="Zoom in"
           >+</button>
         </div>
+        {/* OS window controls — Flow Designer is fixed-fullscreen so the
+            app's top-bar controls are covered. Without these the user can't
+            minimize / maximize / close while in the flow view. */}
+        <WindowControls />
       </header>
 
       {/* ── Body ─────────────────────────────────────────────────── */}

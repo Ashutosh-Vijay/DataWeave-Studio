@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DW_FUNCTIONS, FnDoc, FnOverload } from '../dataweaveDocs';
 import { Icons } from './Icons';
+import { WindowControls } from './WindowControls';
 
 interface FunctionBrowserProps {
   open: boolean;
@@ -78,7 +79,7 @@ export function FunctionBrowser({ open, onClose, onInsertAtCursor }: FunctionBro
   return (
     <div className="fixed inset-0 z-[80] flex flex-col bg-bg">
       {/* Header bar */}
-      <header className="h-11 shrink-0 flex items-center gap-3 px-4 bg-surface border-b border-line">
+      <header data-tauri-drag-region className="h-11 shrink-0 flex items-center gap-3 pl-4 bg-surface border-b border-line">
         <button
           onClick={onClose}
           className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer transition-colors"
@@ -113,6 +114,9 @@ export function FunctionBrowser({ open, onClose, onInsertAtCursor }: FunctionBro
         >
           <Icons.Dot size={6} style={{ color: 'var(--accent)' }} /> MuleSoft · BSD-3-Clause
         </span>
+        {/* OS window controls — Function reference is fixed-fullscreen, so
+            the main app's top-bar controls are covered. */}
+        <WindowControls />
       </header>
 
       {/* Body — left list, right detail */}
