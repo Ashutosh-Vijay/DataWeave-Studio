@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { check } from '@tauri-apps/plugin-updater';
+import { relaunch } from '@tauri-apps/plugin-process';
 import { invoke } from '@tauri-apps/api/core';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
@@ -679,9 +680,34 @@ function App() {
     const timer = setTimeout(async () => {
       try {
         const update = await check();
-        if (update?.available) setUpdateAvailable(true);
+        if (update?.available) {
+          setUpdateAvailable(true);
+          // Surface the update as an actionable toast — the banner+brand-dot
+          // are persistent fallbacks but the toast is what gets noticed.
+          toast({
+            title: 'Update available',
+            message: `DataWeave Studio ${update.version || ''} is ready to install.`.trim() + ' Restart happens automatically after download.',
+            variant: 'warn',
+            action: {
+              label: 'Install',
+              onClick: async () => {
+                try {
+                  await update.downloadAndInstall();
+                  await relaunch();
+                } catch (e) {
+                  toast({
+                    title: 'Update failed',
+                    message: (e as Error).message || String(e),
+                    variant: 'error',
+                  });
+                }
+              },
+            },
+          });
+        }
       } catch {
-        // Network unreachable or endpoint blocked — fail silently
+        // Network unreachable or endpoint blocked — fail silently. No toast
+        // here: a failed background update check is not user-facing news.
       }
     }, 5000);
     return () => clearTimeout(timer);
@@ -728,6 +754,45 @@ function App() {
   handleRunRef.current = handleRun;
   canRunRef.current = runner.isWarmedUp && !runner.isRunning;
 
+  // User-triggered engine restart with success/error toast. The engine-error
+  // banner has its own retry button that uses this; Settings → Restart engine
+  // does too.
+  const handleRestartEngine = useCallback(async () => {
+    toast({ title: 'Restarting engine', message: 'Re-running the warm-up probe…', variant: 'info' });
+    await runner.restartCli();
+    // restartCli mutates state but doesn't throw on failure — it stuffs the
+    // error into runner.cliError. So we read that on the next tick.
+    setTimeout(() => {
+      if (runner.cliError) {
+        toast({ title: 'Engine restart failed', message: runner.cliError, variant: 'error' });
+      } else {
+        toast({ title: 'Engine restarted', message: 'Ready to run scripts.', variant: 'success' });
+      }
+    }, 100);
+  }, [runner.restartCli, runner.cliError]);
+
+  // Wraps workspace.saveWorkspace with success/error toasts. Used by ⌘S,
+  // the workspace menu, and the command palette. The Sidebar save button
+  // keeps its own button-flash UI on top of this — it's noisy but matches
+  // FlowDesigner's save toast pattern.
+  const handleSave = useCallback(async () => {
+    try {
+      const path = await workspace.saveWorkspace();
+      const filename = path.split(/[\\/]/).pop() || 'workspace';
+      toast({
+        title: 'Workspace saved',
+        message: filename,
+        variant: 'success',
+      });
+    } catch (e) {
+      toast({
+        title: 'Could not save workspace',
+        message: (e as Error).message || String(e),
+        variant: 'error',
+      });
+    }
+  }, [workspace.saveWorkspace]);
+
   const handleCurlImport = useCallback((result: CurlImportResult) => {
     workspace.setPayload(result.payload);
     workspace.setPayloadMimeType(result.payloadMimeType);
@@ -752,7 +817,7 @@ function App() {
         e.preventDefault();
         if (!savePendingRef.current) {
           savePendingRef.current = true;
-          workspace.saveWorkspace().finally(() => { savePendingRef.current = false; });
+          handleSave().finally(() => { savePendingRef.current = false; });
         }
       } else if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
@@ -818,7 +883,7 @@ function App() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [workspace.saveWorkspace, workspace.duplicateWorkspace, toggle, runner.isRunning, runner.cancel, handleNewScript, handleOpenImport, handleOpenSnippets]);
+  }, [handleSave, workspace.duplicateWorkspace, toggle, runner.isRunning, runner.cancel, handleNewScript, handleOpenImport, handleOpenSnippets]);
 
   // Auto-run with 1.5s debounce — only fires when inputs change
   useEffect(() => {
@@ -855,7 +920,7 @@ function App() {
   const paletteCommands: Command[] = [
     { id: 'run', label: 'Run script', shortcut: '⌘↵', group: 'Run', run: () => { if (canRun) handleRun(); } },
     { id: 'auto', label: autoRun ? 'Disable auto-run' : 'Enable auto-run', shortcut: '⌘⇧R', group: 'Run', run: () => setAutoRun(!autoRun) },
-    { id: 'save', label: 'Save workspace', shortcut: '⌘S', group: 'Workspace', run: () => { beginTransforming(); workspace.saveWorkspace(); } },
+    { id: 'save', label: 'Save workspace', shortcut: '⌘S', group: 'Workspace', run: () => { beginTransforming(); handleSave(); } },
     { id: 'new', label: 'New workspace', shortcut: '⌘N', group: 'Workspace', run: () => { beginTransforming(); workspace.newWorkspace(); } },
     { id: 'open', label: 'Open workspace…', shortcut: '⌘O', group: 'Workspace', run: () => setOpenWsOpen(true) },
     { id: 'duplicate', label: 'Duplicate workspace', shortcut: '⌘D', group: 'Workspace', run: () => { beginTransforming(); workspace.duplicateWorkspace(); } },
@@ -918,7 +983,7 @@ function App() {
           projectName={workspace.projectName}
           currentFile={workspace.currentFile}
           isDirty={workspace.isDirty}
-          onSave={() => { beginTransforming(); workspace.saveWorkspace(); }}
+          onSave={() => { beginTransforming(); handleSave(); }}
           onNew={handleNewScript}
           onOpen={() => setOpenWsOpen(true)}
           onDuplicate={() => { beginTransforming(); workspace.duplicateWorkspace(); }}
@@ -1017,7 +1082,7 @@ function App() {
             <span className="text-[12px] text-content-muted ml-2">{runner.cliError}</span>
           </div>
           <button
-            onClick={() => { runner.restartCli(); }}
+            onClick={() => { handleRestartEngine(); }}
             className="shrink-0 h-6 px-2 rounded text-[11px] font-medium text-content-secondary hover:text-content border border-line hover:bg-surface-2 cursor-pointer"
             title="Re-run the warm-up probe"
           >
@@ -1441,7 +1506,7 @@ function App() {
             onTimeoutMsChange={workspace.setTimeoutMs}
             onShowTour={() => { setSettingsOpen(false); setShowTour(true); }}
             onShowAbout={() => { setSettingsOpen(false); setAboutOpen(true); }}
-            onRestartCli={runner.restartCli}
+            onRestartCli={handleRestartEngine}
           />
         </Suspense>
       )}
