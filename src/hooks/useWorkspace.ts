@@ -57,7 +57,7 @@ interface UseWorkspaceReturn {
   setTimeoutMs: (ms: number) => void;
   saveWorkspace: () => Promise<string>;
   loadWorkspace: (filename: string) => Promise<void>;
-  listWorkspaces: () => Promise<string[]>;
+  listWorkspaces: () => Promise<{ filename: string; projectName: string }[]>;
   deleteWorkspace: (filename: string) => Promise<void>;
   newWorkspace: () => void;
   duplicateWorkspace: () => void;
@@ -178,7 +178,7 @@ export function useWorkspace(): UseWorkspaceReturn {
 
   const listWorkspaces = useCallback(async () => {
     const metas = await invoke<{ filename: string; projectName: string; mode: string }[]>('list_workspaces_meta');
-    return metas.filter(m => m.mode !== 'flow').map(m => m.filename);
+    return metas.filter(m => m.mode !== 'flow').map(m => ({ filename: m.filename, projectName: m.projectName }));
   }, []);
 
   const deleteWorkspace = useCallback(async (filename: string) => {

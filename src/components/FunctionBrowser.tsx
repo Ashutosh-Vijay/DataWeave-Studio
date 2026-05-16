@@ -88,16 +88,30 @@ export function FunctionBrowser({ open, onClose, onInsertAtCursor }: FunctionBro
           Back
         </button>
         <div className="w-px h-4 bg-line" />
-        <Icons.Braces size={14} className="text-accent" />
-        <span className="text-[13px] font-semibold text-content tracking-tight">
-          DataWeave function reference
-        </span>
-        <span className="text-[11px] text-content-faint font-mono">
-          · {ALL_FUNCTIONS.length} functions · {ALL_MODULES.length} modules
-        </span>
+        <div
+          className="w-7 h-7 rounded-md flex items-center justify-center"
+          style={{ background: 'var(--surface-2)', color: 'var(--accent)' }}
+        >
+          <Icons.Library size={14} />
+        </div>
+        <div className="flex flex-col leading-tight">
+          <span className="text-[13px] font-semibold text-content tracking-tight">
+            DataWeave function reference
+          </span>
+          <span className="text-[10.5px] text-content-faint font-mono">
+            {ALL_FUNCTIONS.length} functions · {ALL_MODULES.length} modules · dw 2.11
+          </span>
+        </div>
         <span className="flex-1" />
-        <span className="text-[10.5px] text-content-ghost font-mono">
-          dw 2.11 · MuleSoft (BSD-3-Clause)
+        <span
+          className="hidden md:inline-flex items-center gap-1.5 px-2.5 h-6 rounded-full text-[10.5px] font-mono"
+          style={{
+            background: 'var(--surface-2)',
+            color: 'var(--content-muted)',
+            border: '1px solid var(--line-subtle)',
+          }}
+        >
+          <Icons.Dot size={6} style={{ color: 'var(--accent)' }} /> MuleSoft · BSD-3-Clause
         </span>
       </header>
 

@@ -1420,6 +1420,7 @@ function App() {
         onClose={() => setOpenWsOpen(false)}
         listWorkspaces={workspace.listWorkspaces}
         onOpen={(f) => workspace.loadWorkspace(f)}
+        onNew={handleNewScript}
         currentFile={workspace.currentFile}
       />
 

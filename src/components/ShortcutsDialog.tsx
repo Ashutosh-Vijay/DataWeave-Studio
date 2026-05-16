@@ -51,6 +51,7 @@ const GROUPS: { title: string; items: Shortcut[] }[] = [
     title: 'Import & tools',
     items: [
       { keys: ['⌘', '⇧', 'I'], label: 'Import cURL' },
+      { keys: ['⌘', 'L'], label: 'Snippets library' },
       { keys: ['⌘', '⇧', 'E'], label: 'Secure Properties tool' },
       { keys: ['⌥', '⇧', 'F'], label: 'Format script' },
     ],
@@ -59,7 +60,14 @@ const GROUPS: { title: string; items: Shortcut[] }[] = [
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded bg-surface-3 border border-line-secondary font-mono text-[10.5px] text-content-secondary">
+    <span
+      className="inline-flex items-center justify-center min-w-[20px] h-[20px] px-[6px] rounded font-mono text-[11px]"
+      style={{
+        background: 'var(--surface-3)',
+        border: '1px solid var(--line-subtle)',
+        color: 'var(--content-secondary)',
+      }}
+    >
       {children}
     </span>
   );
@@ -80,37 +88,76 @@ export function ShortcutsDialog({ open, onClose }: ShortcutsDialogProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'color-mix(in oklch, var(--bg) 60%, transparent)', backdropFilter: 'blur(2px)' }}
+      style={{
+        background: 'color-mix(in oklch, var(--bg) 60%, transparent)',
+        backdropFilter: 'blur(3px)',
+      }}
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden"
+        className="rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--line)',
+          boxShadow: '0 28px 80px color-mix(in oklch, oklch(0% 0 0) 55%, transparent)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="h-11 shrink-0 flex items-center px-4 border-b border-line">
-          <span className="text-[13px] font-semibold text-content flex-1">Keyboard shortcuts</span>
+        {/* Header — title + subtitle */}
+        <div
+          className="px-6 pt-5 pb-4 flex items-start gap-3"
+          style={{ borderBottom: '1px solid var(--line-subtle)' }}
+        >
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+            style={{
+              background: 'var(--surface-2)',
+              color: 'var(--accent)',
+            }}
+          >
+            <Icons.Command size={15} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[14.5px] font-semibold" style={{ color: 'var(--content)' }}>
+              Keyboard shortcuts
+            </div>
+            <div className="text-[12px] mt-[3px]" style={{ color: 'var(--content-muted)' }}>
+              Press <Kbd>⌘</Kbd> <Kbd>/</Kbd> any time to bring this up. On Windows/Linux, <Kbd>⌘</Kbd> = <Kbd>Ctrl</Kbd>.
+            </div>
+          </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-md flex items-center justify-center text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer"
+            className="w-7 h-7 rounded-md flex items-center justify-center cursor-pointer hover:bg-surface-2 shrink-0"
+            style={{ color: 'var(--content-faint)' }}
             aria-label="Close"
           >
-            <Icons.X size={14} />
+            <Icons.X size={13} />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-5 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+        {/* Body — 2 column grid of groups */}
+        <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
           {GROUPS.map((g) => (
-            <div key={g.title} className="space-y-2">
-              <div className="text-[10.5px] font-semibold text-content-faint uppercase tracking-[0.6px]">
+            <div key={g.title}>
+              <div
+                className="text-[10.5px] font-semibold uppercase tracking-[0.5px] mb-2"
+                style={{ color: 'var(--content-faint)' }}
+              >
                 {g.title}
               </div>
-              <div className="space-y-1">
+              <div>
                 {g.items.map((s, i) => (
-                  <div key={i} className="flex items-center gap-2 py-1">
-                    <span className="flex-1 text-[12px] text-content-secondary">{s.label}</span>
-                    <span className="flex items-center gap-1">
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 py-[7px]"
+                    style={{
+                      borderBottom: i === g.items.length - 1 ? 'none' : '1px solid var(--line-subtle)',
+                    }}
+                  >
+                    <span className="flex-1 text-[12.5px]" style={{ color: 'var(--content-secondary)' }}>
+                      {s.label}
+                    </span>
+                    <span className="flex items-center gap-[3px]">
                       {s.keys.map((k, j) => (
                         <Kbd key={j}>{k}</Kbd>
                       ))}
@@ -123,11 +170,18 @@ export function ShortcutsDialog({ open, onClose }: ShortcutsDialogProps) {
         </div>
 
         {/* Footer */}
-        <div className="h-9 shrink-0 px-4 flex items-center border-t border-line text-[10.5px] text-content-ghost">
-          <span>On Windows, ⌘ = Ctrl, ⌥ = Alt, ⇧ = Shift</span>
+        <div
+          className="h-10 shrink-0 px-6 flex items-center text-[11px]"
+          style={{
+            borderTop: '1px solid var(--line-subtle)',
+            background: 'var(--surface-2)',
+            color: 'var(--content-faint)',
+          }}
+        >
+          <span>{GROUPS.reduce((n, g) => n + g.items.length, 0)} shortcuts</span>
           <span className="flex-1" />
           <Kbd>Esc</Kbd>
-          <span className="ml-1.5">to close</span>
+          <span className="ml-2">to close</span>
         </div>
       </div>
     </div>

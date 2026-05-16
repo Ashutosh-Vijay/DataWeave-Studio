@@ -39,7 +39,7 @@ interface SidebarProps {
   onSave: () => Promise<unknown>;
   onLoad: (filename: string) => Promise<void>;
   onDelete: (filename: string) => Promise<void>;
-  listWorkspaces: () => Promise<string[]>;
+  listWorkspaces: () => Promise<{ filename: string; projectName: string }[]>;
   onCurlImport: (result: CurlImportResult) => void;
   onInsertSnippet?: (body: string) => void;
   onOpenReference: () => void;
@@ -155,7 +155,8 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   };
 
   const refreshFiles = useCallback(() => {
-    listWorkspaces().then(setFiles).catch(() => setFiles([]));
+    // Sidebar shows just filenames; OpenWorkspaceDialog uses the richer meta.
+    listWorkspaces().then((metas) => setFiles(metas.map((m) => m.filename))).catch(() => setFiles([]));
   }, [listWorkspaces]);
 
   useEffect(() => { refreshFiles(); }, [refreshFiles]);
