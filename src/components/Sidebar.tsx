@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import { CurlImporter, CurlImportResult } from './CurlImporter';
 import { METHOD_COLORS } from '../types';
 import { Icons } from './Icons';
@@ -49,6 +49,17 @@ interface SidebarProps {
   onOpenSettings: () => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+
+  // Active workspace's requests — drives the in-line request list at the
+  // top of the Workspaces tab so users can browse + switch + add without
+  // a separate tab strip elsewhere.
+  requests: { id: string; name: string }[];
+  activeRequestId: string;
+  onSelectRequest: (id: string) => void;
+  onAddRequest: () => void;
+  onRenameRequest: (id: string, name: string) => void;
+  onRemoveRequest: (id: string) => void;
+  onDuplicateRequest: (id: string) => void;
 }
 
 const RAIL_ITEMS: { id: RailTab; title: string; Icon: (typeof Icons)[keyof typeof Icons] }[] = [
@@ -131,6 +142,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     onCurlImport, onInsertSnippet, onOpenSecure, onOpenFlowDesigner, onOpenSettings,
     onOpenReference,
     collapsed, onToggleCollapse,
+    requests, activeRequestId, onSelectRequest, onAddRequest, onRenameRequest, onRemoveRequest, onDuplicateRequest,
   } = props;
 
   const [tab, setTab] = useState<RailTab>('workspaces');
@@ -276,10 +288,14 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           <div className="flex-1 overflow-y-auto">
             {tab === 'workspaces' && (
               <div className="p-2 space-y-3">
-                {/* Project name + save — always visible so the user can save the
-                    in-progress draft even when no files have been saved yet. */}
+                {/* === Active workspace === */}
                 <div className="px-1 space-y-2">
-                  <label className="text-[10px] text-content-faint uppercase tracking-wide">Project Name</label>
+                  <div
+                    className="text-[10px] uppercase tracking-[0.5px] font-semibold"
+                    style={{ color: 'var(--content-faint)' }}
+                  >
+                    This workspace
+                  </div>
                   <input
                     type="text"
                     value={projectName}
@@ -297,33 +313,82 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                     }`}
                   >
                     {saveFlash ? 'Saved!' : saving ? 'Saving…' : 'Save'}
-                    <span className="text-[10px] opacity-60 ml-1">Ctrl+S</span>
-                  </button>
-                  <button
-                    onClick={() => { onNew(); refreshFiles(); }}
-                    className="w-full py-1.5 rounded text-xs font-medium border border-line text-content-secondary hover:bg-surface-2 cursor-pointer transition-colors inline-flex items-center justify-center gap-1.5"
-                    title="Start a fresh blank workspace"
-                  >
-                    <Icons.Plus size={11} /> New blank workspace
+                    <span className="text-[10px] opacity-60 ml-1">⌘S</span>
                   </button>
                 </div>
 
-                {files.length === 0 ? (
-                  <div className="px-1 pt-2 text-[11px] text-content-faint leading-relaxed text-center">
-                    No saved workspaces yet. Hit <span className="font-mono">⌘S</span> to save this one.
+                {/* === Requests in this workspace === */}
+                <div className="px-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-[10px] uppercase tracking-[0.5px] font-semibold flex-1"
+                      style={{ color: 'var(--content-faint)' }}
+                    >
+                      Requests · {requests.length}
+                    </span>
+                    <button
+                      onClick={onAddRequest}
+                      title="New request in this workspace"
+                      className="w-5 h-5 rounded inline-flex items-center justify-center cursor-pointer hover:bg-surface-2"
+                      style={{ color: 'var(--content-faint)' }}
+                    >
+                      <Icons.Plus size={11} />
+                    </button>
                   </div>
-                ) : (
-                  <WorkspaceList
-                    files={files}
-                    pinned={pinned}
-                    currentFile={currentFile}
-                    currentMethod={currentMethod}
-                    isDirty={isDirty}
-                    onLoad={onLoad}
-                    onDelete={(f) => setConfirmDelete(f)}
-                    onTogglePin={togglePin}
-                  />
-                )}
+                  <div className="space-y-0.5">
+                    {requests.map((r) => (
+                      <RequestNode
+                        key={r.id}
+                        name={r.name}
+                        active={r.id === activeRequestId}
+                        canRemove={requests.length > 1}
+                        onClick={() => onSelectRequest(r.id)}
+                        onRename={(name) => onRenameRequest(r.id, name)}
+                        onDuplicate={() => onDuplicateRequest(r.id)}
+                        onRemove={() => onRemoveRequest(r.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* === Other saved workspaces === */}
+                <div className="px-1 pt-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-[10px] uppercase tracking-[0.5px] font-semibold flex-1"
+                      style={{ color: 'var(--content-faint)' }}
+                    >
+                      Other workspaces · {files.filter(f => f !== currentFile).length}
+                    </span>
+                    <button
+                      onClick={() => { onNew(); refreshFiles(); }}
+                      title="Start a fresh blank workspace"
+                      className="w-5 h-5 rounded inline-flex items-center justify-center cursor-pointer hover:bg-surface-2"
+                      style={{ color: 'var(--content-faint)' }}
+                    >
+                      <Icons.Plus size={11} />
+                    </button>
+                  </div>
+                  {files.filter(f => f !== currentFile).length === 0 ? (
+                    <div
+                      className="text-[11px] py-2 px-1 leading-relaxed"
+                      style={{ color: 'var(--content-faint)' }}
+                    >
+                      No other workspaces. Hit + above to start one.
+                    </div>
+                  ) : (
+                    <WorkspaceList
+                      files={files.filter(f => f !== currentFile)}
+                      pinned={pinned}
+                      currentFile={currentFile}
+                      currentMethod={currentMethod}
+                      isDirty={isDirty}
+                      onLoad={onLoad}
+                      onDelete={(f) => setConfirmDelete(f)}
+                      onTogglePin={togglePin}
+                    />
+                  )}
+                </div>
               </div>
             )}
 
@@ -526,6 +591,127 @@ function WSRow({
       >
         <Icons.X size={11} />
       </button>
+    </div>
+  );
+}
+
+/** A single request row in the active-workspace tree section.
+ *  Click → switch to it. Double-click → rename in place. Right-click →
+ *  rename / duplicate / delete. */
+function RequestNode({
+  name, active, canRemove, onClick, onRename, onDuplicate, onRemove,
+}: {
+  name: string;
+  active: boolean;
+  canRemove: boolean;
+  onClick: () => void;
+  onRename: (name: string) => void;
+  onDuplicate: () => void;
+  onRemove: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) requestAnimationFrame(() => inputRef.current?.select());
+  }, [editing]);
+
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    window.addEventListener('mousedown', close);
+    return () => window.removeEventListener('mousedown', close);
+  }, [menu]);
+
+  return (
+    <div
+      onClick={() => !editing && onClick()}
+      onDoubleClick={() => { setEditing(true); setDraft(name); }}
+      onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}
+      className="group flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer"
+      style={{
+        background: active ? 'var(--accent-dim)' : 'transparent',
+        borderLeft: active ? '2px solid var(--accent)' : '2px solid transparent',
+        paddingLeft: active ? '6px' : '8px',
+      }}
+    >
+      <Icons.Braces size={10} style={{ color: active ? 'var(--accent)' : 'var(--content-faint)' }} className="shrink-0" />
+      {editing ? (
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          onBlur={() => { if (draft.trim()) onRename(draft.trim()); setEditing(false); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { if (draft.trim()) onRename(draft.trim()); setEditing(false); }
+            if (e.key === 'Escape') setEditing(false);
+          }}
+          className="flex-1 bg-transparent outline-none text-[11.5px]"
+          style={{ color: 'var(--content)' }}
+          spellCheck={false}
+        />
+      ) : (
+        <span
+          className="flex-1 truncate text-[11.5px]"
+          style={{ color: active ? 'var(--content)' : 'var(--content-secondary)', fontWeight: active ? 500 : 400 }}
+        >
+          {name}
+        </span>
+      )}
+      {canRemove && !editing && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          title="Remove request"
+          className="w-4 h-4 rounded inline-flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-surface-2"
+          style={{ color: 'var(--content-faint)' }}
+        >
+          <Icons.X size={9} />
+        </button>
+      )}
+
+      {menu && (
+        <div
+          className="fixed z-[70] py-1 rounded-md min-w-[140px]"
+          style={{
+            top: menu.y, left: menu.x,
+            background: 'var(--surface)',
+            border: '1px solid var(--line)',
+            boxShadow: '0 8px 24px color-mix(in oklch, oklch(0% 0 0) 40%, transparent)',
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => { setMenu(null); setEditing(true); setDraft(name); }}
+            className="w-full text-left px-3 py-1.5 text-[12px] cursor-pointer hover:bg-surface-2"
+            style={{ color: 'var(--content-secondary)' }}
+          >
+            Rename
+          </button>
+          <button
+            onClick={() => { setMenu(null); onDuplicate(); }}
+            className="w-full text-left px-3 py-1.5 text-[12px] cursor-pointer hover:bg-surface-2"
+            style={{ color: 'var(--content-secondary)' }}
+          >
+            Duplicate
+          </button>
+          {canRemove && (
+            <>
+              <div style={{ height: 1, background: 'var(--line-subtle)', margin: '4px 0' }} />
+              <button
+                onClick={() => { setMenu(null); onRemove(); }}
+                className="w-full text-left px-3 py-1.5 text-[12px] cursor-pointer hover:bg-surface-2"
+                style={{ color: 'var(--err)' }}
+              >
+                Delete
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

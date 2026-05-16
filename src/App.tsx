@@ -19,8 +19,8 @@ const FlowDesigner = lazy(() =>
   import('./components/FlowDesigner').then((m) => ({ default: m.FlowDesigner }))
 );
 import { OpenWorkspaceDialog } from './components/OpenWorkspaceDialog';
-import { RequestTabs } from './components/RequestTabs';
 import { TestsView } from './components/TestsView';
+import { FirstWorkspacePrompt } from './components/FirstWorkspacePrompt';
 import { PayloadTabs } from './components/PayloadTabs';
 import { OutputPane } from './components/OutputPane';
 import { ContextPanel } from './components/ContextPanel';
@@ -42,10 +42,13 @@ import { FocusDrawer } from './components/FocusDrawer';
 // Inlined helpers — used to be `import { shouldShowFirstRun, markFirstRunSeen }`
 // from FirstRunPicker etc. but that made the whole component bundle eager.
 const FIRST_RUN_KEY = 'dw.firstRun.seen';
+const FIRST_WORKSPACE_KEY = 'dw.firstWorkspace.seen';
 const TOUR_SEEN_KEY = 'dwstudio_tour_seen'; // matches WelcomeTour's own key — existing users keep state
 function shouldShowFirstRun(): boolean { try { return localStorage.getItem(FIRST_RUN_KEY) !== 'true'; } catch { return false; } }
 function markFirstRunSeen(): void { try { localStorage.setItem(FIRST_RUN_KEY, 'true'); } catch {} }
 function markTourSeen(): void { try { localStorage.setItem(TOUR_SEEN_KEY, 'true'); } catch {} }
+function shouldShowFirstWorkspace(): boolean { try { return localStorage.getItem(FIRST_WORKSPACE_KEY) !== 'true'; } catch { return false; } }
+function markFirstWorkspaceSeen(): void { try { localStorage.setItem(FIRST_WORKSPACE_KEY, 'true'); } catch {} }
 import { EmptyState, readLastWorkspace, writeLastWorkspace } from './components/EmptyState';
 import { readDraft, writeDraft, hasDraft, clearDraft } from './draftSession';
 import { useWorkspace } from './hooks/useWorkspace';
@@ -434,6 +437,10 @@ function App() {
   const [flowDesignerOpen, setFlowDesignerOpen] = useState(false);
   const [focusDrawerOpen, setFocusDrawerOpen] = useState(false);
   const [showFirstRun, setShowFirstRun] = useState(() => shouldShowFirstRun());
+  /** One-time prompt for the very first workspace. Surfaced only after the
+   *  theme/layout FirstRunPicker is dismissed (or skipped — for returning
+   *  users on a fresh install). */
+  const [showFirstWorkspace, setShowFirstWorkspace] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [lastWorkspace, setLastWorkspace] = useState<string | null>(() => readLastWorkspace());
   // Whether a recoverable in-progress draft exists in localStorage. Used by
@@ -671,6 +678,37 @@ function App() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Surface the first-workspace prompt as soon as the FirstRunPicker is
+  // out of the way. Skip silently for users who already have saved
+  // workspaces from a previous app version (they don't need an onboarding
+  // prompt for something they already understand).
+  useEffect(() => {
+    if (showFirstRun || !shouldShowFirstWorkspace()) return;
+    (async () => {
+      try {
+        const metas = await workspace.listWorkspaces();
+        if (metas.length > 0) {
+          markFirstWorkspaceSeen();
+          return;
+        }
+      } catch { /* if listing fails, fall through to the prompt */ }
+      setShowFirstWorkspace(true);
+    })();
+  }, [showFirstRun, workspace.listWorkspaces]);
+
+  const handleFirstWorkspaceCreate = useCallback(async (name: string) => {
+    workspace.setProjectName(name);
+    try {
+      await workspace.saveWorkspace();
+      toast({ title: 'Workspace created', message: name, variant: 'success' });
+    } catch (e) {
+      toast({ title: 'Could not save workspace', message: (e as Error).message || String(e), variant: 'error' });
+    }
+    markFirstWorkspaceSeen();
+    setShowFirstWorkspace(false);
+    beginTransforming();
+  }, [workspace, beginTransforming]);
 
   // Load app version and silently check for updates on startup
   useEffect(() => {
@@ -1173,22 +1211,9 @@ function App() {
         </div>
       )}
 
-      {/* Request tab strip — visible once the user has entered the workspace.
-          A workspace is a collection of requests; the tabs let users switch
-          between them, rename via double-click, right-click for more options. */}
-      {hasStarted && (
-        <RequestTabs
-          requests={workspace.requests}
-          activeId={workspace.activeRequestId}
-          onSelect={workspace.selectRequest}
-          onAdd={() => workspace.addRequest()}
-          onRename={workspace.renameRequest}
-          onDuplicate={workspace.duplicateRequest}
-          onRemove={workspace.removeRequest}
-        />
-      )}
-
-      {/* Body: Sidebar + Main */}
+      {/* Body: Sidebar + Main
+          (The old RequestTabs strip was removed — the Sidebar's Workspaces
+           tab now shows the active workspace and its requests as a tree.) */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar — hidden in Focus layout / compact viewport / empty state */}
         {effectiveLayout === 'workbench' && hasStarted && <Sidebar
@@ -1203,6 +1228,13 @@ function App() {
           onLoad={workspace.loadWorkspace}
           onDelete={workspace.deleteWorkspace}
           listWorkspaces={workspace.listWorkspaces}
+          requests={workspace.requests}
+          activeRequestId={workspace.activeRequestId}
+          onSelectRequest={workspace.selectRequest}
+          onAddRequest={() => workspace.addRequest()}
+          onRenameRequest={workspace.renameRequest}
+          onRemoveRequest={workspace.removeRequest}
+          onDuplicateRequest={workspace.duplicateRequest}
           onCurlImport={handleCurlImport}
           onInsertSnippet={(body) => scriptEditorRef.current?.insertSnippet(body)}
           onOpenSecure={() => setSecureToolOpen(true)}
@@ -1589,6 +1621,14 @@ function App() {
           />
         </Suspense>
       )}
+
+      {/* First-workspace prompt — one-time, lands the user inside a real
+          workspace so the "what's a workspace? what's a request?" mental
+          model is clear from the start. */}
+      <FirstWorkspacePrompt
+        open={showFirstWorkspace}
+        onCreate={handleFirstWorkspaceCreate}
+      />
 
       {/* Splash screen — covers everything until engine is ready */}
       <SplashScreen isReady={runner.isWarmedUp} hasError={!!runner.cliError} />
