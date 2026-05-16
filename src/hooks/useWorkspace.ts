@@ -1,6 +1,26 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { WorkspaceFile, ContextState, MimeType, NamedInput, MultipartPart, isValidMimeType } from '../types';
+import {
+  WorkspaceFile,
+  ContextState,
+  MimeType,
+  NamedInput,
+  MultipartPart,
+  Request,
+  TestCase,
+} from '../types';
+
+// ===========================================================================
+// useWorkspace v2 — a workspace is a *collection* of requests.
+//
+// State shape:
+//   - workspace-level: projectName, requests[], activeRequestId, flow
+//   - per-request (mutated through the setters below): script, payload,
+//     context, etc.
+//
+// The setters operate on the active request. Components that need to read
+// the active request's fields use `request` (the memoized active object).
+// ===========================================================================
 
 const DEFAULT_CONTEXT: ContextState = {
   method: 'GET',
@@ -30,8 +50,48 @@ function defaultScriptFor(label: string): string {
   return DEFAULT_SCRIPTS[label] ?? DEFAULT_SCRIPT;
 }
 
+function genId(prefix: string): string {
+  // Short pseudo-unique ID. Not crypto, just enough to disambiguate within
+  // a workspace. Format matches the Rust side's uuid_like_id().
+  const ms = Date.now().toString(16);
+  const rand = Math.floor(Math.random() * 0xffff).toString(16).padStart(4, '0');
+  return `${prefix}-${ms}${rand}`;
+}
+
+function blankRequest(name = 'Request'): Request {
+  return {
+    id: genId('req'),
+    name,
+    script: DEFAULT_SCRIPT,
+    payload: DEFAULT_PAYLOAD,
+    payloadMimeType: 'application/json',
+    nodeLabel: 'Transform',
+    namedInputs: [],
+    queryTemplate: '',
+    classpath: [],
+    timeoutMs: undefined,
+    payloadFilePath: undefined,
+    multipartParts: [],
+    context: { ...DEFAULT_CONTEXT },
+    tests: [],
+  };
+}
+
 interface UseWorkspaceReturn {
+  // Workspace-level
   projectName: string;
+  requests: Request[];
+  activeRequestId: string;
+  flow: unknown;
+  isDirty: boolean;
+  currentFile: string | null;
+  setProjectName: (name: string) => void;
+  setFlow: (flow: unknown) => void;
+
+  // Active request — read these for the editors
+  request: Request;
+  // Convenience aliases that read from `request` so existing UI code keeps
+  // working without a tree-wide rename.
   script: string;
   payload: string;
   payloadMimeType: MimeType;
@@ -43,7 +103,9 @@ interface UseWorkspaceReturn {
   queryTemplate: string;
   classpath: string[];
   timeoutMs: number;
-  setProjectName: (name: string) => void;
+  tests: TestCase[];
+
+  // Per-active-request setters
   setScript: (script: string) => void;
   setPayload: (payload: string) => void;
   setPayloadMimeType: (mime: MimeType) => void;
@@ -55,130 +117,174 @@ interface UseWorkspaceReturn {
   setQueryTemplate: (query: string) => void;
   setClasspath: (cp: string[]) => void;
   setTimeoutMs: (ms: number) => void;
+  setTests: (tests: TestCase[]) => void;
+
+  // Request collection management
+  addRequest: (name?: string) => void;
+  removeRequest: (id: string) => void;
+  renameRequest: (id: string, name: string) => void;
+  selectRequest: (id: string) => void;
+  duplicateRequest: (id: string) => void;
+
+  // Persistence
   saveWorkspace: () => Promise<string>;
   loadWorkspace: (filename: string) => Promise<void>;
   listWorkspaces: () => Promise<{ filename: string; projectName: string }[]>;
   deleteWorkspace: (filename: string) => Promise<void>;
   newWorkspace: () => void;
   duplicateWorkspace: () => void;
-  isDirty: boolean;
-  currentFile: string | null;
+  /** Restore a whole workspace state from a snapshot (used for draft
+   *  resume). Pass the full collection; the hook replaces its state. */
+  restoreSnapshot: (snap: { projectName: string; requests: Request[]; activeRequestId?: string; flow?: unknown }) => void;
 }
 
 export function useWorkspace(): UseWorkspaceReturn {
-  const [projectName, setProjectName] = useState('Untitled');
-  const [payload, setPayload] = useState(DEFAULT_PAYLOAD);
-  const [payloadMimeType, setPayloadMimeType] = useState<MimeType>('application/json');
-  const [nodeLabel, setNodeLabelState] = useState('Transform');
-  const [script, setScriptState] = useState(DEFAULT_SCRIPT);
-  const [context, setContext] = useState<ContextState>(DEFAULT_CONTEXT);
-  const [namedInputs, setNamedInputs] = useState<NamedInput[]>([]);
-  const [queryTemplate, setQueryTemplate] = useState('');
-  const [classpath, setClasspathState] = useState<string[]>([]);
-  const [timeoutMs, setTimeoutMsState] = useState(30000);
-  const [payloadFilePath, setPayloadFilePathState] = useState<string | null>(null);
-  const [multipartParts, setMultipartPartsState] = useState<MultipartPart[]>([]);
+  const [projectName, setProjectNameState] = useState('Untitled');
+  const initial = blankRequest('Request');
+  const [requests, setRequests] = useState<Request[]>([initial]);
+  const [activeRequestId, setActiveRequestId] = useState<string>(initial.id);
+  const [flow, setFlowState] = useState<unknown>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [currentFile, setCurrentFile] = useState<string | null>(null);
 
-  // Keeps per-label scripts in sync without causing extra renders
-  const scriptsByLabel = useRef<Record<string, string>>({
-    Transform: DEFAULT_SCRIPT,
-    'Salesforce Query': DEFAULT_SCRIPTS['Salesforce Query'],
-    'DB Query': DEFAULT_SCRIPTS['DB Query'],
-  });
-  const currentLabel = useRef('Transform');
+  // Keep per-(request, label) scripts in sync without extra re-renders. Map
+  // key is `${requestId}::${nodeLabel}` so each request has its own
+  // remembered scripts per role.
+  const scriptsByLabel = useRef<Map<string, string>>(new Map());
+  const labelKey = (reqId: string, label: string) => `${reqId}::${label}`;
 
-  const wrappedSetProjectName = useCallback((val: string) => { setProjectName(val); setIsDirty(true); }, []);
-  const wrappedSetPayload = useCallback((val: string) => { setPayload(val); setIsDirty(true); }, []);
-  const wrappedSetPayloadMimeType = useCallback((val: MimeType) => { setPayloadMimeType(val); setIsDirty(true); }, []);
-  const wrappedSetContext = useCallback((val: ContextState) => { setContext(val); setIsDirty(true); }, []);
-  const wrappedSetNamedInputs = useCallback((val: NamedInput[]) => { setNamedInputs(val); setIsDirty(true); }, []);
-  const wrappedSetQueryTemplate = useCallback((val: string) => { setQueryTemplate(val); setIsDirty(true); }, []);
-  const setClasspath = useCallback((cp: string[]) => { setClasspathState(cp); setIsDirty(true); }, []);
-  const setTimeoutMs = useCallback((ms: number) => { setTimeoutMsState(ms); setIsDirty(true); }, []);
-  const setPayloadFilePath = useCallback((path: string | null) => { setPayloadFilePathState(path); setIsDirty(true); }, []);
-  const setMultipartParts = useCallback((parts: MultipartPart[]) => { setMultipartPartsState(parts); setIsDirty(true); }, []);
-
-  const setScript = useCallback((val: string) => {
-    scriptsByLabel.current[currentLabel.current] = val;
-    setScriptState(val);
+  // Find & update the active request — used by every per-request setter.
+  const updateActive = useCallback((mutator: (r: Request) => Request) => {
+    setRequests((prev) => prev.map((r) => (r.id === activeRequestId ? mutator(r) : r)));
     setIsDirty(true);
-  }, []);
+  }, [activeRequestId]);
+
+  const active: Request = useMemo(
+    () => requests.find((r) => r.id === activeRequestId) || requests[0] || blankRequest(),
+    [requests, activeRequestId],
+  );
+
+  // ── Workspace-level setters ──────────────────────────────────────────
+  const setProjectName = useCallback((name: string) => { setProjectNameState(name); setIsDirty(true); }, []);
+  const setFlow = useCallback((f: unknown) => { setFlowState(f); setIsDirty(true); }, []);
+
+  // ── Per-request setters ──────────────────────────────────────────────
+  const setScript = useCallback((val: string) => {
+    scriptsByLabel.current.set(labelKey(activeRequestId, active.nodeLabel), val);
+    updateActive((r) => ({ ...r, script: val }));
+  }, [activeRequestId, active.nodeLabel, updateActive]);
+
+  const setPayload = useCallback((val: string) => updateActive((r) => ({ ...r, payload: val })), [updateActive]);
+  const setPayloadMimeType = useCallback((mime: MimeType) => updateActive((r) => ({ ...r, payloadMimeType: mime })), [updateActive]);
+  const setPayloadFilePath = useCallback((path: string | null) => updateActive((r) => ({ ...r, payloadFilePath: path ?? undefined })), [updateActive]);
+  const setMultipartParts = useCallback((parts: MultipartPart[]) => updateActive((r) => ({ ...r, multipartParts: parts })), [updateActive]);
+  const setContext = useCallback((ctx: ContextState) => updateActive((r) => ({ ...r, context: ctx })), [updateActive]);
+  const setNamedInputs = useCallback((inputs: NamedInput[]) => updateActive((r) => ({ ...r, namedInputs: inputs })), [updateActive]);
+  const setQueryTemplate = useCallback((q: string) => updateActive((r) => ({ ...r, queryTemplate: q })), [updateActive]);
+  const setClasspath = useCallback((cp: string[]) => updateActive((r) => ({ ...r, classpath: cp })), [updateActive]);
+  const setTimeoutMs = useCallback((ms: number) => updateActive((r) => ({ ...r, timeoutMs: ms })), [updateActive]);
+  const setTests = useCallback((tests: TestCase[]) => updateActive((r) => ({ ...r, tests })), [updateActive]);
 
   const setNodeLabel = useCallback((label: string) => {
-    // No-op when the label hasn't changed. This was a real bug on Resume:
-    // the resume handler called setNodeLabel(currentLabel) as part of
-    // restoring state, which used to overwrite the just-restored script
-    // with the stale-closure `script` value (defaults), undoing the resume.
-    if (label === currentLabel.current) return;
-    // scriptsByLabel.current[currentLabel] is already kept synced by
-    // setScript synchronously on every keystroke, so we don't need to
-    // write `script` here (which can be stale due to closure capture).
-    currentLabel.current = label;
-    const next = scriptsByLabel.current[label] ?? defaultScriptFor(label);
-    setScriptState(next);
-    setNodeLabelState(label);
+    // Switching role: stash the current script for this request+label,
+    // restore the previous script for the new label (or fall back to the
+    // role's default starter template).
+    setRequests((prev) => prev.map((r) => {
+      if (r.id !== activeRequestId) return r;
+      if (label === r.nodeLabel) return r;
+      // Save current script under (requestId, currentLabel).
+      scriptsByLabel.current.set(labelKey(r.id, r.nodeLabel), r.script);
+      const restored = scriptsByLabel.current.get(labelKey(r.id, label)) ?? defaultScriptFor(label);
+      return { ...r, nodeLabel: label, script: restored };
+    }));
+    setIsDirty(true);
+  }, [activeRequestId]);
+
+  // ── Request-collection management ────────────────────────────────────
+  const addRequest = useCallback((name = 'New request') => {
+    const req = blankRequest(name);
+    setRequests((prev) => [...prev, req]);
+    setActiveRequestId(req.id);
     setIsDirty(true);
   }, []);
 
+  const removeRequest = useCallback((id: string) => {
+    setRequests((prev) => {
+      if (prev.length <= 1) return prev; // never let a workspace go empty
+      const next = prev.filter((r) => r.id !== id);
+      // If we removed the active one, pick a neighbor.
+      if (id === activeRequestId) {
+        const idx = prev.findIndex((r) => r.id === id);
+        const fallback = next[Math.max(0, Math.min(idx, next.length - 1))];
+        setActiveRequestId(fallback.id);
+      }
+      return next;
+    });
+    setIsDirty(true);
+  }, [activeRequestId]);
+
+  const renameRequest = useCallback((id: string, name: string) => {
+    setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, name } : r)));
+    setIsDirty(true);
+  }, []);
+
+  const selectRequest = useCallback((id: string) => {
+    setActiveRequestId(id);
+    // Don't mark dirty — purely a view-state change.
+  }, []);
+
+  const duplicateRequest = useCallback((id: string) => {
+    setRequests((prev) => {
+      const src = prev.find((r) => r.id === id);
+      if (!src) return prev;
+      const copy: Request = { ...src, id: genId('req'), name: `${src.name} copy` };
+      const idx = prev.findIndex((r) => r.id === id);
+      const next = [...prev.slice(0, idx + 1), copy, ...prev.slice(idx + 1)];
+      setActiveRequestId(copy.id);
+      return next;
+    });
+    setIsDirty(true);
+  }, []);
+
+  // ── Persistence ──────────────────────────────────────────────────────
   const saveWorkspace = useCallback(async () => {
     const workspace: WorkspaceFile = {
-      version: '1.0',
+      version: '2.0',
       projectName,
       createdAt: '',
       updatedAt: '',
-      mode: 'single',
-      singleTransform: {
-        script,
-        payload,
-        payloadMimeType,
-        nodeLabel,
-        namedInputs,
-        queryTemplate,
-        classpath,
-        timeoutMs,
-        payloadFilePath: payloadFilePath ?? undefined,
-        multipartParts,
-      },
-      context,
+      requests,
+      activeRequestId,
+      flow: flow ?? undefined,
     };
     const path = await invoke<string>('save_workspace', { workspace });
     setIsDirty(false);
     const filename = path.split(/[/\\]/).pop() || '';
     setCurrentFile(filename);
     return path;
-  }, [projectName, script, payload, payloadMimeType, nodeLabel, namedInputs, queryTemplate, classpath, timeoutMs, payloadFilePath, multipartParts, context]);
+  }, [projectName, requests, activeRequestId, flow]);
 
   const loadWorkspace = useCallback(async (filename: string) => {
     const ws = await invoke<WorkspaceFile>('load_workspace', { filename });
-    // Reset per-label scripts, then set the loaded label's script
-    scriptsByLabel.current = {
-      Transform: DEFAULT_SCRIPT,
-      'Salesforce Query': DEFAULT_SCRIPTS['Salesforce Query'],
-      'DB Query': DEFAULT_SCRIPTS['DB Query'],
-      [ws.singleTransform.nodeLabel]: ws.singleTransform.script,
-    };
-    currentLabel.current = ws.singleTransform.nodeLabel;
-    setProjectName(ws.projectName);
-    setScriptState(ws.singleTransform.script);
-    setPayload(ws.singleTransform.payload);
-    setPayloadMimeType(isValidMimeType(ws.singleTransform.payloadMimeType) ? ws.singleTransform.payloadMimeType : 'application/json');
-    setNodeLabelState(ws.singleTransform.nodeLabel);
-    setNamedInputs(ws.singleTransform.namedInputs || []);
-    setQueryTemplate(ws.singleTransform.queryTemplate || '');
-    setClasspathState(ws.singleTransform.classpath || []);
-    setTimeoutMsState(ws.singleTransform.timeoutMs ?? 30000);
-    setPayloadFilePathState(ws.singleTransform.payloadFilePath ?? null);
-    setMultipartPartsState(ws.singleTransform.multipartParts || []);
-    setContext(ws.context);
+    scriptsByLabel.current = new Map();
+    const reqs = ws.requests && ws.requests.length > 0 ? ws.requests : [blankRequest()];
+    // Seed the per-(request, label) script cache from the loaded data so
+    // role-switching remembers what was on disk.
+    for (const r of reqs) {
+      scriptsByLabel.current.set(labelKey(r.id, r.nodeLabel), r.script);
+    }
+    setProjectNameState(ws.projectName);
+    setRequests(reqs);
+    setActiveRequestId(ws.activeRequestId || reqs[0].id);
+    setFlowState(ws.flow ?? null);
     setCurrentFile(filename);
     setIsDirty(false);
   }, []);
 
   const listWorkspaces = useCallback(async () => {
     const metas = await invoke<{ filename: string; projectName: string; mode: string }[]>('list_workspaces_meta');
-    return metas.filter(m => m.mode !== 'flow').map(m => ({ filename: m.filename, projectName: m.projectName }));
+    // "flow"-only legacy files have no requests; v2 always has at least 1.
+    return metas.filter((m) => m.mode !== 'flow').map((m) => ({ filename: m.filename, projectName: m.projectName }));
   }, []);
 
   const deleteWorkspace = useCallback(async (filename: string) => {
@@ -188,66 +294,87 @@ export function useWorkspace(): UseWorkspaceReturn {
 
   const duplicateWorkspace = useCallback(() => {
     const base = projectName.replace(/\s+copy(?:\s+\d+)?$/i, '');
-    setProjectName(`${base} copy`);
+    setProjectNameState(`${base} copy`);
     setCurrentFile(null);
     setIsDirty(true);
   }, [projectName]);
 
   const newWorkspace = useCallback(() => {
-    scriptsByLabel.current = {
-      Transform: DEFAULT_SCRIPT,
-      'Salesforce Query': DEFAULT_SCRIPTS['Salesforce Query'],
-      'DB Query': DEFAULT_SCRIPTS['DB Query'],
-    };
-    currentLabel.current = 'Transform';
-    setProjectName('Untitled');
-    setScriptState(DEFAULT_SCRIPT);
-    setPayload(DEFAULT_PAYLOAD);
-    setPayloadMimeType('application/json');
-    setNodeLabelState('Transform');
-    setNamedInputs([]);
-    setQueryTemplate('');
-    setClasspathState([]);
-    setTimeoutMsState(30000);
-    setPayloadFilePathState(null);
-    setMultipartPartsState([]);
-    setContext(DEFAULT_CONTEXT);
+    scriptsByLabel.current = new Map();
+    const req = blankRequest('Request');
+    setProjectNameState('Untitled');
+    setRequests([req]);
+    setActiveRequestId(req.id);
+    setFlowState(null);
     setCurrentFile(null);
     setIsDirty(false);
   }, []);
 
+  const restoreSnapshot = useCallback((snap: { projectName: string; requests: Request[]; activeRequestId?: string; flow?: unknown }) => {
+    scriptsByLabel.current = new Map();
+    const reqs = snap.requests.length > 0 ? snap.requests : [blankRequest()];
+    for (const r of reqs) {
+      scriptsByLabel.current.set(labelKey(r.id, r.nodeLabel), r.script);
+    }
+    setProjectNameState(snap.projectName);
+    setRequests(reqs);
+    setActiveRequestId(snap.activeRequestId || reqs[0].id);
+    setFlowState(snap.flow ?? null);
+    setCurrentFile(null);
+    setIsDirty(true); // a restored draft is by definition unsaved
+  }, []);
+
   return {
+    // Workspace-level
     projectName,
-    script,
-    payload,
-    payloadMimeType,
-    payloadFilePath,
-    multipartParts,
-    nodeLabel,
-    context,
-    namedInputs,
-    queryTemplate,
-    classpath,
-    timeoutMs,
-    setProjectName: wrappedSetProjectName,
+    requests,
+    activeRequestId,
+    flow,
+    isDirty,
+    currentFile,
+    setProjectName,
+    setFlow,
+
+    // Active-request mirrors
+    request: active,
+    script: active.script,
+    payload: active.payload,
+    payloadMimeType: active.payloadMimeType,
+    payloadFilePath: active.payloadFilePath ?? null,
+    multipartParts: active.multipartParts,
+    nodeLabel: active.nodeLabel,
+    context: active.context,
+    namedInputs: active.namedInputs,
+    queryTemplate: active.queryTemplate,
+    classpath: active.classpath,
+    timeoutMs: active.timeoutMs ?? 30000,
+    tests: active.tests,
+
     setScript,
-    setPayload: wrappedSetPayload,
-    setPayloadMimeType: wrappedSetPayloadMimeType,
+    setPayload,
+    setPayloadMimeType,
     setPayloadFilePath,
     setMultipartParts,
     setNodeLabel,
-    setContext: wrappedSetContext,
-    setNamedInputs: wrappedSetNamedInputs,
-    setQueryTemplate: wrappedSetQueryTemplate,
+    setContext,
+    setNamedInputs,
+    setQueryTemplate,
     setClasspath,
     setTimeoutMs,
+    setTests,
+
+    addRequest,
+    removeRequest,
+    renameRequest,
+    selectRequest,
+    duplicateRequest,
+
     saveWorkspace,
     loadWorkspace,
     listWorkspaces,
     deleteWorkspace,
     newWorkspace,
     duplicateWorkspace,
-    isDirty,
-    currentFile,
+    restoreSnapshot,
   };
 }

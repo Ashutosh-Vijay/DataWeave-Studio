@@ -48,28 +48,57 @@ export interface NamedInput {
   filePath?: string;
 }
 
-export interface SingleTransform {
-  script: string;
+/** A single test case attached to a request (Phase 2). */
+export interface TestCase {
+  id: string;
+  name: string;
   payload: string;
   payloadMimeType: string;
-  nodeLabel: string;
-  namedInputs?: NamedInput[];
-  queryTemplate?: string;
-  classpath?: string[];
-  timeoutMs?: number;
-  payloadFilePath?: string;
-  multipartParts?: MultipartPart[];
+  /** `undefined` = not yet captured. User runs once + snapshots. */
+  expectedOutput?: string;
+  /** "exact" — byte-for-byte; "semantic-json" — parse + compare. */
+  comparator: 'exact' | 'semantic-json';
+  /** Last-known status. The runner updates this. */
+  lastStatus?: 'pass' | 'fail' | 'untested';
+  lastTimeMs?: number;
 }
 
+/**
+ * One request inside a workspace. A workspace is a *collection* of these,
+ * Postman-style — same project, multiple transforms (happy path, edge case,
+ * etc.). Each request is fully self-contained: its own script, payload,
+ * context, named inputs, and (Phase 2) tests.
+ */
+export interface Request {
+  id: string;
+  name: string;
+  script: string;
+  payload: string;
+  payloadMimeType: MimeType;
+  nodeLabel: string;
+  namedInputs: NamedInput[];
+  queryTemplate: string;
+  classpath: string[];
+  timeoutMs?: number;
+  payloadFilePath?: string;
+  multipartParts: MultipartPart[];
+  context: ContextState;
+  tests: TestCase[];
+}
+
+/**
+ * v2 workspace schema — a project name plus N requests plus an optional
+ * message flow that pipelines them. Legacy v1 files (with `singleTransform`)
+ * are auto-migrated by the Rust backend on load.
+ */
 export interface WorkspaceFile {
   version: string;
   projectName: string;
   createdAt: string;
   updatedAt: string;
-  mode: string;
-  singleTransform: SingleTransform;
-  context: ContextState;
-  flowNodes?: unknown[];
+  requests: Request[];
+  activeRequestId?: string;
+  flow?: unknown;
 }
 
 // === MIME type options ===

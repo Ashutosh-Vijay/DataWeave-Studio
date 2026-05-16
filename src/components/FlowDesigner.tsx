@@ -603,15 +603,16 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
   const doSaveFlow = useCallback(async (name: string) => {
     try {
+      // v2 schema: a flow-only workspace has 0 requests and the flow lives
+      // in the top-level `flow` field. The Rust save_workspace skips its
+      // default-request injection when flow is present.
       const workspace = {
-        version: '1.0',
+        version: '2.0',
         projectName: name,
         createdAt: '',
         updatedAt: '',
-        mode: 'flow',
-        singleTransform: { script: '', payload: '', payloadMimeType: 'application/json', nodeLabel: 'Transform' },
-        context: { method: 'GET', queryParams: [], headers: [], vars: [] },
-        flowNodes: nodes.map(n => ({ ...n, status: 'idle', output: undefined, error: undefined, executionTimeMs: undefined })),
+        requests: [],
+        flow: nodes.map(n => ({ ...n, status: 'idle', output: undefined, error: undefined, executionTimeMs: undefined })),
       };
       const path = await invoke<string>('save_workspace', { workspace });
       const filename = path.split(/[/\\]/).pop() || '';
@@ -652,9 +653,13 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
   const loadFlowFile = useCallback(async (filename: string) => {
     try {
-      const ws = await invoke<{ mode: string; flowNodes?: FlowNode[]; projectName: string }>('load_workspace', { filename });
-      if (ws.flowNodes && ws.flowNodes.length > 0) {
-        setNodes(ws.flowNodes.map(n => ({ ...n, status: 'idle' as const, output: undefined, error: undefined, executionTimeMs: undefined })));
+      // v2 schema: the flow lives in the top-level `flow` field. Legacy v1
+      // workspaces auto-migrated by the Rust backend still expose their
+      // nodes through this field (migration copies flowNodes -> flow).
+      const ws = await invoke<{ projectName: string; flow?: FlowNode[] | null }>('load_workspace', { filename });
+      const flowNodes = ws.flow;
+      if (flowNodes && Array.isArray(flowNodes) && flowNodes.length > 0) {
+        setNodes(flowNodes.map((n) => ({ ...n, status: 'idle' as const, output: undefined, error: undefined, executionTimeMs: undefined })));
         setFlowName(ws.projectName);
         setFlowCurrentFile(filename);
         setFlowDirty(false);

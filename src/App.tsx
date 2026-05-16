@@ -19,6 +19,7 @@ const FlowDesigner = lazy(() =>
   import('./components/FlowDesigner').then((m) => ({ default: m.FlowDesigner }))
 );
 import { OpenWorkspaceDialog } from './components/OpenWorkspaceDialog';
+import { RequestTabs } from './components/RequestTabs';
 import { PayloadTabs } from './components/PayloadTabs';
 import { OutputPane } from './components/OutputPane';
 import { ContextPanel } from './components/ContextPanel';
@@ -576,19 +577,13 @@ function App() {
   useEffect(() => {
     if (!hasStarted || !workspace.isDirty) return;
     const handle = setTimeout(() => {
+      // v2 draft — snapshot the entire collection (all requests + flow)
+      // so resume restores the whole shape, not just the active request.
       writeDraft({
         projectName: workspace.projectName,
-        script: workspace.script,
-        payload: workspace.payload,
-        payloadMimeType: workspace.payloadMimeType,
-        context: workspace.context,
-        namedInputs: workspace.namedInputs,
-        classpath: workspace.classpath,
-        timeoutMs: workspace.timeoutMs,
-        multipartParts: workspace.multipartParts,
-        nodeLabel: workspace.nodeLabel,
-        queryTemplate: workspace.queryTemplate,
-        payloadFilePath: workspace.payloadFilePath,
+        requests: workspace.requests,
+        activeRequestId: workspace.activeRequestId,
+        flow: workspace.flow,
         savedAt: Date.now(),
       });
       setHasDraftSession(true);
@@ -596,9 +591,7 @@ function App() {
     return () => clearTimeout(handle);
   }, [
     hasStarted, workspace.isDirty,
-    workspace.projectName, workspace.script, workspace.payload, workspace.payloadMimeType,
-    workspace.context, workspace.namedInputs, workspace.classpath, workspace.timeoutMs,
-    workspace.multipartParts, workspace.nodeLabel, workspace.queryTemplate, workspace.payloadFilePath,
+    workspace.projectName, workspace.requests, workspace.activeRequestId, workspace.flow,
   ]);
 
   // (Previously had an onCloseRequested handler to flush the draft on window
@@ -1129,6 +1122,21 @@ function App() {
         </div>
       )}
 
+      {/* Request tab strip — visible once the user has entered the workspace.
+          A workspace is a collection of requests; the tabs let users switch
+          between them, rename via double-click, right-click for more options. */}
+      {hasStarted && (
+        <RequestTabs
+          requests={workspace.requests}
+          activeId={workspace.activeRequestId}
+          onSelect={workspace.selectRequest}
+          onAdd={() => workspace.addRequest()}
+          onRename={workspace.renameRequest}
+          onDuplicate={workspace.duplicateRequest}
+          onRemove={workspace.removeRequest}
+        />
+      )}
+
       {/* Body: Sidebar + Main */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar — hidden in Focus layout / compact viewport / empty state */}
@@ -1183,18 +1191,15 @@ function App() {
               // close, regardless of when they last hit Save.
               const d = readDraft();
               if (d) {
-                workspace.setProjectName(d.projectName);
-                workspace.setScript(d.script);
-                workspace.setPayload(d.payload);
-                workspace.setPayloadMimeType(d.payloadMimeType);
-                workspace.setContext(d.context);
-                workspace.setNamedInputs(d.namedInputs);
-                workspace.setClasspath(d.classpath);
-                workspace.setTimeoutMs(d.timeoutMs);
-                workspace.setMultipartParts(d.multipartParts);
-                workspace.setNodeLabel(d.nodeLabel);
-                workspace.setQueryTemplate(d.queryTemplate);
-                workspace.setPayloadFilePath(d.payloadFilePath);
+                // v2 draft: restore the whole collection in one shot. The
+                // hook seeds per-(request, label) script cache from the
+                // restored requests so role-switching keeps working.
+                workspace.restoreSnapshot({
+                  projectName: d.projectName,
+                  requests: d.requests,
+                  activeRequestId: d.activeRequestId,
+                  flow: d.flow,
+                });
                 beginTransforming();
                 return;
               }
