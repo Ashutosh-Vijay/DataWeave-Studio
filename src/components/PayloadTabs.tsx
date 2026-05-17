@@ -10,6 +10,30 @@ import { useEditorFont } from '../hooks/useEditorFont';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
+/** Binary payload formats — these need the file picker; the editor textarea
+ *  can't render or accept their bytes. Flatfile is intentionally excluded
+ *  (it's text — COBOL copybooks and fixed-width records can be pasted). */
+const BINARY_PAYLOAD_FORMATS = new Set<string>([
+  'application/octet-stream',
+  'application/xlsx',
+  'application/avro',
+  'application/protobuf',
+]);
+
+function isBinaryPayloadFormat(mime: string): boolean {
+  return BINARY_PAYLOAD_FORMATS.has(mime);
+}
+
+function binaryFormatHint(mime: string): string {
+  switch (mime) {
+    case 'application/xlsx':     return 'Excel workbook — pick an .xlsx file. DataWeave reads it via the excel-module.';
+    case 'application/avro':     return 'Avro file — pick an .avro file. The schema is read from the file header.';
+    case 'application/protobuf': return 'Protobuf binary — pick a .proto / .pb file. You\'ll typically pair this with a vars-supplied schema.';
+    case 'application/octet-stream':
+    default:                     return 'Binary payload — select a file to pass to the script.';
+  }
+}
+
 function mimeFromExtension(filename: string): MimeType | null {
   const ext = filename.split('.').pop()?.toLowerCase() || '';
   const map: Record<string, MimeType> = {
@@ -308,8 +332,9 @@ export const PayloadTabs = memo(function PayloadTabs({
               ))}
             </select>
           )}
-          {/* Load file */}
-          {isPayloadTab && payloadMimeType !== 'application/octet-stream' && payloadMimeType !== 'multipart/form-data' && (
+          {/* Load file — only for text formats; binary formats have their
+              own full-pane picker below. */}
+          {isPayloadTab && !isBinaryPayloadFormat(payloadMimeType) && payloadMimeType !== 'multipart/form-data' && (
             <button
               onClick={() => loadPayloadFromFile(onPayloadMimeTypeChange)}
               className="h-6 inline-flex items-center text-[10.5px] text-content-faint hover:text-accent px-2 rounded-md border border-line hover:border-accent-border hover:bg-accent-dim transition-colors cursor-pointer"
@@ -318,7 +343,7 @@ export const PayloadTabs = memo(function PayloadTabs({
               Load file
             </button>
           )}
-          {!isPayloadTab && activeInput && activeInput.mimeType !== 'application/octet-stream' && (
+          {!isPayloadTab && activeInput && !isBinaryPayloadFormat(activeInput.mimeType) && (
             <button
               onClick={() => loadInputFromFile(activeInputIndex)}
               className="h-6 inline-flex items-center text-[10.5px] text-content-faint hover:text-accent px-2 rounded-md border border-line hover:border-accent-border hover:bg-accent-dim transition-colors cursor-pointer"
@@ -490,10 +515,14 @@ export const PayloadTabs = memo(function PayloadTabs({
         </div>
       )}
 
-      {/* Binary file picker for payload tab */}
-      {isPayloadTab && payloadMimeType === 'application/octet-stream' && (
+      {/* Binary file picker for payload tab
+          Formats that can't be pasted as text — xlsx/avro/protobuf are
+          binary, octet-stream is generic binary. Flatfile is text but
+          stays in the textarea (it's COBOL copybook / fixed-width which
+          is short enough to paste). */}
+      {isPayloadTab && isBinaryPayloadFormat(payloadMimeType) && (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6">
-          <div className="text-content-faint text-[12px] text-center">Binary payload — select a file to pass to the script</div>
+          <div className="text-content-faint text-[12px] text-center">{binaryFormatHint(payloadMimeType)}</div>
           {payloadFilePath ? (
             <div className="w-full max-w-[420px] space-y-2">
               <div className="bg-surface-2 border border-line rounded-md px-3 py-2 text-[12px] font-mono text-accent break-all">
@@ -517,9 +546,9 @@ export const PayloadTabs = memo(function PayloadTabs({
       )}
 
       {/* Binary file picker for named input tab */}
-      {!isPayloadTab && activeInput && activeInput.mimeType === 'application/octet-stream' && (
+      {!isPayloadTab && activeInput && isBinaryPayloadFormat(activeInput.mimeType) && (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6">
-          <div className="text-content-faint text-[12px] text-center">Binary input — select a file</div>
+          <div className="text-content-faint text-[12px] text-center">{binaryFormatHint(activeInput.mimeType)}</div>
           {activeInput.filePath ? (
             <div className="w-full max-w-[420px] space-y-2">
               <div className="bg-surface-2 border border-line rounded-md px-3 py-2 text-[12px] font-mono text-accent break-all">
@@ -543,9 +572,9 @@ export const PayloadTabs = memo(function PayloadTabs({
       )}
 
       {/* Text editor for non-binary, non-multipart tabs */}
-      {!(isPayloadTab && payloadMimeType === 'application/octet-stream') &&
+      {!(isPayloadTab && isBinaryPayloadFormat(payloadMimeType)) &&
        !(isPayloadTab && payloadMimeType === 'multipart/form-data') &&
-       !(!isPayloadTab && activeInput && activeInput.mimeType === 'application/octet-stream') && (
+       !(!isPayloadTab && activeInput && isBinaryPayloadFormat(activeInput.mimeType)) && (
         <div className="flex-1">
           <Editor
             height="100%"
