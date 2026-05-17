@@ -113,6 +113,37 @@
             <artifactId>log4j-core</artifactId>
             <version>2.23.1</version>
         </dependency>
+
+        <!-- Force commons-io 2.18.0. POI 5.4.0 needs the new
+             BoundedInputStream.builder() static added in 2.16+; Maven's
+             nearest-wins picked an older 2.15.1 transitively pulled by
+             another module, causing NoSuchMethodError when reading any
+             .xlsx. Declaring it explicitly here makes our version "nearest"
+             (depth 1) so it always wins. -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.18.0</version>
+        </dependency>
+
+        <!-- Snappy codec for Avro. Real-world .avro files coming out of
+             Kafka / Hadoop / Spark almost always use snappy compression.
+             The avro-module ships the codec lookup but not the snappy
+             implementation, so without this any snappy-compressed file
+             throws "Unrecognized codec: snappy". snappy-java bundles its
+             own native libs for Windows / macOS / Linux on x64 + arm64. -->
+        <dependency>
+            <groupId>org.xerial.snappy</groupId>
+            <artifactId>snappy-java</artifactId>
+            <version>1.1.10.7</version>
+        </dependency>
+        <!-- zstandard codec — modern alternative to snappy, gaining ground
+             in newer pipelines. Same ~1MB cost, worth having on hand. -->
+        <dependency>
+            <groupId>com.github.luben</groupId>
+            <artifactId>zstd-jni</artifactId>
+            <version>1.5.6-8</version>
+        </dependency>
     </dependencies>
 
     <build>
