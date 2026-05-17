@@ -99,6 +99,20 @@
             <artifactId>minimal-json</artifactId>
             <version>0.9.5</version>
         </dependency>
+
+        <!-- Log4j 2 provider. excel-module → Apache POI 5.x ships log4j-api
+             but expects the host app to provide log4j-core. Without it,
+             POI's first log call writes "Log4j API could not find a logging
+             provider" — and on some JVMs that line lands on STDOUT, which
+             breaks our newline-delimited JSON protocol. Bundling log4j-core
+             satisfies the API; our log4j2.xml (src/main/resources) routes
+             all output to STDERR at WARN, and Rust nulls stderr, so the
+             user never sees it. -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>2.23.1</version>
+        </dependency>
     </dependencies>
 
     <build>

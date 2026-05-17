@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Silent Log4j config for dwstudio-server.
+
+  Apache POI (via excel-module) uses Log4j 2; without a configuration it
+  prints "Log4j API could not find a logging provider" to STDOUT/STDERR
+  during initialization, which breaks our newline-delimited JSON protocol
+  between Rust and the JVM.
+
+  This config:
+    1. Routes all output to STDERR (Rust nulls stderr — silent to the user).
+    2. Sets the threshold to WARN so DEBUG/INFO spam from POI's deep
+       internals doesn't fill disk if someone redirects stderr.
+    3. Keeps Log4j's own status logger off so it doesn't print warnings
+       about missing appenders during startup.
+-->
+<Configuration status="OFF" monitorInterval="0">
+  <Appenders>
+    <Console name="StderrConsole" target="SYSTEM_ERR">
+      <PatternLayout pattern="%d{ISO8601} %-5p %c{1} - %m%n"/>
+    </Console>
+  </Appenders>
+  <Loggers>
+    <!-- POI is chatty at INFO — keep it at WARN. -->
+    <Logger name="org.apache.poi" level="WARN" additivity="false">
+      <AppenderRef ref="StderrConsole"/>
+    </Logger>
+    <Root level="WARN">
+      <AppenderRef ref="StderrConsole"/>
+    </Root>
+  </Loggers>
+</Configuration>

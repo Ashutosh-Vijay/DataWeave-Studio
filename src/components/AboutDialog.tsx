@@ -160,7 +160,7 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
             <Stat kicker="version" value={appVersion || '—'} sub="latest stable" valueAccent />
             <Stat kicker="license" value="MIT" sub="free forever" />
             <Stat kicker="dw engine" value="2.11.0" sub="BSD-3 · MuleSoft" />
-            <Stat kicker="size" value="~60 MB" sub="installer · all bundled" />
+            <Stat kicker="size" value="~77 MB" sub="installer · all bundled" />
             <Stat kicker="platforms" value="3" sub="Windows · macOS · Linux" />
             <Stat kicker="dependencies" value="0" sub="no cloud · no signup" />
           </div>
