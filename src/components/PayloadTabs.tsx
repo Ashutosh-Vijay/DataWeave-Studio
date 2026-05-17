@@ -590,9 +590,9 @@ export const PayloadTabs = memo(function PayloadTabs({
               wordWrap: 'on',
               scrollBeyondLastLine: false,
               folding: true,
-              autoClosingBrackets: 'always',
-              autoClosingQuotes: 'always',
-              autoSurround: 'brackets',
+              autoClosingBrackets: 'beforeWhitespace',
+              autoClosingQuotes: 'beforeWhitespace',
+              autoSurround: 'languageDefined',
               autoIndent: 'full',
               scrollbar: { alwaysConsumeMouseWheel: false },
             }}

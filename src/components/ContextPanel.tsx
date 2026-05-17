@@ -189,9 +189,9 @@ export const ContextPanel = memo(function ContextPanel({ context, onChange, encr
                     scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
                     overviewRulerLanes: 0,
                     placeholder: CONFIG_PLACEHOLDER,
-                    autoClosingBrackets: 'always',
-                    autoClosingQuotes: 'always',
-                    autoSurround: 'brackets',
+                    autoClosingBrackets: 'beforeWhitespace',
+                    autoClosingQuotes: 'beforeWhitespace',
+                    autoSurround: 'languageDefined',
                     autoIndent: 'full',
                   }}
                 />
@@ -230,9 +230,9 @@ export const ContextPanel = memo(function ContextPanel({ context, onChange, encr
                     scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
                     overviewRulerLanes: 0,
                     placeholder: SECURE_PLACEHOLDER,
-                    autoClosingBrackets: 'always',
-                    autoClosingQuotes: 'always',
-                    autoSurround: 'brackets',
+                    autoClosingBrackets: 'beforeWhitespace',
+                    autoClosingQuotes: 'beforeWhitespace',
+                    autoSurround: 'languageDefined',
                     autoIndent: 'full',
                   }}
                 />

@@ -1,5 +1,6 @@
 import Editor, { useMonaco, BeforeMount } from '@monaco-editor/react';
 import { useEffect, useRef, useCallback, useState, forwardRef, useImperativeHandle, memo } from 'react';
+import { configureEditor } from '../editorInit';
 import { Icons } from './Icons';
 import { dwTokensProvider } from '../dataweaveGrammar';
 import { registerDWCompletionProvider, DWCompletionContext } from '../dataweaveCompletions';
@@ -441,16 +442,8 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
     const pos = editor.getPosition();
     if (pos) onCursorChangeRef.current?.(pos.lineNumber, pos.column);
 
-    // Kill the browser's red-squiggly spell-check on Monaco's hidden
-    // <textarea>. DW keywords like `payload.message` aren't real English
-    // words, so the OS spell-checker underlines half the script.
-    const dom = editor.getDomNode?.() as HTMLElement | null;
-    const ta = dom?.querySelector?.('textarea');
-    if (ta) {
-      ta.setAttribute('spellcheck', 'false');
-      ta.setAttribute('autocorrect', 'off');
-      ta.setAttribute('autocapitalize', 'off');
-    }
+    // Shared editor init: spell-check off + re-trigger suggest on backspace.
+    configureEditor(editor);
   };
 
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
@@ -502,9 +495,14 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
             tabCompletion: 'on',
             acceptSuggestionOnEnter: 'on',
             snippetSuggestions: 'top',
-            autoClosingBrackets: 'always',
-            autoClosingQuotes: 'always',
-            autoSurround: 'brackets',
+            autoClosingBrackets: 'beforeWhitespace',
+            // beforeWhitespace: only auto-close if the next char is a space,
+            // EOL, or punctuation. Stops the "two quotes inserted next to a
+            // word" annoyance when retroactively quoting an existing identifier.
+            autoClosingQuotes: 'beforeWhitespace',
+            // languageDefined: read our `surroundingPairs` (set above) so
+            // selecting a word and pressing " wraps it instead of replacing.
+            autoSurround: 'languageDefined',
             autoIndent: 'full',
             scrollbar: { alwaysConsumeMouseWheel: false },
           }}

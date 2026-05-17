@@ -51,9 +51,9 @@ export function QueryEditor({ query, onChange, language }: QueryEditorProps) {
             wordWrap: 'on',
             scrollBeyondLastLine: false,
             folding: true,
-            autoClosingBrackets: 'always',
-            autoClosingQuotes: 'always',
-            autoSurround: 'brackets',
+            autoClosingBrackets: 'beforeWhitespace',
+            autoClosingQuotes: 'beforeWhitespace',
+            autoSurround: 'languageDefined',
             autoIndent: 'full',
           }}
         />

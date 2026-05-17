@@ -369,15 +369,18 @@ export function registerDWCompletionProvider(
 
       // --- Config property ${key} / ${secure::key} completions ---
       if (ctx) {
-        // Trigger when user types $ or ${
+        // Trigger when user types $ or ${ or ${secure::
+        // We replace the entire matched prefix so the inserted text is the
+        // full ${key} — without this, accepting after typing `$` would leave
+        // `$${key}` (the user's `$` plus the suggestion's `${...}`).
         const propMatch = textBeforeCursor.match(/\$\{?(secure::)?$/);
         if (propMatch) {
-          const isAfterBrace = textBeforeCursor.endsWith('${') || textBeforeCursor.endsWith('${secure::');
+          const matchLen = propMatch[0].length;
           const isSecure = !!propMatch[1];
           const propRange: Monaco.IRange = {
             startLineNumber: position.lineNumber,
             endLineNumber: position.lineNumber,
-            startColumn: position.column - (isAfterBrace ? 0 : 0),
+            startColumn: position.column - matchLen, // cover the typed prefix
             endColumn: position.column,
           };
 
@@ -391,7 +394,7 @@ export function registerDWCompletionProvider(
                 label: `\${${key}}`,
                 kind: monaco.languages.CompletionItemKind.Variable,
                 detail: 'Config property',
-                insertText: isAfterBrace ? `${key}}` : `\${${key}}`,
+                insertText: `\${${key}}`,
                 range: propRange,
                 sortText: `0${String(i).padStart(4, '0')}`,
               });
@@ -403,20 +406,22 @@ export function registerDWCompletionProvider(
                 label: `\${secure::${key}}`,
                 kind: monaco.languages.CompletionItemKind.Variable,
                 detail: 'Secure config property',
-                insertText: isAfterBrace ? `secure::${key}}` : `\${secure::${key}}`,
+                insertText: `\${secure::${key}}`,
                 range: propRange,
                 sortText: `1${String(i).padStart(4, '0')}`,
               });
             });
           } else {
-            // Already typed ${secure:: — only suggest secure keys
+            // Already typed ${secure:: — only suggest secure keys.
+            // The range covers the whole `${secure::` prefix so we re-emit
+            // it in insertText, keeping the result clean and atomic.
             const secureKeys = parseYamlKeys(ctx.secureConfigYaml);
             secureKeys.forEach((key, i) => {
               suggestions.push({
-                label: key,
+                label: `\${secure::${key}}`,
                 kind: monaco.languages.CompletionItemKind.Variable,
                 detail: 'Secure config property',
-                insertText: `${key}}`,
+                insertText: `\${secure::${key}}`,
                 range: propRange,
                 sortText: String(i).padStart(4, '0'),
               });
