@@ -1,10 +1,12 @@
 # DataWeave Studio
 
-Run and debug DataWeave scripts locally — no Anypoint Studio, no browser limits, no nonsense.
+A desktop IDE for DataWeave 2.0 — run, test, and debug transforms locally without Anypoint Studio.
 
-> **Anypoint Studio is 2GB. The online playground doesn't support full context. DataWeave Studio runs locally, offline, instant.**
+> **Anypoint Studio is 2 GB. The online playground can't go offline. The VS Code extension needs Java + Maven. DataWeave Studio bundles everything in one ~90 MB installer.**
 
-Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor. Embeds the DataWeave runtime directly with a bundled JRE 17 — no Java install required.
+Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor. Ships with a bundled JRE 17 and the DataWeave runtime — no Java install required.
+
+**[Download](https://ashutosh-vijay.dev/dataweave/)** | **[Landing Page](https://ashutosh-vijay.dev/dataweave/)** | **[Releases](https://github.com/Ashutosh-Vijay/DataWeave-Studio/releases)**
 
 ---
 
@@ -42,128 +44,241 @@ Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor. Embeds the Data
 
 ---
 
-## Why?
+## Why This Exists
 
 DataWeave testing today is painful:
 
-- **Anypoint Studio** is 2GB, Eclipse-based, and takes minutes to start. Testing a single DataWeave script requires deploying an entire Mule app locally.
-- **The online playground** lacks full execution context — no `vars`, no config properties, no real headers — and hangs or crashes on large payloads.
-- **The VSCode DataWeave extension** requires a specific folder structure (`src/main/dw/inputs/`), a separate file for every input — payload, attributes, vars, each written by hand — and switches between panes just to see output. High friction for something you do dozens of times a day.
+- **Anypoint Studio** is 2 GB, Eclipse-based, and takes minutes to start. Testing a single DataWeave script requires deploying an entire Mule app locally.
+- **The online Playground** runs in the browser (WASM) — no offline mode, no binary format support (Excel, Avro, Protobuf), payload size limited by browser memory, no version switching, no dark/light theme toggle, and no direct URL sharing of scripts.
+- **The VS Code Extension** requires Java 8+ and Maven 3.6+ installed, a full Maven project structure (`pom.xml`, `src/main/dw/`, `src/test/dw/`), and manual scenario resource files for every input. Still in BETA after years.
 
-DataWeave Studio fixes all of it — one window, everything from a UI, no file management.
+DataWeave Studio fixes all of it — one window, everything from a UI, no file management, no setup beyond running the installer.
 
 ---
 
-## 3 Things No Other Tool Does
+## What Sets It Apart
+
+### Things no other DataWeave tool does:
 
 **1. Visual Message Flow Designer**
-Drag-and-drop flow canvas inspired by Anypoint Studio. Chain Set Payload, Transform, Set Variable, HTTP Request, Salesforce, Database, and Logger connectors into a pipeline. Run all at once or step through one node at a time with interactive debugging — inspect payload, variables, and attributes at each stage.
+Drag-and-drop flow canvas inspired by Anypoint Studio. Chain Set Payload, Transform, Set Variable, HTTP Request, Salesforce, Database, and Logger connectors into a pipeline. Run all at once or step through one node at a time — inspect payload, variables, and attributes at each stage.
 
-**2. Test with your real secure config — offline, nothing sent anywhere**
-Paste your actual `secure-config.yaml` (with `![Base64Encrypted...]` values), provide your encryption key at runtime. Your script runs with real decrypted values. The key is never saved to disk. No other DataWeave tool supports this.
+**2. cURL Importer**
+Paste any `curl` command from Postman, browser devtools, or manual copy. Method, headers, query params, and body auto-fill. Generates a matching DataWeave 2.0 script scaffold — JSON, XML, CSV, form-urlencoded, and multipart all handled. Live preview before import.
 
-**3. 309-Function Autocomplete + Built-In Reference**
-Every DataWeave function with signature hints, snippet insertion, and module grouping. Plus a searchable function reference browser — no tab-switching to MuleSoft docs. Context-aware suggestions from your payload, vars, attributes, and config properties.
+**3. Secure Properties — Fully Offline**
+Paste your actual `secure-config.yaml` (with `![Base64Encrypted...]` values), provide your encryption key at runtime. Scripts run with real decrypted values. Key is never saved to disk. Also includes a standalone encrypt/decrypt tool (AES, Blowfish, DES, DESede, RC2) compatible with MuleSoft's `secure-properties-tool.jar`.
 
----
+**4. SOQL & SQL Query Modes**
+Write a SOQL or SQL template with `:paramName` placeholders, run a DW script to produce a params object, see the final substituted query. JDBC-style auto-quoting for SQL. No other DataWeave tool has this.
 
-## Who is this for?
+**5. Multi-Request Workspaces**
+Postman-style collections — group multiple transforms inside a single `.dwstudio` workspace. Each request has its own script, payload, context, named inputs, tests, and query template. Switch between them instantly.
 
-- MuleSoft developers tired of opening Anypoint Studio just to test a script
-- Engineers using the VSCode extension but fed up with maintaining input folders and hand-written JSON files just to set `vars` or `attributes`
-- Anyone who needs to test scripts that reference `${secure::key}` values without running the full stack
-- Anyone building or debugging DataWeave with real production payloads, headers, and config
+**6. DW 1.0 to 2.0 Migration**
+Rewrites legacy scripts in-place. Converts directives, `flowVars`, `inboundProperties`, and type syntax automatically. Diff overlay shows old vs. new with one-click replacement.
+
+**7. Bundled Runtime — Zero Config**
+Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA_HOME`, no Maven, no `PATH` changes. Download, install, run.
 
 ---
 
 ## vs. The Alternatives
 
-| Feature | Anypoint Studio | Online Playground | VSCode Extension | DataWeave Studio |
+| Feature | DataWeave Studio | VS Code Extension | Online Playground | Anypoint Studio |
 |---|---|---|---|---|
-| Startup | Minutes | Instant | Instant | Instant |
-| Offline | Yes | No | Yes | Yes |
-| Large payload support | Yes | Hangs/crashes | Yes | Yes |
-| Visual flow designer | Yes | No | No | Yes |
-| Context (vars, attrs, headers) | Yes | Limited | Manual JSON files | UI — no files |
-| Config YAML (`${key}`) | Yes | No | No | Yes |
-| Secure config (`![encrypted]`) | Yes (full runtime) | No | No | Yes — offline |
-| SOQL/SQL query rendering | Yes (full runtime) | No | No | Yes — instant |
-| cURL import | No | No | No | Yes |
-| DW function autocomplete | Basic | Basic | Basic | 309 functions + signatures |
-| Function reference browser | No | No | No | Yes — built-in |
-| Multipart/form-data testing | Yes (full runtime) | No | No | Yes — visual builder |
-| DW 1.0 → 2.0 migration | Yes | No | No | Yes |
-| Themes | Dark only | Light only | VSCode themes | Dusk + Paper + 5 accents |
-| Footprint | 2GB+ | N/A | Needs VSCode | ~150MB standalone |
+| **Setup** | Download + run | Java + Maven + project scaffold | Open browser | 2 GB download |
+| **Startup time** | ~1-2s (first), instant after | Depends on project indexing | Instant | Minutes |
+| **Offline** | Yes | Yes | No | Yes |
+| **Java required** | No (bundled JRE 17) | Yes (Java 8+ & Maven 3.6+) | No | Yes (bundled) |
+| **Visual flow designer** | Yes — drag-and-drop | No | No | Yes |
+| **cURL import** | Yes | No | No | No |
+| **Breakpoint debugging** | Flow-level step-through | Yes (full VS Code debugger) | No | Yes |
+| **Go to Definition / Rename** | No | Yes (LSP) | No | Yes |
+| **Type inference** | No | Yes (LSP) | No | Yes |
+| **Autocomplete** | 309 functions + signatures | LSP, type-aware | Basic suggestions | Full LSP |
+| **Context (vars, attrs, headers)** | UI — no files | Manual JSON scenario files | Partial | Full runtime |
+| **Config YAML (`${key}`)** | Yes | No | No | Yes (full runtime) |
+| **Secure config (`![encrypted]`)** | Yes — offline | No | No | Yes (full runtime) |
+| **SOQL/SQL query rendering** | Yes | No | No | Yes (full runtime) |
+| **Testing** | Snapshot tests + visual diff | Unit tests (`dw::test`) | No | MUnit |
+| **Multi-request workspaces** | Yes (Postman-style) | One mapping per file | No | Per-flow |
+| **Multipart form-data** | Visual builder | No | No | Yes (full runtime) |
+| **DW 1.0 → 2.0 migration** | Yes | No | No | Yes |
+| **Binary formats (xlsx, avro)** | Yes (file picker) | Yes (via Maven deps) | No | Yes |
+| **Publish to Exchange** | No | Yes | No | Yes |
+| **Dependency management** | Custom classpath | Maven (pom.xml) | No | Maven |
+| **Interactive tutorials** | Guided tour | No | Yes (step-by-step) | No |
+| **Themes** | Dusk + Paper + 5 accents | VS Code themes | Fixed dark | Dark only |
+| **Footprint** | ~90 MB | VS Code + Java + Maven | N/A (browser) | 2 GB+ |
+| **Live preview** | Auto-run (toggle) | AutoPreview (opt-in) | Always on | No |
+| **Execution time display** | Yes (ms) | No | No | No |
+| **Cancel running script** | Yes | No | No | No |
+| **Configurable timeout** | Yes | No | No | No |
+
+**In short:** Studio sits between the Playground and the VS Code extension. More powerful than the Playground (offline, testing, binary formats, real config). More convenient than the VS Code extension (no Java/Maven, no project scaffolding, everything in one window). Unique features like cURL import, Flow Designer, query modes, and secure properties that neither has.
+
+---
+
+## Features
+
+### Script Editor (Monaco)
+- DataWeave 2.0 syntax highlighting with custom Monarch tokenizer
+- **309-function autocomplete** with signature hints and module grouping
+- Context-aware suggestions from payload fields, variables, attributes, and config properties
+- Error highlighting with line markers and gutter glyphs — auto-scrolls to the failing line
+- Code formatting (Alt+Shift+F)
+- Bracket pair colorization
+- Auto-closing brackets/quotes, smart indentation
+- Configurable font family, font size, line height, tab size, word wrap
+- Minimap toggle
+
+### Payload & Input Management
+- **14+ MIME types** — JSON, XML, CSV, YAML, NDJSON, plain text, form-urlencoded, DataWeave, Java properties, Excel, Avro, Protocol Buffers, Flat File (COBOL copybooks), binary
+- Load file into payload via native file picker
+- **Named inputs** — add extra input streams as tabs (e.g., `lookup`, `config`, `schema`), each with its own editor and MIME type
+- **Multipart form-data builder** — add/remove parts visually with name, content-type, and text or file value; real MIME boundaries constructed in Rust
+- Binary payload support (`application/octet-stream`) with no size limit
+
+### HTTP Context Panel
+- HTTP method selector (GET, POST, PUT, DELETE, PATCH) — exposed as `attributes.method`
+- Query parameters editor with key/value pairs and enable/disable toggles
+- Headers editor with key/value pairs and enable/disable toggles
+- Variables panel with type picker (string or JSON) and per-row enable/disable
+
+### Configuration
+- **Config YAML** — paste `application.yaml` style config, resolve `${key}` placeholders in script and payload
+- **Secure Config YAML** — supports `![Base64Value]` encrypted notation, resolve `${secure::key}` placeholders
+- Nested dot-notation keys (e.g., `${salesforce.username}`)
+- Encryption settings per workspace: algorithm, mode, random IV toggle
+
+### Secure Properties Tool
+- Standalone encrypt/decrypt dialog (Cmd/Ctrl+Shift+E)
+- **5 algorithms**: AES, Blowfish, DES, DESede, RC2
+- **4 modes**: CBC, CFB, ECB, OFB
+- Random IV toggle for AES
+- One-click copy of result
+- Fully offline — compatible with MuleSoft's `secure-properties-tool.jar`
+
+### Message Flow Designer
+- Visual drag-and-drop canvas for pipelining connectors
+- **7 node types**: Set Payload, Transform, Set Variable, HTTP Request, Salesforce, Database, Logger
+- Run all nodes at once or **step through individually** — inspect payload, variables, and attributes at each stage
+- Variables carry through the pipeline (Set Variable stores into `vars`)
+- Per-node Monaco editors with syntax highlighting and autocomplete
+- Disable/enable nodes without deleting
+- Canvas zoom (Ctrl+scroll or +/- buttons)
+- Saved with workspace
+
+### Query Modes
+- **Salesforce Query (SOQL)** — write SOQL with `:paramName` template syntax, bind parameters from DW script output, see the final rendered query
+- **DB Query (SQL)** — SQL with `:paramName` parameters and JDBC-style auto-quoting (strings quoted, numbers bare, `null` → `NULL`)
+- Per-label script caching — switching between Transform / SOQL / SQL restores the previous script for that mode
+
+### Testing
+- **Per-request test collections** with status badges (pass / fail / untested)
+- Add tests with independent payloads per test
+- **Expected output capture** — run once, snapshot the output
+- **Two comparators**: exact (byte-for-byte) or semantic JSON (parse + deep compare)
+- **Visual diff on failure** — see exactly what changed
+- Execution time tracking per test
+- Filter by: all / failing / untested
+
+### cURL Importer
+- Paste any `curl` command (from Postman, browser devtools, or manual)
+- Auto-extracts method, headers, query params, body
+- Format detection: JSON, XML, CSV, form-urlencoded, multipart
+- Generates matching DataWeave 2.0 script scaffold
+- Multipart `-F` flag handling — parses part names, types, file paths
+- Live preview before import
+
+### Workspace Management
+- **`.dwstudio` format** (v2) — JSON files with full project state
+- **Multi-request collections** — multiple transforms per workspace (Postman-style)
+- Per-request state: script, payload, context, named inputs, query template, classpath, timeout, tests
+- Save / load / duplicate / delete workspaces
+- Pin frequently used workspaces in the sidebar
+- Resume last workspace on launch
+- **Draft auto-save** to localStorage on every keystroke (debounced 500ms)
+
+### Snippets Library
+12 built-in templates: hello world, map array, filter array, sort, group by, reduce/sum, pluck (object → entries), conditional output, read named input, format date, JSON → XML, variable + function. Click to insert at cursor.
+
+### Function Reference Browser
+Searchable catalog of all 309 DataWeave functions with signatures, descriptions, and module grouping. Click to insert function name at cursor. Lazy-loaded for performance.
+
+### DW 1.0 → 2.0 Migration
+Rewrites legacy scripts in-place. Converts `%dw 1.0` directives, `flowVars`, `inboundProperties`, and type syntax. Diff overlay shows changes side-by-side with one-click replacement.
+
+### Execution Engine
+- **Long-lived Java server** — not CLI subprocess per run. ~10-50ms per execution after warm-up.
+- 64-entry LRU compile cache — repeated scripts skip recompilation
+- Background JVM warm-up on startup (hidden behind splash screen)
+- Configurable per-run timeout (default 30s, 0 = unlimited)
+- Cancel running scripts (kill by PID)
+- Execution time display in milliseconds
+- Custom classpath — add JARs and directories for `import java!` resolution
+
+### Output
+- Monaco editor with syntax highlighting
+- Format toggle: JSON (pretty-printed) / XML / Raw text
+- Error display with DW error codes, headline, details, and collapsible stack trace
+- Mapped error line numbers (de-offset from auto-generated header lines)
+- Copy to clipboard
+- Export to file (native save dialog)
+
+### Appearance & Layout
+- **Dusk** (dark) and **Paper** (light) themes with custom DataWeave syntax highlighting
+- **5 accent colors**: Emerald, Sky, Violet, Amber, Rose
+- **Workbench layout** — 3-column: icon rail + sidebar + main editor area with resizable panes
+- **Focus layout** — editor-first with toggleable right drawer for context
+- Responsive compact mode at ≤720px viewport width
+- Custom title bar with window controls
+- Configurable editor font, size, line height, tab size, word wrap, bracket guides
+
+### Command Palette & Shortcuts
+Quick access to all actions via **Cmd/Ctrl+K**. Grouped commands: Run, Workspace, Editor, View, Output, Node Label, Tools.
+
+---
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+Enter` / `Cmd+Enter` | Run script |
+| `Ctrl+S` / `Cmd+S` | Save workspace |
+| `Ctrl+K` / `Cmd+K` | Command palette |
+| `Ctrl+N` / `Cmd+N` | New workspace |
+| `Ctrl+O` / `Cmd+O` | Open workspace |
+| `Ctrl+D` / `Cmd+D` | Duplicate workspace |
+| `Ctrl+B` / `Cmd+B` | Toggle sidebar |
+| `Ctrl+L` / `Cmd+L` | Snippets |
+| `Ctrl+Shift+I` / `Cmd+Shift+I` | Import cURL |
+| `Ctrl+Shift+E` / `Cmd+Shift+E` | Secure Properties Tool |
+| `Ctrl+Shift+R` / `Cmd+Shift+R` | Toggle auto-run |
+| `Ctrl+Shift+T` / `Cmd+Shift+T` | Toggle theme |
+| `Ctrl+Shift+1` / `Cmd+Shift+1` | Workbench layout |
+| `Ctrl+Shift+2` / `Cmd+Shift+2` | Focus layout |
+| `Alt+Shift+F` | Format script |
+| `Ctrl+.` / `Cmd+.` | Toggle context drawer (Focus) |
+| `Ctrl+/` / `Cmd+/` | Show shortcuts |
+| `Escape` | Close dialogs |
 
 ---
 
 ## Installation
 
-Download the latest installer for your platform from the [Releases page](https://github.com/Ashutosh-Vijay/DataWeave-Studio/releases) or from the [download site](https://ashutosh-vijay.dev/dataweave/):
+Download the latest installer from the **[landing page](https://ashutosh-vijay.dev/dataweave/)** or the [Releases page](https://github.com/Ashutosh-Vijay/DataWeave-Studio/releases):
 
-- **Windows** — `.exe` (NSIS installer), `.msi`, or `.zip`
-- **macOS** — `.dmg` (Intel + Apple Silicon)
+- **Windows** — `.exe` (NSIS installer, 88 MB), `.msi` (93 MB), or `.zip` (88 MB)
+- **macOS** — `.dmg` for Apple Silicon (93 MB) and Intel (94 MB)
 - **Linux** — `.AppImage`, `.deb`, or `.rpm`
 
 > **Note:** The app is not code-signed. On Windows, click "More info → Run anyway". On macOS, right-click → Open.
 
 JRE 17 and the DataWeave runtime are bundled — no separate Java installation needed.
 
----
-
-## Features
-
-### Message Flow Designer
-- **Visual flow canvas** — drag connectors (Set Payload, Transform, Set Variable, HTTP Request, Salesforce, Database, Logger) onto a canvas and chain them into a pipeline
-- **Step-through debugging** — run all nodes at once or step through one at a time, inspecting payload, variables, and attributes at each stage
-- **Connector config panels** — configure each node with Monaco editors (syntax highlighting, autocomplete in flow config too)
-- **Set Variable** — store transform output into `vars` instead of replacing payload, just like Anypoint's Transform Message
-- **Disable/enable nodes** — right-click to disable a node without deleting it (skipped during execution)
-- **Canvas zoom** — Ctrl+scroll or +/- buttons
-
-### Context & Config
-- **Full context panel** — set `attributes.method`, `headers`, `queryParams`, and `vars` from the UI
-- **Config properties (YAML)** — define `${key}` and `${secure::key}` properties just like MuleSoft's `config.yaml` / `secure-config.yaml`
-- **Secure property decryption** — paste your production `secure-config.yaml`, provide the key, and your script runs with real decrypted values. Key is never saved to disk.
-- **Offline Secure Properties Tool** — encrypt/decrypt values locally, without sending secrets to any server
-
-### Payload
-- **Inline MIME type selector** — switch payload type (JSON, XML, CSV, multipart, binary…) directly from the tab bar
-- **Load file into payload** — pick any CSV, JSON, XML, or text file from disk and load it straight into the payload editor
-- **Multipart/form-data builder** — add parts visually (name, content-type, text value or file path); real MIME boundaries constructed in Rust
-- **Binary payload support** — pick any binary file (`application/octet-stream`) as payload or as a named input part
-- **Named inputs** — add extra input streams as tabs alongside payload, accessible by name in DW scripts
-
-### Workflow
-- **cURL importer** — paste a request from Postman or browser devtools, get a DataWeave transform template instantly
-- **Snippets** — reusable templates for common patterns (map, filter, group-by, reduce, sort, conditional output, etc.)
-- **DW 1.0 → 2.0 migration** — paste a DataWeave 1.0 script, click Migrate, review a diff overlay, and replace with one click
-- **Workspace management** — save/load `.dwstudio` files with full editor state (scripts, flows, payloads, config)
-- **Command palette** — quick access to all actions via Cmd/Ctrl+K
-- **Export output** — save script output to any file via a native save dialog
-- **Auto-run** — toggle live preview with debounce
-
-### Editor
-- **309-function autocomplete** — every DataWeave function with signature hints and snippet insertion
-- **Function reference browser** — searchable catalog of all DW functions grouped by module, with descriptions
-- **Context-aware suggestions** — suggests actual field names from your payload, vars, attributes, and config properties
-- **Bracket pair colorization** — matching brackets colored for readability
-- **Resizable panels** — drag to resize script editor, payload area, context panel, and output pane
-- **No payload size limit** — handles large Base64, nested JSON, XML, CSV locally
-
-### Appearance
-- **Dusk & Paper themes** — full dark and light mode with custom DataWeave syntax themes
-- **5 accent colors** — Emerald, Sky, Violet, Amber, Rose
-- **2 layouts** — Workbench (icon rail + tabbed context) and Focus (editor-first with right drawer)
-
-### Advanced
-- **Custom classpath** — add directories or JARs so the runtime can resolve custom DW modules and libraries
-- **Execution timeout** — set a per-run timeout (in ms) to kill runaway scripts automatically
-
-### Query Modes
-- **Salesforce Query mode** — SOQL editor with `:paramName` binding, see the exact final query rendered before it hits Salesforce
-- **DB Query mode** — SQL editor with `:paramName` parameters (auto-quoting, simulated JDBC)
+**Auto-update:** The app checks for updates on startup and shows a toast notification when a new version is available.
 
 ---
 
@@ -171,21 +286,8 @@ JRE 17 and the DataWeave runtime are bundled — no separate Java installation n
 
 - **Local execution** — no code or data ever leaves your machine
 - **Zero telemetry** — no tracking, no analytics, no phone-home
-- **Memory-only keys** — secure encryption keys are held in memory only and never written to disk
-
----
-
-## Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+Enter` / `Cmd+Enter` | Run the current script |
-| `Ctrl+S` / `Cmd+S` | Save the current workspace |
-| `Ctrl+K` / `Cmd+K` | Open command palette |
-| `Ctrl+N` / `Cmd+N` | New blank transform |
-| `Ctrl+I` / `Cmd+I` | Import cURL |
-| `Ctrl+L` / `Cmd+L` | Open from snippets |
-| `Escape` | Close dialogs |
+- **Memory-only keys** — encryption keys held in memory only, never written to disk
+- **Offline-capable** — everything works without internet (except update checks)
 
 ---
 
@@ -208,6 +310,18 @@ npx tauri dev
 # 5. Build for production
 npx tauri build
 ```
+
+---
+
+## Architecture
+
+DataWeave Studio does **not** shell out to the MuleSoft CLI for each run. Instead:
+
+1. On first launch, the Rust backend spawns a **long-lived Java server** (`dwstudio-server.jar`) using the bundled JRE 17
+2. The server loads the DataWeave 2.x runtime libraries (runtime, core-modules, java-module, yaml-module, etc.) once
+3. Each script execution is a **JSON request/response over stdin/stdout** — no subprocess spawning per run
+4. A 64-entry LRU compile cache skips recompilation for repeated scripts
+5. Result: ~10-50ms per run after warm-up (vs ~700ms with the native CLI)
 
 ---
 
@@ -239,24 +353,15 @@ licenses/                   # Third-party licenses
 
 ---
 
-## Architecture
-
-DataWeave Studio does **not** shell out to the MuleSoft CLI for each run. Instead:
-
-1. On first launch, the Rust backend spawns a **long-lived Java server** (`dwstudio-server.jar`) using the bundled JRE 17
-2. The server loads the DataWeave 2.x runtime libraries (runtime, core-modules, java-module, yaml-module, etc.) once
-3. Each script execution is a **JSON request/response over stdin/stdout** — no subprocess spawning per run
-4. A 64-entry LRU compile cache skips recompilation for repeated scripts
-5. Result: ~10-50ms per run after warm-up (vs ~700ms with the native CLI)
-
----
-
 ## Known Limitations
 
 - First launch boots the DataWeave runtime — about 1-2 seconds, hidden behind the splash. Subsequent runs are ~10-50ms.
 - Undo/redo is per-session and does not persist across workspace reloads.
 - Config property autocomplete triggers on `$` — type `${` to see suggestions.
 - Trackpad pinch-to-zoom in the flow designer is limited by WebView2 — use Ctrl+scroll or the +/- buttons instead.
+- No Language Server Protocol (LSP) — no Go to Definition, Find References, Rename Symbol, or type inference. The VS Code extension has these via MuleSoft's LSP.
+- No breakpoint-level debugging of DataWeave expressions (the Flow Designer offers node-level step-through instead).
+- No Anypoint Exchange publishing or Maven dependency management.
 
 **What actually works that you might expect not to:**
 
@@ -264,7 +369,7 @@ DataWeave Studio does **not** shell out to the MuleSoft CLI for each run. Instea
 - Secure config (`![encrypted]`) — implemented in-app, works fully offline without the Mule runtime.
 - Hot-add classpath — drop JARs into the classpath panel and `import java!` resolves them immediately without restart.
 
-**Genuinely Mule runtime-only features (still not available)** — these need a deployed Mule application's message context, not just a JVM:
+**Genuinely Mule runtime-only features (not available)** — these need a deployed Mule application's message context, not just a JVM:
 
 | Feature | Workaround in DataWeave Studio |
 |---|---|
