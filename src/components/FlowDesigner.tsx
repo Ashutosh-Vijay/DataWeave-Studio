@@ -37,28 +37,32 @@ function mimeToEditorLang(mime: string): 'json' | 'sql' | 'plaintext' | 'datawea
 // ── Types ──────────────────────────────────────────────────────────
 
 type LeafNodeType = 'set-payload' | 'transform' | 'set-variable' | 'salesforce' | 'database' | 'http-request' | 'logger';
-type ScopeNodeType = 'choice';
+type ScopeNodeType = 'choice' | 'for-each' | 'parallel-for-each' | 'scatter-gather';
 type NodeType = LeafNodeType | ScopeNodeType;
 type ConnectorOp = 'query' | 'insert' | 'update' | 'upsert' | 'delete' | 'select';
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type NodeStatus = 'idle' | 'running' | 'success' | 'error' | 'skipped';
 
-const SCOPE_TYPES: ReadonlySet<NodeType> = new Set<NodeType>(['choice']);
+const SCOPE_TYPES: ReadonlySet<NodeType> = new Set<NodeType>(['choice', 'for-each', 'parallel-for-each', 'scatter-gather']);
 function isScopeType(t: NodeType): t is ScopeNodeType { return SCOPE_TYPES.has(t); }
 
 /** A Branch is a labeled sub-flow inside a scope node.
  *
- *  For Choice scopes:
- *    - `when` branches have a `predicate` (DW boolean expression).
- *    - exactly one branch has `isOtherwise: true` and runs when no `when`
- *      predicate evaluates truthy. Its `predicate` is ignored. */
+ *  Scope-specific semantics of the optional fields:
+ *    - Choice: `when` branches have `predicate` (DW boolean expr); exactly
+ *      one branch has `isOtherwise: true` (the fallback, predicate ignored).
+ *    - For Each / Parallel For Each: exactly one branch (the body). Optional
+ *      `label` defaults to "body".
+ *    - Scatter-Gather: branches have editable `label` ("route1", "route2", …)
+ *      and are run concurrently. */
 interface Branch {
   id: string;
   /** Internal nodes — can themselves contain scope nodes (recursion allowed). */
   nodes: FlowNode[];
   /** Scope-specific branch metadata. */
-  predicate?: string;     // for Choice `when` branches
-  isOtherwise?: boolean;  // for Choice — true on exactly one branch
+  label?: string;         // Scatter-Gather route name; defaults from index
+  predicate?: string;     // Choice `when` branches
+  isOtherwise?: boolean;  // Choice — true on exactly one branch
 }
 
 interface FlowNode {
@@ -98,6 +102,12 @@ interface FlowNode {
     httpHeaders?: string;   // JSON object string
     httpQueryParams?: string; // JSON object string
     httpBody?: string;
+    // For Each / Parallel For Each
+    forEachCollection?: string;  // DW expression returning an Array
+    forEachCounter?: string;     // var name for the iteration index (default: 'counter')
+    maxConcurrency?: number;     // informational only — Studio always Promise.all-s
+    // Scatter-Gather
+    aggregatorStrategy?: 'object' | 'array'; // how to merge branch outputs
   };
   /** Only present on scope nodes (kind === 'scope'). */
   branches?: Branch[];
@@ -181,7 +191,10 @@ const NODE_META: Record<NodeType, { label: string; color: string; desc: string; 
   'database':     { label: 'Database',       color: '#a855f7',       desc: 'DB query / operation',           badge: 'SQL'  },
   'http-request': { label: 'HTTP Request',   color: '#f97316',       desc: 'HTTP endpoint mock',             badge: 'HTTP' },
   'logger':       { label: 'Logger',         color: '#6b7280',       desc: 'Inspect payload (pass-through)', badge: 'LOG'  },
-  'choice':       { label: 'Choice',         color: '#06b6d4',       desc: 'When/otherwise router',          badge: 'CHOICE' },
+  'choice':              { label: 'Choice',             color: '#06b6d4', desc: 'When/otherwise router',           badge: 'CHOICE' },
+  'for-each':            { label: 'For Each',           color: '#eab308', desc: 'Iterate over a collection',       badge: 'EACH'   },
+  'parallel-for-each':   { label: 'Parallel For Each',  color: '#ca8a04', desc: 'Iterate concurrently',            badge: 'PARFE'  },
+  'scatter-gather':      { label: 'Scatter-Gather',     color: '#8b5cf6', desc: 'Run routes in parallel, aggregate', badge: 'SCATGA' },
 };
 
 /** Wider footprint for scope nodes — they stack branches vertically. */
@@ -241,6 +254,15 @@ function NodeIcon({ type, size = 14 }: { type: NodeType; size?: number }) {
     case 'choice':
       // Branching arrow: one input that splits into two output paths.
       return <svg {...s} viewBox="0 0 16 16"><path d="M8 1.5a.5.5 0 01.5.5v3.5h3a2 2 0 012 2v2h1.793l-2.146-2.146a.5.5 0 11.707-.707l3 3a.5.5 0 010 .707l-3 3a.5.5 0 11-.707-.707L13.293 10.5H11.5v-3a1 1 0 00-1-1H8.5V11l-.5 1-.5-1V6.5H5.5a1 1 0 00-1 1v3H2.707l2.147 2.146a.5.5 0 01-.708.708l-3-3a.5.5 0 010-.708l3-3a.5.5 0 01.708.707L2.707 9.5H3.5v-2a2 2 0 012-2h2V2a.5.5 0 01.5-.5z"/></svg>;
+    case 'for-each':
+      // Circular arrow (loop).
+      return <svg {...s} viewBox="0 0 16 16"><path d="M8 3a5 5 0 014.546 2.914.5.5 0 11-.908.418A4 4 0 1012 8a.5.5 0 011 0 5 5 0 11-5-5zm4.5-.5a.5.5 0 01.5.5v2.5a.5.5 0 01-.5.5H10a.5.5 0 010-1h1.793l-1.147-1.146a.5.5 0 01.708-.708L12.5 4.793V3a.5.5 0 01.5-.5z"/></svg>;
+    case 'parallel-for-each':
+      // Doubled loop — two stacked arcs to suggest concurrency.
+      return <svg {...s} viewBox="0 0 16 16"><path d="M3 5a4 4 0 117.446 2.034.5.5 0 11-.892-.452A3 3 0 104 5a.5.5 0 01-1 0zm0 4a4 4 0 117.446 2.034.5.5 0 11-.892-.452A3 3 0 104 9a.5.5 0 01-1 0zm9-6.5a.5.5 0 01.5.5v2.5a.5.5 0 01-.5.5H9.5a.5.5 0 010-1h1.793L10.146 3.854a.5.5 0 11.708-.708L12 4.293V2.5a.5.5 0 01.5-.5z"/></svg>;
+    case 'scatter-gather':
+      // Outward arrows fanning from center — scatter & gather visual.
+      return <svg {...s} viewBox="0 0 16 16"><path d="M8 7a1 1 0 100 2 1 1 0 000-2zM5.146 3.146a.5.5 0 11.708.708L4.207 5.5H5.5a.5.5 0 010 1H3a.5.5 0 01-.5-.5V3.5a.5.5 0 011 0v1.293l1.646-1.647zm5.708 0a.5.5 0 00-.708.708L11.793 5.5H10.5a.5.5 0 000 1H13a.5.5 0 00.5-.5V3.5a.5.5 0 00-1 0v1.293l-1.646-1.647zm-5.708 9.708a.5.5 0 11-.708-.708L6.293 10.5H5a.5.5 0 010-1h2.5a.5.5 0 01.5.5v3a.5.5 0 01-1 0v-1.793l-1.354 1.354zm5.708 0a.5.5 0 00.708-.708L9.207 10.5H10.5a.5.5 0 000-1H8a.5.5 0 00-.5.5v3a.5.5 0 001 0v-1.793l1.354 1.354z"/></svg>;
   }
 }
 
@@ -468,16 +490,33 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         // No nodes inside either branch yet — user drops them via the
         // branch-level Add buttons in the node body.
         break;
+      case 'for-each':
+      case 'parallel-for-each':
+        config.forEachCollection = 'payload';
+        config.forEachCounter = 'counter';
+        if (type === 'parallel-for-each') config.maxConcurrency = 4;
+        break;
+      case 'scatter-gather':
+        config.aggregatorStrategy = 'object';
+        break;
       default: // logger
         break;
     }
     const isScope = isScopeType(type);
-    const branches: Branch[] | undefined = type === 'choice'
-      ? [
-          { id: newId(), nodes: [], predicate: 'payload.value > 0' },
-          { id: newId(), nodes: [], isOtherwise: true },
-        ]
-      : undefined;
+    let branches: Branch[] | undefined;
+    if (type === 'choice') {
+      branches = [
+        { id: newId(), nodes: [], predicate: 'payload.value > 0' },
+        { id: newId(), nodes: [], isOtherwise: true },
+      ];
+    } else if (type === 'for-each' || type === 'parallel-for-each') {
+      branches = [{ id: newId(), nodes: [], label: 'body' }];
+    } else if (type === 'scatter-gather') {
+      branches = [
+        { id: newId(), nodes: [], label: 'route1' },
+        { id: newId(), nodes: [], label: 'route2' },
+      ];
+    }
     const node: FlowNode = {
       id: newId(),
       type,
@@ -755,47 +794,85 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       }
     };
 
-    /** Execute a Choice scope: eval each `when` predicate via run_dataweave,
-     *  run the first matched branch (or `otherwise`), mark the rest skipped.
-     *  Honors Step Over: if skipUntilNodeRef points to this scope when we exit,
-     *  clear it so subsequent siblings pause normally again. */
-    const runChoice = async (node: FlowNode): Promise<boolean> => {
-      if (!node.branches || node.branches.length === 0) {
-        markNode(node.id, { status: 'success', output: '(empty choice — nothing to run)' });
-        return true;
+    /** Evaluate a DataWeave expression against the current context.
+     *  Returns the parsed JSON value on success, or null on error
+     *  (and marks the parent node as error). Used by Choice predicates
+     *  and For Each collection expressions. */
+    const evalExpression = async (expr: string): Promise<{ ok: true; value: unknown; raw: string } | { ok: false; error: string }> => {
+      const script = `%dw 2.0\noutput application/json\n---\n${expr}`;
+      try {
+        const result = await invoke<RunResult>('run_dataweave', {
+          script,
+          payload: ctx.payload,
+          payloadMimeType: ctx.mime,
+          attributesJson: ctx.attributes,
+          varsJson: JSON.stringify(ctx.variables),
+          namedInputsJson: '[]',
+          payloadFilePath: ctx.payloadFilePath,
+          classpath: [],
+          timeoutMs: 0,
+          multipartPartsJson: ctx.multipartJson,
+        });
+        if (result.error) return { ok: false, error: result.error };
+        let value: unknown = result.output;
+        try { value = JSON.parse(result.output); } catch { /* keep raw string */ }
+        return { ok: true, value, raw: result.output };
+      } catch (e) {
+        return { ok: false, error: String(e) };
       }
+    };
+
+    /** Dispatcher: pick the right per-scope runner.
+     *  Honors Step Over: scope handlers clear skipUntilNodeRef when they exit. */
+    const runScope = async (node: FlowNode): Promise<boolean> => {
       const t0 = performance.now();
+      let ok = true;
+      let summary = '';
+      try {
+        if (node.type === 'choice') {
+          const r = await runChoice(node);
+          ok = r.ok;
+          summary = r.summary;
+        } else if (node.type === 'for-each' || node.type === 'parallel-for-each') {
+          const r = await runForEach(node, node.type === 'parallel-for-each');
+          ok = r.ok;
+          summary = r.summary;
+        } else if (node.type === 'scatter-gather') {
+          const r = await runScatterGather(node);
+          ok = r.ok;
+          summary = r.summary;
+        }
+      } finally {
+        if (skipUntilNodeRef.current === node.id) skipUntilNodeRef.current = null;
+      }
+      const elapsed = Math.round(performance.now() - t0);
+      if (ok) {
+        markNode(node.id, { status: 'success', output: summary, executionTimeMs: elapsed });
+      } else {
+        markNode(node.id, { status: 'error', error: summary || 'Scope execution failed', executionTimeMs: elapsed });
+      }
+      return ok;
+    };
+
+    /** Choice: first matching `when` predicate wins, fall back to `otherwise`.
+     *  Returns ok + summary for runScope to display on the node. */
+    const runChoice = async (node: FlowNode): Promise<{ ok: boolean; summary: string }> => {
+      if (!node.branches || node.branches.length === 0) {
+        return { ok: true, summary: '(empty choice — nothing to run)' };
+      }
       let matched: Branch | null = null;
       let matchedReason = '';
       for (const b of node.branches) {
         if (b.isOtherwise) continue;
         if (!b.predicate || !b.predicate.trim()) continue;
-        const predScript = `%dw 2.0\noutput application/json\n---\n${b.predicate}`;
-        try {
-          const result = await invoke<RunResult>('run_dataweave', {
-            script: predScript,
-            payload: ctx.payload,
-            payloadMimeType: ctx.mime,
-            attributesJson: ctx.attributes,
-            varsJson: JSON.stringify(ctx.variables),
-            namedInputsJson: '[]',
-            payloadFilePath: ctx.payloadFilePath,
-            classpath: [],
-            timeoutMs: 0,
-            multipartPartsJson: ctx.multipartJson,
-          });
-          if (result.error) {
-            markNode(node.id, { status: 'error', error: `Predicate "${b.predicate}" failed: ${result.error}`, executionTimeMs: Math.round(performance.now() - t0) });
-            return false;
-          }
-          if (result.output.trim() === 'true') {
-            matched = b;
-            matchedReason = `when ${b.predicate}`;
-            break;
-          }
-        } catch (e) {
-          markNode(node.id, { status: 'error', error: `Predicate eval crashed: ${String(e)}` });
-          return false;
+        const result = await evalExpression(b.predicate);
+        if (!result.ok) {
+          return { ok: false, summary: `Predicate "${b.predicate}" failed: ${result.error}` };
+        }
+        if (result.value === true || result.raw.trim() === 'true') {
+          matched = b;
+          matchedReason = `when ${b.predicate}`;
+          break;
         }
       }
       if (!matched) {
@@ -813,15 +890,118 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       if (matched && matched.nodes.length > 0) {
         branchOk = await runList(matched.nodes);
       }
-      // Exit Step Over mode if this scope was the one being skipped.
-      if (skipUntilNodeRef.current === node.id) skipUntilNodeRef.current = null;
-      const elapsed = Math.round(performance.now() - t0);
-      if (branchOk) {
-        markNode(node.id, { status: 'success', output: `Took branch: ${matchedReason}`, executionTimeMs: elapsed });
-      } else {
-        markNode(node.id, { status: 'error', error: `Branch "${matchedReason}" failed`, executionTimeMs: elapsed });
+      return {
+        ok: branchOk,
+        summary: branchOk ? `Took branch: ${matchedReason}` : `Branch "${matchedReason}" failed`,
+      };
+    };
+
+    /** For Each / Parallel For Each: iterate over a collection expression,
+     *  set payload to each item, run the (single) body branch, aggregate
+     *  outputs as a JSON array. */
+    const runForEach = async (node: FlowNode, parallel: boolean): Promise<{ ok: boolean; summary: string }> => {
+      const collectionExpr = node.config.forEachCollection || 'payload';
+      const counterName = (node.config.forEachCounter || 'counter').trim() || 'counter';
+      const body = node.branches?.[0];
+      if (!body) return { ok: false, summary: 'No body branch defined.' };
+
+      const coll = await evalExpression(collectionExpr);
+      if (!coll.ok) return { ok: false, summary: `Collection "${collectionExpr}" failed: ${coll.error}` };
+      if (!Array.isArray(coll.value)) {
+        return { ok: false, summary: `Collection didn't evaluate to an Array — got ${typeof coll.value}.` };
       }
-      return branchOk;
+      const items = coll.value;
+      if (items.length === 0) {
+        ctx.payload = '[]';
+        ctx.mime = 'application/json';
+        return { ok: true, summary: 'Iterated over 0 items.' };
+      }
+
+      /** Run the body once for one element. Returns the body's resulting
+       *  payload string (post-iteration) or null on error. Uses a local
+       *  copy of `ctx` so iterations don't trample each other in parallel mode. */
+      const runOneIter = async (item: unknown, index: number): Promise<string | null> => {
+        // Snapshot the outer ctx so each iteration gets a fresh-but-shared starting point.
+        const iterCtx = {
+          payload: typeof item === 'string' ? item : JSON.stringify(item),
+          mime: 'application/json',
+          attributes: ctx.attributes,
+          multipartJson: null as string | null,
+          payloadFilePath: null as string | null,
+          variables: { ...ctx.variables, [counterName]: String(index) },
+        };
+        // Swap ctx temporarily, then run, then restore.
+        const saved = { ...ctx };
+        Object.assign(ctx, iterCtx);
+        const ok = await runList(body.nodes);
+        const result = ok ? ctx.payload : null;
+        Object.assign(ctx, saved);
+        return result;
+      };
+
+      let outputs: (string | null)[];
+      if (parallel) {
+        outputs = await Promise.all(items.map((item, idx) => runOneIter(item, idx)));
+      } else {
+        outputs = [];
+        for (let i = 0; i < items.length; i++) {
+          outputs.push(await runOneIter(items[i], i));
+          if (abortRef.current) break;
+        }
+      }
+      const failedIdx = outputs.findIndex((o) => o === null);
+      if (failedIdx >= 0) {
+        return { ok: false, summary: `Iteration ${failedIdx + 1} of ${items.length} failed.` };
+      }
+      // Aggregate: parse each iteration's output and bundle into a JSON array.
+      const parsed = outputs.map((o) => {
+        try { return JSON.parse(o!); } catch { return o; }
+      });
+      ctx.payload = JSON.stringify(parsed);
+      ctx.mime = 'application/json';
+      return { ok: true, summary: `${parallel ? 'Parallel-iterated' : 'Iterated'} over ${items.length} item${items.length === 1 ? '' : 's'}.` };
+    };
+
+    /** Scatter-Gather: fork the current context into every branch concurrently,
+     *  aggregate the outputs as { route1: ..., route2: ... } (or array). */
+    const runScatterGather = async (node: FlowNode): Promise<{ ok: boolean; summary: string }> => {
+      if (!node.branches || node.branches.length === 0) {
+        return { ok: true, summary: '(no routes)' };
+      }
+      const strategy = node.config.aggregatorStrategy || 'object';
+
+      const runOneRoute = async (branch: Branch): Promise<{ name: string; output: string | null }> => {
+        const name = (branch.label && branch.label.trim()) || `route${(node.branches!.indexOf(branch) + 1)}`;
+        // Each route gets a snapshot of the current ctx.
+        const snap = { ...ctx, variables: { ...ctx.variables } };
+        const saved = { ...ctx, variables: { ...ctx.variables } };
+        Object.assign(ctx, snap);
+        const ok = await runList(branch.nodes);
+        const out = ok ? ctx.payload : null;
+        Object.assign(ctx, saved);
+        return { name, output: out };
+      };
+
+      const results = await Promise.all(node.branches.map(runOneRoute));
+      const failed = results.find((r) => r.output === null);
+      if (failed) {
+        return { ok: false, summary: `Route "${failed.name}" failed.` };
+      }
+      let aggregated: unknown;
+      if (strategy === 'array') {
+        aggregated = results.map((r) => {
+          try { return JSON.parse(r.output!); } catch { return r.output; }
+        });
+      } else {
+        const obj: Record<string, unknown> = {};
+        for (const r of results) {
+          try { obj[r.name] = JSON.parse(r.output!); } catch { obj[r.name] = r.output; }
+        }
+        aggregated = obj;
+      }
+      ctx.payload = JSON.stringify(aggregated);
+      ctx.mime = 'application/json';
+      return { ok: true, summary: `Gathered ${results.length} route${results.length === 1 ? '' : 's'}.` };
     };
 
     /** Run a list of nodes sequentially (top-level or branch-inner).
@@ -834,7 +1014,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         markNode(node.id, { status: 'running' });
         if (!(await pauseIfStepping(node.id))) return false;
 
-        const ok = node.type === 'choice' ? await runChoice(node) : await runLeaf(node);
+        const ok = isScopeType(node.type) ? await runScope(node) : await runLeaf(node);
         if (!ok) return false;
       }
       return true;
@@ -1082,11 +1262,11 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
               onClick={stepNext}
               className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] font-medium cursor-pointer transition-colors"
               style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
-              title={currentStepNodeId && findNodeById(nodes, currentStepNodeId)?.type === 'choice'
-                ? 'Step Into: pause at each node inside the matched branch'
+              title={currentStepNodeId && isScopeType(findNodeById(nodes, currentStepNodeId)?.type ?? 'logger')
+                ? 'Step Into: pause at each node inside the scope'
                 : 'Next step'}
             >
-              {currentStepNodeId && findNodeById(nodes, currentStepNodeId)?.type === 'choice' ? 'Step Into →' : 'Next →'}
+              {currentStepNodeId && isScopeType(findNodeById(nodes, currentStepNodeId)?.type ?? 'logger') ? 'Step Into →' : 'Next →'}
             </button>
             <button
               onClick={stepCancel}
@@ -1408,38 +1588,115 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                       {node.type === 'logger' && (
                         <div className="text-[10px] text-content-muted">Inspect payload & vars</div>
                       )}
-                      {/* Choice scope body — stacked branches with predicate + chip chain */}
-                      {node.type === 'choice' && node.branches && (
+                      {/* Scope body — stacked branches. Per scope type:
+                          - choice: when/otherwise with editable predicates
+                          - for-each / parallel-for-each: collection + counter, single body branch
+                          - scatter-gather: routes with editable labels */}
+                      {isScopeType(node.type) && node.branches && (
                         <div className="space-y-2" data-no-drag>
-                          {node.branches.map((branch) => (
+                          {/* For Each / Parallel For Each: scope-level inputs above the body */}
+                          {(node.type === 'for-each' || node.type === 'parallel-for-each') && (
+                            <div className="space-y-1 px-1 pb-1 border-b border-line-subtle">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[9px] font-mono font-bold uppercase tracking-wider shrink-0 w-[60px]" style={{ color: meta.color }}>collection</span>
+                                <input
+                                  value={node.config.forEachCollection || ''}
+                                  onChange={(e) => updateConfig(node.id, { forEachCollection: e.target.value })}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  placeholder="payload.items"
+                                  className="flex-1 min-w-0 text-[10.5px] font-mono bg-transparent border-b border-line-subtle outline-none text-content placeholder:text-content-ghost focus:border-accent"
+                                  spellCheck={false}
+                                />
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[9px] font-mono font-bold uppercase tracking-wider shrink-0 w-[60px] text-content-faint">counter</span>
+                                <input
+                                  value={node.config.forEachCounter || ''}
+                                  onChange={(e) => updateConfig(node.id, { forEachCounter: e.target.value })}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  placeholder="counter"
+                                  className="flex-1 min-w-0 text-[10.5px] font-mono bg-transparent border-b border-line-subtle outline-none text-content placeholder:text-content-ghost focus:border-accent"
+                                  spellCheck={false}
+                                />
+                                <span className="text-[9px] text-content-ghost">→ vars.{node.config.forEachCounter || 'counter'}</span>
+                              </div>
+                            </div>
+                          )}
+                          {/* Scatter-Gather: aggregator strategy toggle */}
+                          {node.type === 'scatter-gather' && (
+                            <div className="flex items-center gap-1.5 px-1 pb-1 border-b border-line-subtle">
+                              <span className="text-[9px] font-mono font-bold uppercase tracking-wider shrink-0" style={{ color: meta.color }}>aggregate</span>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); updateConfig(node.id, { aggregatorStrategy: 'object' }); }}
+                                className={`text-[9.5px] font-mono px-1.5 py-px rounded cursor-pointer border ${(node.config.aggregatorStrategy || 'object') === 'object' ? '' : 'border-transparent'}`}
+                                style={(node.config.aggregatorStrategy || 'object') === 'object'
+                                  ? { borderColor: meta.color, color: meta.color, background: `color-mix(in oklch, ${meta.color} 8%, transparent)` }
+                                  : { color: 'var(--content-faint)' }}
+                              >{'{ route1: ..., route2: ... }'}</button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); updateConfig(node.id, { aggregatorStrategy: 'array' }); }}
+                                className={`text-[9.5px] font-mono px-1.5 py-px rounded cursor-pointer border ${node.config.aggregatorStrategy === 'array' ? '' : 'border-transparent'}`}
+                                style={node.config.aggregatorStrategy === 'array'
+                                  ? { borderColor: meta.color, color: meta.color, background: `color-mix(in oklch, ${meta.color} 8%, transparent)` }
+                                  : { color: 'var(--content-faint)' }}
+                              >{'[r1, r2]'}</button>
+                            </div>
+                          )}
+                          {node.branches.map((branch, branchIdx) => {
+                            // Per-scope label / decoration
+                            const isChoice = node.type === 'choice';
+                            const isForEach = node.type === 'for-each' || node.type === 'parallel-for-each';
+                            const isScatter = node.type === 'scatter-gather';
+                            const labelTag = isChoice
+                              ? (branch.isOtherwise ? 'else' : 'when')
+                              : isForEach
+                                ? 'body'
+                                : (branch.label || `route${branchIdx + 1}`);
+                            const branchAccent = isChoice && branch.isOtherwise ? null : meta.color;
+                            return (
                             <div
                               key={branch.id}
                               className="rounded-md border overflow-hidden"
                               style={{
-                                borderColor: branch.isOtherwise
-                                  ? 'color-mix(in oklch, var(--content) 12%, transparent)'
-                                  : `color-mix(in oklch, ${meta.color} 25%, transparent)`,
-                                background: branch.isOtherwise
-                                  ? 'color-mix(in oklch, var(--content) 3%, var(--surface-2))'
-                                  : `color-mix(in oklch, ${meta.color} 4%, var(--surface-2))`,
+                                borderColor: branchAccent
+                                  ? `color-mix(in oklch, ${branchAccent} 25%, transparent)`
+                                  : 'color-mix(in oklch, var(--content) 12%, transparent)',
+                                background: branchAccent
+                                  ? `color-mix(in oklch, ${branchAccent} 4%, var(--surface-2))`
+                                  : 'color-mix(in oklch, var(--content) 3%, var(--surface-2))',
                               }}
                             >
                               {/* Branch label / predicate */}
                               <div className="flex items-center gap-1.5 px-2 py-1.5 border-b" style={{ borderColor: 'color-mix(in oklch, var(--content) 8%, transparent)' }}>
-                                <span
-                                  className="text-[8.5px] font-mono font-bold uppercase tracking-wider shrink-0 px-1 py-px rounded"
-                                  style={{
-                                    color: branch.isOtherwise ? 'var(--content-faint)' : meta.color,
-                                    background: branch.isOtherwise
-                                      ? 'color-mix(in oklch, var(--content) 6%, transparent)'
-                                      : `color-mix(in oklch, ${meta.color} 12%, transparent)`,
-                                  }}
-                                >
-                                  {branch.isOtherwise ? 'else' : 'when'}
-                                </span>
-                                {branch.isOtherwise ? (
-                                  <span className="text-[10.5px] text-content-faint italic flex-1">otherwise (no predicate matches)</span>
+                                {isScatter ? (
+                                  <input
+                                    value={branch.label || ''}
+                                    onChange={(e) => updateBranch(node.id, branch.id, { label: e.target.value })}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    placeholder={`route${branchIdx + 1}`}
+                                    className="text-[9px] font-mono font-bold uppercase tracking-wider shrink-0 w-[70px] px-1 py-px rounded bg-transparent border-none outline-none focus:bg-surface-3"
+                                    style={{
+                                      color: meta.color,
+                                      background: `color-mix(in oklch, ${meta.color} 12%, transparent)`,
+                                    }}
+                                    spellCheck={false}
+                                  />
                                 ) : (
+                                  <span
+                                    className="text-[8.5px] font-mono font-bold uppercase tracking-wider shrink-0 px-1 py-px rounded"
+                                    style={{
+                                      color: branchAccent || 'var(--content-faint)',
+                                      background: branchAccent
+                                        ? `color-mix(in oklch, ${branchAccent} 12%, transparent)`
+                                        : 'color-mix(in oklch, var(--content) 6%, transparent)',
+                                    }}
+                                  >
+                                    {labelTag}
+                                  </span>
+                                )}
+                                {isChoice && branch.isOtherwise ? (
+                                  <span className="text-[10.5px] text-content-faint italic flex-1">otherwise (no predicate matches)</span>
+                                ) : isChoice ? (
                                   <input
                                     value={branch.predicate || ''}
                                     onChange={(e) => updateBranch(node.id, branch.id, { predicate: e.target.value })}
@@ -1448,9 +1705,12 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                                     className="flex-1 min-w-0 text-[10.5px] font-mono bg-transparent border-none outline-none text-content placeholder:text-content-ghost"
                                     spellCheck={false}
                                   />
+                                ) : (
+                                  <span className="flex-1" />
                                 )}
-                                {/* Branch delete — only for `when` branches when there's more than one (always keep at least one when + otherwise) */}
-                                {!branch.isOtherwise && (node.branches?.filter((b) => !b.isOtherwise).length ?? 0) > 1 && (
+                                {/* Branch delete — only for variable-arity scopes (Choice when, Scatter-Gather routes) */}
+                                {((isChoice && !branch.isOtherwise && (node.branches?.filter((b) => !b.isOtherwise).length ?? 0) > 1) ||
+                                  (isScatter && (node.branches?.length ?? 0) > 1)) && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1458,7 +1718,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                                       updateNode(node.id, { branches: next });
                                     }}
                                     className="shrink-0 w-4 h-4 rounded text-[10px] text-content-ghost hover:text-[var(--err)] hover:bg-surface-3 cursor-pointer"
-                                    title="Remove this when branch"
+                                    title="Remove this branch"
                                   >×</button>
                                 )}
                               </div>
@@ -1513,24 +1773,40 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                                 </button>
                               </div>
                             </div>
-                          ))}
-                          {/* Add another when branch */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const otherwise = node.branches!.find((b) => b.isOtherwise);
-                              const others = node.branches!.filter((b) => !b.isOtherwise);
-                              const newBranches: Branch[] = [
-                                ...others,
-                                { id: newId(), nodes: [], predicate: '' },
-                                ...(otherwise ? [otherwise] : []),
-                              ];
-                              updateNode(node.id, { branches: newBranches });
-                            }}
-                            className="w-full text-[10px] font-mono py-1 rounded-md border border-dashed text-content-faint hover:text-accent hover:border-accent transition-colors cursor-pointer"
-                          >
-                            + Add when branch
-                          </button>
+                            );
+                          })}
+                          {/* Add branch button — hidden for fixed-arity scopes (For Each has exactly one body). */}
+                          {node.type === 'choice' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const otherwise = node.branches!.find((b) => b.isOtherwise);
+                                const others = node.branches!.filter((b) => !b.isOtherwise);
+                                const newBranches: Branch[] = [
+                                  ...others,
+                                  { id: newId(), nodes: [], predicate: '' },
+                                  ...(otherwise ? [otherwise] : []),
+                                ];
+                                updateNode(node.id, { branches: newBranches });
+                              }}
+                              className="w-full text-[10px] font-mono py-1 rounded-md border border-dashed text-content-faint hover:text-accent hover:border-accent transition-colors cursor-pointer"
+                            >
+                              + Add when branch
+                            </button>
+                          )}
+                          {node.type === 'scatter-gather' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const idx = (node.branches?.length ?? 0) + 1;
+                                const newBranches: Branch[] = [...(node.branches ?? []), { id: newId(), nodes: [], label: `route${idx}` }];
+                                updateNode(node.id, { branches: newBranches });
+                              }}
+                              className="w-full text-[10px] font-mono py-1 rounded-md border border-dashed text-content-faint hover:text-accent hover:border-accent transition-colors cursor-pointer"
+                            >
+                              + Add route
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -2142,6 +2418,99 @@ attributes.method == "POST"`}
                   </div>
                   <div className="text-[11px] text-content-ghost leading-relaxed">
                     Edit predicates and add nodes directly on the canvas — each branch in the node has its own predicate input and <span className="font-mono">+ add</span> button.
+                  </div>
+                </div>
+              )}
+
+              {/* ── For Each / Parallel For Each config ─────────────── */}
+              {(selected.type === 'for-each' || selected.type === 'parallel-for-each') && (
+                <div className="p-4 space-y-3">
+                  <div className="text-[12px] text-content-muted leading-relaxed">
+                    {selected.type === 'parallel-for-each' ? (
+                      <>Iterates over a collection <span className="font-semibold">concurrently</span>. All iterations run via <span className="font-mono">Promise.all</span> — order of side effects is non-deterministic. The aggregated output preserves the original collection's order.</>
+                    ) : (
+                      <>Iterates over a collection sequentially. The body branch runs once per element with <span className="font-mono">payload</span> set to that element. Outputs are aggregated into a JSON array.</>
+                    )}
+                  </div>
+                  <div>
+                    <ConfigLabel label="Collection expression" />
+                    <input
+                      value={selected.config.forEachCollection || ''}
+                      onChange={(e) => updateConfig(selected.id, { forEachCollection: e.target.value })}
+                      placeholder="payload.items"
+                      className="mt-1 w-full h-8 px-2.5 rounded-md bg-surface-2 border border-line text-[12px] font-mono text-content focus:outline-none focus:border-accent"
+                      spellCheck={false}
+                    />
+                    <div className="text-[10px] text-content-ghost mt-1">Any DataWeave expression that returns an Array.</div>
+                  </div>
+                  <div>
+                    <ConfigLabel label="Counter variable name" />
+                    <input
+                      value={selected.config.forEachCounter || ''}
+                      onChange={(e) => updateConfig(selected.id, { forEachCounter: e.target.value })}
+                      placeholder="counter"
+                      className="mt-1 w-full h-8 px-2.5 rounded-md bg-surface-2 border border-line text-[12px] font-mono text-content focus:outline-none focus:border-accent"
+                      spellCheck={false}
+                    />
+                    <div className="text-[10px] text-content-ghost mt-1">Exposed as <span className="font-mono">vars.{selected.config.forEachCounter || 'counter'}</span> inside the body — a 0-based String index.</div>
+                  </div>
+                  {selected.type === 'parallel-for-each' && (
+                    <div>
+                      <ConfigLabel label="Max concurrency (informational)" />
+                      <input
+                        type="number"
+                        min={1}
+                        value={selected.config.maxConcurrency ?? 4}
+                        onChange={(e) => updateConfig(selected.id, { maxConcurrency: parseInt(e.target.value) || 1 })}
+                        className="mt-1 w-full h-8 px-2.5 rounded-md bg-surface-2 border border-line text-[12px] font-mono text-content focus:outline-none focus:border-accent"
+                      />
+                      <div className="text-[10px] text-content-ghost mt-1">Real Mule honors this; Studio always runs all iterations concurrently.</div>
+                    </div>
+                  )}
+                  <div>
+                    <ConfigLabel label="Example collection expressions" />
+                    <pre className="mt-1 px-2 py-1.5 text-[10.5px] font-mono bg-surface-2 rounded border border-line-subtle text-content-secondary leading-relaxed whitespace-pre">
+{`payload
+payload.items
+payload..orderItems
+1 to 10
+vars.users`}
+                    </pre>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Scatter-Gather config ───────────────────────────── */}
+              {selected.type === 'scatter-gather' && (
+                <div className="p-4 space-y-3">
+                  <div className="text-[12px] text-content-muted leading-relaxed">
+                    Forks the current payload into every route concurrently and aggregates the results. All routes see the same starting <span className="font-mono">payload</span>, <span className="font-mono">vars</span>, and <span className="font-mono">attributes</span> — they do <em>not</em> share state with each other.
+                  </div>
+                  <div>
+                    <ConfigLabel label="Aggregator strategy" />
+                    <div className="mt-1 flex gap-1.5">
+                      {(['object', 'array'] as const).map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => updateConfig(selected.id, { aggregatorStrategy: s })}
+                          className={`flex-1 h-8 rounded-md text-[11px] font-mono cursor-pointer transition-colors ${
+                            (selected.config.aggregatorStrategy || 'object') === s
+                              ? 'border border-accent text-accent bg-accent-dim'
+                              : 'border border-line text-content-faint hover:bg-surface-2'
+                          }`}
+                        >
+                          {s === 'object' ? '{ route1: ..., route2: ... }' : '[r1, r2]'}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="text-[10px] text-content-ghost mt-1">
+                      {(selected.config.aggregatorStrategy || 'object') === 'object'
+                        ? 'Merged as an object keyed by route name (recommended — preserves which route produced what).'
+                        : 'Bundled as an array in route order (drop the names).'}
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-content-ghost leading-relaxed">
+                    Real Mule Scatter-Gather returns rich metadata per route (attributes, exception, timestamps). Studio's aggregator is simplified: just the payload from each route.
                   </div>
                 </div>
               )}
