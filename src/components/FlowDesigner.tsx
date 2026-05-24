@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo, Fragment } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Icons } from './Icons';
 import { MiniEditor } from './MiniEditor';
@@ -36,13 +36,37 @@ function mimeToEditorLang(mime: string): 'json' | 'sql' | 'plaintext' | 'datawea
 
 // ── Types ──────────────────────────────────────────────────────────
 
-type NodeType = 'set-payload' | 'transform' | 'set-variable' | 'salesforce' | 'database' | 'http-request' | 'logger';
+type LeafNodeType = 'set-payload' | 'transform' | 'set-variable' | 'salesforce' | 'database' | 'http-request' | 'logger';
+type ScopeNodeType = 'choice';
+type NodeType = LeafNodeType | ScopeNodeType;
 type ConnectorOp = 'query' | 'insert' | 'update' | 'upsert' | 'delete' | 'select';
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+type NodeStatus = 'idle' | 'running' | 'success' | 'error' | 'skipped';
+
+const SCOPE_TYPES: ReadonlySet<NodeType> = new Set<NodeType>(['choice']);
+function isScopeType(t: NodeType): t is ScopeNodeType { return SCOPE_TYPES.has(t); }
+
+/** A Branch is a labeled sub-flow inside a scope node.
+ *
+ *  For Choice scopes:
+ *    - `when` branches have a `predicate` (DW boolean expression).
+ *    - exactly one branch has `isOtherwise: true` and runs when no `when`
+ *      predicate evaluates truthy. Its `predicate` is ignored. */
+interface Branch {
+  id: string;
+  /** Internal nodes — can themselves contain scope nodes (recursion allowed). */
+  nodes: FlowNode[];
+  /** Scope-specific branch metadata. */
+  predicate?: string;     // for Choice `when` branches
+  isOtherwise?: boolean;  // for Choice — true on exactly one branch
+}
 
 interface FlowNode {
   id: string;
   type: NodeType;
+  /** Optional discriminator — absent on legacy v1/v2 workspaces.
+   *  Treated as 'leaf' when missing, regardless of `type`. */
+  kind?: 'leaf' | 'scope';
   label: string;
   x: number;
   y: number;
@@ -75,10 +99,67 @@ interface FlowNode {
     httpQueryParams?: string; // JSON object string
     httpBody?: string;
   };
+  /** Only present on scope nodes (kind === 'scope'). */
+  branches?: Branch[];
   output?: string;
   error?: string;
   executionTimeMs?: number;
-  status: 'idle' | 'running' | 'success' | 'error';
+  status: NodeStatus;
+}
+
+// ── Recursive helpers for the nested node tree ─────────────────────
+
+/** Find a node anywhere in the tree by id. */
+function findNodeById(nodes: FlowNode[], id: string): FlowNode | null {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    if (n.branches) {
+      for (const b of n.branches) {
+        const found = findNodeById(b.nodes, id);
+        if (found) return found;
+      }
+    }
+  }
+  return null;
+}
+
+/** Apply a transform recursively to every node in the tree. */
+function mapNodesDeep(nodes: FlowNode[], fn: (n: FlowNode) => FlowNode): FlowNode[] {
+  return nodes.map((n) => {
+    const mapped = fn(n);
+    if (mapped.branches) {
+      return {
+        ...mapped,
+        branches: mapped.branches.map((b) => ({ ...b, nodes: mapNodesDeep(b.nodes, fn) })),
+      };
+    }
+    return mapped;
+  });
+}
+
+/** Remove a node anywhere in the tree by id. */
+function removeNodeDeep(nodes: FlowNode[], id: string): FlowNode[] {
+  return nodes
+    .filter((n) => n.id !== id)
+    .map((n) => {
+      if (n.branches) {
+        return { ...n, branches: n.branches.map((b) => ({ ...b, nodes: removeNodeDeep(b.nodes, id) })) };
+      }
+      return n;
+    });
+}
+
+/** Backfill kind: 'leaf' on legacy workspace nodes that have no discriminator.
+ *  Idempotent — safe to call on already-migrated trees. */
+function migrateLegacyNodes(nodes: FlowNode[]): FlowNode[] {
+  return nodes.map((n) => {
+    const kind: 'leaf' | 'scope' = n.kind ?? (isScopeType(n.type) ? 'scope' : 'leaf');
+    const migrated: FlowNode = { ...n, kind };
+    if (migrated.branches) {
+      migrated.branches = migrated.branches.map((b) => ({ ...b, nodes: migrateLegacyNodes(b.nodes) }));
+    }
+    return migrated;
+  });
 }
 
 interface RunResult {
@@ -100,7 +181,14 @@ const NODE_META: Record<NodeType, { label: string; color: string; desc: string; 
   'database':     { label: 'Database',       color: '#a855f7',       desc: 'DB query / operation',           badge: 'SQL'  },
   'http-request': { label: 'HTTP Request',   color: '#f97316',       desc: 'HTTP endpoint mock',             badge: 'HTTP' },
   'logger':       { label: 'Logger',         color: '#6b7280',       desc: 'Inspect payload (pass-through)', badge: 'LOG'  },
+  'choice':       { label: 'Choice',         color: '#06b6d4',       desc: 'When/otherwise router',          badge: 'CHOICE' },
 };
+
+/** Wider footprint for scope nodes — they stack branches vertically. */
+const SCOPE_NODE_W = 320;
+function nodeWidth(type: NodeType): number {
+  return isScopeType(type) ? SCOPE_NODE_W : NODE_W;
+}
 
 const DEFAULT_SCRIPT = `%dw 2.0
 output application/json
@@ -150,6 +238,9 @@ function NodeIcon({ type, size = 14 }: { type: NodeType; size?: number }) {
       return <svg {...s} viewBox="0 0 16 16"><path d="M0 8a8 8 0 1116 0A8 8 0 010 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 005.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 01.64-1.539 6.7 6.7 0 01.597-.933A7.025 7.025 0 002.255 4H4.09zm-.582 3.5c.03-.877.138-1.718.312-2.5H1.674a6.958 6.958 0 00-.656 2.5h2.49zM4.847 5a12.5 12.5 0 00-.338 2.5H7.5V5H4.847zM8.5 5v2.5h2.99a12.495 12.495 0 00-.337-2.5H8.5zM4.51 8.5a12.5 12.5 0 00.337 2.5H7.5V8.5H4.51zm3.99 0V11h2.653c.187-.765.306-1.608.338-2.5H8.5zM5.145 12c.138.386.295.744.468 1.068.552 1.035 1.218 1.65 1.887 1.855V12H5.145zm.182 2.472a6.696 6.696 0 01-.597-.933A9.268 9.268 0 014.09 12H2.255a7.024 7.024 0 003.072 2.472zM3.82 11a13.652 13.652 0 01-.312-2.5h-2.49c.062.89.291 1.733.656 2.5H3.82zm6.853 3.472A7.024 7.024 0 0013.745 12H11.91a9.27 9.27 0 01-.64 1.539 6.688 6.688 0 01-.597.933zM8.5 12v2.923c.67-.204 1.335-.82 1.887-1.855.173-.324.33-.682.468-1.068H8.5zm3.68-1h2.146c.365-.767.594-1.61.656-2.5h-2.49a13.65 13.65 0 01-.312 2.5zm2.802-3.5a6.959 6.959 0 00-.656-2.5H12.18c.174.782.282 1.623.312 2.5h2.49zM11.27 2.461c.247.464.462.98.64 1.539h1.835a7.024 7.024 0 00-3.072-2.472c.218.284.418.598.597.933zM10.855 4a7.966 7.966 0 00-.468-1.068C9.835 1.897 9.17 1.282 8.5 1.077V4h2.355z"/></svg>;
     case 'logger':
       return <svg {...s} viewBox="0 0 16 16"><path d="M5 0a1 1 0 00-1 1v1H3a2 2 0 00-2 2v9a2 2 0 002 2h10a2 2 0 002-2V4a2 2 0 00-2-2h-1V1a1 1 0 00-1-1H5zm0 4h6v1H5V4zm0 3h6v1H5V7zm0 3h4v1H5v-1z"/></svg>;
+    case 'choice':
+      // Branching arrow: one input that splits into two output paths.
+      return <svg {...s} viewBox="0 0 16 16"><path d="M8 1.5a.5.5 0 01.5.5v3.5h3a2 2 0 012 2v2h1.793l-2.146-2.146a.5.5 0 11.707-.707l3 3a.5.5 0 010 .707l-3 3a.5.5 0 11-.707-.707L13.293 10.5H11.5v-3a1 1 0 00-1-1H8.5V11l-.5 1-.5-1V6.5H5.5a1 1 0 00-1 1v3H2.707l2.147 2.146a.5.5 0 01-.708.708l-3-3a.5.5 0 010-.708l3-3a.5.5 0 01.708.707L2.707 9.5H3.5v-2a2 2 0 012-2h2V2a.5.5 0 01.5-.5z"/></svg>;
   }
 }
 
@@ -169,18 +260,27 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   const [stepIndex, setStepIndex] = useState<number | null>(null);
   const [stepping, setStepping] = useState(false); // true = waiting for user to click Next
   const stepResolveRef = useRef<(() => void) | null>(null);
+  /** The node currently paused on (for step-through UI). Used to decide
+   *  whether to show "Skip Scope" — only visible when the node is a scope. */
+  const [currentStepNodeId, setCurrentStepNodeId] = useState<string | null>(null);
+  /** If set, pauseIfStepping won't pause inside this scope's subtree.
+   *  Cleared when execution exits the scope. */
+  const skipUntilNodeRef = useRef<string | null>(null);
   const [configTab, setConfigTab] = useState<'general' | 'request' | 'response' | 'variables'>('general');
   const [dismissedValidations, setDismissedValidations] = useState<Set<string>>(new Set());
   const [zoom, setZoom] = useState(1);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
+  /** Open mini-palette for adding a leaf into a Choice branch. */
+  const [branchPalette, setBranchPalette] = useState<{ scopeId: string; branchId: string } | null>(null);
   const abortRef = useRef(false);
   const canvasRef = useRef<HTMLDivElement>(null);
-  const selected = useMemo(() => nodes.find((n) => n.id === selectedId) ?? null, [nodes, selectedId]);
+  const selected = useMemo(() => (selectedId ? findNodeById(nodes, selectedId) : null), [nodes, selectedId]);
 
   // Reset config tab when selection changes
   useEffect(() => { setConfigTab('general'); }, [selectedId]);
 
-  // Execution order: sort by x position, skip disabled nodes
+  // Execution order at the TOP level: sort by x position, skip disabled nodes.
+  // Inside scopes, each branch has its own internal X-sort applied at run time.
   const executionOrder = useMemo(() => [...nodes].filter(n => !n.disabled).sort((a, b) => a.x - b.x), [nodes]);
 
   // Connections: sequential pairs in execution order
@@ -259,7 +359,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedId && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA' && document.activeElement?.tagName !== 'SELECT') {
-          setNodes((prev) => prev.filter((n) => n.id !== selectedId));
+          setNodes((prev) => removeNodeDeep(prev, selectedId));
           setSelectedId(null);
         }
       }
@@ -363,191 +463,388 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         config.mockMime = 'application/json';
         config.saveToVariable = '';
         break;
+      case 'choice':
+        // Default Choice has one `when` and one `otherwise`.
+        // No nodes inside either branch yet — user drops them via the
+        // branch-level Add buttons in the node body.
+        break;
       default: // logger
         break;
     }
-    const node: FlowNode = { id: newId(), type, label: meta.label, x, y, config, status: 'idle' };
+    const isScope = isScopeType(type);
+    const branches: Branch[] | undefined = type === 'choice'
+      ? [
+          { id: newId(), nodes: [], predicate: 'payload.value > 0' },
+          { id: newId(), nodes: [], isOtherwise: true },
+        ]
+      : undefined;
+    const node: FlowNode = {
+      id: newId(),
+      type,
+      kind: isScope ? 'scope' : 'leaf',
+      label: meta.label,
+      x, y, config,
+      branches,
+      status: 'idle',
+    };
     setNodes((prev) => [...prev, node]);
     setSelectedId(node.id);
   }, []);
 
   // ── Update selected node config ─────────────────────────────────
+  // Deep so nodes nested inside Choice branches are also updatable.
   const updateNode = useCallback((id: string, patch: Partial<FlowNode>) => {
-    setNodes((prev) => prev.map((n) => n.id === id ? { ...n, ...patch } : n));
+    setNodes((prev) => mapNodesDeep(prev, (n) => n.id === id ? { ...n, ...patch } : n));
   }, []);
 
   const updateConfig = useCallback((id: string, patch: Partial<FlowNode['config']>) => {
-    setNodes((prev) => prev.map((n) =>
+    setNodes((prev) => mapNodesDeep(prev, (n) =>
       n.id === id ? { ...n, config: { ...n.config, ...patch } } : n
     ));
   }, []);
 
+  /** Update one branch of a scope node by id. */
+  const updateBranch = useCallback((scopeId: string, branchId: string, patch: Partial<Branch>) => {
+    setNodes((prev) => mapNodesDeep(prev, (n) => {
+      if (n.id !== scopeId || !n.branches) return n;
+      return {
+        ...n,
+        branches: n.branches.map((b) => b.id === branchId ? { ...b, ...patch } : b),
+      };
+    }));
+  }, []);
+
+  /** Append a new leaf node to a branch's `nodes` array. */
+  const addNodeToBranch = useCallback((scopeId: string, branchId: string, type: LeafNodeType) => {
+    const meta = NODE_META[type];
+    const config: FlowNode['config'] = {};
+    switch (type) {
+      case 'set-payload':
+        config.payload = '{\n  "message": "Hello"\n}';
+        config.payloadMime = 'application/json';
+        config.queryParams = '{}';
+        break;
+      case 'transform':
+        config.script = DEFAULT_SCRIPT;
+        config.outputMime = 'application/json';
+        config.saveToVariable = '';
+        break;
+      case 'set-variable':
+        config.variableName = 'myVar';
+        config.variableValue = '';
+        config.variableSource = 'raw';
+        break;
+      case 'salesforce':
+        config.operation = 'query';
+        config.request = 'SELECT Id, Name FROM Contact LIMIT 10';
+        config.mockResponse = '[\n  { "Id": "003xx", "Name": "John" }\n]';
+        config.mockMime = 'application/json';
+        config.saveToVariable = '';
+        break;
+      case 'database':
+        config.operation = 'select';
+        config.request = 'SELECT id, name FROM users';
+        config.mockResponse = '[\n  { "id": 1, "name": "John" }\n]';
+        config.mockMime = 'application/json';
+        config.saveToVariable = '';
+        break;
+      case 'http-request':
+        config.httpMethod = 'GET';
+        config.httpUrl = 'https://api.example.com/data';
+        config.httpHeaders = '{}';
+        config.httpQueryParams = '{}';
+        config.httpBody = '';
+        config.mockResponse = '{ "status": "ok" }';
+        config.mockMime = 'application/json';
+        config.saveToVariable = '';
+        break;
+    }
+    // Inner nodes have x/y too so the existing X-sort works inside a branch.
+    // We append at the right-end so insertion order is honored.
+    const newNode: FlowNode = {
+      id: newId(),
+      type,
+      kind: 'leaf',
+      label: meta.label,
+      x: 0, // will be re-derived from index in the branch's mini-canvas
+      y: 0,
+      config,
+      status: 'idle',
+    };
+    setNodes((prev) => mapNodesDeep(prev, (n) => {
+      if (n.id !== scopeId || !n.branches) return n;
+      return {
+        ...n,
+        branches: n.branches.map((b) => {
+          if (b.id !== branchId) return b;
+          // Re-assign x positions so the visual order is left-to-right.
+          const ordered = [...b.nodes, newNode].map((nn, i) => ({ ...nn, x: i * 90 }));
+          return { ...b, nodes: ordered };
+        }),
+      };
+    }));
+    setSelectedId(newNode.id);
+  }, []);
+
   // ── Pipeline execution ──────────────────────────────────────────
+  // Recursive walker: top-level nodes are executed in X order; scope nodes
+  // (currently just Choice) recurse into the matched branch. The execution
+  // context (payload, mime, attributes, variables) flows through every node.
   const runPipeline = useCallback(async (stepThrough = false) => {
-    if (executionOrder.length === 0) return;
+    if (nodes.length === 0) return;
     setIsRunning(true);
     abortRef.current = false;
 
-    // Reset all statuses
-    setNodes((prev) => prev.map((n) => ({ ...n, status: 'idle' as const, output: undefined, error: undefined, executionTimeMs: undefined })));
+    // Reset all statuses across the entire tree (including branch-inner nodes).
+    setNodes((prev) => mapNodesDeep(prev, (n) => ({ ...n, status: 'idle' as const, output: undefined, error: undefined, executionTimeMs: undefined })));
 
-    let currentPayload = '';
-    let currentMime = 'application/json';
-    let currentAttributes = '{}';
-    let currentMultipartJson: string | null = null;
-    let currentPayloadFilePath: string | null = null;
-    const variables: Record<string, string> = {};
+    // Shared execution context — mutated as nodes run.
+    const ctx = {
+      payload: '',
+      mime: 'application/json',
+      attributes: '{}',
+      multipartJson: null as string | null,
+      payloadFilePath: null as string | null,
+      variables: {} as Record<string, string>,
+    };
 
-    for (let i = 0; i < executionOrder.length; i++) {
-      if (abortRef.current) break;
-      const node = executionOrder[i];
-      setStepIndex(i);
+    // Track step index globally across recursion so the header shows progress.
+    let stepCounter = 0;
 
-      // Mark running
-      setNodes((prev) => prev.map((n) => n.id === node.id ? { ...n, status: 'running' as const } : n));
+    /** Mark a node's status by id, anywhere in the tree. */
+    const markNode = (id: string, patch: Partial<FlowNode>) => {
+      setNodes((prev) => mapNodesDeep(prev, (n) => n.id === id ? { ...n, ...patch } : n));
+    };
 
-      if (stepThrough) {
-        // Wait for user to click Next Step
-        setStepping(true);
-        await new Promise<void>((resolve) => { stepResolveRef.current = resolve; });
-        setStepping(false);
-        if (abortRef.current) break;
+    /** Mark every node-id in the set as 'skipped'. */
+    const markSkipped = (ids: Set<string>) => {
+      if (ids.size === 0) return;
+      setNodes((prev) => mapNodesDeep(prev, (n) => ids.has(n.id) ? { ...n, status: 'skipped' as const } : n));
+    };
+
+    /** Collect every node-id under a list (including nested branches). */
+    const collectIds = (ns: FlowNode[], out: Set<string>) => {
+      for (const n of ns) {
+        out.add(n.id);
+        if (n.branches) for (const b of n.branches) collectIds(b.nodes, out);
       }
+    };
 
+    /** Pause for step-through. Resolves when the user clicks Next.
+     *  Skips the pause when inside a scope the user chose to Step Over. */
+    const pauseIfStepping = async (nodeId: string): Promise<boolean> => {
+      if (!stepThrough) return true;
+      if (skipUntilNodeRef.current) return true; // Step Over active
+      setCurrentStepNodeId(nodeId);
+      setStepping(true);
+      await new Promise<void>((resolve) => { stepResolveRef.current = resolve; });
+      setStepping(false);
+      setCurrentStepNodeId(null);
+      return !abortRef.current;
+    };
+
+    /** Execute one leaf node. Returns true on success, false on error/abort. */
+    const runLeaf = async (node: FlowNode): Promise<boolean> => {
       try {
         if (node.type === 'set-payload') {
-          currentPayload = node.config.payload || '';
-          currentMime = node.config.payloadMime || 'application/json';
-          currentMultipartJson = null;
-          currentPayloadFilePath = null;
-          if (currentMime === 'multipart/form-data' && node.config.multipartParts?.length) {
-            currentMultipartJson = JSON.stringify(node.config.multipartParts);
+          ctx.payload = node.config.payload || '';
+          ctx.mime = node.config.payloadMime || 'application/json';
+          ctx.multipartJson = null;
+          ctx.payloadFilePath = null;
+          if (ctx.mime === 'multipart/form-data' && node.config.multipartParts?.length) {
+            ctx.multipartJson = JSON.stringify(node.config.multipartParts);
           }
-          if (currentMime === 'application/octet-stream' && node.config.payloadFilePath) {
-            currentPayloadFilePath = node.config.payloadFilePath;
+          if (ctx.mime === 'application/octet-stream' && node.config.payloadFilePath) {
+            ctx.payloadFilePath = node.config.payloadFilePath;
           }
-          // Build attributes from queryParams + explicit attributes
           const attrs: Record<string, unknown> = {};
           try { Object.assign(attrs, JSON.parse(node.config.attributes || '{}')); } catch {}
           try { attrs.queryParams = JSON.parse(node.config.queryParams || '{}'); } catch {}
-          currentAttributes = JSON.stringify(attrs);
-          const displayOutput = currentMime === 'multipart/form-data'
+          ctx.attributes = JSON.stringify(attrs);
+          const displayOutput = ctx.mime === 'multipart/form-data'
             ? `[multipart: ${node.config.multipartParts?.length || 0} parts]`
-            : currentMime === 'application/octet-stream'
-            ? `[binary: ${node.config.payloadFilePath?.split(/[/\\]/).pop() || 'no file'}]`
-            : currentPayload;
-          setNodes((prev) => prev.map((n) => n.id === node.id
-            ? { ...n, status: 'success' as const, output: displayOutput, executionTimeMs: 0 }
-            : n));
+            : ctx.mime === 'application/octet-stream'
+              ? `[binary: ${node.config.payloadFilePath?.split(/[/\\]/).pop() || 'no file'}]`
+              : ctx.payload;
+          markNode(node.id, { status: 'success', output: displayOutput, executionTimeMs: 0 });
+          return true;
+        }
 
-        } else if (node.type === 'set-variable') {
+        if (node.type === 'set-variable') {
           const varName = node.config.variableName || 'myVar';
           let varValue = '';
-
           if (node.config.variableSource === 'script' && node.config.script) {
-            // Run DW script to compute the variable value
             const result = await invoke<RunResult>('run_dataweave', {
               script: node.config.script,
-              payload: currentPayload,
-              payloadMimeType: currentMime,
+              payload: ctx.payload,
+              payloadMimeType: ctx.mime,
               attributesJson: '{}',
-              varsJson: JSON.stringify(variables),
+              varsJson: JSON.stringify(ctx.variables),
               namedInputsJson: '[]',
-              payloadFilePath: currentPayloadFilePath,
+              payloadFilePath: ctx.payloadFilePath,
               classpath: [],
               timeoutMs: 0,
-              multipartPartsJson: currentMultipartJson,
+              multipartPartsJson: ctx.multipartJson,
             });
             if (result.error) {
-              setNodes((prev) => prev.map((n) => n.id === node.id
-                ? { ...n, status: 'error' as const, error: result.error ?? undefined, executionTimeMs: result.execution_time_ms }
-                : n));
-              break;
+              markNode(node.id, { status: 'error', error: result.error ?? undefined, executionTimeMs: result.execution_time_ms });
+              return false;
             }
             varValue = result.output;
           } else {
-            varValue = node.config.variableValue || currentPayload;
+            varValue = node.config.variableValue || ctx.payload;
           }
+          ctx.variables[varName] = varValue;
+          markNode(node.id, { status: 'success', output: `vars.${varName} = ${varValue}`, executionTimeMs: 0 });
+          return true;
+        }
 
-          variables[varName] = varValue;
-          // Set Variable does NOT change the payload — pass-through
-          setNodes((prev) => prev.map((n) => n.id === node.id
-            ? { ...n, status: 'success' as const, output: `vars.${varName} = ${varValue}`, executionTimeMs: 0 }
-            : n));
-
-        } else if (node.type === 'transform') {
+        if (node.type === 'transform') {
           const result = await invoke<RunResult>('run_dataweave', {
             script: node.config.script || DEFAULT_SCRIPT,
-            payload: currentPayload,
-            payloadMimeType: currentMime,
-            attributesJson: currentAttributes,
-            varsJson: JSON.stringify(variables),
+            payload: ctx.payload,
+            payloadMimeType: ctx.mime,
+            attributesJson: ctx.attributes,
+            varsJson: JSON.stringify(ctx.variables),
             namedInputsJson: '[]',
             payloadFilePath: null,
             classpath: [],
             timeoutMs: 0,
             multipartPartsJson: null,
           });
-
           if (result.error) {
-            setNodes((prev) => prev.map((n) => n.id === node.id
-              ? { ...n, status: 'error' as const, error: result.error ?? undefined, executionTimeMs: result.execution_time_ms }
-              : n));
-            break;
+            markNode(node.id, { status: 'error', error: result.error ?? undefined, executionTimeMs: result.execution_time_ms });
+            return false;
           }
-
           if (node.config.saveToVariable) {
-            // Save transform output to variable, don't change payload
-            variables[node.config.saveToVariable] = result.output;
-            setNodes((prev) => prev.map((n) => n.id === node.id
-              ? { ...n, status: 'success' as const, output: `vars.${node.config.saveToVariable} = ${result.output}`, executionTimeMs: result.execution_time_ms }
-              : n));
+            ctx.variables[node.config.saveToVariable] = result.output;
+            markNode(node.id, { status: 'success', output: `vars.${node.config.saveToVariable} = ${result.output}`, executionTimeMs: result.execution_time_ms });
           } else {
-            currentPayload = result.output;
-            currentMime = node.config.outputMime || 'application/json';
-            setNodes((prev) => prev.map((n) => n.id === node.id
-              ? { ...n, status: 'success' as const, output: result.output, executionTimeMs: result.execution_time_ms }
-              : n));
+            ctx.payload = result.output;
+            ctx.mime = node.config.outputMime || 'application/json';
+            markNode(node.id, { status: 'success', output: result.output, executionTimeMs: result.execution_time_ms });
           }
+          return true;
+        }
 
-        } else if (node.type === 'salesforce' || node.type === 'database' || node.type === 'http-request') {
-          // Connector: inject mock response
+        if (node.type === 'salesforce' || node.type === 'database' || node.type === 'http-request') {
           const response = node.config.mockResponse || '';
           const mime = node.config.mockMime || 'application/json';
-
           if (node.config.saveToVariable) {
-            // Store in variable, don't change payload
-            variables[node.config.saveToVariable] = response;
-            setNodes((prev) => prev.map((n) => n.id === node.id
-              ? { ...n, status: 'success' as const, output: `vars.${node.config.saveToVariable} = ${response}`, executionTimeMs: 0 }
-              : n));
+            ctx.variables[node.config.saveToVariable] = response;
+            markNode(node.id, { status: 'success', output: `vars.${node.config.saveToVariable} = ${response}`, executionTimeMs: 0 });
           } else {
-            currentPayload = response;
-            currentMime = mime;
-            setNodes((prev) => prev.map((n) => n.id === node.id
-              ? { ...n, status: 'success' as const, output: response, executionTimeMs: 0 }
-              : n));
+            ctx.payload = response;
+            ctx.mime = mime;
+            markNode(node.id, { status: 'success', output: response, executionTimeMs: 0 });
           }
-
-        } else if (node.type === 'logger') {
-          const logOutput = `── Logger ──\nPayload (${currentMime}):\n${currentPayload}\n\n── Variables ──\n${Object.keys(variables).length > 0
-            ? Object.entries(variables).map(([k, v]) => `${k}: ${v}`).join('\n')
-            : '(none)'}`;
-          setNodes((prev) => prev.map((n) => n.id === node.id
-            ? { ...n, status: 'success' as const, output: logOutput, executionTimeMs: 0 }
-            : n));
+          return true;
         }
+
+        if (node.type === 'logger') {
+          const logOutput = `── Logger ──\nPayload (${ctx.mime}):\n${ctx.payload}\n\n── Variables ──\n${Object.keys(ctx.variables).length > 0
+            ? Object.entries(ctx.variables).map(([k, v]) => `${k}: ${v}`).join('\n')
+            : '(none)'}`;
+          markNode(node.id, { status: 'success', output: logOutput, executionTimeMs: 0 });
+          return true;
+        }
+        return true;
       } catch (e) {
-        setNodes((prev) => prev.map((n) => n.id === node.id
-          ? { ...n, status: 'error' as const, error: String(e) }
-          : n));
-        break;
+        markNode(node.id, { status: 'error', error: String(e) });
+        return false;
       }
-    }
+    };
+
+    /** Execute a Choice scope: eval each `when` predicate via run_dataweave,
+     *  run the first matched branch (or `otherwise`), mark the rest skipped.
+     *  Honors Step Over: if skipUntilNodeRef points to this scope when we exit,
+     *  clear it so subsequent siblings pause normally again. */
+    const runChoice = async (node: FlowNode): Promise<boolean> => {
+      if (!node.branches || node.branches.length === 0) {
+        markNode(node.id, { status: 'success', output: '(empty choice — nothing to run)' });
+        return true;
+      }
+      const t0 = performance.now();
+      let matched: Branch | null = null;
+      let matchedReason = '';
+      for (const b of node.branches) {
+        if (b.isOtherwise) continue;
+        if (!b.predicate || !b.predicate.trim()) continue;
+        const predScript = `%dw 2.0\noutput application/json\n---\n${b.predicate}`;
+        try {
+          const result = await invoke<RunResult>('run_dataweave', {
+            script: predScript,
+            payload: ctx.payload,
+            payloadMimeType: ctx.mime,
+            attributesJson: ctx.attributes,
+            varsJson: JSON.stringify(ctx.variables),
+            namedInputsJson: '[]',
+            payloadFilePath: ctx.payloadFilePath,
+            classpath: [],
+            timeoutMs: 0,
+            multipartPartsJson: ctx.multipartJson,
+          });
+          if (result.error) {
+            markNode(node.id, { status: 'error', error: `Predicate "${b.predicate}" failed: ${result.error}`, executionTimeMs: Math.round(performance.now() - t0) });
+            return false;
+          }
+          if (result.output.trim() === 'true') {
+            matched = b;
+            matchedReason = `when ${b.predicate}`;
+            break;
+          }
+        } catch (e) {
+          markNode(node.id, { status: 'error', error: `Predicate eval crashed: ${String(e)}` });
+          return false;
+        }
+      }
+      if (!matched) {
+        matched = node.branches.find((b) => b.isOtherwise) || null;
+        matchedReason = matched ? 'otherwise' : '(no branch matched)';
+      }
+      // Mark all non-matched branches' inner nodes as skipped
+      const skipIds = new Set<string>();
+      for (const b of node.branches) {
+        if (b !== matched) collectIds(b.nodes, skipIds);
+      }
+      markSkipped(skipIds);
+
+      let branchOk = true;
+      if (matched && matched.nodes.length > 0) {
+        branchOk = await runList(matched.nodes);
+      }
+      // Exit Step Over mode if this scope was the one being skipped.
+      if (skipUntilNodeRef.current === node.id) skipUntilNodeRef.current = null;
+      const elapsed = Math.round(performance.now() - t0);
+      if (branchOk) {
+        markNode(node.id, { status: 'success', output: `Took branch: ${matchedReason}`, executionTimeMs: elapsed });
+      } else {
+        markNode(node.id, { status: 'error', error: `Branch "${matchedReason}" failed`, executionTimeMs: elapsed });
+      }
+      return branchOk;
+    };
+
+    /** Run a list of nodes sequentially (top-level or branch-inner).
+     *  Recurses into scope nodes via runChoice. */
+    const runList = async (ns: FlowNode[]): Promise<boolean> => {
+      const ordered = [...ns].filter((n) => !n.disabled).sort((a, b) => a.x - b.x);
+      for (const node of ordered) {
+        if (abortRef.current) return false;
+        setStepIndex(stepCounter++);
+        markNode(node.id, { status: 'running' });
+        if (!(await pauseIfStepping(node.id))) return false;
+
+        const ok = node.type === 'choice' ? await runChoice(node) : await runLeaf(node);
+        if (!ok) return false;
+      }
+      return true;
+    };
+
+    await runList(nodes);
 
     setIsRunning(false);
     setStepIndex(null);
-  }, [executionOrder]);
+  }, [nodes]);
 
   // ── Step-through controls ────────────────────────────────────────
   const stepNext = useCallback(() => {
@@ -566,19 +863,51 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     setIsRunning(false);
     setStepping(false);
     setStepIndex(null);
+    setCurrentStepNodeId(null);
+    skipUntilNodeRef.current = null;
   }, []);
+
+  /** Step Over: if currently paused on a scope, fast-forward through all its
+   *  nested nodes without pausing for each one. The scope's runChoice clears
+   *  the skip flag automatically when it exits. */
+  const stepOver = useCallback(() => {
+    if (!currentStepNodeId) return;
+    skipUntilNodeRef.current = currentStepNodeId;
+    if (stepResolveRef.current) {
+      stepResolveRef.current();
+      stepResolveRef.current = null;
+    }
+  }, [currentStepNodeId]);
 
   // ── Toggle disabled ─────────────────────────────────────────────
   const toggleDisabled = useCallback((id: string) => {
-    setNodes((prev) => prev.map((n) => n.id === id ? { ...n, disabled: !n.disabled } : n));
+    setNodes((prev) => mapNodesDeep(prev, (n) => n.id === id ? { ...n, disabled: !n.disabled } : n));
   }, []);
 
   // ── Duplicate node ──────────────────────────────────────────────
   const duplicateNode = useCallback((id: string) => {
     setNodes((prev) => {
+      // Only support duplicating top-level nodes — duplicating an in-branch
+      // node is rarely useful and would require resolving its branch parent.
       const src = prev.find((n) => n.id === id);
       if (!src) return prev;
-      const clone: FlowNode = { ...src, id: newId(), x: src.x + 40, y: src.y + 40, status: 'idle', output: undefined, error: undefined, config: { ...src.config } };
+      // Deep-clone branches so the duplicate doesn't share nested node refs.
+      const cloneBranches = src.branches?.map((b) => ({
+        ...b,
+        id: newId(),
+        nodes: b.nodes.map((nn) => ({ ...nn, id: newId(), status: 'idle' as const, output: undefined, error: undefined })),
+      }));
+      const clone: FlowNode = {
+        ...src,
+        id: newId(),
+        x: src.x + 40,
+        y: src.y + 40,
+        status: 'idle',
+        output: undefined,
+        error: undefined,
+        config: { ...src.config },
+        branches: cloneBranches,
+      };
       return [...prev, clone];
     });
   }, []);
@@ -612,7 +941,9 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         createdAt: '',
         updatedAt: '',
         requests: [],
-        flow: nodes.map(n => ({ ...n, status: 'idle', output: undefined, error: undefined, executionTimeMs: undefined })),
+        // Reset transient runtime fields on every node in the tree (including
+        // nodes nested inside scope branches) before serialization.
+        flow: mapNodesDeep(nodes, (n) => ({ ...n, status: 'idle', output: undefined, error: undefined, executionTimeMs: undefined })),
       };
       const path = await invoke<string>('save_workspace', { workspace });
       const filename = path.split(/[/\\]/).pop() || '';
@@ -659,7 +990,9 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       const ws = await invoke<{ projectName: string; flow?: FlowNode[] | null }>('load_workspace', { filename });
       const flowNodes = ws.flow;
       if (flowNodes && Array.isArray(flowNodes) && flowNodes.length > 0) {
-        setNodes(flowNodes.map((n) => ({ ...n, status: 'idle' as const, output: undefined, error: undefined, executionTimeMs: undefined })));
+        // Backfill kind: 'leaf' for v1/v2 nodes that pre-date scope support.
+        const migrated = migrateLegacyNodes(flowNodes);
+        setNodes(migrated.map((n) => ({ ...n, status: 'idle' as const, output: undefined, error: undefined, executionTimeMs: undefined })));
         setFlowName(ws.projectName);
         setFlowCurrentFile(filename);
         setFlowDirty(false);
@@ -731,14 +1064,29 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         {stepping ? (
           <>
             <span className="text-[11px] text-content-faint font-mono">
-              Step {(stepIndex ?? 0) + 1}/{executionOrder.length}
+              Step {(stepIndex ?? 0) + 1}
             </span>
+            {currentStepNodeId && (() => {
+              const cur = findNodeById(nodes, currentStepNodeId);
+              return cur && isScopeType(cur.type) ? (
+                <button
+                  onClick={stepOver}
+                  className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] font-medium cursor-pointer transition-colors border border-line text-content-faint hover:text-content hover:bg-surface-2"
+                  title="Run this scope to completion without pausing inside"
+                >
+                  Step Over
+                </button>
+              ) : null;
+            })()}
             <button
               onClick={stepNext}
               className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] font-medium cursor-pointer transition-colors"
               style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+              title={currentStepNodeId && findNodeById(nodes, currentStepNodeId)?.type === 'choice'
+                ? 'Step Into: pause at each node inside the matched branch'
+                : 'Next step'}
             >
-              Next →
+              {currentStepNodeId && findNodeById(nodes, currentStepNodeId)?.type === 'choice' ? 'Step Into →' : 'Next →'}
             </button>
             <button
               onClick={stepCancel}
@@ -891,7 +1239,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
               </marker>
             </defs>
             {connections.map(({ from, to }) => {
-              const fromX = from.x + NODE_W;
+              const fromX = from.x + nodeWidth(from.type);
               const fromY = from.y + 45;
               const toX = to.x;
               const toY = to.y + 45;
@@ -932,7 +1280,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                   style={{
                     left: node.x,
                     top: node.y,
-                    width: NODE_W,
+                    width: nodeWidth(node.type),
                     opacity: node.disabled ? 0.45 : 1,
                   }}
                 >
@@ -1060,6 +1408,131 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                       {node.type === 'logger' && (
                         <div className="text-[10px] text-content-muted">Inspect payload & vars</div>
                       )}
+                      {/* Choice scope body — stacked branches with predicate + chip chain */}
+                      {node.type === 'choice' && node.branches && (
+                        <div className="space-y-2" data-no-drag>
+                          {node.branches.map((branch) => (
+                            <div
+                              key={branch.id}
+                              className="rounded-md border overflow-hidden"
+                              style={{
+                                borderColor: branch.isOtherwise
+                                  ? 'color-mix(in oklch, var(--content) 12%, transparent)'
+                                  : `color-mix(in oklch, ${meta.color} 25%, transparent)`,
+                                background: branch.isOtherwise
+                                  ? 'color-mix(in oklch, var(--content) 3%, var(--surface-2))'
+                                  : `color-mix(in oklch, ${meta.color} 4%, var(--surface-2))`,
+                              }}
+                            >
+                              {/* Branch label / predicate */}
+                              <div className="flex items-center gap-1.5 px-2 py-1.5 border-b" style={{ borderColor: 'color-mix(in oklch, var(--content) 8%, transparent)' }}>
+                                <span
+                                  className="text-[8.5px] font-mono font-bold uppercase tracking-wider shrink-0 px-1 py-px rounded"
+                                  style={{
+                                    color: branch.isOtherwise ? 'var(--content-faint)' : meta.color,
+                                    background: branch.isOtherwise
+                                      ? 'color-mix(in oklch, var(--content) 6%, transparent)'
+                                      : `color-mix(in oklch, ${meta.color} 12%, transparent)`,
+                                  }}
+                                >
+                                  {branch.isOtherwise ? 'else' : 'when'}
+                                </span>
+                                {branch.isOtherwise ? (
+                                  <span className="text-[10.5px] text-content-faint italic flex-1">otherwise (no predicate matches)</span>
+                                ) : (
+                                  <input
+                                    value={branch.predicate || ''}
+                                    onChange={(e) => updateBranch(node.id, branch.id, { predicate: e.target.value })}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    placeholder="DataWeave boolean expression (e.g. payload.age > 18)"
+                                    className="flex-1 min-w-0 text-[10.5px] font-mono bg-transparent border-none outline-none text-content placeholder:text-content-ghost"
+                                    spellCheck={false}
+                                  />
+                                )}
+                                {/* Branch delete — only for `when` branches when there's more than one (always keep at least one when + otherwise) */}
+                                {!branch.isOtherwise && (node.branches?.filter((b) => !b.isOtherwise).length ?? 0) > 1 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const next = node.branches!.filter((b) => b.id !== branch.id);
+                                      updateNode(node.id, { branches: next });
+                                    }}
+                                    className="shrink-0 w-4 h-4 rounded text-[10px] text-content-ghost hover:text-[var(--err)] hover:bg-surface-3 cursor-pointer"
+                                    title="Remove this when branch"
+                                  >×</button>
+                                )}
+                              </div>
+
+                              {/* Inner-node chain (chips) + add button */}
+                              <div className="flex items-center gap-1 px-2 py-1.5 flex-wrap">
+                                {[...branch.nodes].sort((a, b) => a.x - b.x).map((inner, idx) => {
+                                  const innerMeta = NODE_META[inner.type];
+                                  const isInnerSelected = inner.id === selectedId;
+                                  return (
+                                    <Fragment key={inner.id}>
+                                      {idx > 0 && (
+                                        <span className="text-content-ghost text-[9px]">→</span>
+                                      )}
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); setSelectedId(inner.id); }}
+                                        onContextMenu={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setContextMenu({ x: e.clientX, y: e.clientY, nodeId: inner.id });
+                                        }}
+                                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-mono cursor-pointer transition-colors border ${isInnerSelected ? 'shadow-sm' : ''}`}
+                                        style={{
+                                          borderColor: isInnerSelected ? 'var(--accent)' : 'color-mix(in oklch, var(--content) 10%, transparent)',
+                                          background: inner.status === 'success'
+                                            ? `color-mix(in oklch, ${innerMeta.color} 14%, transparent)`
+                                            : inner.status === 'error'
+                                              ? 'color-mix(in oklch, var(--err) 10%, transparent)'
+                                              : inner.status === 'skipped'
+                                                ? 'color-mix(in oklch, var(--content) 4%, transparent)'
+                                                : 'var(--surface)',
+                                          color: inner.disabled || inner.status === 'skipped' ? 'var(--content-faint)' : innerMeta.color,
+                                          opacity: inner.disabled || inner.status === 'skipped' ? 0.55 : 1,
+                                        }}
+                                        title={`${innerMeta.label} — ${inner.label}`}
+                                      >
+                                        <NodeIcon type={inner.type} size={9} />
+                                        <span className="truncate max-w-[80px]" style={{ color: 'var(--content)' }}>{inner.label}</span>
+                                        {inner.status === 'running' && (
+                                          <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: innerMeta.color }} />
+                                        )}
+                                      </button>
+                                    </Fragment>
+                                  );
+                                })}
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setBranchPalette({ scopeId: node.id, branchId: branch.id }); }}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-mono cursor-pointer border border-dashed text-content-faint hover:text-accent hover:border-accent transition-colors"
+                                  title="Add a node to this branch"
+                                >
+                                  + add
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                          {/* Add another when branch */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const otherwise = node.branches!.find((b) => b.isOtherwise);
+                              const others = node.branches!.filter((b) => !b.isOtherwise);
+                              const newBranches: Branch[] = [
+                                ...others,
+                                { id: newId(), nodes: [], predicate: '' },
+                                ...(otherwise ? [otherwise] : []),
+                              ];
+                              updateNode(node.id, { branches: newBranches });
+                            }}
+                            className="w-full text-[10px] font-mono py-1 rounded-md border border-dashed text-content-faint hover:text-accent hover:border-accent transition-colors cursor-pointer"
+                          >
+                            + Add when branch
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Status bar */}
@@ -1108,7 +1581,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                 <div className="text-[10px] text-content-ghost">{NODE_META[selected.type].desc}</div>
               </div>
               <button
-                onClick={() => { setNodes((prev) => prev.filter((n) => n.id !== selected.id)); setSelectedId(null); }}
+                onClick={() => { setNodes((prev) => removeNodeDeep(prev, selected.id)); setSelectedId(null); }}
                 className="text-content-faint hover:text-[var(--err)] cursor-pointer p-1 transition-colors"
                 title="Delete node"
               >
@@ -1648,6 +2121,31 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                 </div>
               )}
 
+              {/* ── Choice config ───────────────────────────────────── */}
+              {selected.type === 'choice' && (
+                <div className="p-4 space-y-3">
+                  <div className="text-[12px] text-content-muted leading-relaxed">
+                    Choice routes the flow into the first <span className="font-mono text-content-secondary">when</span> branch whose predicate evaluates to <span className="font-mono text-content-secondary">true</span>. If none match, the <span className="font-mono text-content-secondary">otherwise</span> branch runs (or the scope completes with no effect).
+                  </div>
+                  <div className="text-[11px] text-content-faint">
+                    Predicates run as standalone DataWeave scripts with the same context as a Transform node — they see <span className="font-mono">payload</span>, <span className="font-mono">vars</span>, and <span className="font-mono">attributes</span>.
+                  </div>
+                  <div>
+                    <ConfigLabel label="Predicate examples" />
+                    <pre className="mt-1 px-2 py-1.5 text-[10.5px] font-mono bg-surface-2 rounded border border-line-subtle text-content-secondary leading-relaxed whitespace-pre">
+{`payload.age >= 18
+payload.country == "US"
+sizeOf(payload.items) > 0
+vars.role == "admin"
+attributes.method == "POST"`}
+                    </pre>
+                  </div>
+                  <div className="text-[11px] text-content-ghost leading-relaxed">
+                    Edit predicates and add nodes directly on the canvas — each branch in the node has its own predicate input and <span className="font-mono">+ add</span> button.
+                  </div>
+                </div>
+              )}
+
               {/* ── Output preview ─────────────────────────────────── */}
               {selected.output && (
                 <div className="border-t border-line">
@@ -1700,8 +2198,9 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
       {/* ── Right-click context menu ──────────────────────────────── */}
       {contextMenu && (() => {
-        const ctxNode = nodes.find(n => n.id === contextMenu.nodeId);
+        const ctxNode = findNodeById(nodes, contextMenu.nodeId);
         if (!ctxNode) return null;
+        const isInner = !nodes.some((n) => n.id === ctxNode.id);
         return (
           <div
             className="fixed z-[100] py-1 rounded-lg border border-line shadow-xl min-w-[160px]"
@@ -1712,16 +2211,18 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
               hint={ctxNode.disabled ? 'Re-enable this node' : 'Skip during execution'}
               onClick={() => { toggleDisabled(contextMenu.nodeId); setContextMenu(null); }}
             />
-            <CtxItem
-              label="Duplicate"
-              onClick={() => { duplicateNode(contextMenu.nodeId); setContextMenu(null); }}
-            />
+            {!isInner && (
+              <CtxItem
+                label="Duplicate"
+                onClick={() => { duplicateNode(contextMenu.nodeId); setContextMenu(null); }}
+              />
+            )}
             <div className="mx-2 my-1 h-px bg-line-subtle" />
             <CtxItem
               label="Delete"
               danger
               onClick={() => {
-                setNodes(prev => prev.filter(n => n.id !== contextMenu.nodeId));
+                setNodes((prev) => removeNodeDeep(prev, contextMenu.nodeId));
                 if (selectedId === contextMenu.nodeId) setSelectedId(null);
                 setContextMenu(null);
               }}
@@ -1729,6 +2230,51 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           </div>
         );
       })()}
+
+      {/* ── Branch palette popup ──────────────────────────────────── */}
+      {branchPalette && (
+        <div
+          className="fixed inset-0 z-[110]"
+          onClick={() => setBranchPalette(null)}
+          onContextMenu={(e) => { e.preventDefault(); setBranchPalette(null); }}
+        >
+          <div
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] rounded-xl border border-line shadow-2xl overflow-hidden"
+            style={{ background: 'var(--surface)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-2.5 border-b border-line text-[12px] font-semibold text-content">
+              Add node to branch
+            </div>
+            <div className="py-1.5 px-2 max-h-[60vh] overflow-y-auto">
+              {(['set-payload', 'transform', 'set-variable', 'salesforce', 'database', 'http-request', 'logger'] as LeafNodeType[]).map((t) => {
+                const m = NODE_META[t];
+                return (
+                  <button
+                    key={t}
+                    onClick={() => {
+                      addNodeToBranch(branchPalette.scopeId, branchPalette.branchId, t);
+                      setBranchPalette(null);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-surface-2 transition-colors text-left"
+                  >
+                    <div
+                      className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+                      style={{ background: `color-mix(in oklch, ${m.color} 15%, transparent)`, color: m.color }}
+                    >
+                      <NodeIcon type={t} size={13} />
+                    </div>
+                    <div>
+                      <div className="text-[11.5px] font-medium text-content leading-tight">{m.label}</div>
+                      <div className="text-[9.5px] text-content-ghost leading-tight mt-0.5">{m.desc}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Save Flow Dialog ──────────────────────────────────────── */}
       {showSaveDialog && (
