@@ -5,10 +5,11 @@ import { MiniEditor } from './MiniEditor';
 import { WindowControls } from './WindowControls';
 import { MIME_OPTIONS } from '../types';
 import { toast } from './Toast';
-import { open as tauriOpen } from '@tauri-apps/plugin-dialog';
+import { open as tauriOpen, save as tauriSave } from '@tauri-apps/plugin-dialog';
+import { exportFlowToMuleXml, importMuleXml } from '../muleXmlIO';
 const openFile = tauriOpen;
 
-interface MultipartPart {
+export interface MultipartPart {
   name: string;
   value: string;
   contentType: string;
@@ -36,9 +37,9 @@ function mimeToEditorLang(mime: string): 'json' | 'sql' | 'plaintext' | 'datawea
 
 // ── Types ──────────────────────────────────────────────────────────
 
-type LeafNodeType = 'set-payload' | 'transform' | 'set-variable' | 'salesforce' | 'database' | 'http-request' | 'logger';
-type ScopeNodeType = 'choice' | 'for-each' | 'parallel-for-each' | 'scatter-gather' | 'try' | 'first-successful' | 'round-robin' | 'async';
-type NodeType = LeafNodeType | ScopeNodeType;
+export type LeafNodeType = 'set-payload' | 'transform' | 'set-variable' | 'salesforce' | 'database' | 'http-request' | 'logger';
+export type ScopeNodeType = 'choice' | 'for-each' | 'parallel-for-each' | 'scatter-gather' | 'try' | 'first-successful' | 'round-robin' | 'async';
+export type NodeType = LeafNodeType | ScopeNodeType;
 type ConnectorOp = 'query' | 'insert' | 'update' | 'upsert' | 'delete' | 'select';
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type NodeStatus = 'idle' | 'running' | 'success' | 'error' | 'skipped';
@@ -55,7 +56,7 @@ function isScopeType(t: NodeType): t is ScopeNodeType { return SCOPE_TYPES.has(t
  *      `label` defaults to "body".
  *    - Scatter-Gather: branches have editable `label` ("route1", "route2", …)
  *      and are run concurrently. */
-interface Branch {
+export interface Branch {
   id: string;
   /** Internal nodes — can themselves contain scope nodes (recursion allowed). */
   nodes: FlowNode[];
@@ -66,7 +67,7 @@ interface Branch {
   isErrorHandler?: boolean;  // Try — true on the on-error branch
 }
 
-interface FlowNode {
+export interface FlowNode {
   id: string;
   type: NodeType;
   /** Optional discriminator — absent on legacy v1/v2 workspaces.
@@ -146,6 +147,16 @@ function mapNodesDeep(nodes: FlowNode[], fn: (n: FlowNode) => FlowNode): FlowNod
     }
     return mapped;
   });
+}
+
+/** Count every node in the tree (including those nested inside branches). */
+function countAllNodes(nodes: FlowNode[]): number {
+  let n = 0;
+  for (const node of nodes) {
+    n++;
+    if (node.branches) for (const b of node.branches) n += countAllNodes(b.nodes);
+  }
+  return n;
 }
 
 /** Remove a node anywhere in the tree by id. */
@@ -1269,8 +1280,13 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   const [openDialogActive, setOpenDialogActive] = useState(0);
   const openDialogInputRef = useRef<HTMLInputElement>(null);
   const saveDialogInputRef = useRef<HTMLInputElement>(null);
+  // Mule XML round-trip dialogs
+  const [muleXmlExport, setMuleXmlExport] = useState<string | null>(null);
+  const [showMuleXmlImport, setShowMuleXmlImport] = useState(false);
+  const [muleXmlImportText, setMuleXmlImportText] = useState('');
+  const [muleXmlImportResult, setMuleXmlImportResult] = useState<{ kind: 'error'; msg: string } | { kind: 'preview'; flowName: string; nodeCount: number; warnings: string[] } | null>(null);
   // Sync dialog-open ref for keyboard handler (declared earlier)
-  dialogOpenRef.current = showSaveDialog || showOpenDialog;
+  dialogOpenRef.current = showSaveDialog || showOpenDialog || muleXmlExport !== null || showMuleXmlImport;
 
   // Mark dirty on any node change
   useEffect(() => { if (nodes.length > 0) setFlowDirty(true); }, [nodes]);
@@ -1357,6 +1373,60 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     setSelectedId(null);
     setDismissedValidations(new Set());
   }, []);
+
+  // ── Mule 4 XML round-trip ───────────────────────────────────────
+  const handleExportMuleXml = useCallback(() => {
+    if (nodes.length === 0) {
+      toast('Build a flow first — there\'s nothing to export.', 'error');
+      return;
+    }
+    try {
+      const xml = exportFlowToMuleXml(flowName, nodes);
+      setMuleXmlExport(xml);
+    } catch (e) {
+      toast(`Failed to export: ${(e as Error).message}`, 'error');
+    }
+  }, [flowName, nodes]);
+
+  const handleImportMuleXml = useCallback(() => {
+    setMuleXmlImportText('');
+    setMuleXmlImportResult(null);
+    setShowMuleXmlImport(true);
+  }, []);
+
+  /** Try-parse the import textarea — preview the result before committing. */
+  const previewMuleXmlImport = useCallback(() => {
+    const result = importMuleXml(muleXmlImportText);
+    if (!result.ok) {
+      setMuleXmlImportResult({ kind: 'error', msg: result.error });
+      return;
+    }
+    setMuleXmlImportResult({
+      kind: 'preview',
+      flowName: result.flowName,
+      nodeCount: countAllNodes(result.nodes),
+      warnings: result.warnings,
+    });
+  }, [muleXmlImportText]);
+
+  /** Confirm import — replaces the current flow with the parsed one. */
+  const confirmMuleXmlImport = useCallback(() => {
+    const result = importMuleXml(muleXmlImportText);
+    if (!result.ok) {
+      toast(`Import failed: ${result.error}`, 'error');
+      return;
+    }
+    setNodes(result.nodes);
+    setFlowName(result.flowName);
+    setFlowDirty(true);
+    setFlowCurrentFile(null);
+    setSelectedId(null);
+    setShowMuleXmlImport(false);
+    setMuleXmlImportText('');
+    setMuleXmlImportResult(null);
+    const tail = result.warnings.length > 0 ? ` (${result.warnings.length} unsupported element${result.warnings.length === 1 ? '' : 's'} imported as Logger placeholder)` : '';
+    toast(`Imported "${result.flowName}" — ${countAllNodes(result.nodes)} node${countAllNodes(result.nodes) === 1 ? '' : 's'}${tail}`, 'success');
+  }, [muleXmlImportText]);
 
   if (!open) return null;
 
@@ -1481,6 +1551,22 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Icons.Trash size={11} /> Clear
+        </button>
+        <div className="w-px h-4 bg-line" />
+        <button
+          onClick={handleExportMuleXml}
+          disabled={nodes.length === 0}
+          className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Export this flow as a deployable Mule 4 XML file"
+        >
+          <span className="font-mono">&lt;/&gt;</span> Export XML
+        </button>
+        <button
+          onClick={handleImportMuleXml}
+          className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer transition-colors"
+          title="Import a Mule 4 flow XML and edit it in Studio"
+        >
+          <span className="font-mono">&lt;/&gt;</span> Import XML
         </button>
         <div className="w-px h-4 bg-line" />
         <div className="flex items-center gap-1">
@@ -3014,6 +3100,184 @@ output application/json
           </div>
         );
       })()}
+
+      {/* ── Mule XML Export Dialog ──────────────────────────────────── */}
+      {muleXmlExport !== null && (
+        <div
+          className="fixed inset-0 z-[100] flex items-start justify-center pt-[8vh] px-4"
+          style={{ background: 'color-mix(in oklch, var(--bg) 60%, transparent)', backdropFilter: 'blur(2px)' }}
+          onClick={() => setMuleXmlExport(null)}
+        >
+          <div
+            className="w-full max-w-3xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[84vh]"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => { if (e.key === 'Escape') setMuleXmlExport(null); }}
+          >
+            <div className="px-4 py-3 border-b border-line flex items-center gap-2">
+              <span className="font-mono text-[12px]" style={{ color: 'var(--accent)' }}>&lt;/&gt;</span>
+              <div className="flex-1">
+                <div className="text-[13px] font-semibold text-content">Export to Mule 4 XML</div>
+                <div className="text-[10.5px] text-content-ghost mt-0.5">
+                  Drop this into a Mule project's <span className="font-mono">src/main/mule/</span> folder. Studio-only metadata is preserved as XML comments so re-importing later restores it intact.
+                </div>
+              </div>
+              <button
+                onClick={() => setMuleXmlExport(null)}
+                className="text-content-faint hover:text-content cursor-pointer p-1"
+                title="Close"
+              >
+                <Icons.X size={13} />
+              </button>
+            </div>
+            <pre
+              className="flex-1 overflow-auto px-4 py-3 text-[11.5px] font-mono leading-relaxed select-text whitespace-pre"
+              style={{ background: 'var(--surface-2)', color: 'var(--content-secondary)' }}
+            >
+              {muleXmlExport}
+            </pre>
+            <div className="px-4 py-3 border-t border-line flex items-center gap-2">
+              <span className="text-[10.5px] text-content-ghost">
+                {(muleXmlExport.length / 1024).toFixed(1)} KB · {muleXmlExport.split('\n').length} lines
+              </span>
+              <span className="flex-1" />
+              <button
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(muleXmlExport);
+                    toast('Copied XML to clipboard', 'success');
+                  } catch {
+                    toast('Failed to copy', 'error');
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer border border-line transition-colors"
+              >
+                <Icons.Copy size={11} /> Copy
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const safeName = (flowName || 'studioFlow').replace(/[^A-Za-z0-9_-]/g, '_');
+                    const path = await tauriSave({
+                      defaultPath: `${safeName}.xml`,
+                      filters: [{ name: 'Mule XML', extensions: ['xml'] }],
+                    });
+                    if (path) {
+                      await invoke('save_output_file', { path, content: muleXmlExport });
+                      toast('Saved XML file', 'success');
+                    }
+                  } catch (e) {
+                    toast(`Failed to save: ${(e as Error).message}`, 'error');
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] font-medium cursor-pointer transition-colors"
+                style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+              >
+                <Icons.Save size={11} /> Save .xml…
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Mule XML Import Dialog ──────────────────────────────────── */}
+      {showMuleXmlImport && (
+        <div
+          className="fixed inset-0 z-[100] flex items-start justify-center pt-[8vh] px-4"
+          style={{ background: 'color-mix(in oklch, var(--bg) 60%, transparent)', backdropFilter: 'blur(2px)' }}
+          onClick={() => setShowMuleXmlImport(false)}
+        >
+          <div
+            className="w-full max-w-3xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[84vh]"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => { if (e.key === 'Escape') setShowMuleXmlImport(false); }}
+          >
+            <div className="px-4 py-3 border-b border-line flex items-center gap-2">
+              <span className="font-mono text-[12px]" style={{ color: 'var(--accent)' }}>&lt;/&gt;</span>
+              <div className="flex-1">
+                <div className="text-[13px] font-semibold text-content">Import from Mule 4 XML</div>
+                <div className="text-[10.5px] text-content-ghost mt-0.5">
+                  Paste a flow's XML below. Studio elements you don't have an equivalent for (Mule connectors, custom modules, etc.) come in as labeled <span className="font-mono">Logger</span> placeholders.
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMuleXmlImport(false)}
+                className="text-content-faint hover:text-content cursor-pointer p-1"
+                title="Close"
+              >
+                <Icons.X size={13} />
+              </button>
+            </div>
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <textarea
+                value={muleXmlImportText}
+                onChange={(e) => { setMuleXmlImportText(e.target.value); setMuleXmlImportResult(null); }}
+                placeholder={'<flow name="example">\n    <set-payload value="#[payload]"/>\n    ...\n</flow>'}
+                spellCheck={false}
+                className="flex-1 w-full px-4 py-3 text-[11.5px] font-mono leading-relaxed bg-transparent outline-none resize-none text-content placeholder:text-content-ghost"
+                style={{ minHeight: 280 }}
+              />
+              {muleXmlImportResult && muleXmlImportResult.kind === 'error' && (
+                <div
+                  className="border-t px-4 py-2.5 text-[11.5px]"
+                  style={{
+                    borderColor: 'color-mix(in oklch, var(--err) 30%, transparent)',
+                    background: 'color-mix(in oklch, var(--err) 6%, transparent)',
+                    color: 'var(--err)',
+                  }}
+                >
+                  <div className="font-semibold text-[10.5px] uppercase tracking-wide mb-1">Parse error</div>
+                  <pre className="font-mono whitespace-pre-wrap break-words">{muleXmlImportResult.msg}</pre>
+                </div>
+              )}
+              {muleXmlImportResult && muleXmlImportResult.kind === 'preview' && (
+                <div
+                  className="border-t px-4 py-2.5 text-[11.5px] space-y-1"
+                  style={{
+                    borderColor: 'color-mix(in oklch, var(--accent) 30%, transparent)',
+                    background: 'color-mix(in oklch, var(--accent) 4%, transparent)',
+                  }}
+                >
+                  <div className="font-semibold" style={{ color: 'var(--accent)' }}>
+                    Parsed successfully — "{muleXmlImportResult.flowName}" · {muleXmlImportResult.nodeCount} node{muleXmlImportResult.nodeCount === 1 ? '' : 's'}
+                  </div>
+                  {muleXmlImportResult.warnings.length > 0 && (
+                    <div className="text-[10.5px] text-content-faint">
+                      {muleXmlImportResult.warnings.length} unsupported element{muleXmlImportResult.warnings.length === 1 ? '' : 's'} will become Logger placeholder{muleXmlImportResult.warnings.length === 1 ? '' : 's'}. Importing replaces the current flow.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="px-4 py-3 border-t border-line flex items-center gap-2">
+              <span className="text-[10.5px] text-content-ghost">
+                {muleXmlImportText.trim() ? `${(muleXmlImportText.length / 1024).toFixed(1)} KB · ${muleXmlImportText.split('\n').length} lines` : ''}
+              </span>
+              <span className="flex-1" />
+              <button
+                onClick={() => setShowMuleXmlImport(false)}
+                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer border border-line transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={previewMuleXmlImport}
+                disabled={!muleXmlImportText.trim()}
+                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer border border-line transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Preview
+              </button>
+              <button
+                onClick={confirmMuleXmlImport}
+                disabled={!muleXmlImportText.trim() || (muleXmlImportResult?.kind === 'error')}
+                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] font-medium cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+              >
+                Import flow
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
