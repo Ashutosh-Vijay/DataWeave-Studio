@@ -13,6 +13,8 @@ const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 interface QueryResult {
   result: string;
   params: Record<string, unknown>;
+  unbound: string[];
+  unused: string[];
 }
 
 interface OutputPaneProps {
@@ -209,29 +211,71 @@ export const OutputPane = memo(function OutputPane({
                 {queryResult.result}
               </pre>
             </div>
+            {/* Warnings: unbound placeholders + unused param keys */}
+            {(queryResult.unbound.length > 0 || queryResult.unused.length > 0) && (
+              <div className="border-b border-line">
+                <div className="px-3.5 py-1.5 text-[10.5px] font-semibold uppercase tracking-[0.6px] bg-surface-2" style={{ color: 'var(--warn)' }}>
+                  Warnings
+                </div>
+                <div className="p-3 space-y-1.5">
+                  {queryResult.unbound.length > 0 && (
+                    <div className="text-[11.5px] flex items-baseline gap-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--warn)' }}>Unbound</span>
+                      <span className="text-content-ghost">no value provided for</span>
+                      <span className="font-mono" style={{ color: 'var(--violet)' }}>
+                        {queryResult.unbound.map((k) => `:${k}`).join(', ')}
+                      </span>
+                    </div>
+                  )}
+                  {queryResult.unused.length > 0 && (
+                    <div className="text-[11.5px] flex items-baseline gap-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--warn)' }}>Unused</span>
+                      <span className="text-content-ghost">in params but not in query:</span>
+                      <span className="font-mono text-content-faint">
+                        {queryResult.unused.join(', ')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             {/* Parameters */}
             <div>
               <div className="px-3.5 py-1.5 text-[10.5px] font-semibold text-content-faint uppercase tracking-[0.6px] bg-surface-2">
                 Resolved Parameters
               </div>
               <div className="p-3 space-y-1">
-                {Object.entries(queryResult.params).map(([key, value]) => (
-                  <div key={key} className="flex items-baseline gap-2 text-[12px] font-mono">
-                    <span style={{ color: 'var(--violet)' }}>:{key}</span>
-                    <span className="text-content-ghost">=</span>
-                    <span style={{ color: 'var(--accent)' }}>{JSON.stringify(value)}</span>
-                    <span className="text-content-ghost text-[10.5px] italic">
-                      {value === null ? 'null' : typeof value === 'string' ? 'String' : typeof value === 'number' ? 'Number' : typeof value === 'boolean' ? 'Boolean' : typeof value}
-                    </span>
-                  </div>
-                ))}
+                {Object.entries(queryResult.params).map(([key, value]) => {
+                  const isUnused = queryResult.unused.includes(key);
+                  const typeLabel = value === null
+                    ? 'null'
+                    : Array.isArray(value)
+                      ? `Array (${value.length})`
+                      : typeof value === 'string' ? 'String'
+                      : typeof value === 'number' ? 'Number'
+                      : typeof value === 'boolean' ? 'Boolean'
+                      : typeof value;
+                  return (
+                    <div key={key} className="flex items-baseline gap-2 text-[12px] font-mono">
+                      <span style={{ color: isUnused ? 'var(--content-ghost)' : 'var(--violet)' }}>:{key}</span>
+                      <span className="text-content-ghost">=</span>
+                      <span style={{ color: isUnused ? 'var(--content-ghost)' : 'var(--accent)' }}>{JSON.stringify(value)}</span>
+                      <span className="text-content-ghost text-[10.5px] italic">{typeLabel}</span>
+                      {isUnused && (
+                        <span className="text-[9.5px] font-semibold uppercase tracking-wide px-1 py-px rounded" style={{ color: 'var(--warn)', background: 'color-mix(in oklch, var(--warn) 14%, transparent)' }}>
+                          unused
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               {/* Connector behavior note */}
               <div className="px-3 pb-2 pt-1 text-[10px] text-content-ghost border-t border-line-subtle mt-2">
                 {queryLanguage === 'SOQL' ? (
-                  <span>Salesforce connector: literal replace — use <code className="text-content-faint">':param'</code> for strings, bare <code className="text-content-faint">:param</code> for dates/numbers</span>
+                  <span>Salesforce connector: literal replace — use <code className="text-content-faint">':param'</code> for strings, bare <code className="text-content-faint">:param</code> for dates/numbers. Arrays join with commas — wrap in <code className="text-content-faint">(...)</code> yourself for <code className="text-content-faint">IN</code> clauses.</span>
                 ) : (
-                  <span>DB connector (JDBC): auto-quotes strings, bare numbers/booleans, NULL for nulls — never quote <code className="text-content-faint">:param</code> in SQL</span>
+                  <span>DB connector (JDBC): auto-quotes strings, bare numbers/booleans, NULL for nulls — never quote <code className="text-content-faint">:param</code> in SQL. Arrays auto-expand to <code className="text-content-faint">(v1,v2,...)</code> for <code className="text-content-faint">IN</code> clauses.</span>
                 )}
               </div>
             </div>

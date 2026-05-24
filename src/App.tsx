@@ -74,38 +74,58 @@ import { decryptFlatMap, hasEncryptedValues, DEFAULT_ENCRYPTION_SETTINGS } from 
  * escapes single quotes, bare numbers/booleans, NULL for nulls.
  * User must NEVER add quotes around :param in SQL.
  */
+// Format a single scalar value per the active connector's quoting rules.
+function formatQueryScalar(value: unknown, isDbMode: boolean): string {
+  if (isDbMode) {
+    // DB connector: JDBC-style — driver handles quoting
+    if (value === null || value === undefined) return 'NULL';
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    // String: auto-wrap in quotes, escape internal single quotes
+    return `'${String(value).replace(/'/g, "''")}'`;
+  }
+  // Salesforce connector: literal replace — user controls quoting in template
+  if (value === null || value === undefined) return 'null';
+  return String(value);
+}
+
+// Format a param value, expanding arrays for IN clauses.
+// SOQL: literal join (user controls outer parens). SQL: wraps in (...).
+function formatQueryValue(value: unknown, isDbMode: boolean): string {
+  if (Array.isArray(value)) {
+    const inner = value.map((v) => formatQueryScalar(v, isDbMode)).join(',');
+    return isDbMode ? `(${inner})` : inner;
+  }
+  return formatQueryScalar(value, isDbMode);
+}
+
 function substituteQueryParams(
   query: string,
   paramsJson: string,
   isDbMode: boolean
-): { result: string; params: Record<string, unknown> } | null {
+): { result: string; params: Record<string, unknown>; unbound: string[]; unused: string[] } | null {
   try {
     const params = JSON.parse(paramsJson);
     if (typeof params !== 'object' || params === null || Array.isArray(params)) return null;
-    let result = query;
-    for (const [key, value] of Object.entries(params)) {
-      let replacement: string;
-      if (isDbMode) {
-        // DB connector: JDBC-style — driver handles quoting
-        if (value === null || value === undefined) {
-          replacement = 'NULL';
-        } else if (typeof value === 'number' || typeof value === 'boolean') {
-          replacement = String(value);
-        } else {
-          // String: auto-wrap in quotes, escape internal single quotes
-          replacement = `'${String(value).replace(/'/g, "''")}'`;
-        }
-      } else {
-        // Salesforce connector: literal replace — user controls quoting in template
-        if (value === null || value === undefined) {
-          replacement = 'null';
-        } else {
-          replacement = String(value);
-        }
+
+    // Single-pass replacement: scan the original template once. Substituted
+    // text is NOT re-scanned by String.replace, so an earlier param's value
+    // containing ":otherParam" can no longer trigger accidental re-injection.
+    const referenced = new Set<string>();
+    const unbound = new Set<string>();
+
+    const result = query.replace(/:(\w+)\b/g, (match, key) => {
+      if (Object.prototype.hasOwnProperty.call(params, key)) {
+        referenced.add(key);
+        return formatQueryValue(params[key], isDbMode);
       }
-      result = result.replace(new RegExp(`:${key}\\b`, 'g'), replacement);
-    }
-    return { result, params };
+      // :placeholder with no matching param — leave it verbatim and flag it.
+      unbound.add(key);
+      return match;
+    });
+
+    const unused = Object.keys(params).filter((k) => !referenced.has(k));
+
+    return { result, params, unbound: [...unbound], unused };
   } catch {
     return null;
   }
