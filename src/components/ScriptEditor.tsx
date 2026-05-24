@@ -1,10 +1,12 @@
 import Editor, { useMonaco, BeforeMount } from '@monaco-editor/react';
-import { useEffect, useRef, useCallback, useState, forwardRef, useImperativeHandle, memo } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo, forwardRef, useImperativeHandle, memo } from 'react';
 import { configureEditor } from '../editorInit';
 import { Icons } from './Icons';
 import { dwTokensProvider } from '../dataweaveGrammar';
 import { registerDWCompletionProvider, DWCompletionContext } from '../dataweaveCompletions';
 import { registerDWHoverProvider } from '../dataweaveHover';
+import { registerDWCodeActionProvider } from '../dataweaveCodeActions';
+import { convertAllPropertyCalls, findPropertyCalls } from '../dataweavePropertyConverter';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';
@@ -214,6 +216,19 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
       setMigrateResult({ kind: 'error', message: String(e) });
     }
   };
+
+  // p() → ${} conversion: count occurrences for toolbar visibility,
+  // and provide a click handler that rewrites the whole script in one pass.
+  const pCallCount = useMemo(() => findPropertyCalls(code).length, [code]);
+  const [pConvertFlash, setPConvertFlash] = useState(0);
+  const handleConvertProperties = () => {
+    if (pCallCount === 0) return;
+    const { text, count } = convertAllPropertyCalls(code);
+    onChange(text);
+    setPConvertFlash(count);
+    setTimeout(() => setPConvertFlash(0), 1800);
+  };
+
   const decorationsRef = useRef<string[]>([]);
 
   const onRunRef = useRef(onRun);
@@ -271,6 +286,7 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
 
   const completionDisposableRef = useRef<any>(null);
   const hoverDisposableRef = useRef<any>(null);
+  const codeActionDisposableRef = useRef<any>(null);
   const contextRef = useRef<DWCompletionContext>({
     payload: '',
     payloadMimeType: 'application/json',
@@ -355,13 +371,15 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
     defineDataWeaveTheme(monacoInstance);
   }, []);
 
-  // Register autocomplete + hover docs once monaco is ready
+  // Register autocomplete + hover docs + code actions once monaco is ready
   useEffect(() => {
     if (monaco) {
       if (completionDisposableRef.current) completionDisposableRef.current.dispose();
       if (hoverDisposableRef.current) hoverDisposableRef.current.dispose();
+      if (codeActionDisposableRef.current) codeActionDisposableRef.current.dispose();
       completionDisposableRef.current = registerDWCompletionProvider(monaco, () => contextRef.current);
       hoverDisposableRef.current = registerDWHoverProvider(monaco);
+      codeActionDisposableRef.current = registerDWCodeActionProvider(monaco);
     }
 
     return () => {
@@ -372,6 +390,10 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
       if (hoverDisposableRef.current) {
         hoverDisposableRef.current.dispose();
         hoverDisposableRef.current = null;
+      }
+      if (codeActionDisposableRef.current) {
+        codeActionDisposableRef.current.dispose();
+        codeActionDisposableRef.current = null;
       }
     };
   }, [monaco]);
@@ -456,6 +478,21 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
         </svg>
         <span className="text-[11.5px] font-medium text-content-secondary">{headerLabel || 'transform.dwl'}</span>
         <span className="flex-1" />
+        {pCallCount > 0 && (
+          <button
+            onClick={handleConvertProperties}
+            title={`Convert ${pCallCount} p() call${pCallCount === 1 ? '' : 's'} to \${} placeholders`}
+            className="font-mono text-[10.5px] px-1.5 py-0.5 rounded border transition-colors cursor-pointer"
+            style={{
+              borderColor: pConvertFlash > 0 ? 'color-mix(in oklch, var(--accent) 40%, transparent)' : 'transparent',
+              color: pConvertFlash > 0 ? 'var(--accent)' : 'var(--content-faint)',
+            }}
+            onMouseEnter={(e) => { if (pConvertFlash === 0) { e.currentTarget.style.borderColor = 'color-mix(in oklch, var(--accent) 30%, transparent)'; e.currentTarget.style.color = 'var(--accent)'; } }}
+            onMouseLeave={(e) => { if (pConvertFlash === 0) { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.color = 'var(--content-faint)'; } }}
+          >
+            {pConvertFlash > 0 ? `✓ ${pConvertFlash} converted` : `p()→\${} · ${pCallCount}`}
+          </button>
+        )}
         <button
           onClick={handleMigrate}
           title="Migrate DW 1.0 script to DW 2.0"
