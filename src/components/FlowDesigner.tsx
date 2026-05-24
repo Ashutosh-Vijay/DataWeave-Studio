@@ -37,13 +37,13 @@ function mimeToEditorLang(mime: string): 'json' | 'sql' | 'plaintext' | 'datawea
 // ── Types ──────────────────────────────────────────────────────────
 
 type LeafNodeType = 'set-payload' | 'transform' | 'set-variable' | 'salesforce' | 'database' | 'http-request' | 'logger';
-type ScopeNodeType = 'choice' | 'for-each' | 'parallel-for-each' | 'scatter-gather';
+type ScopeNodeType = 'choice' | 'for-each' | 'parallel-for-each' | 'scatter-gather' | 'try' | 'first-successful' | 'round-robin' | 'async';
 type NodeType = LeafNodeType | ScopeNodeType;
 type ConnectorOp = 'query' | 'insert' | 'update' | 'upsert' | 'delete' | 'select';
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type NodeStatus = 'idle' | 'running' | 'success' | 'error' | 'skipped';
 
-const SCOPE_TYPES: ReadonlySet<NodeType> = new Set<NodeType>(['choice', 'for-each', 'parallel-for-each', 'scatter-gather']);
+const SCOPE_TYPES: ReadonlySet<NodeType> = new Set<NodeType>(['choice', 'for-each', 'parallel-for-each', 'scatter-gather', 'try', 'first-successful', 'round-robin', 'async']);
 function isScopeType(t: NodeType): t is ScopeNodeType { return SCOPE_TYPES.has(t); }
 
 /** A Branch is a labeled sub-flow inside a scope node.
@@ -60,9 +60,10 @@ interface Branch {
   /** Internal nodes — can themselves contain scope nodes (recursion allowed). */
   nodes: FlowNode[];
   /** Scope-specific branch metadata. */
-  label?: string;         // Scatter-Gather route name; defaults from index
-  predicate?: string;     // Choice `when` branches
-  isOtherwise?: boolean;  // Choice — true on exactly one branch
+  label?: string;            // Scatter-Gather/First-Successful/Round-Robin route name
+  predicate?: string;        // Choice `when` branches
+  isOtherwise?: boolean;     // Choice — true on exactly one branch
+  isErrorHandler?: boolean;  // Try — true on the on-error branch
 }
 
 interface FlowNode {
@@ -195,6 +196,10 @@ const NODE_META: Record<NodeType, { label: string; color: string; desc: string; 
   'for-each':            { label: 'For Each',           color: '#eab308', desc: 'Iterate over a collection',       badge: 'EACH'   },
   'parallel-for-each':   { label: 'Parallel For Each',  color: '#ca8a04', desc: 'Iterate concurrently',            badge: 'PARFE'  },
   'scatter-gather':      { label: 'Scatter-Gather',     color: '#8b5cf6', desc: 'Run routes in parallel, aggregate', badge: 'SCATGA' },
+  'try':                 { label: 'Try',                color: '#ef4444', desc: 'Catch errors with handler',       badge: 'TRY'    },
+  'first-successful':    { label: 'First Successful',   color: '#22c55e', desc: 'Try routes until one succeeds',   badge: 'FIRST'  },
+  'round-robin':         { label: 'Round Robin',        color: '#64748b', desc: 'Rotate through routes',           badge: 'RR'     },
+  'async':               { label: 'Async',              color: '#94a3b8', desc: 'Fire-and-forget sub-flow',        badge: 'ASYNC'  },
 };
 
 /** Wider footprint for scope nodes — they stack branches vertically. */
@@ -263,6 +268,18 @@ function NodeIcon({ type, size = 14 }: { type: NodeType; size?: number }) {
     case 'scatter-gather':
       // Outward arrows fanning from center — scatter & gather visual.
       return <svg {...s} viewBox="0 0 16 16"><path d="M8 7a1 1 0 100 2 1 1 0 000-2zM5.146 3.146a.5.5 0 11.708.708L4.207 5.5H5.5a.5.5 0 010 1H3a.5.5 0 01-.5-.5V3.5a.5.5 0 011 0v1.293l1.646-1.647zm5.708 0a.5.5 0 00-.708.708L11.793 5.5H10.5a.5.5 0 000 1H13a.5.5 0 00.5-.5V3.5a.5.5 0 00-1 0v1.293l-1.646-1.647zm-5.708 9.708a.5.5 0 11-.708-.708L6.293 10.5H5a.5.5 0 010-1h2.5a.5.5 0 01.5.5v3a.5.5 0 01-1 0v-1.793l-1.354 1.354zm5.708 0a.5.5 0 00.708-.708L9.207 10.5H10.5a.5.5 0 000-1H8a.5.5 0 00-.5.5v3a.5.5 0 001 0v-1.793l1.354 1.354z"/></svg>;
+    case 'try':
+      // Shield with a checkmark — protective error scope.
+      return <svg {...s} viewBox="0 0 16 16"><path d="M5.338 1.59a61.44 61.44 0 00-2.837.856.481.481 0 00-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.725 10.725 0 002.287 2.233c.346.244.652.42.893.533.12.057.218.095.293.118a.55.55 0 00.101.025.615.615 0 00.1-.025c.076-.023.174-.061.294-.118.24-.113.547-.29.893-.533a10.726 10.726 0 002.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 00-.328-.39c-.651-.213-1.75-.51-2.837-.855C9.552 1.255 8.531 1 8 1c-.531 0-1.552.255-2.662.59z"/></svg>;
+    case 'first-successful':
+      // Numbered list / queue with check — try first, then next.
+      return <svg {...s} viewBox="0 0 16 16"><path d="M3 2.5a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v3.5a.5.5 0 01-1 0v-3H3.5a.5.5 0 01-.5-.5zm3.5 1a.5.5 0 01.5-.5h7a.5.5 0 010 1H7a.5.5 0 01-.5-.5zM6.5 7a.5.5 0 01.5-.5h7a.5.5 0 010 1H7a.5.5 0 01-.5-.5zm0 3.5a.5.5 0 01.5-.5h7a.5.5 0 010 1H7a.5.5 0 01-.5-.5zm-2.5 0a.5.5 0 01.5-.5h.5a.5.5 0 010 1H4.5a.5.5 0 01-.5-.5zm-1-3.5a.5.5 0 01.5-.5H4a.5.5 0 010 1h-.5a.5.5 0 01-.5-.5z"/></svg>;
+    case 'round-robin':
+      // Cyclic arrows.
+      return <svg {...s} viewBox="0 0 16 16"><path d="M11.534 7h3.932a.25.25 0 01.192.41l-1.966 2.36a.25.25 0 01-.384 0l-1.966-2.36a.25.25 0 01.192-.41zm-11 2h3.932a.25.25 0 00.192-.41L2.692 6.23a.25.25 0 00-.384 0L.342 8.59A.25.25 0 00.534 9z"/><path fillRule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 11-.771-.636A6.002 6.002 0 0113.917 7H12.9A5.002 5.002 0 008 3zM3.1 9a5.002 5.002 0 008.757 2.182.5.5 0 01.771.636A6.002 6.002 0 012.083 9H3.1z"/></svg>;
+    case 'async':
+      // Lightning bolt — fire and forget.
+      return <svg {...s} viewBox="0 0 16 16"><path d="M5.52.359A.5.5 0 016 0h4a.5.5 0 01.474.658L8.694 6H12.5a.5.5 0 01.395.807l-7 9a.5.5 0 01-.873-.454L6.823 9.5H3.5a.5.5 0 01-.48-.641l2.5-8.5z"/></svg>;
   }
 }
 
@@ -516,6 +533,18 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         { id: newId(), nodes: [], label: 'route1' },
         { id: newId(), nodes: [], label: 'route2' },
       ];
+    } else if (type === 'try') {
+      branches = [
+        { id: newId(), nodes: [], label: 'main' },
+        { id: newId(), nodes: [], label: 'on-error', isErrorHandler: true },
+      ];
+    } else if (type === 'first-successful' || type === 'round-robin') {
+      branches = [
+        { id: newId(), nodes: [], label: 'route1' },
+        { id: newId(), nodes: [], label: 'route2' },
+      ];
+    } else if (type === 'async') {
+      branches = [{ id: newId(), nodes: [], label: 'body' }];
     }
     const node: FlowNode = {
       id: newId(),
@@ -841,6 +870,22 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           const r = await runScatterGather(node);
           ok = r.ok;
           summary = r.summary;
+        } else if (node.type === 'try') {
+          const r = await runTry(node);
+          ok = r.ok;
+          summary = r.summary;
+        } else if (node.type === 'first-successful') {
+          const r = await runFirstSuccessful(node);
+          ok = r.ok;
+          summary = r.summary;
+        } else if (node.type === 'round-robin') {
+          const r = await runRoundRobin(node);
+          ok = r.ok;
+          summary = r.summary;
+        } else if (node.type === 'async') {
+          const r = await runAsync(node);
+          ok = r.ok;
+          summary = r.summary;
         }
       } finally {
         if (skipUntilNodeRef.current === node.id) skipUntilNodeRef.current = null;
@@ -1002,6 +1047,126 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       ctx.payload = JSON.stringify(aggregated);
       ctx.mime = 'application/json';
       return { ok: true, summary: `Gathered ${results.length} route${results.length === 1 ? '' : 's'}.` };
+    };
+
+    /** Try: run the main branch; if any node errors, capture into vars.error
+     *  and run the on-error branch. Mirrors Mule's `try` / `error-handler`. */
+    const runTry = async (node: FlowNode): Promise<{ ok: boolean; summary: string }> => {
+      const main = node.branches?.find((b) => !b.isErrorHandler);
+      const onError = node.branches?.find((b) => b.isErrorHandler);
+      if (!main) return { ok: false, summary: 'Try has no main branch.' };
+
+      const mainOk = await runList(main.nodes);
+      if (mainOk) {
+        // The on-error branch is skipped on success
+        if (onError) {
+          const skipIds = new Set<string>();
+          collectIds(onError.nodes, skipIds);
+          markSkipped(skipIds);
+        }
+        return { ok: true, summary: 'main branch succeeded.' };
+      }
+
+      // Capture the failing node's error message into vars.error so the
+      // handler can read it via `vars.error`.
+      const failingNode = (() => {
+        const ids = new Set<string>();
+        collectIds(main.nodes, ids);
+        const flat: FlowNode[] = [];
+        const walk = (ns: FlowNode[]) => { for (const n of ns) { flat.push(n); if (n.branches) for (const b of n.branches) walk(b.nodes); } };
+        walk(main.nodes);
+        return flat.find((n) => n.status === 'error');
+      })();
+      ctx.variables.error = failingNode?.error || 'Unknown error';
+
+      if (!onError) {
+        return { ok: false, summary: 'main branch failed and no on-error handler.' };
+      }
+      const handlerOk = await runList(onError.nodes);
+      return {
+        ok: handlerOk,
+        summary: handlerOk ? 'main failed → on-error recovered.' : 'main failed AND on-error failed.',
+      };
+    };
+
+    /** First Successful: try each branch in order, stop on first success.
+     *  All earlier failures and all later branches are marked skipped. */
+    const runFirstSuccessful = async (node: FlowNode): Promise<{ ok: boolean; summary: string }> => {
+      if (!node.branches || node.branches.length === 0) {
+        return { ok: true, summary: '(no routes)' };
+      }
+      let lastError = '';
+      const t0 = performance.now();
+      for (let i = 0; i < node.branches.length; i++) {
+        const b = node.branches[i];
+        // Snapshot ctx so failed attempts don't leak side effects.
+        const saved = { ...ctx, variables: { ...ctx.variables } };
+        const ok = await runList(b.nodes);
+        if (ok) {
+          // Mark remaining branches as skipped
+          const skipIds = new Set<string>();
+          for (let j = i + 1; j < node.branches.length; j++) collectIds(node.branches[j].nodes, skipIds);
+          markSkipped(skipIds);
+          return { ok: true, summary: `Route "${b.label || `route${i + 1}`}" succeeded (took ${Math.round(performance.now() - t0)}ms).` };
+        }
+        // Capture the failure and try the next route
+        const failingNode = (() => {
+          const flat: FlowNode[] = [];
+          const walk = (ns: FlowNode[]) => { for (const n of ns) { flat.push(n); if (n.branches) for (const c of n.branches) walk(c.nodes); } };
+          walk(b.nodes);
+          return flat.find((n) => n.status === 'error');
+        })();
+        lastError = failingNode?.error || 'failed';
+        // Roll ctx back for the next attempt
+        Object.assign(ctx, saved);
+      }
+      return { ok: false, summary: `All ${node.branches.length} routes failed. Last error: ${lastError}` };
+    };
+
+    /** Round Robin: in Mule this rotates per invocation; in Studio (which
+     *  runs one-shot) we always pick branch 0 and skip the rest. */
+    const runRoundRobin = async (node: FlowNode): Promise<{ ok: boolean; summary: string }> => {
+      if (!node.branches || node.branches.length === 0) {
+        return { ok: true, summary: '(no routes)' };
+      }
+      const first = node.branches[0];
+      // Mark all other branches as skipped
+      const skipIds = new Set<string>();
+      for (let i = 1; i < node.branches.length; i++) collectIds(node.branches[i].nodes, skipIds);
+      markSkipped(skipIds);
+      const ok = await runList(first.nodes);
+      return {
+        ok,
+        summary: ok
+          ? `Took route "${first.label || 'route1'}" (Round Robin always picks branch 0 in Studio).`
+          : `Route "${first.label || 'route1'}" failed.`,
+      };
+    };
+
+    /** Async: spawn the branch without awaiting. The parent flow continues
+     *  immediately. Inner-node status updates appear asynchronously as the
+     *  background work progresses. Step-through pauses are suppressed
+     *  inside async scopes (would deadlock the main flow). */
+    const runAsync = async (node: FlowNode): Promise<{ ok: boolean; summary: string }> => {
+      const body = node.branches?.[0];
+      if (!body || body.nodes.length === 0) return { ok: true, summary: '(empty async — nothing to run)' };
+      // Suppress pauses inside the spawned subtree. We can't await it, so
+      // there's no way to surface a Step button while the parent moves on.
+      const prevSkip = skipUntilNodeRef.current;
+      skipUntilNodeRef.current = node.id;
+      // Fire and forget. Errors are swallowed but recorded on the node itself.
+      // Snapshot ctx so async mutations don't leak into the parent flow.
+      const snap = { ...ctx, variables: { ...ctx.variables } };
+      void (async () => {
+        const saved = { ...ctx, variables: { ...ctx.variables } };
+        Object.assign(ctx, snap);
+        try { await runList(body.nodes); } catch { /* swallowed */ }
+        finally { Object.assign(ctx, saved); }
+      })();
+      // Restore the previous skip flag immediately — the parent flow needs
+      // to resume normal step-through after this scope.
+      skipUntilNodeRef.current = prevSkip;
+      return { ok: true, summary: `Spawned ${body.nodes.length} node${body.nodes.length === 1 ? '' : 's'} asynchronously.` };
     };
 
     /** Run a list of nodes sequentially (top-level or branch-inner).
@@ -1647,12 +1812,18 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                             const isChoice = node.type === 'choice';
                             const isForEach = node.type === 'for-each' || node.type === 'parallel-for-each';
                             const isScatter = node.type === 'scatter-gather';
+                            const isTry = node.type === 'try';
+                            const isMultiRoute = node.type === 'first-successful' || node.type === 'round-robin';
+                            const isAsync = node.type === 'async';
                             const labelTag = isChoice
                               ? (branch.isOtherwise ? 'else' : 'when')
-                              : isForEach
+                              : isForEach || isAsync
                                 ? 'body'
-                                : (branch.label || `route${branchIdx + 1}`);
-                            const branchAccent = isChoice && branch.isOtherwise ? null : meta.color;
+                                : isTry
+                                  ? (branch.isErrorHandler ? 'on-error' : 'main')
+                                  : (branch.label || `route${branchIdx + 1}`);
+                            const branchAccent = (isChoice && branch.isOtherwise) || (isTry && branch.isErrorHandler) ? null : meta.color;
+                            const labelEditable = isScatter || isMultiRoute;
                             return (
                             <div
                               key={branch.id}
@@ -1668,7 +1839,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                             >
                               {/* Branch label / predicate */}
                               <div className="flex items-center gap-1.5 px-2 py-1.5 border-b" style={{ borderColor: 'color-mix(in oklch, var(--content) 8%, transparent)' }}>
-                                {isScatter ? (
+                                {labelEditable ? (
                                   <input
                                     value={branch.label || ''}
                                     onChange={(e) => updateBranch(node.id, branch.id, { label: e.target.value })}
@@ -1708,9 +1879,10 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                                 ) : (
                                   <span className="flex-1" />
                                 )}
-                                {/* Branch delete — only for variable-arity scopes (Choice when, Scatter-Gather routes) */}
+                                {/* Branch delete — only for variable-arity scopes with > 1 of that kind */}
                                 {((isChoice && !branch.isOtherwise && (node.branches?.filter((b) => !b.isOtherwise).length ?? 0) > 1) ||
-                                  (isScatter && (node.branches?.length ?? 0) > 1)) && (
+                                  (isScatter && (node.branches?.length ?? 0) > 1) ||
+                                  (isMultiRoute && (node.branches?.length ?? 0) > 1)) && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1794,7 +1966,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                               + Add when branch
                             </button>
                           )}
-                          {node.type === 'scatter-gather' && (
+                          {(node.type === 'scatter-gather' || node.type === 'first-successful' || node.type === 'round-robin') && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -2511,6 +2683,89 @@ vars.users`}
                   </div>
                   <div className="text-[11px] text-content-ghost leading-relaxed">
                     Real Mule Scatter-Gather returns rich metadata per route (attributes, exception, timestamps). Studio's aggregator is simplified: just the payload from each route.
+                  </div>
+                </div>
+              )}
+
+              {/* ── Try config ──────────────────────────────────────── */}
+              {selected.type === 'try' && (
+                <div className="p-4 space-y-3">
+                  <div className="text-[12px] text-content-muted leading-relaxed">
+                    Wraps the <span className="font-mono">main</span> branch in error handling. If any node inside <span className="font-mono">main</span> fails, execution jumps to the <span className="font-mono">on-error</span> branch with the error message exposed as <span className="font-mono">vars.error</span>.
+                  </div>
+                  <div className="text-[11px] text-content-faint">
+                    The on-error branch sees the same payload/vars that existed at the moment of failure, plus <span className="font-mono">vars.error</span>.
+                  </div>
+                  <div>
+                    <ConfigLabel label="Reading the error in on-error" />
+                    <pre className="mt-1 px-2 py-1.5 text-[10.5px] font-mono bg-surface-2 rounded border border-line-subtle text-content-secondary leading-relaxed whitespace-pre">
+{`%dw 2.0
+output application/json
+---
+{
+  status: "failed",
+  message: vars.error
+}`}
+                    </pre>
+                  </div>
+                  <div className="text-[11px] text-content-ghost leading-relaxed">
+                    Studio simplifies Mule's error model — only the error message string is exposed. Real Mule injects a full error object (errorType, cause, etc.) into <span className="font-mono">error</span>.
+                  </div>
+                </div>
+              )}
+
+              {/* ── First Successful config ─────────────────────────── */}
+              {selected.type === 'first-successful' && (
+                <div className="p-4 space-y-3">
+                  <div className="text-[12px] text-content-muted leading-relaxed">
+                    Tries each route in order until one completes without error. The first route that succeeds wins — remaining routes are skipped. If all routes fail, the scope errors with the last route's failure message.
+                  </div>
+                  <div className="text-[11px] text-content-faint">
+                    Useful for primary/fallback patterns: try the live API; if that fails, fall back to a cache; if that fails, return a hard-coded default.
+                  </div>
+                  <div className="text-[11px] text-content-ghost leading-relaxed">
+                    Each route gets a fresh snapshot of payload/vars. Side effects in failed routes do not leak into the next attempt.
+                  </div>
+                </div>
+              )}
+
+              {/* ── Round Robin config ──────────────────────────────── */}
+              {selected.type === 'round-robin' && (
+                <div className="p-4 space-y-3">
+                  <div className="text-[12px] text-content-muted leading-relaxed">
+                    In real Mule, Round Robin rotates which route receives each invocation — useful for load-balancing across endpoints. Studio runs one-shot, so this scope always picks <span className="font-mono">route1</span>.
+                  </div>
+                  <div
+                    className="rounded-md p-2.5 text-[11px] leading-relaxed border"
+                    style={{
+                      background: 'color-mix(in oklch, var(--warn) 6%, transparent)',
+                      borderColor: 'color-mix(in oklch, var(--warn) 30%, transparent)',
+                      color: 'var(--warn)',
+                    }}
+                  >
+                    Studio-only caveat: rotation is not simulated. To verify each route's behavior, edit the route order so the one you want to test is at index 0, or use First Successful with deliberately-failing earlier routes.
+                  </div>
+                </div>
+              )}
+
+              {/* ── Async config ────────────────────────────────────── */}
+              {selected.type === 'async' && (
+                <div className="p-4 space-y-3">
+                  <div className="text-[12px] text-content-muted leading-relaxed">
+                    Spawns the body as a fire-and-forget sub-flow. The parent flow continues immediately — the async scope reports success as soon as the body starts, regardless of whether the inner nodes have finished or not.
+                  </div>
+                  <div className="text-[11px] text-content-faint">
+                    Inner-node status updates appear asynchronously as the background work progresses. The aggregated payload of the body does <em>not</em> flow back to the parent.
+                  </div>
+                  <div
+                    className="rounded-md p-2.5 text-[11px] leading-relaxed border"
+                    style={{
+                      background: 'color-mix(in oklch, var(--warn) 6%, transparent)',
+                      borderColor: 'color-mix(in oklch, var(--warn) 30%, transparent)',
+                      color: 'var(--warn)',
+                    }}
+                  >
+                    Step-through cannot pause inside an Async scope — the parent flow can't wait on it. The Step Over button still works at the scope boundary.
                   </div>
                 </div>
               )}
