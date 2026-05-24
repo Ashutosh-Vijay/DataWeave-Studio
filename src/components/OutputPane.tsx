@@ -1,4 +1,4 @@
-import { useEffect, useState, memo } from 'react';
+import React, { useEffect, useState, memo } from 'react';
 import Editor, { BeforeMount, useMonaco } from '@monaco-editor/react';
 import { configureEditor } from '../editorInit';
 import { save } from '@tauri-apps/plugin-dialog';
@@ -7,6 +7,7 @@ import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME 
 import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';
 import { Icons } from './Icons';
+import { matchErrorHint, categoryLabel } from '../dataweaveErrorHints';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
@@ -48,6 +49,25 @@ function extractFirstLine(message: string): string {
 
 function extractStackTrace(message: string): string[] {
   return message.split('\n').filter((l) => l.trim().startsWith('at '));
+}
+
+/** Split a string on backticks and render each `code` chunk as a styled span. */
+function renderWithInlineCode(text: string): React.ReactNode[] {
+  const parts = text.split(/(`[^`]+`)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code
+          key={i}
+          className="font-mono text-[11px] px-1 py-px rounded"
+          style={{ background: 'var(--surface-2)', color: 'var(--accent)' }}
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
 }
 
 /** Everything after the first non-`at` line and before the stack frames —
@@ -384,6 +404,7 @@ function OutputErrorCard({ error, errorLine, executionTimeMs, scriptSource, stac
   const headline = extractFirstLine(error);
   const details = extractDetails(error);
   const stack = extractStackTrace(error);
+  const hint = matchErrorHint(error);
 
   const sourceContext = (() => {
     if (!scriptSource || !errorLine) return null;
@@ -462,6 +483,51 @@ function OutputErrorCard({ error, errorLine, executionTimeMs, scriptSource, stac
           </div>
         </div>
       </div>
+
+      {/* Hint card — pattern-matched explanation + fix suggestions.
+          Rendered above the raw details so users see the actionable advice first. */}
+      {hint && (
+        <div
+          className="rounded-lg border overflow-hidden"
+          style={{
+            background: 'color-mix(in oklch, var(--cyan) 5%, var(--surface))',
+            borderColor: 'color-mix(in oklch, var(--cyan) 28%, transparent)',
+          }}
+        >
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b" style={{ borderColor: 'color-mix(in oklch, var(--cyan) 18%, transparent)', background: 'color-mix(in oklch, var(--cyan) 8%, transparent)' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--cyan)' }}>
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4M12 8h.01" />
+            </svg>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--cyan)' }}>
+              Hint · {categoryLabel(hint.category)}
+            </span>
+          </div>
+          <div className="px-3.5 py-3 space-y-2.5">
+            <div className="text-[12.5px] text-content leading-relaxed">
+              {hint.summary}
+            </div>
+            <ul className="space-y-1.5 text-[12px] text-content-secondary leading-relaxed">
+              {hint.fixes.map((fix, i) => (
+                <li key={i} className="flex gap-2">
+                  <span className="shrink-0 text-content-ghost font-mono text-[10.5px] mt-0.5">{i + 1}.</span>
+                  <span>{renderWithInlineCode(fix)}</span>
+                </li>
+              ))}
+            </ul>
+            {hint.example && (
+              <div className="mt-2">
+                <div className="text-[10px] uppercase tracking-[0.6px] font-semibold text-content-faint mb-1">
+                  {hint.example.caption}
+                </div>
+                <pre className="rounded p-2 text-[11.5px] font-mono whitespace-pre-wrap break-words leading-relaxed border" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)', color: 'var(--content)' }}>
+                  {hint.example.code}
+                </pre>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Reason details — the body of the error message between the headline
           and the stack trace. Often the most important part. */}
