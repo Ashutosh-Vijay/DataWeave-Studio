@@ -75,7 +75,18 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
 
   /** Capture the diff editor's models so we can wire model-content events
-   *  for the user's pasted text + compute add/remove line counts. */
+   *  for the user's pasted text + compute add/remove line counts.
+   *
+   *  IMPORTANT: we do NOT drive the editor from React state. The
+   *  @monaco-editor/react DiffEditor's `original` and `modified` props,
+   *  when controlled, race with the user's keystrokes — every typed
+   *  character triggers an onChange → setState → re-render → the lib
+   *  detects the prop "changed" and calls setValue on the model,
+   *  resetting the cursor to position 0. The right pane gets cursor-
+   *  preserving applyEdits internally; the left pane gets a brute-force
+   *  setValue. So we treat Monaco as the source of truth: it owns the
+   *  buffer, we just mirror its content into React state for the stat
+   *  badges and the Normalize/Copy/Swap/Clear buttons. */
   const handleMount: DiffOnMount = (editor) => {
     diffEditorRef.current = editor;
     configureEditor(editor.getOriginalEditor());
@@ -84,10 +95,10 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
     const original = editor.getOriginalEditor();
     const modified = editor.getModifiedEditor();
 
-    // Mirror typed-in text into React state so the language switch + format
-    // buttons have access to the current value.
+    // Mirror typed-in text into React state. This update is purely
+    // read-side — nothing writes it back into the editor.
     original.onDidChangeModelContent(() => setLeft(original.getValue()));
-    modified.onDidChangeModelContent(() => setModified.current(modified.getValue()));
+    modified.onDidChangeModelContent(() => setRight(modified.getValue()));
 
     // Recompute add/remove line counts whenever the diff is recomputed.
     editor.onDidUpdateDiff(() => {
@@ -106,13 +117,6 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
       setStats({ added, removed, same: sameContent });
     });
   };
-
-  // Stable ref to setRight so it can be called from inside onDidChangeModelContent
-  // (which captures setRight by value at mount time — without the ref, edits
-  // would always call the first render's setter, which is still the same
-  // function in React but we need it for clarity / future-proofing).
-  const setModified = useRef(setRight);
-  setModified.current = setRight;
 
   /** Pretty-print one side. For JSON: sort top-level keys + indent. For XML:
    *  re-serialize through DOMParser (sorts attrs by name, indents). For
@@ -311,8 +315,17 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
         <DiffEditor
           height="100%"
           language={lang}
-          original={left}
-          modified={right}
+          // INTENTIONALLY uncontrolled — see the long comment in handleMount.
+          // @monaco-editor/react's DiffEditor calls `model.setValue(original)`
+          // on every `original` prop change, which resets the cursor to the
+          // top of the buffer on every keystroke. The `modified` pane uses
+          // `executeEdits` with forceMoveMarkers:true and doesn't have the
+          // bug. We work around it by never updating these props after mount:
+          // pass empty string constants so React's dep comparison is stable,
+          // and push programmatic updates (Swap / Clear / Normalize) through
+          // diffEditorRef directly with setValue.
+          original=""
+          modified=""
           theme={editorTheme}
           beforeMount={handleBeforeMount}
           onMount={handleMount}
