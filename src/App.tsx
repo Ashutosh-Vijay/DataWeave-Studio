@@ -30,6 +30,7 @@ import { QueryEditor } from './components/QueryEditor';
 // ~150-200KB off the initial bundle.
 const AboutDialog = lazy(() => import('./components/AboutDialog').then((m) => ({ default: m.AboutDialog })));
 const SecurePropertiesTool = lazy(() => import('./components/SecurePropertiesTool').then((m) => ({ default: m.SecurePropertiesTool })));
+const CompareTool = lazy(() => import('./components/CompareTool').then((m) => ({ default: m.CompareTool })));
 const WelcomeTour = lazy(() => import('./components/WelcomeTour').then((m) => ({ default: m.WelcomeTour })));
 const ShortcutsDialog = lazy(() => import('./components/ShortcutsDialog').then((m) => ({ default: m.ShortcutsDialog })));
 const SettingsScreen = lazy(() => import('./components/SettingsScreen').then((m) => ({ default: m.SettingsScreen })));
@@ -449,6 +450,7 @@ function App() {
   const [viewMode, setViewMode] = useState<'script' | 'tests'>('script');
   const [aboutOpen, setAboutOpen] = useState(false);
   const [secureToolOpen, setSecureToolOpen] = useState(false);
+  const [compareToolOpen, setCompareToolOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -1053,6 +1055,7 @@ function App() {
     { id: 'reference', label: 'Open DataWeave function reference', group: 'Tools', run: () => setReferenceOpen(true) },
     { id: 'flow', label: 'Open Message Flow designer', group: 'Tools', run: () => setFlowDesignerOpen(true) },
     { id: 'secure', label: 'Open Secure Properties tool', shortcut: '⌘⇧E', group: 'Tools', run: () => setSecureToolOpen(true) },
+    { id: 'compare', label: 'Open Compare tool', group: 'Tools', run: () => setCompareToolOpen(true) },
     { id: 'import-curl', label: 'Import cURL', shortcut: '⌘⇧I', group: 'Tools', run: handleOpenImport },
     { id: 'snippets', label: 'Open snippets library', shortcut: '⌘L', group: 'Tools', run: handleOpenSnippets },
     { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: '⌘/', group: 'Tools', run: () => setShortcutsOpen(true) },
@@ -1308,6 +1311,7 @@ function App() {
           onCurlImport={handleCurlImport}
           onInsertSnippet={(body) => scriptEditorRef.current?.insertSnippet(body)}
           onOpenSecure={() => setSecureToolOpen(true)}
+          onOpenCompare={() => setCompareToolOpen(true)}
           onOpenFlowDesigner={() => setFlowDesignerOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenReference={() => setReferenceOpen(true)}
@@ -1613,6 +1617,13 @@ function App() {
       {secureToolOpen && (
         <Suspense fallback={null}>
           <SecurePropertiesTool open={secureToolOpen} onClose={() => setSecureToolOpen(false)} />
+        </Suspense>
+      )}
+
+      {/* Compare tool — paste two texts, see the diff. */}
+      {compareToolOpen && (
+        <Suspense fallback={null}>
+          <CompareTool open={compareToolOpen} onClose={() => setCompareToolOpen(false)} />
         </Suspense>
       )}
 

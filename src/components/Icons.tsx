@@ -146,6 +146,15 @@ export const Icons = {
       <line x1="9" y1="3" x2="9" y2="21" />
     </>,
   ),
+  // Two arrows facing each other inside a split frame — "compare" / diff icon.
+  Compare: mk(
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <line x1="12" y1="3" x2="12" y2="21" />
+      <polyline points="7 9 5 11 7 13" />
+      <polyline points="17 9 19 11 17 13" />
+    </>,
+  ),
 };
 
 export type IconName = keyof typeof Icons;
