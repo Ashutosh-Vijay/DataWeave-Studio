@@ -111,11 +111,14 @@ function leafToXml(node: FlowNode): string {
     case 'set-payload': {
       const value = node.config.payload || '';
       const mime = node.config.payloadMime;
-      // Studio stores literal payload data; Mule expects an expression.
-      // Wrap raw data in #[...] only if it looks like an expression, else use the value attribute as a literal.
+      // Mule's `value` attribute is treated as a DataWeave expression when
+      // it's wrapped in #[…]. Studio's set-payload stores LITERAL data, not
+      // expressions — wrapping `Hello` as `#[Hello]` would make Mule try to
+      // resolve `Hello` as an identifier at runtime. Only re-wrap when the
+      // user explicitly typed `#[…]`; otherwise emit the value as a literal.
       const looksLikeExpr = value.trim().startsWith('#[');
       const lines: string[] = [
-        `<set-payload${attr('value', looksLikeExpr ? value : `#[${cdataish(value)}]`)}${attr('mimeType', mime)}${docAttrs(node)}/>`,
+        `<set-payload${attr('value', looksLikeExpr ? value : cdataish(value))}${attr('mimeType', mime)}${docAttrs(node)}/>`,
       ];
       // Embed Studio-only data so import can reconstruct mime + parts + binary refs.
       const meta = studioComment({
@@ -146,8 +149,10 @@ function leafToXml(node: FlowNode): string {
         // Script-sourced var → wrap in an EE Transform so DataWeave can run.
         return `<ee:transform${docAttrs(node)}>\n    <ee:variables>\n        <ee:set-variable${attr('variableName', name)}>${cdata(node.config.script!)}</ee:set-variable>\n    </ee:variables>\n</ee:transform>`;
       }
+      // Same logic as set-payload: literal values stay literal, only re-wrap
+      // when the user explicitly authored an expression with #[…].
       const raw = node.config.variableValue || '';
-      const value = raw.trim().startsWith('#[') ? raw : `#[${cdataish(raw)}]`;
+      const value = raw.trim().startsWith('#[') ? raw : cdataish(raw);
       return `<set-variable${attr('variableName', name)}${attr('value', value)}${docAttrs(node)}/>`;
     }
     case 'logger': {
@@ -159,17 +164,39 @@ function leafToXml(node: FlowNode): string {
       return `<logger${attr('level', 'INFO')}${attr('message', msg)}${docAttrs(node)}/>`;
     }
     case 'salesforce': {
+      // Mule 4 Salesforce connector:
+      //   - query / select  → <salesforce:query><salesforce:salesforce-query>SOQL</…></…>
+      //   - insert / update / upsert / delete  → <salesforce:create …
+      //       type="Account" records="#[payload]" /> (records is an ATTRIBUTE,
+      //       not a child element — that was the Mule 3 shape).
+      //   - Mule 4 also renamed `insert` to `create`. We follow the M4 name.
       const op = node.config.operation || 'query';
       const query = node.config.request || '';
       const saveTo = node.config.saveToVariable;
-      const innerEl = op === 'query' || op === 'select'
-        ? `<salesforce:salesforce-query>${cdata(query)}</salesforce:salesforce-query>`
-        : `<salesforce:records><![CDATA[#[${query}]]]></salesforce:records>`;
+      const isQuery = op === 'query' || op === 'select';
+      const opTag = isQuery
+        ? 'query'
+        : op === 'insert' ? 'create' : op; // M4 uses `create`, not `insert`
       const targetAttr = saveTo ? ` target="${escXml(saveTo)}"` : '';
-      const opTag = op === 'select' ? 'query' : op;
-      const lines: string[] = [
-        `<salesforce:${opTag}${attr('config-ref', 'Salesforce_Config')}${targetAttr}${docAttrs(node)}>\n${indent(innerEl, 1)}\n</salesforce:${opTag}>`,
-      ];
+
+      let line: string;
+      if (isQuery) {
+        const innerEl = `<salesforce:salesforce-query>${cdata(query)}</salesforce:salesforce-query>`;
+        line = `<salesforce:${opTag}${attr('config-ref', 'Salesforce_Config')}${targetAttr}${docAttrs(node)}>\n${indent(innerEl, 1)}\n</salesforce:${opTag}>`;
+      } else {
+        // DML ops need a `type` (object name, e.g. "Account") and `records`
+        // (a DW expression producing a list of records). Studio doesn't model
+        // these separately yet, so emit placeholders the user must edit.
+        const recordsExpr = query.trim().startsWith('#[') ? query : `#[${cdataish(query || 'payload')}]`;
+        line = `<salesforce:${opTag}${attr('config-ref', 'Salesforce_Config')}${attr('type', 'UnknownObject')}${attr('records', recordsExpr)}${targetAttr}${docAttrs(node)}/>`;
+      }
+
+      const lines: string[] = [line];
+      // For DML ops, leave a note about the required `type` attribute so the
+      // user knows they need to set the sObject name before deploying.
+      if (!isQuery) {
+        lines.push(`<!-- TODO: set type="..." to the actual sObject name (e.g. "Account") before deploying -->`);
+      }
       const meta = studioComment({
         type: 'salesforce',
         operation: op,
@@ -484,11 +511,22 @@ function elementToNode(el: Element): FlowNode {
       const prefix = el.prefix || (el.tagName.includes(':') ? el.tagName.split(':')[0] : '');
       const target = el.getAttribute('target') || '';
       if (prefix === 'salesforce') {
-        const inner = el.querySelector('salesforce-query, salesforce\\:salesforce-query');
-        const sql = inner?.textContent?.trim() || '';
+        // Query: SOQL lives in a <salesforce-query> child.
+        // DML (create/update/upsert/delete): records is an ATTRIBUTE in Mule 4.
+        //   (We also accept the legacy <salesforce:records> child shape for
+        //    backward compat with older Mule 3 exports.)
+        const isQuery = name === 'query';
+        const recordsAttr = el.getAttribute('records');
+        const legacyRecordsEl = el.querySelector('records, salesforce\\:records');
+        const queryEl = el.querySelector('salesforce-query, salesforce\\:salesforce-query');
+        const request = isQuery
+          ? (queryEl?.textContent?.trim() || '')
+          : (recordsAttr ? stripExpr(recordsAttr) : (legacyRecordsEl?.textContent?.trim() || ''));
+        // Mule 4 renamed `insert` → `create`. Map the M4 name back to Studio's `insert`.
+        const mappedOp = name === 'create' ? 'insert' : name;
         return makeNode('salesforce', label, {
-          operation: (name === 'query' ? 'query' : name) as FlowNode['config']['operation'],
-          request: sql,
+          operation: (mappedOp === 'query' ? 'query' : mappedOp) as FlowNode['config']['operation'],
+          request,
           mockResponse: '[]',
           mockMime: 'application/json',
           saveToVariable: target,

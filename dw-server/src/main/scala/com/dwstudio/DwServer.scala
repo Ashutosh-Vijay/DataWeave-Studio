@@ -131,9 +131,19 @@ object DwServer {
       // the result as JSON instead. Mirror that: rewrite the directive to
       // application/json before compilation so the JSON writer emits text.
       // The user sees the same readable JSON the Playground shows.
+      //
+      // Previous regex required end-of-line right after `application/java`.
+      // That bypasses the rewrite for forms like
+      //     output application/java class="com.example.Order"
+      //     output application/java ---
+      // and silently produces an empty ByteArrayOutputStream (Java writer
+      // ran but emitted no text). Be permissive: swallow ALL trailing
+      // properties / whitespace on the same line up to EOL or the `---`
+      // separator, so the JSON writer kicks in regardless of what the user
+      // tacked on after `application/java`.
       val script = rawScript.replaceAll(
-        "(?m)^(\\s*output\\s+)application/java(\\s*)$",
-        "$1application/json$2"
+        "(?m)^(\\s*output\\s+)application/java(?:[^\\r\\n-]|-(?!-))*",
+        "$1application/json"
       )
 
       // Hot-add any user-provided JARs to the classloader so `import java!...`

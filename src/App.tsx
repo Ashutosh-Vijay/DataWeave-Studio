@@ -573,6 +573,56 @@ function App() {
   // data didn't change (e.g. when only a modal opened/closed).
   const handleScriptChange = useCallback((val: string | undefined) => workspace.setScript(val || ''), [workspace.setScript]);
   const handlePayloadChange = useCallback((val: string | undefined) => workspace.setPayload(val || ''), [workspace.setPayload]);
+
+  // ── File drag & drop ────────────────────────────────────────────
+  // Window-level handler: drop a .dwl, .json, .xml, or .csv file anywhere
+  // on the app to load it into the appropriate editor. Without this, the
+  // default browser behavior would replace the whole app with the file's
+  // contents (the WebView treats it as a navigation).
+  useEffect(() => {
+    const onDragOver = (e: DragEvent) => {
+      // Block the default to keep the WebView from navigating away.
+      if (e.dataTransfer?.types.includes('Files')) e.preventDefault();
+    };
+    const onDrop = async (e: DragEvent) => {
+      const file = e.dataTransfer?.files?.[0];
+      if (!file) return;
+      e.preventDefault();
+      try {
+        const text = await file.text();
+        const ext = (file.name.split('.').pop() || '').toLowerCase();
+        // .dwl scripts go to the script editor; everything else is treated
+        // as a payload and the MIME is set to match the file extension.
+        if (ext === 'dwl') {
+          workspace.setScript(text);
+        } else if (ext === 'json') {
+          workspace.setPayload(text);
+          workspace.setPayloadMimeType('application/json');
+        } else if (ext === 'xml') {
+          workspace.setPayload(text);
+          workspace.setPayloadMimeType('application/xml');
+        } else if (ext === 'csv') {
+          workspace.setPayload(text);
+          workspace.setPayloadMimeType('application/csv');
+        } else if (ext === 'yaml' || ext === 'yml') {
+          workspace.setPayload(text);
+          workspace.setPayloadMimeType('application/yaml');
+        } else {
+          // Unknown extension — load as plain text so the user can decide.
+          workspace.setPayload(text);
+          workspace.setPayloadMimeType('text/plain');
+        }
+      } catch (err) {
+        console.warn('Failed to read dropped file:', err);
+      }
+    };
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('drop', onDrop);
+    return () => {
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('drop', onDrop);
+    };
+  }, [workspace.setScript, workspace.setPayload, workspace.setPayloadMimeType]);
   const contextDataMemo = useMemo(() => ({
     vars: workspace.context.vars,
     headers: workspace.context.headers,
@@ -1333,6 +1383,7 @@ function App() {
               scriptPane={
                 <ScriptEditor
                   ref={scriptEditorRef}
+                  modelPath={`req-${workspace.activeRequestId || 'default'}.dwl`}
                   code={workspace.script}
                   onChange={handleScriptChange}
                   onRun={handleRun}
@@ -1446,6 +1497,7 @@ function App() {
                     <div className="flex-1 min-h-0">
                     <ScriptEditor
                       ref={scriptEditorRef}
+                      modelPath={`req-${workspace.activeRequestId || 'default'}.dwl`}
                       code={workspace.script}
                       onChange={handleScriptChange}
                       onRun={handleRun}

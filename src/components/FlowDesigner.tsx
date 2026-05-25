@@ -135,18 +135,31 @@ function findNodeById(nodes: FlowNode[], id: string): FlowNode | null {
   return null;
 }
 
-/** Apply a transform recursively to every node in the tree. */
+/** Apply a transform recursively to every node in the tree.
+ *  Preserves referential equality where nothing changed — returns the SAME
+ *  array, branch, or node object when its subtree is untouched, so React
+ *  memoization downstream actually skips re-renders. The previous
+ *  implementation unconditionally cloned every level, which degraded
+ *  per-keystroke updates on large flows into O(N) work + N React diffs. */
 function mapNodesDeep(nodes: FlowNode[], fn: (n: FlowNode) => FlowNode): FlowNode[] {
-  return nodes.map((n) => {
+  let arrayChanged = false;
+  const out = nodes.map((n) => {
     const mapped = fn(n);
-    if (mapped.branches) {
-      return {
-        ...mapped,
-        branches: mapped.branches.map((b) => ({ ...b, nodes: mapNodesDeep(b.nodes, fn) })),
-      };
+    let next = mapped;
+    if (next.branches) {
+      let branchesChanged = false;
+      const newBranches = next.branches.map((b) => {
+        const newInner = mapNodesDeep(b.nodes, fn);
+        if (newInner === b.nodes) return b;
+        branchesChanged = true;
+        return { ...b, nodes: newInner };
+      });
+      if (branchesChanged) next = { ...next, branches: newBranches };
     }
-    return mapped;
+    if (next !== n) arrayChanged = true;
+    return next;
   });
+  return arrayChanged ? out : nodes;
 }
 
 /** Count every node in the tree (including those nested inside branches). */
@@ -376,10 +389,20 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         const next = Math.min(2, Math.max(0.25, z - e.deltaY * 0.002));
         setZoom(next);
         setContextMenu(null); // close context menu on zoom
-        requestAnimationFrame(() => {
-          canvas.scrollLeft = wx * next - mx;
-          canvas.scrollTop = wy * next - my;
-        });
+        // Defer the scroll until AFTER React has flushed the new zoom and the
+        // browser has applied the resulting transform. requestAnimationFrame
+        // fires before paint, so the canvas scrollable area is still at the
+        // old size when we try to set scrollLeft — the browser clamps to the
+        // unscaled bounds and the viewport jitters. setTimeout(0) defers to
+        // the next macrotask, by which point React has rendered and the
+        // canvas has its new scaled dimensions, so the scroll target lands
+        // where the user expects.
+        setTimeout(() => {
+          if (canvasRef.current) {
+            canvasRef.current.scrollLeft = wx * next - mx;
+            canvasRef.current.scrollTop = wy * next - my;
+          }
+        }, 0);
       }
     };
     canvas.addEventListener('wheel', handler, { passive: false });
@@ -677,15 +700,31 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     // Reset all statuses across the entire tree (including branch-inner nodes).
     setNodes((prev) => mapNodesDeep(prev, (n) => ({ ...n, status: 'idle' as const, output: undefined, error: undefined, executionTimeMs: undefined })));
 
-    // Shared execution context — mutated as nodes run.
-    const ctx = {
+    // Execution context — passed explicitly through every recursive call.
+    // Sequential calls within a single runList share the same ctx object so
+    // siblings see each other's mutations. Concurrent forks (parallel-for-
+    // each, scatter-gather, async, first-successful) create fresh ctx copies
+    // so branches can't trample each other across awaits.
+    type ExecCtx = {
+      payload: string;
+      mime: string;
+      attributes: string;
+      multipartJson: string | null;
+      payloadFilePath: string | null;
+      variables: Record<string, string>;
+    };
+    const initialCtx: ExecCtx = {
       payload: '',
       mime: 'application/json',
       attributes: '{}',
-      multipartJson: null as string | null,
-      payloadFilePath: null as string | null,
-      variables: {} as Record<string, string>,
+      multipartJson: null,
+      payloadFilePath: null,
+      variables: {},
     };
+    /** Build a deep-enough copy of a ctx for forking. variables is the only
+     *  nested object we mutate, so cloning that and shallow-copying the rest
+     *  is sufficient. */
+    const forkCtx = (ctx: ExecCtx): ExecCtx => ({ ...ctx, variables: { ...ctx.variables } });
 
     // Track step index globally across recursion so the header shows progress.
     let stepCounter = 0;
@@ -722,8 +761,9 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       return !abortRef.current;
     };
 
-    /** Execute one leaf node. Returns true on success, false on error/abort. */
-    const runLeaf = async (node: FlowNode): Promise<boolean> => {
+    /** Execute one leaf node. Returns true on success, false on error/abort.
+     *  Mutates `ctx` in place so siblings in the same runList see the result. */
+    const runLeaf = async (node: FlowNode, ctx: ExecCtx): Promise<boolean> => {
       try {
         if (node.type === 'set-payload') {
           ctx.payload = node.config.payload || '';
@@ -834,11 +874,9 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       }
     };
 
-    /** Evaluate a DataWeave expression against the current context.
-     *  Returns the parsed JSON value on success, or null on error
-     *  (and marks the parent node as error). Used by Choice predicates
-     *  and For Each collection expressions. */
-    const evalExpression = async (expr: string): Promise<{ ok: true; value: unknown; raw: string } | { ok: false; error: string }> => {
+    /** Evaluate a DataWeave expression against the given context.
+     *  Returns the parsed JSON value on success, or an error string. */
+    const evalExpression = async (expr: string, ctx: ExecCtx): Promise<{ ok: true; value: unknown; raw: string } | { ok: false; error: string }> => {
       const script = `%dw 2.0\noutput application/json\n---\n${expr}`;
       try {
         const result = await invoke<RunResult>('run_dataweave', {
@@ -864,39 +902,32 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
     /** Dispatcher: pick the right per-scope runner.
      *  Honors Step Over: scope handlers clear skipUntilNodeRef when they exit. */
-    const runScope = async (node: FlowNode): Promise<boolean> => {
+    const runScope = async (node: FlowNode, ctx: ExecCtx): Promise<boolean> => {
       const t0 = performance.now();
       let ok = true;
       let summary = '';
       try {
         if (node.type === 'choice') {
-          const r = await runChoice(node);
-          ok = r.ok;
-          summary = r.summary;
+          const r = await runChoice(node, ctx);
+          ok = r.ok; summary = r.summary;
         } else if (node.type === 'for-each' || node.type === 'parallel-for-each') {
-          const r = await runForEach(node, node.type === 'parallel-for-each');
-          ok = r.ok;
-          summary = r.summary;
+          const r = await runForEach(node, node.type === 'parallel-for-each', ctx);
+          ok = r.ok; summary = r.summary;
         } else if (node.type === 'scatter-gather') {
-          const r = await runScatterGather(node);
-          ok = r.ok;
-          summary = r.summary;
+          const r = await runScatterGather(node, ctx);
+          ok = r.ok; summary = r.summary;
         } else if (node.type === 'try') {
-          const r = await runTry(node);
-          ok = r.ok;
-          summary = r.summary;
+          const r = await runTry(node, ctx);
+          ok = r.ok; summary = r.summary;
         } else if (node.type === 'first-successful') {
-          const r = await runFirstSuccessful(node);
-          ok = r.ok;
-          summary = r.summary;
+          const r = await runFirstSuccessful(node, ctx);
+          ok = r.ok; summary = r.summary;
         } else if (node.type === 'round-robin') {
-          const r = await runRoundRobin(node);
-          ok = r.ok;
-          summary = r.summary;
+          const r = await runRoundRobin(node, ctx);
+          ok = r.ok; summary = r.summary;
         } else if (node.type === 'async') {
-          const r = await runAsync(node);
-          ok = r.ok;
-          summary = r.summary;
+          const r = await runAsync(node, ctx);
+          ok = r.ok; summary = r.summary;
         }
       } finally {
         if (skipUntilNodeRef.current === node.id) skipUntilNodeRef.current = null;
@@ -911,8 +942,8 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     };
 
     /** Choice: first matching `when` predicate wins, fall back to `otherwise`.
-     *  Returns ok + summary for runScope to display on the node. */
-    const runChoice = async (node: FlowNode): Promise<{ ok: boolean; summary: string }> => {
+     *  Sequential — the matched branch shares ctx with the parent. */
+    const runChoice = async (node: FlowNode, ctx: ExecCtx): Promise<{ ok: boolean; summary: string }> => {
       if (!node.branches || node.branches.length === 0) {
         return { ok: true, summary: '(empty choice — nothing to run)' };
       }
@@ -921,7 +952,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       for (const b of node.branches) {
         if (b.isOtherwise) continue;
         if (!b.predicate || !b.predicate.trim()) continue;
-        const result = await evalExpression(b.predicate);
+        const result = await evalExpression(b.predicate, ctx);
         if (!result.ok) {
           return { ok: false, summary: `Predicate "${b.predicate}" failed: ${result.error}` };
         }
@@ -935,7 +966,6 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         matched = node.branches.find((b) => b.isOtherwise) || null;
         matchedReason = matched ? 'otherwise' : '(no branch matched)';
       }
-      // Mark all non-matched branches' inner nodes as skipped
       const skipIds = new Set<string>();
       for (const b of node.branches) {
         if (b !== matched) collectIds(b.nodes, skipIds);
@@ -944,7 +974,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
       let branchOk = true;
       if (matched && matched.nodes.length > 0) {
-        branchOk = await runList(matched.nodes);
+        branchOk = await runList(matched.nodes, ctx);
       }
       return {
         ok: branchOk,
@@ -954,14 +984,19 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
     /** For Each / Parallel For Each: iterate over a collection expression,
      *  set payload to each item, run the (single) body branch, aggregate
-     *  outputs as a JSON array. */
-    const runForEach = async (node: FlowNode, parallel: boolean): Promise<{ ok: boolean; summary: string }> => {
+     *  outputs as a JSON array.
+     *  Parallel mode forks a fresh ctx per iteration so concurrent bodies
+     *  can't trample each other across awaits. Sequential mode threads one
+     *  fresh ctx per iteration too — body mutations are intentionally
+     *  isolated so a later iteration starts from the parent's payload, not
+     *  the previous body's output (which is what Mule for-each does). */
+    const runForEach = async (node: FlowNode, parallel: boolean, ctx: ExecCtx): Promise<{ ok: boolean; summary: string }> => {
       const collectionExpr = node.config.forEachCollection || 'payload';
       const counterName = (node.config.forEachCounter || 'counter').trim() || 'counter';
       const body = node.branches?.[0];
       if (!body) return { ok: false, summary: 'No body branch defined.' };
 
-      const coll = await evalExpression(collectionExpr);
+      const coll = await evalExpression(collectionExpr, ctx);
       if (!coll.ok) return { ok: false, summary: `Collection "${collectionExpr}" failed: ${coll.error}` };
       if (!Array.isArray(coll.value)) {
         return { ok: false, summary: `Collection didn't evaluate to an Array — got ${typeof coll.value}.` };
@@ -973,26 +1008,17 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         return { ok: true, summary: 'Iterated over 0 items.' };
       }
 
-      /** Run the body once for one element. Returns the body's resulting
-       *  payload string (post-iteration) or null on error. Uses a local
-       *  copy of `ctx` so iterations don't trample each other in parallel mode. */
       const runOneIter = async (item: unknown, index: number): Promise<string | null> => {
-        // Snapshot the outer ctx so each iteration gets a fresh-but-shared starting point.
-        const iterCtx = {
+        const iterCtx: ExecCtx = {
           payload: typeof item === 'string' ? item : JSON.stringify(item),
           mime: 'application/json',
           attributes: ctx.attributes,
-          multipartJson: null as string | null,
-          payloadFilePath: null as string | null,
+          multipartJson: null,
+          payloadFilePath: null,
           variables: { ...ctx.variables, [counterName]: String(index) },
         };
-        // Swap ctx temporarily, then run, then restore.
-        const saved = { ...ctx };
-        Object.assign(ctx, iterCtx);
-        const ok = await runList(body.nodes);
-        const result = ok ? ctx.payload : null;
-        Object.assign(ctx, saved);
-        return result;
+        const ok = await runList(body.nodes, iterCtx);
+        return ok ? iterCtx.payload : null;
       };
 
       let outputs: (string | null)[];
@@ -1009,7 +1035,6 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       if (failedIdx >= 0) {
         return { ok: false, summary: `Iteration ${failedIdx + 1} of ${items.length} failed.` };
       }
-      // Aggregate: parse each iteration's output and bundle into a JSON array.
       const parsed = outputs.map((o) => {
         try { return JSON.parse(o!); } catch { return o; }
       });
@@ -1019,8 +1044,10 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     };
 
     /** Scatter-Gather: fork the current context into every branch concurrently,
-     *  aggregate the outputs as { route1: ..., route2: ... } (or array). */
-    const runScatterGather = async (node: FlowNode): Promise<{ ok: boolean; summary: string }> => {
+     *  aggregate the outputs as { route1: ..., route2: ... } (or array).
+     *  Each route gets its own forked ctx — concurrent branches cannot
+     *  race on the parent's payload/vars. */
+    const runScatterGather = async (node: FlowNode, ctx: ExecCtx): Promise<{ ok: boolean; summary: string }> => {
       if (!node.branches || node.branches.length === 0) {
         return { ok: true, summary: '(no routes)' };
       }
@@ -1028,14 +1055,9 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
       const runOneRoute = async (branch: Branch): Promise<{ name: string; output: string | null }> => {
         const name = (branch.label && branch.label.trim()) || `route${(node.branches!.indexOf(branch) + 1)}`;
-        // Each route gets a snapshot of the current ctx.
-        const snap = { ...ctx, variables: { ...ctx.variables } };
-        const saved = { ...ctx, variables: { ...ctx.variables } };
-        Object.assign(ctx, snap);
-        const ok = await runList(branch.nodes);
-        const out = ok ? ctx.payload : null;
-        Object.assign(ctx, saved);
-        return { name, output: out };
+        const branchCtx = forkCtx(ctx);
+        const ok = await runList(branch.nodes, branchCtx);
+        return { name, output: ok ? branchCtx.payload : null };
       };
 
       const results = await Promise.all(node.branches.map(runOneRoute));
@@ -1062,14 +1084,13 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
     /** Try: run the main branch; if any node errors, capture into vars.error
      *  and run the on-error branch. Mirrors Mule's `try` / `error-handler`. */
-    const runTry = async (node: FlowNode): Promise<{ ok: boolean; summary: string }> => {
+    const runTry = async (node: FlowNode, ctx: ExecCtx): Promise<{ ok: boolean; summary: string }> => {
       const main = node.branches?.find((b) => !b.isErrorHandler);
       const onError = node.branches?.find((b) => b.isErrorHandler);
       if (!main) return { ok: false, summary: 'Try has no main branch.' };
 
-      const mainOk = await runList(main.nodes);
+      const mainOk = await runList(main.nodes, ctx);
       if (mainOk) {
-        // The on-error branch is skipped on success
         if (onError) {
           const skipIds = new Set<string>();
           collectIds(onError.nodes, skipIds);
@@ -1078,11 +1099,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         return { ok: true, summary: 'main branch succeeded.' };
       }
 
-      // Capture the failing node's error message into vars.error so the
-      // handler can read it via `vars.error`.
       const failingNode = (() => {
-        const ids = new Set<string>();
-        collectIds(main.nodes, ids);
         const flat: FlowNode[] = [];
         const walk = (ns: FlowNode[]) => { for (const n of ns) { flat.push(n); if (n.branches) for (const b of n.branches) walk(b.nodes); } };
         walk(main.nodes);
@@ -1093,7 +1110,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       if (!onError) {
         return { ok: false, summary: 'main branch failed and no on-error handler.' };
       }
-      const handlerOk = await runList(onError.nodes);
+      const handlerOk = await runList(onError.nodes, ctx);
       return {
         ok: handlerOk,
         summary: handlerOk ? 'main failed → on-error recovered.' : 'main failed AND on-error failed.',
@@ -1101,8 +1118,10 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     };
 
     /** First Successful: try each branch in order, stop on first success.
-     *  All earlier failures and all later branches are marked skipped. */
-    const runFirstSuccessful = async (node: FlowNode): Promise<{ ok: boolean; summary: string }> => {
+     *  Each attempt gets a fork of ctx so failed routes don't leak into
+     *  the next attempt or back into the parent. The winning route's ctx
+     *  is copied back so its payload/vars flow to siblings. */
+    const runFirstSuccessful = async (node: FlowNode, ctx: ExecCtx): Promise<{ ok: boolean; summary: string }> => {
       if (!node.branches || node.branches.length === 0) {
         return { ok: true, summary: '(no routes)' };
       }
@@ -1110,17 +1129,22 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       const t0 = performance.now();
       for (let i = 0; i < node.branches.length; i++) {
         const b = node.branches[i];
-        // Snapshot ctx so failed attempts don't leak side effects.
-        const saved = { ...ctx, variables: { ...ctx.variables } };
-        const ok = await runList(b.nodes);
+        const attemptCtx = forkCtx(ctx);
+        const ok = await runList(b.nodes, attemptCtx);
         if (ok) {
+          // Copy the winner's ctx back to the parent so siblings see it.
+          ctx.payload = attemptCtx.payload;
+          ctx.mime = attemptCtx.mime;
+          ctx.attributes = attemptCtx.attributes;
+          ctx.multipartJson = attemptCtx.multipartJson;
+          ctx.payloadFilePath = attemptCtx.payloadFilePath;
+          ctx.variables = attemptCtx.variables;
           // Mark remaining branches as skipped
           const skipIds = new Set<string>();
           for (let j = i + 1; j < node.branches.length; j++) collectIds(node.branches[j].nodes, skipIds);
           markSkipped(skipIds);
           return { ok: true, summary: `Route "${b.label || `route${i + 1}`}" succeeded (took ${Math.round(performance.now() - t0)}ms).` };
         }
-        // Capture the failure and try the next route
         const failingNode = (() => {
           const flat: FlowNode[] = [];
           const walk = (ns: FlowNode[]) => { for (const n of ns) { flat.push(n); if (n.branches) for (const c of n.branches) walk(c.nodes); } };
@@ -1128,24 +1152,21 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           return flat.find((n) => n.status === 'error');
         })();
         lastError = failingNode?.error || 'failed';
-        // Roll ctx back for the next attempt
-        Object.assign(ctx, saved);
       }
       return { ok: false, summary: `All ${node.branches.length} routes failed. Last error: ${lastError}` };
     };
 
     /** Round Robin: in Mule this rotates per invocation; in Studio (which
      *  runs one-shot) we always pick branch 0 and skip the rest. */
-    const runRoundRobin = async (node: FlowNode): Promise<{ ok: boolean; summary: string }> => {
+    const runRoundRobin = async (node: FlowNode, ctx: ExecCtx): Promise<{ ok: boolean; summary: string }> => {
       if (!node.branches || node.branches.length === 0) {
         return { ok: true, summary: '(no routes)' };
       }
       const first = node.branches[0];
-      // Mark all other branches as skipped
       const skipIds = new Set<string>();
       for (let i = 1; i < node.branches.length; i++) collectIds(node.branches[i].nodes, skipIds);
       markSkipped(skipIds);
-      const ok = await runList(first.nodes);
+      const ok = await runList(first.nodes, ctx);
       return {
         ok,
         summary: ok
@@ -1155,34 +1176,26 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     };
 
     /** Async: spawn the branch without awaiting. The parent flow continues
-     *  immediately. Inner-node status updates appear asynchronously as the
-     *  background work progresses. Step-through pauses are suppressed
-     *  inside async scopes (would deadlock the main flow). */
-    const runAsync = async (node: FlowNode): Promise<{ ok: boolean; summary: string }> => {
+     *  immediately. Spawned work gets its own forked ctx so background
+     *  mutations cannot affect the parent. Step-through pauses are
+     *  suppressed inside async scopes (parent can't await them). */
+    const runAsync = async (node: FlowNode, ctx: ExecCtx): Promise<{ ok: boolean; summary: string }> => {
       const body = node.branches?.[0];
       if (!body || body.nodes.length === 0) return { ok: true, summary: '(empty async — nothing to run)' };
-      // Suppress pauses inside the spawned subtree. We can't await it, so
-      // there's no way to surface a Step button while the parent moves on.
       const prevSkip = skipUntilNodeRef.current;
       skipUntilNodeRef.current = node.id;
-      // Fire and forget. Errors are swallowed but recorded on the node itself.
-      // Snapshot ctx so async mutations don't leak into the parent flow.
-      const snap = { ...ctx, variables: { ...ctx.variables } };
+      const asyncCtx = forkCtx(ctx);
       void (async () => {
-        const saved = { ...ctx, variables: { ...ctx.variables } };
-        Object.assign(ctx, snap);
-        try { await runList(body.nodes); } catch { /* swallowed */ }
-        finally { Object.assign(ctx, saved); }
+        try { await runList(body.nodes, asyncCtx); } catch { /* swallowed */ }
       })();
-      // Restore the previous skip flag immediately — the parent flow needs
-      // to resume normal step-through after this scope.
       skipUntilNodeRef.current = prevSkip;
       return { ok: true, summary: `Spawned ${body.nodes.length} node${body.nodes.length === 1 ? '' : 's'} asynchronously.` };
     };
 
     /** Run a list of nodes sequentially (top-level or branch-inner).
-     *  Recurses into scope nodes via runChoice. */
-    const runList = async (ns: FlowNode[]): Promise<boolean> => {
+     *  Siblings share the same ctx — earlier nodes' mutations are visible
+     *  to later ones. Concurrent forking happens inside scope handlers. */
+    const runList = async (ns: FlowNode[], ctx: ExecCtx): Promise<boolean> => {
       const ordered = [...ns].filter((n) => !n.disabled).sort((a, b) => a.x - b.x);
       for (const node of ordered) {
         if (abortRef.current) return false;
@@ -1190,13 +1203,13 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         markNode(node.id, { status: 'running' });
         if (!(await pauseIfStepping(node.id))) return false;
 
-        const ok = isScopeType(node.type) ? await runScope(node) : await runLeaf(node);
+        const ok = isScopeType(node.type) ? await runScope(node, ctx) : await runLeaf(node, ctx);
         if (!ok) return false;
       }
       return true;
     };
 
-    await runList(nodes);
+    await runList(nodes, initialCtx);
 
     setIsRunning(false);
     setStepIndex(null);
@@ -1247,23 +1260,28 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       // node is rarely useful and would require resolving its branch parent.
       const src = prev.find((n) => n.id === id);
       if (!src) return prev;
-      // Deep-clone branches so the duplicate doesn't share nested node refs.
-      const cloneBranches = src.branches?.map((b) => ({
-        ...b,
+      // Recursive deep-clone so nested branches (Choice inside Scatter-Gather,
+      // For Each inside Try, etc.) get fresh ids at every level. The previous
+      // one-level-deep map left inner scopes' grandchildren sharing refs
+      // with the original — mutating the duplicate would silently mutate
+      // the source tree.
+      const deepClone = (n: FlowNode): FlowNode => ({
+        ...n,
         id: newId(),
-        nodes: b.nodes.map((nn) => ({ ...nn, id: newId(), status: 'idle' as const, output: undefined, error: undefined })),
-      }));
-      const clone: FlowNode = {
-        ...src,
-        id: newId(),
-        x: src.x + 40,
-        y: src.y + 40,
         status: 'idle',
         output: undefined,
         error: undefined,
-        config: { ...src.config },
-        branches: cloneBranches,
-      };
+        executionTimeMs: undefined,
+        config: { ...n.config },
+        branches: n.branches?.map((b) => ({
+          ...b,
+          id: newId(),
+          nodes: b.nodes.map(deepClone),
+        })),
+      });
+      const clone = deepClone(src);
+      clone.x = src.x + 40;
+      clone.y = src.y + 40;
       return [...prev, clone];
     });
   }, []);

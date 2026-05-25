@@ -52,6 +52,11 @@ interface ScriptEditorProps {
     secureConfigYaml?: string;
   };
   onCursorChange?: (line: number, col: number) => void;
+  /** Stable identifier for THIS script. When set, @monaco-editor/react keeps
+   *  a separate ITextModel per path and preserves its undo/redo history
+   *  across re-mounts. Pass the request id from a multi-request workspace
+   *  so switching tabs doesn't blow away the user's edit history. */
+  modelPath?: string;
 }
 
 export interface ScriptEditorHandle {
@@ -178,7 +183,7 @@ function migrateDW1to2(src: string): { output: string; warnings: string[]; chang
 // `code`/`payload`/`contextData`/etc. actually change (shallow compare).
 // Callers MUST stabilize object/function props for the memo to be effective.
 export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProps>(function ScriptEditor(
-  { code, onChange, onRun, errorLine, headerLabel, payload, payloadMimeType, contextData, onCursorChange },
+  { code, onChange, onRun, errorLine, headerLabel, payload, payloadMimeType, contextData, onCursorChange, modelPath },
   ref,
 ) {
   const monaco = useMonaco();
@@ -509,6 +514,7 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
       </div>
       <div className="flex-1">
         <Editor
+          path={modelPath}
           height="100%"
           language="dataweave"
           theme={editorTheme}

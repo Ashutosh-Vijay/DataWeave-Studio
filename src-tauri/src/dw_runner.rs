@@ -375,7 +375,7 @@ pub async fn run_dataweave(
     state: tauri::State<'_, RunState>,
     script: String,
     payload: String,
-    payload_mime_type: String,
+    mut payload_mime_type: String,
     attributes_json: String,
     vars_json: String,
     named_inputs_json: String,
@@ -393,12 +393,28 @@ pub async fn run_dataweave(
     let has_attributes = attributes_json.trim() != "{}" && !attributes_json.trim().is_empty();
     let has_vars = vars_json.trim() != "{}" && !vars_json.trim().is_empty();
 
-    let named_inputs: Vec<NamedInput> = if named_inputs_json.trim().is_empty() || named_inputs_json.trim() == "[]" {
+    let mut named_inputs: Vec<NamedInput> = if named_inputs_json.trim().is_empty() || named_inputs_json.trim() == "[]" {
         vec![]
     } else {
         serde_json::from_str(&named_inputs_json)
             .map_err(|e| format!("Failed to parse named inputs: {}", e))?
     };
+
+    // `application/java` requires a live in-memory JVM object — the DataWeave
+    // JavaReader can't parse a file path. Studio holds mock payloads as JSON
+    // text on disk, so feeding the engine `input payload application/java`
+    // crashes with a ClassCastException. Transparently coerce java inputs to
+    // application/json: the user's mock data parses, and any downstream
+    // script that types-checks against Java semantics still works because
+    // DataWeave coerces JSON ↔ Java freely at runtime.
+    if payload_mime_type == "application/java" {
+        payload_mime_type = "application/json".to_string();
+    }
+    for ni in &mut named_inputs {
+        if ni.mime_type == "application/java" {
+            ni.mime_type = "application/json".to_string();
+        }
+    }
 
     let effective_payload = if payload.trim().is_empty() {
         if payload_mime_type.contains("json") || payload_mime_type.contains("java") {
@@ -725,7 +741,7 @@ pub fn get_log_dir(app: AppHandle) -> Result<String, String> {
 pub async fn warm_dataweave_script(
     app: AppHandle,
     script: String,
-    payload_mime_type: String,
+    mut payload_mime_type: String,
     has_attributes: bool,
     has_vars: bool,
     named_inputs_json: String,
@@ -734,12 +750,25 @@ pub async fn warm_dataweave_script(
         return Ok(());
     }
 
-    let named_inputs: Vec<NamedInput> =
+    let mut named_inputs: Vec<NamedInput> =
         if named_inputs_json.trim().is_empty() || named_inputs_json.trim() == "[]" {
             vec![]
         } else {
             serde_json::from_str(&named_inputs_json).unwrap_or_default()
         };
+
+    // Mirror the coercion run_dataweave does so warm and run produce identical
+    // merged scripts (and therefore identical compile-cache keys). Without
+    // this, a workspace with `input payload application/java` would have warm
+    // and run hash to different scripts and the cache would always miss.
+    if payload_mime_type == "application/java" {
+        payload_mime_type = "application/json".to_string();
+    }
+    for ni in &mut named_inputs {
+        if ni.mime_type == "application/java" {
+            ni.mime_type = "application/json".to_string();
+        }
+    }
 
     // Same merge logic Run uses, so the cache key matches.
     let merged = build_full_script(
