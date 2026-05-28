@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo, Fragment } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo, Fragment } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Icons } from './Icons';
 import { MiniEditor } from './MiniEditor';
@@ -335,6 +335,17 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
   /** Open mini-palette for adding a leaf into a Choice branch. */
   const [branchPalette, setBranchPalette] = useState<{ scopeId: string; branchId: string } | null>(null);
+  /** Set of nested-scope node ids that the user has collapsed. Collapsed
+   *  scopes show only their header inside a branch; expanded scopes show
+   *  the full nested body. Top-level scopes can't be collapsed. */
+  const [collapsedScopes, setCollapsedScopes] = useState<Set<string>>(new Set());
+  const toggleScopeCollapsed = useCallback((id: string) => {
+    setCollapsedScopes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
   const abortRef = useRef(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const selected = useMemo(() => (selectedId ? findNodeById(nodes, selectedId) : null), [nodes, selectedId]);
@@ -616,8 +627,11 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     }));
   }, []);
 
-  /** Append a new leaf node to a branch's `nodes` array. */
-  const addNodeToBranch = useCallback((scopeId: string, branchId: string, type: LeafNodeType) => {
+  /** Append a new node (leaf OR scope) to a branch's `nodes` array.
+   *  Scope nodes get seeded with default branches identical to top-level
+   *  addNode — Choice gets one `when` + one `otherwise`, Try gets main +
+   *  on-error, etc. */
+  const addNodeToBranch = useCallback((scopeId: string, branchId: string, type: NodeType) => {
     const meta = NODE_META[type];
     const config: FlowNode['config'] = {};
     switch (type) {
@@ -660,17 +674,52 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         config.mockMime = 'application/json';
         config.saveToVariable = '';
         break;
+      case 'for-each':
+      case 'parallel-for-each':
+        config.forEachCollection = 'payload';
+        config.forEachCounter = 'counter';
+        if (type === 'parallel-for-each') config.maxConcurrency = 4;
+        break;
+      case 'scatter-gather':
+        config.aggregatorStrategy = 'object';
+        break;
     }
-    // Inner nodes have x/y too so the existing X-sort works inside a branch.
-    // We append at the right-end so insertion order is honored.
+    const isScope = isScopeType(type);
+    let branches: Branch[] | undefined;
+    if (type === 'choice') {
+      branches = [
+        { id: newId(), nodes: [], predicate: 'payload.value > 0' },
+        { id: newId(), nodes: [], isOtherwise: true },
+      ];
+    } else if (type === 'for-each' || type === 'parallel-for-each') {
+      branches = [{ id: newId(), nodes: [], label: 'body' }];
+    } else if (type === 'scatter-gather') {
+      branches = [
+        { id: newId(), nodes: [], label: 'route1' },
+        { id: newId(), nodes: [], label: 'route2' },
+      ];
+    } else if (type === 'try') {
+      branches = [
+        { id: newId(), nodes: [], label: 'main' },
+        { id: newId(), nodes: [], label: 'on-error', isErrorHandler: true },
+      ];
+    } else if (type === 'first-successful' || type === 'round-robin') {
+      branches = [
+        { id: newId(), nodes: [], label: 'route1' },
+        { id: newId(), nodes: [], label: 'route2' },
+      ];
+    } else if (type === 'async') {
+      branches = [{ id: newId(), nodes: [], label: 'body' }];
+    }
     const newNode: FlowNode = {
       id: newId(),
       type,
-      kind: 'leaf',
+      kind: isScope ? 'scope' : 'leaf',
       label: meta.label,
-      x: 0, // will be re-derived from index in the branch's mini-canvas
+      x: 0,
       y: 0,
       config,
+      branches,
       status: 'idle',
     };
     setNodes((prev) => mapNodesDeep(prev, (n) => {
@@ -679,7 +728,8 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         ...n,
         branches: n.branches.map((b) => {
           if (b.id !== branchId) return b;
-          // Re-assign x positions so the visual order is left-to-right.
+          // Re-assign x positions so the X-sorted execution order matches
+          // the visual chip order, left-to-right.
           const ordered = [...b.nodes, newNode].map((nn, i) => ({ ...nn, x: i * 90 }));
           return { ...b, nodes: ordered };
         }),
@@ -1448,6 +1498,333 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
   if (!open) return null;
 
+  // ── Recursive scope-body renderer ────────────────────────────────
+  // Returns the JSX that goes INSIDE a scope's body (config bar +
+  // branches with their inner-node chains + add-branch buttons).
+  //
+  // `depth` is the nesting level — 0 for top-level scopes, 1 for a
+  // scope inside a branch, etc. It only drives a subtle visual indent;
+  // execution treats all depths the same.
+  //
+  // Inside each branch's inner-node chain, leaf nodes render as chips
+  // (compact pills) and SCOPE nodes render as full expanded cards
+  // (see renderNestedScope below) so the user can see + edit nested
+  // hierarchies at a glance without drill-down.
+  const renderNestedScope = (innerNode: FlowNode, depth: number): React.ReactNode => {
+    const innerMeta = NODE_META[innerNode.type];
+    const isCollapsed = collapsedScopes.has(innerNode.id);
+    const isInnerSelected = innerNode.id === selectedId;
+    const branchCount = innerNode.branches?.length ?? 0;
+
+    // Status-driven background tint, mirroring the chip style for visual
+    // consistency between leaf chips and nested scope cards in the same row.
+    const statusBg = innerNode.status === 'success'
+      ? `color-mix(in oklch, ${innerMeta.color} 6%, var(--surface-2))`
+      : innerNode.status === 'error'
+        ? 'color-mix(in oklch, var(--err) 6%, var(--surface-2))'
+        : innerNode.status === 'skipped'
+          ? 'color-mix(in oklch, var(--content) 3%, var(--surface-2))'
+          : 'var(--surface-2)';
+
+    return (
+      <div
+        key={innerNode.id}
+        className="rounded-md border overflow-hidden basis-full"
+        style={{
+          // Subtle left accent in the scope's color so the user can spot
+          // its type at a glance even when collapsed.
+          borderColor: isInnerSelected
+            ? 'var(--accent)'
+            : `color-mix(in oklch, ${innerMeta.color} 30%, transparent)`,
+          background: statusBg,
+          opacity: innerNode.disabled || innerNode.status === 'skipped' ? 0.55 : 1,
+        }}
+        onClick={(e) => { e.stopPropagation(); setSelectedId(innerNode.id); }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setContextMenu({ x: e.clientX, y: e.clientY, nodeId: innerNode.id });
+        }}
+      >
+        {/* Slim header: collapse toggle + icon + badge + label + status */}
+        <div
+          className="flex items-center gap-1.5 px-2 py-1"
+          style={{
+            background: `color-mix(in oklch, ${innerMeta.color} 8%, var(--surface-2))`,
+            borderBottom: isCollapsed ? 'none' : `1px solid color-mix(in oklch, ${innerMeta.color} 18%, transparent)`,
+          }}
+        >
+          <button
+            onClick={(e) => { e.stopPropagation(); toggleScopeCollapsed(innerNode.id); }}
+            className="shrink-0 w-3.5 h-3.5 flex items-center justify-center text-content-faint hover:text-content cursor-pointer"
+            title={isCollapsed ? 'Expand scope' : 'Collapse scope'}
+          >
+            <svg width="8" height="8" viewBox="0 0 10 10" fill="currentColor" className={`transition-transform ${isCollapsed ? '' : 'rotate-90'}`}>
+              <path d="M3 1l5 4-5 4V1z" />
+            </svg>
+          </button>
+          <div style={{ color: innerMeta.color }}><NodeIcon type={innerNode.type} size={10} /></div>
+          <span className="text-[8.5px] font-mono font-bold uppercase tracking-wider shrink-0 px-1 py-px rounded" style={{ color: innerMeta.color, background: `color-mix(in oklch, ${innerMeta.color} 14%, transparent)` }}>
+            {innerMeta.badge}
+          </span>
+          <span className="text-[10.5px] font-semibold text-content truncate flex-1">{innerNode.label}</span>
+          {isCollapsed && branchCount > 0 && (
+            <span className="text-[9px] font-mono text-content-ghost shrink-0">
+              {branchCount} branch{branchCount === 1 ? '' : 'es'}
+            </span>
+          )}
+          {innerNode.status === 'running' && (
+            <div className="w-2.5 h-2.5 rounded-full border-2 border-t-transparent animate-spin shrink-0" style={{ borderColor: innerMeta.color, borderTopColor: 'transparent' }} />
+          )}
+          {innerNode.status === 'success' && (
+            <svg className="shrink-0" width="10" height="10" viewBox="0 0 16 16" fill={innerMeta.color}><path d="M13.485 3.929a1 1 0 01.036 1.414l-6 6.5a1 1 0 01-1.45.022l-3-3a1 1 0 111.414-1.414L6.95 9.915l5.293-5.95a1 1 0 011.242-.036z"/></svg>
+          )}
+          {innerNode.status === 'error' && (
+            <svg className="shrink-0" width="10" height="10" viewBox="0 0 16 16" fill="var(--err)"><path d="M8 1a7 7 0 110 14A7 7 0 018 1zm0 3a.75.75 0 00-.75.75v4.5a.75.75 0 001.5 0v-4.5A.75.75 0 008 4zm0 8a1 1 0 100-2 1 1 0 000 2z"/></svg>
+          )}
+        </div>
+        {/* Expanded body — only when not collapsed */}
+        {!isCollapsed && (
+          <div className="px-1.5 py-1.5" style={{ background: 'color-mix(in oklch, var(--bg) 50%, var(--surface-2))' }}>
+            {renderScopeBody(innerNode, depth)}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderScopeBody = (scopeNode: FlowNode, depth: number): React.ReactNode => {
+    const meta = NODE_META[scopeNode.type];
+    if (!scopeNode.branches) return null;
+    return (
+      <div className="space-y-2" data-no-drag>
+        {/* For Each / Parallel For Each: scope-level inputs above the body */}
+        {(scopeNode.type === 'for-each' || scopeNode.type === 'parallel-for-each') && (
+          <div className="space-y-1 px-1 pb-1 border-b border-line-subtle">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] font-mono font-bold uppercase tracking-wider shrink-0 w-[60px]" style={{ color: meta.color }}>collection</span>
+              <input
+                value={scopeNode.config.forEachCollection || ''}
+                onChange={(e) => updateConfig(scopeNode.id, { forEachCollection: e.target.value })}
+                onMouseDown={(e) => e.stopPropagation()}
+                placeholder="payload.items"
+                className="flex-1 min-w-0 text-[10.5px] font-mono bg-transparent border-b border-line-subtle outline-none text-content placeholder:text-content-ghost focus:border-accent"
+                spellCheck={false}
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] font-mono font-bold uppercase tracking-wider shrink-0 w-[60px] text-content-faint">counter</span>
+              <input
+                value={scopeNode.config.forEachCounter || ''}
+                onChange={(e) => updateConfig(scopeNode.id, { forEachCounter: e.target.value })}
+                onMouseDown={(e) => e.stopPropagation()}
+                placeholder="counter"
+                className="flex-1 min-w-0 text-[10.5px] font-mono bg-transparent border-b border-line-subtle outline-none text-content placeholder:text-content-ghost focus:border-accent"
+                spellCheck={false}
+              />
+              <span className="text-[9px] text-content-ghost">→ vars.{scopeNode.config.forEachCounter || 'counter'}</span>
+            </div>
+          </div>
+        )}
+        {/* Scatter-Gather: aggregator strategy toggle */}
+        {scopeNode.type === 'scatter-gather' && (
+          <div className="flex items-center gap-1.5 px-1 pb-1 border-b border-line-subtle">
+            <span className="text-[9px] font-mono font-bold uppercase tracking-wider shrink-0" style={{ color: meta.color }}>aggregate</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); updateConfig(scopeNode.id, { aggregatorStrategy: 'object' }); }}
+              className={`text-[9.5px] font-mono px-1.5 py-px rounded cursor-pointer border ${(scopeNode.config.aggregatorStrategy || 'object') === 'object' ? '' : 'border-transparent'}`}
+              style={(scopeNode.config.aggregatorStrategy || 'object') === 'object'
+                ? { borderColor: meta.color, color: meta.color, background: `color-mix(in oklch, ${meta.color} 8%, transparent)` }
+                : { color: 'var(--content-faint)' }}
+            >{'{ route1: ..., route2: ... }'}</button>
+            <button
+              onClick={(e) => { e.stopPropagation(); updateConfig(scopeNode.id, { aggregatorStrategy: 'array' }); }}
+              className={`text-[9.5px] font-mono px-1.5 py-px rounded cursor-pointer border ${scopeNode.config.aggregatorStrategy === 'array' ? '' : 'border-transparent'}`}
+              style={scopeNode.config.aggregatorStrategy === 'array'
+                ? { borderColor: meta.color, color: meta.color, background: `color-mix(in oklch, ${meta.color} 8%, transparent)` }
+                : { color: 'var(--content-faint)' }}
+            >{'[r1, r2]'}</button>
+          </div>
+        )}
+        {scopeNode.branches.map((branch, branchIdx) => {
+          const isChoice = scopeNode.type === 'choice';
+          const isForEach = scopeNode.type === 'for-each' || scopeNode.type === 'parallel-for-each';
+          const isScatter = scopeNode.type === 'scatter-gather';
+          const isTry = scopeNode.type === 'try';
+          const isMultiRoute = scopeNode.type === 'first-successful' || scopeNode.type === 'round-robin';
+          const isAsync = scopeNode.type === 'async';
+          const labelTag = isChoice
+            ? (branch.isOtherwise ? 'else' : 'when')
+            : isForEach || isAsync
+              ? 'body'
+              : isTry
+                ? (branch.isErrorHandler ? 'on-error' : 'main')
+                : (branch.label || `route${branchIdx + 1}`);
+          const branchAccent = (isChoice && branch.isOtherwise) || (isTry && branch.isErrorHandler) ? null : meta.color;
+          const labelEditable = isScatter || isMultiRoute;
+          return (
+          <div
+            key={branch.id}
+            className="rounded-md border overflow-hidden"
+            style={{
+              borderColor: branchAccent
+                ? `color-mix(in oklch, ${branchAccent} 25%, transparent)`
+                : 'color-mix(in oklch, var(--content) 12%, transparent)',
+              background: branchAccent
+                ? `color-mix(in oklch, ${branchAccent} 4%, var(--surface-2))`
+                : 'color-mix(in oklch, var(--content) 3%, var(--surface-2))',
+            }}
+          >
+            {/* Branch label / predicate */}
+            <div className="flex items-center gap-1.5 px-2 py-1.5 border-b" style={{ borderColor: 'color-mix(in oklch, var(--content) 8%, transparent)' }}>
+              {labelEditable ? (
+                <input
+                  value={branch.label || ''}
+                  onChange={(e) => updateBranch(scopeNode.id, branch.id, { label: e.target.value })}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  placeholder={`route${branchIdx + 1}`}
+                  className="text-[9px] font-mono font-bold uppercase tracking-wider shrink-0 w-[70px] px-1 py-px rounded bg-transparent border-none outline-none focus:bg-surface-3"
+                  style={{
+                    color: meta.color,
+                    background: `color-mix(in oklch, ${meta.color} 12%, transparent)`,
+                  }}
+                  spellCheck={false}
+                />
+              ) : (
+                <span
+                  className="text-[8.5px] font-mono font-bold uppercase tracking-wider shrink-0 px-1 py-px rounded"
+                  style={{
+                    color: branchAccent || 'var(--content-faint)',
+                    background: branchAccent
+                      ? `color-mix(in oklch, ${branchAccent} 12%, transparent)`
+                      : 'color-mix(in oklch, var(--content) 6%, transparent)',
+                  }}
+                >
+                  {labelTag}
+                </span>
+              )}
+              {isChoice && branch.isOtherwise ? (
+                <span className="text-[10.5px] text-content-faint italic flex-1">otherwise (no predicate matches)</span>
+              ) : isChoice ? (
+                <input
+                  value={branch.predicate || ''}
+                  onChange={(e) => updateBranch(scopeNode.id, branch.id, { predicate: e.target.value })}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  placeholder="DataWeave boolean expression (e.g. payload.age > 18)"
+                  className="flex-1 min-w-0 text-[10.5px] font-mono bg-transparent border-none outline-none text-content placeholder:text-content-ghost"
+                  spellCheck={false}
+                />
+              ) : (
+                <span className="flex-1" />
+              )}
+              {((isChoice && !branch.isOtherwise && (scopeNode.branches?.filter((b) => !b.isOtherwise).length ?? 0) > 1) ||
+                (isScatter && (scopeNode.branches?.length ?? 0) > 1) ||
+                (isMultiRoute && (scopeNode.branches?.length ?? 0) > 1)) && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const next = scopeNode.branches!.filter((b) => b.id !== branch.id);
+                    updateNode(scopeNode.id, { branches: next });
+                  }}
+                  className="shrink-0 w-4 h-4 rounded text-[10px] text-content-ghost hover:text-[var(--err)] hover:bg-surface-3 cursor-pointer"
+                  title="Remove this branch"
+                >×</button>
+              )}
+            </div>
+
+            {/* Inner-node chain — leaves render as chips (inline), scopes
+                render as expanded cards (basis-full → break to own row). */}
+            <div className="flex items-center gap-1 px-2 py-1.5 flex-wrap">
+              {[...branch.nodes].sort((a, b) => a.x - b.x).map((inner, idx) => {
+                if (isScopeType(inner.type)) {
+                  // Nested scope — full-width expanded card with recursive body.
+                  return renderNestedScope(inner, depth + 1);
+                }
+                const innerMeta = NODE_META[inner.type];
+                const isInnerSelected = inner.id === selectedId;
+                return (
+                  <Fragment key={inner.id}>
+                    {idx > 0 && !isScopeType(branch.nodes[idx - 1].type) && (
+                      <span className="text-content-ghost text-[9px]">→</span>
+                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setSelectedId(inner.id); }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setContextMenu({ x: e.clientX, y: e.clientY, nodeId: inner.id });
+                      }}
+                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-mono cursor-pointer transition-colors border ${isInnerSelected ? 'shadow-sm' : ''}`}
+                      style={{
+                        borderColor: isInnerSelected ? 'var(--accent)' : 'color-mix(in oklch, var(--content) 10%, transparent)',
+                        background: inner.status === 'success'
+                          ? `color-mix(in oklch, ${innerMeta.color} 14%, transparent)`
+                          : inner.status === 'error'
+                            ? 'color-mix(in oklch, var(--err) 10%, transparent)'
+                            : inner.status === 'skipped'
+                              ? 'color-mix(in oklch, var(--content) 4%, transparent)'
+                              : 'var(--surface)',
+                        color: inner.disabled || inner.status === 'skipped' ? 'var(--content-faint)' : innerMeta.color,
+                        opacity: inner.disabled || inner.status === 'skipped' ? 0.55 : 1,
+                      }}
+                      title={`${innerMeta.label} — ${inner.label}`}
+                    >
+                      <NodeIcon type={inner.type} size={9} />
+                      <span className="truncate max-w-[80px]" style={{ color: 'var(--content)' }}>{inner.label}</span>
+                      {inner.status === 'running' && (
+                        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: innerMeta.color }} />
+                      )}
+                    </button>
+                  </Fragment>
+                );
+              })}
+              <button
+                onClick={(e) => { e.stopPropagation(); setBranchPalette({ scopeId: scopeNode.id, branchId: branch.id }); }}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-mono cursor-pointer border border-dashed text-content-faint hover:text-accent hover:border-accent transition-colors"
+                title="Add a node to this branch"
+              >
+                + add
+              </button>
+            </div>
+          </div>
+          );
+        })}
+        {/* Add-branch button — hidden for fixed-arity scopes. */}
+        {scopeNode.type === 'choice' && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const otherwise = scopeNode.branches!.find((b) => b.isOtherwise);
+              const others = scopeNode.branches!.filter((b) => !b.isOtherwise);
+              const newBranches: Branch[] = [
+                ...others,
+                { id: newId(), nodes: [], predicate: '' },
+                ...(otherwise ? [otherwise] : []),
+              ];
+              updateNode(scopeNode.id, { branches: newBranches });
+            }}
+            className="w-full text-[10px] font-mono py-1 rounded-md border border-dashed text-content-faint hover:text-accent hover:border-accent transition-colors cursor-pointer"
+          >
+            + Add when branch
+          </button>
+        )}
+        {(scopeNode.type === 'scatter-gather' || scopeNode.type === 'first-successful' || scopeNode.type === 'round-robin') && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const idx = (scopeNode.branches?.length ?? 0) + 1;
+              const newBranches: Branch[] = [...(scopeNode.branches ?? []), { id: newId(), nodes: [], label: `route${idx}` }];
+              updateNode(scopeNode.id, { branches: newBranches });
+            }}
+            className="w-full text-[10px] font-mono py-1 rounded-md border border-dashed text-content-faint hover:text-accent hover:border-accent transition-colors cursor-pointer"
+          >
+            + Add route
+          </button>
+        )}
+      </div>
+    );
+  };
+
   // Determine which tabs to show for the selected node
   const isConnector = selected && (selected.type === 'salesforce' || selected.type === 'database' || selected.type === 'http-request');
   const showTabs = isConnector;
@@ -1857,234 +2234,11 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                       {node.type === 'logger' && (
                         <div className="text-[10px] text-content-muted">Inspect payload & vars</div>
                       )}
-                      {/* Scope body — stacked branches. Per scope type:
-                          - choice: when/otherwise with editable predicates
-                          - for-each / parallel-for-each: collection + counter, single body branch
-                          - scatter-gather: routes with editable labels */}
-                      {isScopeType(node.type) && node.branches && (
-                        <div className="space-y-2" data-no-drag>
-                          {/* For Each / Parallel For Each: scope-level inputs above the body */}
-                          {(node.type === 'for-each' || node.type === 'parallel-for-each') && (
-                            <div className="space-y-1 px-1 pb-1 border-b border-line-subtle">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[9px] font-mono font-bold uppercase tracking-wider shrink-0 w-[60px]" style={{ color: meta.color }}>collection</span>
-                                <input
-                                  value={node.config.forEachCollection || ''}
-                                  onChange={(e) => updateConfig(node.id, { forEachCollection: e.target.value })}
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                  placeholder="payload.items"
-                                  className="flex-1 min-w-0 text-[10.5px] font-mono bg-transparent border-b border-line-subtle outline-none text-content placeholder:text-content-ghost focus:border-accent"
-                                  spellCheck={false}
-                                />
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[9px] font-mono font-bold uppercase tracking-wider shrink-0 w-[60px] text-content-faint">counter</span>
-                                <input
-                                  value={node.config.forEachCounter || ''}
-                                  onChange={(e) => updateConfig(node.id, { forEachCounter: e.target.value })}
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                  placeholder="counter"
-                                  className="flex-1 min-w-0 text-[10.5px] font-mono bg-transparent border-b border-line-subtle outline-none text-content placeholder:text-content-ghost focus:border-accent"
-                                  spellCheck={false}
-                                />
-                                <span className="text-[9px] text-content-ghost">→ vars.{node.config.forEachCounter || 'counter'}</span>
-                              </div>
-                            </div>
-                          )}
-                          {/* Scatter-Gather: aggregator strategy toggle */}
-                          {node.type === 'scatter-gather' && (
-                            <div className="flex items-center gap-1.5 px-1 pb-1 border-b border-line-subtle">
-                              <span className="text-[9px] font-mono font-bold uppercase tracking-wider shrink-0" style={{ color: meta.color }}>aggregate</span>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); updateConfig(node.id, { aggregatorStrategy: 'object' }); }}
-                                className={`text-[9.5px] font-mono px-1.5 py-px rounded cursor-pointer border ${(node.config.aggregatorStrategy || 'object') === 'object' ? '' : 'border-transparent'}`}
-                                style={(node.config.aggregatorStrategy || 'object') === 'object'
-                                  ? { borderColor: meta.color, color: meta.color, background: `color-mix(in oklch, ${meta.color} 8%, transparent)` }
-                                  : { color: 'var(--content-faint)' }}
-                              >{'{ route1: ..., route2: ... }'}</button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); updateConfig(node.id, { aggregatorStrategy: 'array' }); }}
-                                className={`text-[9.5px] font-mono px-1.5 py-px rounded cursor-pointer border ${node.config.aggregatorStrategy === 'array' ? '' : 'border-transparent'}`}
-                                style={node.config.aggregatorStrategy === 'array'
-                                  ? { borderColor: meta.color, color: meta.color, background: `color-mix(in oklch, ${meta.color} 8%, transparent)` }
-                                  : { color: 'var(--content-faint)' }}
-                              >{'[r1, r2]'}</button>
-                            </div>
-                          )}
-                          {node.branches.map((branch, branchIdx) => {
-                            // Per-scope label / decoration
-                            const isChoice = node.type === 'choice';
-                            const isForEach = node.type === 'for-each' || node.type === 'parallel-for-each';
-                            const isScatter = node.type === 'scatter-gather';
-                            const isTry = node.type === 'try';
-                            const isMultiRoute = node.type === 'first-successful' || node.type === 'round-robin';
-                            const isAsync = node.type === 'async';
-                            const labelTag = isChoice
-                              ? (branch.isOtherwise ? 'else' : 'when')
-                              : isForEach || isAsync
-                                ? 'body'
-                                : isTry
-                                  ? (branch.isErrorHandler ? 'on-error' : 'main')
-                                  : (branch.label || `route${branchIdx + 1}`);
-                            const branchAccent = (isChoice && branch.isOtherwise) || (isTry && branch.isErrorHandler) ? null : meta.color;
-                            const labelEditable = isScatter || isMultiRoute;
-                            return (
-                            <div
-                              key={branch.id}
-                              className="rounded-md border overflow-hidden"
-                              style={{
-                                borderColor: branchAccent
-                                  ? `color-mix(in oklch, ${branchAccent} 25%, transparent)`
-                                  : 'color-mix(in oklch, var(--content) 12%, transparent)',
-                                background: branchAccent
-                                  ? `color-mix(in oklch, ${branchAccent} 4%, var(--surface-2))`
-                                  : 'color-mix(in oklch, var(--content) 3%, var(--surface-2))',
-                              }}
-                            >
-                              {/* Branch label / predicate */}
-                              <div className="flex items-center gap-1.5 px-2 py-1.5 border-b" style={{ borderColor: 'color-mix(in oklch, var(--content) 8%, transparent)' }}>
-                                {labelEditable ? (
-                                  <input
-                                    value={branch.label || ''}
-                                    onChange={(e) => updateBranch(node.id, branch.id, { label: e.target.value })}
-                                    onMouseDown={(e) => e.stopPropagation()}
-                                    placeholder={`route${branchIdx + 1}`}
-                                    className="text-[9px] font-mono font-bold uppercase tracking-wider shrink-0 w-[70px] px-1 py-px rounded bg-transparent border-none outline-none focus:bg-surface-3"
-                                    style={{
-                                      color: meta.color,
-                                      background: `color-mix(in oklch, ${meta.color} 12%, transparent)`,
-                                    }}
-                                    spellCheck={false}
-                                  />
-                                ) : (
-                                  <span
-                                    className="text-[8.5px] font-mono font-bold uppercase tracking-wider shrink-0 px-1 py-px rounded"
-                                    style={{
-                                      color: branchAccent || 'var(--content-faint)',
-                                      background: branchAccent
-                                        ? `color-mix(in oklch, ${branchAccent} 12%, transparent)`
-                                        : 'color-mix(in oklch, var(--content) 6%, transparent)',
-                                    }}
-                                  >
-                                    {labelTag}
-                                  </span>
-                                )}
-                                {isChoice && branch.isOtherwise ? (
-                                  <span className="text-[10.5px] text-content-faint italic flex-1">otherwise (no predicate matches)</span>
-                                ) : isChoice ? (
-                                  <input
-                                    value={branch.predicate || ''}
-                                    onChange={(e) => updateBranch(node.id, branch.id, { predicate: e.target.value })}
-                                    onMouseDown={(e) => e.stopPropagation()}
-                                    placeholder="DataWeave boolean expression (e.g. payload.age > 18)"
-                                    className="flex-1 min-w-0 text-[10.5px] font-mono bg-transparent border-none outline-none text-content placeholder:text-content-ghost"
-                                    spellCheck={false}
-                                  />
-                                ) : (
-                                  <span className="flex-1" />
-                                )}
-                                {/* Branch delete — only for variable-arity scopes with > 1 of that kind */}
-                                {((isChoice && !branch.isOtherwise && (node.branches?.filter((b) => !b.isOtherwise).length ?? 0) > 1) ||
-                                  (isScatter && (node.branches?.length ?? 0) > 1) ||
-                                  (isMultiRoute && (node.branches?.length ?? 0) > 1)) && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const next = node.branches!.filter((b) => b.id !== branch.id);
-                                      updateNode(node.id, { branches: next });
-                                    }}
-                                    className="shrink-0 w-4 h-4 rounded text-[10px] text-content-ghost hover:text-[var(--err)] hover:bg-surface-3 cursor-pointer"
-                                    title="Remove this branch"
-                                  >×</button>
-                                )}
-                              </div>
-
-                              {/* Inner-node chain (chips) + add button */}
-                              <div className="flex items-center gap-1 px-2 py-1.5 flex-wrap">
-                                {[...branch.nodes].sort((a, b) => a.x - b.x).map((inner, idx) => {
-                                  const innerMeta = NODE_META[inner.type];
-                                  const isInnerSelected = inner.id === selectedId;
-                                  return (
-                                    <Fragment key={inner.id}>
-                                      {idx > 0 && (
-                                        <span className="text-content-ghost text-[9px]">→</span>
-                                      )}
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); setSelectedId(inner.id); }}
-                                        onContextMenu={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          setContextMenu({ x: e.clientX, y: e.clientY, nodeId: inner.id });
-                                        }}
-                                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-mono cursor-pointer transition-colors border ${isInnerSelected ? 'shadow-sm' : ''}`}
-                                        style={{
-                                          borderColor: isInnerSelected ? 'var(--accent)' : 'color-mix(in oklch, var(--content) 10%, transparent)',
-                                          background: inner.status === 'success'
-                                            ? `color-mix(in oklch, ${innerMeta.color} 14%, transparent)`
-                                            : inner.status === 'error'
-                                              ? 'color-mix(in oklch, var(--err) 10%, transparent)'
-                                              : inner.status === 'skipped'
-                                                ? 'color-mix(in oklch, var(--content) 4%, transparent)'
-                                                : 'var(--surface)',
-                                          color: inner.disabled || inner.status === 'skipped' ? 'var(--content-faint)' : innerMeta.color,
-                                          opacity: inner.disabled || inner.status === 'skipped' ? 0.55 : 1,
-                                        }}
-                                        title={`${innerMeta.label} — ${inner.label}`}
-                                      >
-                                        <NodeIcon type={inner.type} size={9} />
-                                        <span className="truncate max-w-[80px]" style={{ color: 'var(--content)' }}>{inner.label}</span>
-                                        {inner.status === 'running' && (
-                                          <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: innerMeta.color }} />
-                                        )}
-                                      </button>
-                                    </Fragment>
-                                  );
-                                })}
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setBranchPalette({ scopeId: node.id, branchId: branch.id }); }}
-                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-mono cursor-pointer border border-dashed text-content-faint hover:text-accent hover:border-accent transition-colors"
-                                  title="Add a node to this branch"
-                                >
-                                  + add
-                                </button>
-                              </div>
-                            </div>
-                            );
-                          })}
-                          {/* Add branch button — hidden for fixed-arity scopes (For Each has exactly one body). */}
-                          {node.type === 'choice' && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const otherwise = node.branches!.find((b) => b.isOtherwise);
-                                const others = node.branches!.filter((b) => !b.isOtherwise);
-                                const newBranches: Branch[] = [
-                                  ...others,
-                                  { id: newId(), nodes: [], predicate: '' },
-                                  ...(otherwise ? [otherwise] : []),
-                                ];
-                                updateNode(node.id, { branches: newBranches });
-                              }}
-                              className="w-full text-[10px] font-mono py-1 rounded-md border border-dashed text-content-faint hover:text-accent hover:border-accent transition-colors cursor-pointer"
-                            >
-                              + Add when branch
-                            </button>
-                          )}
-                          {(node.type === 'scatter-gather' || node.type === 'first-successful' || node.type === 'round-robin') && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const idx = (node.branches?.length ?? 0) + 1;
-                                const newBranches: Branch[] = [...(node.branches ?? []), { id: newId(), nodes: [], label: `route${idx}` }];
-                                updateNode(node.id, { branches: newBranches });
-                              }}
-                              className="w-full text-[10px] font-mono py-1 rounded-md border border-dashed text-content-faint hover:text-accent hover:border-accent transition-colors cursor-pointer"
-                            >
-                              + Add route
-                            </button>
-                          )}
-                        </div>
-                      )}
+                      {/* Scope body — recursive renderer so a Choice can contain a
+                          Choice, a Try can contain a For Each, etc. Top-level
+                          scopes call with depth=0; each nested scope card
+                          increments depth and the inner body recurses. */}
+                      {isScopeType(node.type) && node.branches && renderScopeBody(node, 0)}
                     </div>
 
                     {/* Status bar */}
@@ -2975,7 +3129,36 @@ output application/json
               Add node to branch
             </div>
             <div className="py-1.5 px-2 max-h-[60vh] overflow-y-auto">
+              {/* Leaf nodes */}
+              <div className="px-1 pt-1 pb-0.5 text-[9px] font-semibold uppercase tracking-wider text-content-ghost">Steps</div>
               {(['set-payload', 'transform', 'set-variable', 'salesforce', 'database', 'http-request', 'logger'] as LeafNodeType[]).map((t) => {
+                const m = NODE_META[t];
+                return (
+                  <button
+                    key={t}
+                    onClick={() => {
+                      addNodeToBranch(branchPalette.scopeId, branchPalette.branchId, t);
+                      setBranchPalette(null);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-surface-2 transition-colors text-left"
+                  >
+                    <div
+                      className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+                      style={{ background: `color-mix(in oklch, ${m.color} 15%, transparent)`, color: m.color }}
+                    >
+                      <NodeIcon type={t} size={13} />
+                    </div>
+                    <div>
+                      <div className="text-[11.5px] font-medium text-content leading-tight">{m.label}</div>
+                      <div className="text-[9.5px] text-content-ghost leading-tight mt-0.5">{m.desc}</div>
+                    </div>
+                  </button>
+                );
+              })}
+              {/* Scope nodes — separated so the user sees they can nest. */}
+              <div className="mx-1 my-1 h-px bg-line-subtle" />
+              <div className="px-1 pt-1 pb-0.5 text-[9px] font-semibold uppercase tracking-wider text-content-ghost">Scopes (nestable)</div>
+              {(['choice', 'for-each', 'parallel-for-each', 'scatter-gather', 'try', 'first-successful', 'round-robin', 'async'] as ScopeNodeType[]).map((t) => {
                 const m = NODE_META[t];
                 return (
                   <button
