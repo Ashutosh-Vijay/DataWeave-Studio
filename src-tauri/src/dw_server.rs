@@ -26,6 +26,10 @@ use crate::platform::{hide_console_window, strip_unc_prefix};
 pub struct DwServerState {
     inner: Mutex<Option<DwServerInner>>,
     next_id: AtomicI64,
+    /// Bumped on every start()/restart(). The keepalive thread captures the
+    /// value it spawned under and exits once a newer start supersedes it, so
+    /// restarts don't leak a keepalive thread each.
+    keepalive_gen: AtomicI64,
 }
 
 struct DwServerInner {
@@ -39,6 +43,7 @@ impl DwServerState {
         Self {
             inner: Mutex::new(None),
             next_id: AtomicI64::new(1),
+            keepalive_gen: AtomicI64::new(0),
         }
     }
 }
@@ -216,10 +221,16 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     // returning to ~10 ms. Cost of the ping is ~10 ms once a minute (0.02%
     // CPU) which is invisible.
     let keepalive_app = app.clone();
+    let my_gen = state.keepalive_gen.fetch_add(1, Ordering::Relaxed) + 1;
     std::thread::spawn(move || {
         loop {
             std::thread::sleep(std::time::Duration::from_secs(60));
             let state = keepalive_app.state::<DwServerState>();
+            // A newer start()/restart() superseded us — exit so each restart
+            // doesn't leak a keepalive thread.
+            if state.keepalive_gen.load(Ordering::Relaxed) != my_gen {
+                return;
+            }
             let id = state.next_id.fetch_add(1, Ordering::Relaxed);
             let req = format!(
                 r#"{{"id":{},"script":"%dw 2.0\noutput application/json\n---\n1","payloadPath":"","payloadMime":"application/json","namedInputs":[],"outputMime":"application/json"}}"#,
@@ -308,7 +319,7 @@ pub fn stop(app: &AppHandle) {
     }
 }
 
-/// Kill + spawn fresh. Used by the user's "Restart CLI" button.
+/// Kill + spawn fresh. Used by the user's "Restart engine" button.
 pub fn restart(app: &AppHandle) -> Result<(), String> {
     stop(app);
     start(app)

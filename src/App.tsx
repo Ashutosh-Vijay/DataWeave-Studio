@@ -733,24 +733,6 @@ function App() {
     workspace.context, workspace.namedInputs,
   ]);
 
-  // Push the CLI path override from localStorage into Rust state on startup,
-  // then restart the warmup if the user has actually configured a custom path.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      let stored: string | null = null;
-      try { stored = localStorage.getItem('dw.cliPath'); } catch { /* ignore */ }
-      if (cancelled) return;
-      try {
-        await invoke('set_cli_path_override', { path: stored && stored.trim() ? stored : null });
-      } catch (e) { console.warn('Failed to set engine path override:', e); }
-      if (stored && stored.trim() && !cancelled) {
-        try { await invoke('restart_cli'); } catch (e) { console.warn('Failed to restart engine:', e); }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
   // Surface the first-workspace prompt as soon as the FirstRunPicker is
   // out of the way. Skip silently for users who already have saved
   // workspaces from a previous app version (they don't need an onboarding
@@ -866,18 +848,14 @@ function App() {
   // banner has its own retry button that uses this; Settings → Restart engine
   // does too.
   const handleRestartEngine = useCallback(async () => {
-    toast({ title: 'Restarting engine', message: 'Re-running the warm-up probe…', variant: 'info' });
-    await runner.restartCli();
-    // restartCli mutates state but doesn't throw on failure — it stuffs the
-    // error into runner.cliError. So we read that on the next tick.
-    setTimeout(() => {
-      if (runner.cliError) {
-        toast({ title: 'Engine restart failed', message: runner.cliError, variant: 'error' });
-      } else {
-        toast({ title: 'Engine restarted', message: 'Ready to run scripts.', variant: 'success' });
-      }
-    }, 100);
-  }, [runner.restartCli, runner.cliError]);
+    toast({ title: 'Restarting engine', message: 'Reloading the DataWeave runtime…', variant: 'info' });
+    try {
+      await runner.restartEngine();
+      toast({ title: 'Engine restarted', message: 'Ready to run scripts.', variant: 'success' });
+    } catch (e) {
+      toast({ title: 'Engine restart failed', message: (e as Error).message || String(e), variant: 'error' });
+    }
+  }, [runner.restartEngine]);
 
   // Wraps workspace.saveWorkspace with success/error toasts. Used by ⌘S,
   // the workspace menu, and the command palette. The Sidebar save button
@@ -1221,7 +1199,7 @@ function App() {
       </header>
 
       {/* Runtime error banner */}
-      {runner.cliError && (
+      {runner.engineError && (
         <div
           className="px-4 py-2 flex items-center gap-3 shrink-0 border-b"
           style={{
@@ -1234,12 +1212,12 @@ function App() {
           </span>
           <div className="flex-1 min-w-0">
             <span className="text-[12px] font-medium" style={{ color: 'var(--err)' }}>DataWeave runtime unavailable</span>
-            <span className="text-[12px] text-content-muted ml-2">{runner.cliError}</span>
+            <span className="text-[12px] text-content-muted ml-2">{runner.engineError}</span>
           </div>
           <button
             onClick={() => { handleRestartEngine(); }}
             className="shrink-0 h-6 px-2 rounded text-[11px] font-medium text-content-secondary hover:text-content border border-line hover:bg-surface-2 cursor-pointer"
-            title="Re-run the warm-up probe"
+            title="Restart the DataWeave runtime"
           >
             Restart Engine
           </button>
@@ -1685,7 +1663,7 @@ function App() {
             onTimeoutMsChange={workspace.setTimeoutMs}
             onShowTour={() => { setSettingsOpen(false); setShowTour(true); }}
             onShowAbout={() => { setSettingsOpen(false); setAboutOpen(true); }}
-            onRestartCli={handleRestartEngine}
+            onRestartEngine={handleRestartEngine}
           />
         </Suspense>
       )}
@@ -1715,7 +1693,7 @@ function App() {
       />
 
       {/* Splash screen — covers everything until engine is ready */}
-      <SplashScreen isReady={runner.isWarmedUp} hasError={!!runner.cliError} />
+      <SplashScreen isReady={runner.isWarmedUp} hasError={!!runner.engineError} />
 
       {referenceOpen && (
         <Suspense fallback={null}>

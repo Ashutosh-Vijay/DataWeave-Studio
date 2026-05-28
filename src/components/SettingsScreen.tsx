@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
-import { invoke } from '@tauri-apps/api/core';
 import { Icons } from './Icons';
 import { ConfirmDialog } from './ConfirmDialog';
 import { MIME_OPTIONS, MimeType } from '../types';
@@ -24,13 +23,13 @@ interface SettingsScreenProps {
   onTimeoutMsChange: (ms: number) => void;
   onShowTour: () => void;
   onShowAbout: () => void;
-  onRestartCli: () => void;
+  onRestartEngine: () => void;
 }
 
 const SECTIONS: { id: Section; label: string; icon: keyof typeof Icons; keywords: string[] }[] = [
   { id: 'appearance', label: 'Appearance', icon: 'Panel', keywords: ['theme', 'dark', 'light', 'dusk', 'paper', 'accent', 'color', 'layout', 'workbench', 'focus', 'compact', 'density'] },
   { id: 'general',    label: 'General',    icon: 'Settings', keywords: ['startup', 'autosave', 'tour', 'updates', 'last workspace'] },
-  { id: 'runtime',    label: 'Runtime',    icon: 'Terminal', keywords: ['engine', 'cli', 'jvm', 'java', 'timeout', 'classpath', 'jar', 'mime', 'input format', 'warm-up'] },
+  { id: 'runtime',    label: 'Runtime',    icon: 'Terminal', keywords: ['engine', 'restart', 'jvm', 'java', 'timeout', 'classpath', 'jar', 'mime', 'input format'] },
   { id: 'editor',     label: 'Editor',     icon: 'Braces', keywords: ['font', 'size', 'line height', 'tab', 'word wrap', 'bracket', 'minimap'] },
   { id: 'shortcuts',  label: 'Shortcuts',  icon: 'Command', keywords: ['keyboard', 'hotkey', 'binding'] },
   { id: 'advanced',   label: 'Advanced',   icon: 'Activity', keywords: ['data location', 'diagnostics', 'logging', 'reset', 'danger', 'delete'] },
@@ -50,7 +49,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
     payloadMimeType, onPayloadMimeTypeChange,
     classpath, onClasspathChange,
     timeoutMs, onTimeoutMsChange,
-    onShowTour, onShowAbout, onRestartCli } = props;
+    onShowTour, onShowAbout, onRestartEngine } = props;
   const { isDark, pref, setPref } = useTheme();
   const [section, setSection] = useState<Section>('appearance');
   const [search, setSearch] = useState('');
@@ -149,7 +148,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
                 onClasspathChange={onClasspathChange}
                 timeoutMs={timeoutMs}
                 onTimeoutMsChange={onTimeoutMsChange}
-                onRestartCli={onRestartCli}
+                onRestartEngine={onRestartEngine}
               />
             )}
             {section === 'editor' && <EditorPanel />}
@@ -460,7 +459,7 @@ function RuntimePanel({
   payloadMimeType, onPayloadMimeTypeChange,
   classpath, onClasspathChange,
   timeoutMs, onTimeoutMsChange,
-  onRestartCli,
+  onRestartEngine,
 }: {
   payloadMimeType: MimeType;
   onPayloadMimeTypeChange: (m: MimeType) => void;
@@ -468,47 +467,13 @@ function RuntimePanel({
   onClasspathChange: (cp: string[]) => void;
   timeoutMs: number;
   onTimeoutMsChange: (ms: number) => void;
-  onRestartCli: () => void;
+  onRestartEngine: () => void;
 }) {
-  const [warmup, setWarmup] = useState<boolean>(() => {
-    try { return localStorage.getItem('dw.warmup') !== '0'; } catch { return true; }
-  });
-  const [cliPath, setCliPath] = useState<string>(() => {
-    try { return localStorage.getItem('dw.cliPath') || ''; } catch { return ''; }
-  });
-
-  const applyCliPath = async (next: string) => {
-    setCliPath(next);
-    try {
-      if (next) localStorage.setItem('dw.cliPath', next);
-      else localStorage.removeItem('dw.cliPath');
-    } catch { /* ignore */ }
-    try {
-      await invoke('set_cli_path_override', { path: next || null });
-    } catch (e) { console.warn('Failed to set engine path:', e); }
-    onRestartCli();
-  };
-
   return (
     <SectionWrap title="Runtime" desc="DataWeave runtime execution settings">
       <Group title="DataWeave Engine">
-        <SRow label="Engine path" desc="Path to the DataWeave runtime. Leave empty for bundled.">
-          <div className="flex items-center gap-1.5">
-            <span
-              className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-surface-2 border border-line font-mono text-[11.5px] text-content-secondary max-w-[280px] truncate"
-              title={cliPath || '<bundled>'}
-            >
-              <Icons.Folder size={12} />
-              <span className="truncate">{cliPath || '<bundled>'}</span>
-            </span>
-            <OutlineBtn onClick={async () => {
-              const selected = await open({ multiple: false, directory: false });
-              if (typeof selected === 'string') await applyCliPath(selected);
-            }}>Browse…</OutlineBtn>
-            {cliPath && (
-              <OutlineBtn onClick={() => { applyCliPath(''); }}>Reset</OutlineBtn>
-            )}
-          </div>
+        <SRow label="Restart engine" desc="Reload the DataWeave runtime. Use this if it stops responding or after changing the classpath.">
+          <OutlineBtn onClick={onRestartEngine}><Icons.Zap size={11} /> Restart</OutlineBtn>
         </SRow>
         <SRow label="Timeout (ms)" desc="Per-execution timeout. 0 = no limit.">
           <input
@@ -519,9 +484,6 @@ function RuntimePanel({
             onChange={(e) => onTimeoutMsChange(Number(e.target.value))}
             className="h-7 w-[120px] bg-surface-2 border border-line rounded-md px-2 text-[12px] font-mono text-content focus:border-accent focus:outline-none text-right"
           />
-        </SRow>
-        <SRow label="Warm-up on start" desc="Launch the engine in the background so the first run is instant.">
-          <Toggle on={warmup} onChange={(v) => { setWarmup(v); try { localStorage.setItem('dw.warmup', v ? '1' : '0'); } catch {} }} />
         </SRow>
         <SRow label="Default input format" desc="MIME type used for the payload pane.">
           <SelectInput

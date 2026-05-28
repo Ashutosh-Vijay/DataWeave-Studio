@@ -22,7 +22,7 @@ interface UseDWRunnerReturn {
   isRunning: boolean;
   executionTimeMs: number | undefined;
   isWarmedUp: boolean;
-  cliError: string | null;
+  engineError: string | null;
   run: (
     script: string,
     payload: string,
@@ -36,7 +36,7 @@ interface UseDWRunnerReturn {
     multipartPartsJson?: string,
   ) => Promise<void>;
   cancel: () => Promise<void>;
-  restartCli: () => Promise<void>;
+  restartEngine: () => Promise<void>;
 }
 
 export function useDWRunner(): UseDWRunnerReturn {
@@ -47,36 +47,39 @@ export function useDWRunner(): UseDWRunnerReturn {
   const [isRunning, setIsRunning] = useState(false);
   const [executionTimeMs, setExecutionTimeMs] = useState<number | undefined>(undefined);
   const [isWarmedUp, setIsWarmedUp] = useState(false);
-  const [cliError, setCliError] = useState<string | null>(null);
+  const [engineError, setEngineError] = useState<string | null>(null);
   const pollGenRef = useRef(0);
   const runningRef = useRef(false);
 
-  const startPolling = useCallback(() => {
+  // Poll get_warmup_status until the engine reports ready (or errored), then
+  // return its final status. Resolves null if a newer poll generation
+  // superseded this one (unmount, or a subsequent restart).
+  const pollUntilReady = useCallback(async (): Promise<WarmupStatus | null> => {
     const myGen = ++pollGenRef.current;
-    const check = async () => {
-      if (pollGenRef.current !== myGen) return;
+    while (pollGenRef.current === myGen) {
       try {
         const status = await invoke<WarmupStatus>('get_warmup_status');
-        if (status.ready) {
-          setIsWarmedUp(true);
-          setCliError(status.error ?? null);
-          return;
-        }
+        if (status.ready) return status;
       } catch {
         try {
-          const ready = await invoke<boolean>('is_warmed_up');
-          if (ready) { setIsWarmedUp(true); return; }
+          if (await invoke<boolean>('is_warmed_up')) return { ready: true, error: null };
         } catch { /* ignore */ }
       }
-      setTimeout(check, 500);
-    };
-    check();
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    return null;
   }, []);
 
   useEffect(() => {
-    startPolling();
+    (async () => {
+      const status = await pollUntilReady();
+      if (status) {
+        setIsWarmedUp(true);
+        setEngineError(status.error ?? null);
+      }
+    })();
     return () => { ++pollGenRef.current; }; // stop polling on unmount
-  }, [startPolling]);
+  }, [pollUntilReady]);
 
   const run = useCallback(
     async (
@@ -139,18 +142,25 @@ export function useDWRunner(): UseDWRunnerReturn {
     }
   }, []);
 
-  const restartCli = useCallback(async () => {
+  const restartEngine = useCallback(async () => {
     setIsWarmedUp(false);
-    setCliError(null);
+    setEngineError(null);
     try {
-      await invoke('restart_cli');
+      await invoke('restart_engine');
     } catch (e) {
-      setCliError(String(e));
+      const msg = String(e);
+      setEngineError(msg);
       setIsWarmedUp(true);
-      return;
+      throw new Error(msg);
     }
-    startPolling();
-  }, [startPolling]);
+    // Wait for the backend to finish respawning the server (~1-3s) so the
+    // caller can surface an accurate success/failure toast.
+    const status = await pollUntilReady();
+    if (!status) return; // superseded by unmount or another restart
+    setIsWarmedUp(true);
+    setEngineError(status.error ?? null);
+    if (status.error) throw new Error(status.error);
+  }, [pollUntilReady]);
 
   return {
     output,
@@ -160,9 +170,9 @@ export function useDWRunner(): UseDWRunnerReturn {
     isRunning,
     executionTimeMs,
     isWarmedUp,
-    cliError,
+    engineError,
     run,
     cancel,
-    restartCli,
+    restartEngine,
   };
 }

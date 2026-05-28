@@ -4,7 +4,7 @@ mod platform;
 mod secure_properties;
 mod workspace;
 
-use dw_runner::{CliOverride, RunState, WarmupState};
+use dw_runner::{RunState, WarmupState};
 use dw_server::DwServerState;
 use std::sync::Mutex;
 use tauri::Manager;
@@ -23,9 +23,6 @@ pub fn run() {
         .manage(RunState {
             child_pid: Mutex::new(None),
             cancelled: Mutex::new(false),
-        })
-        .manage(CliOverride {
-            path: Mutex::new(None),
         })
         .manage(DwServerState::new())
         .setup(|app| {
@@ -77,10 +74,8 @@ pub fn run() {
             dw_runner::read_text_file,
             dw_runner::is_warmed_up,
             dw_runner::get_warmup_status,
-            dw_runner::restart_cli,
+            dw_runner::restart_engine,
             dw_runner::get_log_dir,
-            dw_runner::set_cli_path_override,
-            dw_runner::get_cli_path_override,
             secure_properties::secure_properties_invoke,
             workspace::save_workspace,
             workspace::load_workspace,
