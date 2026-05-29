@@ -30,6 +30,10 @@ const NS_HTTP = 'http://www.mulesoft.org/schema/mule/http';
 const NS_DB = 'http://www.mulesoft.org/schema/mule/db';
 const NS_SF = 'http://www.mulesoft.org/schema/mule/salesforce';
 
+// Compact xmlns declarations for re-parsing an XML fragment on import (e.g. the
+// inner XML of a disabled `[STUDIO:…]` comment) where prefixes must resolve.
+const NS_DECL = `xmlns="${NS_MULE}" xmlns:doc="${NS_DOC}" xmlns:ee="${NS_EE}" xmlns:http="${NS_HTTP}" xmlns:db="${NS_DB}" xmlns:salesforce="${NS_SF}"`;
+
 const ROOT_HEADER = `<?xml version="1.0" encoding="UTF-8"?>
 <mule xmlns="${NS_MULE}"
       xmlns:doc="${NS_DOC}"
@@ -102,7 +106,9 @@ function studioComment(payload: Record<string, unknown>): string {
     if (v !== undefined && v !== null && v !== '') clean[k] = v;
   }
   if (Object.keys(clean).length === 0) return '';
-  return `<!-- studio:${escXml(JSON.stringify(clean))} -->`;
+  // `--` is illegal inside an XML comment (and JSON-encoded DataWeave often
+  // contains `---`), so escape it the same way Studio does: `--` → `&#45;&#45;`.
+  return `<!-- studio:${escXml(JSON.stringify(clean)).replace(/--/g, '&#45;&#45;')} -->`;
 }
 
 /** Convert one leaf node to its Mule XML element. */
@@ -164,14 +170,18 @@ function leafToXml(node: FlowNode): string {
       return `<logger${attr('level', 'INFO')}${attr('message', msg)}${docAttrs(node)}/>`;
     }
     case 'salesforce': {
-      // Mule 4 Salesforce connector:
+      // Mule 4 Salesforce connector (verified against the connector reference
+      // and real Studio output):
       //   - query / select  → <salesforce:query><salesforce:salesforce-query>SOQL</…></…>
-      //   - insert / update / upsert / delete  → <salesforce:create …
-      //       type="Account" records="#[payload]" /> (records is an ATTRIBUTE,
-      //       not a child element — that was the Mule 3 shape).
-      //   - Mule 4 also renamed `insert` to `create`. We follow the M4 name.
+      //   - create / update / upsert → type="<sObject>" attribute; the records
+      //       are a CONTENT child <salesforce:records>#[expr]</salesforce:records>
+      //       that DEFAULTS to #[payload], so we omit it unless the user typed an
+      //       expression. (`records="…"` as an attribute is INVALID and trips
+      //       cvc-complex-type validation in Studio.)
+      //   - delete → no type, no child; the record IDs come from #[payload].
+      //   - Mule 4 renamed `insert` to `create`. We follow the M4 name.
       const op = node.config.operation || 'query';
-      const query = node.config.request || '';
+      const expr = (node.config.request || '').trim();
       const saveTo = node.config.saveToVariable;
       const isQuery = op === 'query' || op === 'select';
       const opTag = isQuery
@@ -181,20 +191,30 @@ function leafToXml(node: FlowNode): string {
 
       let line: string;
       if (isQuery) {
-        const innerEl = `<salesforce:salesforce-query>${cdata(query)}</salesforce:salesforce-query>`;
-        line = `<salesforce:${opTag}${attr('config-ref', 'Salesforce_Config')}${targetAttr}${docAttrs(node)}>\n${indent(innerEl, 1)}\n</salesforce:${opTag}>`;
+        const innerEl = `<salesforce:salesforce-query>${cdata(expr)}</salesforce:salesforce-query>`;
+        line = `<salesforce:query${attr('config-ref', 'Salesforce_Config')}${targetAttr}${docAttrs(node)}>\n${indent(innerEl, 1)}\n</salesforce:query>`;
+      } else if (opTag === 'delete') {
+        // delete takes only config-ref; the IDs to delete come from the payload.
+        line = `<salesforce:delete${attr('config-ref', 'Salesforce_Config')}${targetAttr}${docAttrs(node)}/>`;
       } else {
-        // DML ops need a `type` (object name, e.g. "Account") and `records`
-        // (a DW expression producing a list of records). Studio doesn't model
-        // these separately yet, so emit placeholders the user must edit.
-        const recordsExpr = query.trim().startsWith('#[') ? query : `#[${cdataish(query || 'payload')}]`;
-        line = `<salesforce:${opTag}${attr('config-ref', 'Salesforce_Config')}${attr('type', 'UnknownObject')}${attr('records', recordsExpr)}${targetAttr}${docAttrs(node)}/>`;
+        // create / update / upsert. Studio doesn't model the sObject name, so
+        // emit a `type` placeholder the user must edit. Only emit a records
+        // child when the user supplied an expression — otherwise it defaults to
+        // the payload (matching how Studio writes these).
+        const hasExpr = expr !== '' && expr !== 'payload' && expr !== '#[payload]';
+        const head = `<salesforce:${opTag}${attr('config-ref', 'Salesforce_Config')}${attr('type', 'UnknownObject')}${targetAttr}${docAttrs(node)}`;
+        if (hasExpr) {
+          const wrapped = expr.startsWith('#[') ? expr : `#[${expr}]`;
+          const recordsEl = `<salesforce:records>${cdata(wrapped)}</salesforce:records>`;
+          line = `${head}>\n${indent(recordsEl, 1)}\n</salesforce:${opTag}>`;
+        } else {
+          line = `${head}/>`;
+        }
       }
 
       const lines: string[] = [line];
-      // For DML ops, leave a note about the required `type` attribute so the
-      // user knows they need to set the sObject name before deploying.
-      if (!isQuery) {
+      // For create/update/upsert, remind the user to set the sObject name.
+      if (!isQuery && opTag !== 'delete') {
         lines.push(`<!-- TODO: set type="..." to the actual sObject name (e.g. "Account") before deploying -->`);
       }
       const meta = studioComment({
@@ -254,11 +274,43 @@ function cdataish(s: string): string {
   return s.replace(/\n/g, ' ');
 }
 
+/** Escape XML for embedding inside a Studio `[STUDIO:…]` disabled comment.
+ *  `<` and `>` are legal in comments and kept intact; only `]` (which would
+ *  collide with the `[STUDIO]` delimiter / CDATA closers) and `--` (illegal in
+ *  comments) are escaped — exactly as Anypoint Studio does. */
+function escStudioInner(xml: string): string {
+  return xml.replace(/]/g, '&#93;').replace(/--/g, '&#45;&#45;');
+}
+
+/** Reverse escStudioInner. `&#45;`→`-` is applied first so a literal `&#93;`
+ *  in the source survives, mirroring the comment-decode order. */
+function unescStudioInner(xml: string): string {
+  return xml.replace(/&#45;/g, '-').replace(/&#93;/g, ']');
+}
+
+/** Render a disabled ("Comment Out") node as Anypoint Studio's
+ *  `<!-- [STUDIO:"label"]escaped-xml [STUDIO] -->` form, so it stays visible in
+ *  the XML, is skipped at runtime, and survives an export → import round trip. */
+function disabledToXml(node: FlowNode): string {
+  const label = escStudioInner(node.label || node.type);
+  // Drop our own studio:/TODO: meta comments — XML comments can't nest, and a
+  // disabled node is itself a comment. The node's real config still round-trips
+  // from the element's attributes/children; only Studio-only extras (mocks,
+  // mime hints) are dropped for disabled nodes, matching how Studio writes them.
+  const raw = nodeToXml(node)
+    .split('\n')
+    .filter((ln) => !/^\s*<!--\s*(studio:|TODO:)/.test(ln))
+    .join('\n');
+  const inner = escStudioInner(raw);
+  return `<!-- [STUDIO:"${label}"]${inner} [STUDIO] -->`;
+}
+
 /** Convert a list of nodes (a branch body or the top-level flow) to a
- *  newline-joined XML fragment in left-to-right execution order. */
+ *  newline-joined XML fragment in left-to-right execution order. Disabled
+ *  nodes are emitted as Studio comments rather than dropped. */
 function branchNodesToXml(nodes: FlowNode[]): string {
-  const sorted = [...nodes].filter((n) => !n.disabled).sort((a, b) => a.x - b.x);
-  return sorted.map(nodeToXml).join('\n');
+  const sorted = [...nodes].sort((a, b) => a.x - b.x);
+  return sorted.map((n) => (n.disabled ? disabledToXml(n) : nodeToXml(n))).join('\n');
 }
 
 /** Convert a scope node and its branches to Mule XML. */
@@ -280,12 +332,16 @@ function scopeToXml(node: FlowNode): string {
     }
     case 'for-each':
     case 'parallel-for-each': {
-      const tag = node.type === 'parallel-for-each' ? 'parallel-foreach' : 'foreach';
+      const isParallel = node.type === 'parallel-for-each';
+      const tag = isParallel ? 'parallel-foreach' : 'foreach';
       const coll = node.config.forEachCollection || 'payload';
-      const counter = node.config.forEachCounter || 'counter';
-      const maxC = node.type === 'parallel-for-each' ? attr('maxConcurrency', String(node.config.maxConcurrency ?? 4)) : '';
+      // `counterVariableName` exists only on the regular <foreach>; emitting it
+      // on <parallel-foreach> is a schema violation. parallel-foreach instead
+      // takes `maxConcurrency`.
+      const counterAttr = isParallel ? '' : attr('counterVariableName', node.config.forEachCounter || 'counter');
+      const maxC = isParallel ? attr('maxConcurrency', String(node.config.maxConcurrency ?? 4)) : '';
       const body = branches[0] ? branchNodesToXml(branches[0].nodes) : '';
-      return `<${tag}${attr('collection', `#[${cdataish(coll)}]`)}${attr('counterVariableName', counter)}${maxC}${docAttrs(node)}>\n${indent(body, 1)}\n</${tag}>`;
+      return `<${tag}${attr('collection', `#[${cdataish(coll)}]`)}${counterAttr}${maxC}${docAttrs(node)}>\n${indent(body, 1)}\n</${tag}>`;
     }
     case 'scatter-gather': {
       const routes = branches.map((b) => `<route>\n${indent(branchNodesToXml(b.nodes), 1)}\n</route>`).join('\n');
@@ -370,17 +426,41 @@ function recoverStudioMeta(commentText: string): Record<string, unknown> | null 
   const m = commentText.match(/studio:(.*)/s);
   if (!m) return null;
   try {
+    // Decode in reverse of the encode order: `&#45;` (our `--` escape) first,
+    // and `&amp;` last so a literal entity like `&lt;` isn't double-decoded.
     const decoded = m[1]
+      .replace(/&#45;/g, '-')
       .replace(/&quot;/g, '"')
       .replace(/&apos;/g, "'")
-      .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
       .trim();
     return JSON.parse(decoded) as Record<string, unknown>;
   } catch {
     return null;
   }
+}
+
+/** Parse the inner XML of an Anypoint Studio `[STUDIO:"label"]…[STUDIO]`
+ *  disabled-component comment back into a FlowNode marked `disabled:true`.
+ *  Returns null if the comment isn't this form or the fragment won't parse. */
+function parseDisabledComment(commentText: string): FlowNode | null {
+  const m = commentText.match(/^\s*\[STUDIO:"[\s\S]*?"\]([\s\S]*?)\s*\[STUDIO\]\s*$/);
+  if (!m) return null;
+  const inner = unescStudioInner(m[1]);
+  // Wrap in a namespaced root so prefixed elements (salesforce:, ee:, …) resolve.
+  const doc = new DOMParser().parseFromString(`<root ${NS_DECL}>${inner}</root>`, 'application/xml');
+  if (doc.querySelector('parsererror')) return null;
+  const root = doc.documentElement;
+  const childEls = childElements(root);
+  if (childEls.length === 0) return null;
+  // Reuse the normal element walker so studio:json metadata inside the disabled
+  // block (mime, mocks, nested disabled nodes) is reattached too.
+  const nodes = elementsToNodes(childEls, root);
+  if (nodes.length === 0) return null;
+  nodes[0].disabled = true;
+  return nodes[0];
 }
 
 /** Build an empty FlowNode shell with sensible defaults. */
@@ -413,8 +493,16 @@ function elementsToNodes(elements: Element[], parent: Element): FlowNode[] {
 
   for (const item of ordered) {
     if (item.nodeType === 8) {
-      // Comment: try to recover studio metadata for the element JUST emitted.
-      const meta = recoverStudioMeta((item as Comment).data);
+      const data = (item as Comment).data;
+      // A disabled ("Comment Out") component round-trips as a [STUDIO:…] comment.
+      const disabledNode = parseDisabledComment(data);
+      if (disabledNode) {
+        if (metaForNext) { applyStudioMeta(disabledNode, metaForNext); metaForNext = null; }
+        nodes.push(disabledNode);
+        continue;
+      }
+      // Otherwise try to recover studio metadata for the element JUST emitted.
+      const meta = recoverStudioMeta(data);
       if (meta && nodes.length > 0) {
         applyStudioMeta(nodes[nodes.length - 1], meta);
       } else if (meta) {
@@ -511,17 +599,18 @@ function elementToNode(el: Element): FlowNode {
       const prefix = el.prefix || (el.tagName.includes(':') ? el.tagName.split(':')[0] : '');
       const target = el.getAttribute('target') || '';
       if (prefix === 'salesforce') {
-        // Query: SOQL lives in a <salesforce-query> child.
-        // DML (create/update/upsert/delete): records is an ATTRIBUTE in Mule 4.
-        //   (We also accept the legacy <salesforce:records> child shape for
-        //    backward compat with older Mule 3 exports.)
+        // Query: SOQL lives in a <salesforce:salesforce-query> child.
+        // create/update/upsert: records is the CONTENT child <salesforce:records>
+        //   in Mule 4. (We also still read a `records="…"` attribute for backward
+        //   compat with older Studio exports that wrote it that way.)
+        // delete: no records child — the IDs come from the payload.
         const isQuery = name === 'query';
+        const recordsEl = el.querySelector('records, salesforce\\:records');
         const recordsAttr = el.getAttribute('records');
-        const legacyRecordsEl = el.querySelector('records, salesforce\\:records');
         const queryEl = el.querySelector('salesforce-query, salesforce\\:salesforce-query');
         const request = isQuery
           ? (queryEl?.textContent?.trim() || '')
-          : (recordsAttr ? stripExpr(recordsAttr) : (legacyRecordsEl?.textContent?.trim() || ''));
+          : (recordsEl ? stripExpr(recordsEl.textContent?.trim() || '') : (recordsAttr ? stripExpr(recordsAttr) : ''));
         // Mule 4 renamed `insert` → `create`. Map the M4 name back to Studio's `insert`.
         const mappedOp = name === 'create' ? 'insert' : name;
         return makeNode('salesforce', label, {
