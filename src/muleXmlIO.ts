@@ -566,10 +566,12 @@ function elementToNode(el: Element): FlowNode {
     }
     case 'set-variable': {
       const varName = el.getAttribute('variableName') || 'myVar';
+      // Keep the raw value verbatim (including any #[…] wrapper) so the runtime
+      // can evaluate expressions and an export round-trips to the same XML.
       const value = el.getAttribute('value') || '';
       return makeNode('set-variable', label, {
         variableName: varName,
-        variableValue: stripExpr(value),
+        variableValue: value,
         variableSource: 'raw',
       });
     }
@@ -790,31 +792,92 @@ function elementToNode(el: Element): FlowNode {
   return unknownLogger;
 }
 
+/** Inbound-message attribute fixture (the part of the Mule HTTP listener's
+ *  `attributes` a flow reads). Used to seed the Flow Designer's run context. */
+export interface FlowAttributes {
+  uriParams: Record<string, string>;
+  queryParams: Record<string, string>;
+  headers: Record<string, string>;
+}
+
+/** Scan a fragment for the namespace prefixes it uses (element + attribute) and
+ *  return xmlns declarations for any not already in NS_DECL. The guessed URI
+ *  only needs to *exist* so the parser accepts the prefix — unknown connectors
+ *  then import as Logger placeholders rather than aborting the whole parse. */
+function unknownPrefixDecls(xml: string): string {
+  const known = new Set(['doc', 'ee', 'http', 'db', 'salesforce', 'xml']);
+  const prefixes = new Set<string>();
+  for (const m of xml.matchAll(/<\/?([A-Za-z][\w-]*):/g)) prefixes.add(m[1]);
+  for (const m of xml.matchAll(/[\s"']([A-Za-z][\w-]*):[A-Za-z][\w.-]*\s*=/g)) prefixes.add(m[1]);
+  let out = '';
+  for (const p of prefixes) {
+    if (known.has(p)) continue;
+    known.add(p);
+    const ns = p === 'xsi'
+      ? 'http://www.w3.org/2001/XMLSchema-instance'
+      : `http://www.mulesoft.org/schema/mule/${p}`;
+    out += ` xmlns:${p}="${ns}"`;
+  }
+  return out;
+}
+
+/** Parse pasted Mule XML, tolerating a bare <flow>/<sub-flow> copied without its
+ *  <mule> root (and therefore without the xmlns:doc / ee / … declarations every
+ *  flow relies on). If a straight parse fails, wrap the fragment in a synthetic
+ *  <mule> that declares the standard + any spotted namespaces, then retry. */
+function parseMuleDoc(xml: string): Document {
+  const parser = new DOMParser();
+  const direct = parser.parseFromString(xml, 'application/xml');
+  if (!direct.querySelector('parsererror')) return direct;
+  const fragment = xml.replace(/<\?xml[^>]*\?>/i, '').trim();
+  const wrapped = `<mule ${NS_DECL}${unknownPrefixDecls(fragment)}>${fragment}</mule>`;
+  return parser.parseFromString(wrapped, 'application/xml');
+}
+
+/** Scan imported XML for `attributes.uriParams/queryParams/headers.<key>`
+ *  references and return a skeleton with those keys (empty values), so the Flow
+ *  Designer can pre-seed an input fixture showing exactly what the flow expects.
+ *  Returns null when the flow reads no inbound attributes. */
+function extractAttributeSkeleton(xml: string): FlowAttributes | null {
+  const result: FlowAttributes = { uriParams: {}, queryParams: {}, headers: {} };
+  let found = false;
+  for (const group of ['uriParams', 'queryParams', 'headers'] as const) {
+    // attributes.group.key | attributes.group.'key-with-dashes' | attributes.group["key"]
+    const re = new RegExp(`attributes\\.${group}\\s*(?:\\.\\s*('?)([A-Za-z_][\\w-]*)\\1|\\[\\s*(['"])([^'"\\]]+)\\3\\s*\\])`, 'g');
+    for (const m of xml.matchAll(re)) {
+      const key = m[2] || m[4];
+      if (key) { result[group][key] = ''; found = true; }
+    }
+  }
+  return found ? result : null;
+}
+
 export interface ImportResult {
   ok: true;
   flowName: string;
   nodes: FlowNode[];
   warnings: string[];
+  /** Attribute keys the flow reads (empty values), or null if it reads none. */
+  suggestedAttributes: FlowAttributes | null;
 }
 export interface ImportError {
   ok: false;
   error: string;
 }
 
-/** Parse a Mule 4 XML document and produce a Studio flow. */
+/** Parse a Mule 4 XML document (or a bare flow fragment) into a Studio flow. */
 export function importMuleXml(xml: string): ImportResult | ImportError {
   if (!xml || !xml.trim()) return { ok: false, error: 'Empty input — paste Mule XML.' };
-  const parser = new DOMParser();
-  // Some sources omit the XML declaration; DOMParser handles either case.
-  const doc = parser.parseFromString(xml, 'application/xml');
+  // Tolerate flow-only pastes that lack the <mule> root + namespace declarations.
+  const doc = parseMuleDoc(xml);
   const parserError = doc.querySelector('parsererror');
   if (parserError) {
     return { ok: false, error: parserError.textContent?.trim() || 'XML parse error.' };
   }
-  // Locate the first <flow> element regardless of namespace handling.
-  const flowEl = doc.querySelector('flow');
+  // Locate the first <flow>/<sub-flow> regardless of namespace handling.
+  const flowEl = doc.querySelector('flow, sub-flow');
   if (!flowEl) {
-    return { ok: false, error: 'No <flow> element found in the XML.' };
+    return { ok: false, error: 'No <flow> or <sub-flow> element found in the XML.' };
   }
   const flowName = flowEl.getAttribute('name') || 'imported-flow';
   const warnings: string[] = [];
@@ -832,5 +895,5 @@ export function importMuleXml(xml: string): ImportResult | ImportError {
     }
   };
   walkForWarnings(nodes);
-  return { ok: true, flowName, nodes, warnings };
+  return { ok: true, flowName, nodes, warnings, suggestedAttributes: extractAttributeSkeleton(xml) };
 }

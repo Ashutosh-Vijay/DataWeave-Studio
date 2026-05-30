@@ -205,6 +205,20 @@ interface RunResult {
 
 // ── Constants ──────────────────────────────────────────────────────
 
+/** Flow-entry input fixture: the sample message a test run starts from — the
+ *  payload a real HTTP listener would hand the flow, plus the inbound
+ *  `attributes` (uriParams / queryParams / headers / method) the flow reads. */
+interface FlowInput {
+  payload: string;
+  mime: string;
+  attributesJson: string;
+}
+const DEFAULT_FLOW_INPUT: FlowInput = {
+  payload: '',
+  mime: 'application/json',
+  attributesJson: '{\n  "uriParams": {},\n  "queryParams": {},\n  "headers": {},\n  "method": "GET"\n}',
+};
+
 const NODE_W = 220;
 const PORT_R = 6;
 
@@ -339,6 +353,10 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
    *  scopes show only their header inside a branch; expanded scopes show
    *  the full nested body. Top-level scopes can't be collapsed. */
   const [collapsedScopes, setCollapsedScopes] = useState<Set<string>>(new Set());
+  // Flow-entry input fixture (declared up here so runPipeline can read it).
+  const [flowInput, setFlowInput] = useState<FlowInput>(DEFAULT_FLOW_INPUT);
+  const [showInputEditor, setShowInputEditor] = useState(false);
+  const [inputDraft, setInputDraft] = useState<FlowInput>(DEFAULT_FLOW_INPUT);
   const toggleScopeCollapsed = useCallback((id: string) => {
     setCollapsedScopes((prev) => {
       const next = new Set(prev);
@@ -763,10 +781,15 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       payloadFilePath: string | null;
       variables: Record<string, string>;
     };
+    // Seed from the flow-entry input fixture so payload + attributes.* resolve
+    // the way they would behind a real HTTP listener. Invalid attributes JSON
+    // falls back to an empty object rather than aborting the run.
+    let seedAttrs = '{}';
+    try { seedAttrs = JSON.stringify(JSON.parse(flowInput.attributesJson || '{}')); } catch {}
     const initialCtx: ExecCtx = {
-      payload: '',
-      mime: 'application/json',
-      attributes: '{}',
+      payload: flowInput.payload,
+      mime: flowInput.mime || 'application/json',
+      attributes: seedAttrs,
       multipartJson: null,
       payloadFilePath: null,
       variables: {},
@@ -804,6 +827,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       if (!stepThrough) return true;
       if (skipUntilNodeRef.current) return true; // Step Over active
       setCurrentStepNodeId(nodeId);
+      setSelectedId(nodeId); // surface the current node's config/response in the panel
       setStepping(true);
       await new Promise<void>((resolve) => { stepResolveRef.current = resolve; });
       setStepping(false);
@@ -841,13 +865,23 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
         if (node.type === 'set-variable') {
           const varName = node.config.variableName || 'myVar';
-          let varValue = '';
+          // Evaluate through the engine when the value is a DataWeave script OR a
+          // raw `#[…]` expression (imported set-variables keep their #[…] form so
+          // `attributes.*` / `vars.*` / `payload` resolve against the run context).
+          let scriptToRun: string | null = null;
           if (node.config.variableSource === 'script' && node.config.script) {
+            scriptToRun = node.config.script;
+          } else {
+            const exprMatch = (node.config.variableValue || '').match(/^#\[([\s\S]*)\]$/);
+            if (exprMatch) scriptToRun = `%dw 2.0\noutput application/json\n---\n${exprMatch[1]}`;
+          }
+          let varValue: string;
+          if (scriptToRun !== null) {
             const result = await invoke<RunResult>('run_dataweave', {
-              script: node.config.script,
+              script: scriptToRun,
               payload: ctx.payload,
               payloadMimeType: ctx.mime,
-              attributesJson: '{}',
+              attributesJson: ctx.attributes,
               varsJson: JSON.stringify(ctx.variables),
               namedInputsJson: '[]',
               payloadFilePath: ctx.payloadFilePath,
@@ -1251,10 +1285,17 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         if (abortRef.current) return false;
         setStepIndex(stepCounter++);
         markNode(node.id, { status: 'running' });
-        if (!(await pauseIfStepping(node.id))) return false;
 
-        const ok = isScopeType(node.type) ? await runScope(node, ctx) : await runLeaf(node, ctx);
-        if (!ok) return false;
+        if (isScopeType(node.type)) {
+          // Pause BEFORE a scope so the user can Step Into it.
+          if (!(await pauseIfStepping(node.id))) return false;
+          if (!(await runScope(node, ctx))) return false;
+        } else {
+          // Run the leaf first, THEN pause on it — stepping to a connector should
+          // execute it and show its result, not wait for the next click to run it.
+          if (!(await runLeaf(node, ctx))) return false;
+          if (!(await pauseIfStepping(node.id))) return false;
+        }
       }
       return true;
     };
@@ -1263,7 +1304,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
     setIsRunning(false);
     setStepIndex(null);
-  }, [nodes]);
+  }, [nodes, flowInput]);
 
   // ── Step-through controls ────────────────────────────────────────
   const stepNext = useCallback(() => {
@@ -1354,7 +1395,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   const [muleXmlImportText, setMuleXmlImportText] = useState('');
   const [muleXmlImportResult, setMuleXmlImportResult] = useState<{ kind: 'error'; msg: string } | { kind: 'preview'; flowName: string; nodeCount: number; warnings: string[] } | null>(null);
   // Sync dialog-open ref for keyboard handler (declared earlier)
-  dialogOpenRef.current = showSaveDialog || showOpenDialog || muleXmlExport !== null || showMuleXmlImport;
+  dialogOpenRef.current = showSaveDialog || showOpenDialog || muleXmlExport !== null || showMuleXmlImport || showInputEditor;
 
   // Mark dirty on any node change
   useEffect(() => { if (nodes.length > 0) setFlowDirty(true); }, [nodes]);
@@ -1373,6 +1414,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         // Reset transient runtime fields on every node in the tree (including
         // nodes nested inside scope branches) before serialization.
         flow: mapNodesDeep(nodes, (n) => ({ ...n, status: 'idle', output: undefined, error: undefined, executionTimeMs: undefined })),
+        flowInput,
       };
       const path = await invoke<string>('save_workspace', { workspace });
       const filename = path.split(/[/\\]/).pop() || '';
@@ -1383,7 +1425,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     } catch (e) {
       toast(`Failed to save: ${(e as Error).message}`, 'error');
     }
-  }, [nodes]);
+  }, [nodes, flowInput]);
 
   const saveFlow = useCallback(() => {
     if (flowCurrentFile) {
@@ -1416,7 +1458,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       // v2 schema: the flow lives in the top-level `flow` field. Legacy v1
       // workspaces auto-migrated by the Rust backend still expose their
       // nodes through this field (migration copies flowNodes -> flow).
-      const ws = await invoke<{ projectName: string; flow?: FlowNode[] | null }>('load_workspace', { filename });
+      const ws = await invoke<{ projectName: string; flow?: FlowNode[] | null; flowInput?: Partial<FlowInput> | null }>('load_workspace', { filename });
       const flowNodes = ws.flow;
       if (flowNodes && Array.isArray(flowNodes) && flowNodes.length > 0) {
         // Backfill kind: 'leaf' for v1/v2 nodes that pre-date scope support.
@@ -1426,6 +1468,9 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         setFlowCurrentFile(filename);
         setFlowDirty(false);
         setSelectedId(null);
+        setFlowInput(ws.flowInput
+          ? { payload: ws.flowInput.payload ?? '', mime: ws.flowInput.mime ?? 'application/json', attributesJson: ws.flowInput.attributesJson ?? DEFAULT_FLOW_INPUT.attributesJson }
+          : DEFAULT_FLOW_INPUT);
         toast(`Opened "${ws.projectName}"`, 'success');
       } else {
         toast('This workspace does not contain a message flow.', 'error');
@@ -1489,11 +1534,23 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     setFlowDirty(true);
     setFlowCurrentFile(null);
     setSelectedId(null);
+    // Pre-seed the input fixture with the inbound attribute keys the flow reads
+    // (empty values) so the user sees exactly what to fill in to test it.
+    let attrNote = '';
+    if (result.suggestedAttributes) {
+      const a = result.suggestedAttributes;
+      setFlowInput((prev) => ({
+        ...prev,
+        attributesJson: JSON.stringify({ uriParams: a.uriParams, queryParams: a.queryParams, headers: a.headers, method: 'GET' }, null, 2),
+      }));
+      const keyCount = Object.keys(a.uriParams).length + Object.keys(a.queryParams).length + Object.keys(a.headers).length;
+      if (keyCount > 0) attrNote = ` · seeded ${keyCount} input attribute${keyCount === 1 ? '' : 's'} — set values under “Input”`;
+    }
     setShowMuleXmlImport(false);
     setMuleXmlImportText('');
     setMuleXmlImportResult(null);
     const tail = result.warnings.length > 0 ? ` (${result.warnings.length} unsupported element${result.warnings.length === 1 ? '' : 's'} imported as Logger placeholder)` : '';
-    toast(`Imported "${result.flowName}" — ${countAllNodes(result.nodes)} node${countAllNodes(result.nodes) === 1 ? '' : 's'}${tail}`, 'success');
+    toast(`Imported "${result.flowName}" — ${countAllNodes(result.nodes)} node${countAllNodes(result.nodes) === 1 ? '' : 's'}${tail}${attrNote}`, 'success');
   }, [muleXmlImportText]);
 
   if (!open) return null;
@@ -1590,6 +1647,64 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           </div>
         )}
       </div>
+    );
+  };
+
+  // A single leaf node rendered as an Anypoint-style "station": a colored icon
+  // tile with the doc:name caption beneath, joined to neighbours by a rail.
+  const renderStation = (inner: FlowNode): React.ReactNode => {
+    const m = NODE_META[inner.type];
+    const sel = inner.id === selectedId;
+    const stepping = inner.id === currentStepNodeId;
+    const tileBg = inner.status === 'success'
+      ? `color-mix(in oklch, ${m.color} 16%, var(--surface))`
+      : inner.status === 'error'
+        ? 'color-mix(in oklch, var(--err) 16%, var(--surface))'
+        : inner.status === 'skipped'
+          ? 'color-mix(in oklch, var(--content) 5%, var(--surface))'
+          : 'var(--surface)';
+    return (
+      <button
+        key={inner.id}
+        onClick={(e) => { e.stopPropagation(); setSelectedId(inner.id); }}
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, nodeId: inner.id }); }}
+        className="flex flex-col items-center gap-1 w-[86px] shrink-0 cursor-pointer"
+        style={{ opacity: inner.disabled || inner.status === 'skipped' ? 0.5 : 1 }}
+        title={`${m.label} — ${inner.label}`}
+      >
+        <div
+          className="relative w-12 h-12 rounded-xl border-2 flex items-center justify-center transition-colors"
+          style={{
+            borderColor: sel || stepping ? 'var(--accent)' : `color-mix(in oklch, ${m.color} 38%, transparent)`,
+            background: tileBg,
+            boxShadow: sel || stepping ? '0 0 0 3px color-mix(in oklch, var(--accent) 22%, transparent)' : 'none',
+          }}
+        >
+          <span style={{ color: m.color }}><NodeIcon type={inner.type} size={20} /></span>
+          {inner.status === 'running' && (
+            <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full border-2 animate-spin" style={{ borderColor: m.color, borderTopColor: 'transparent', background: 'var(--surface)' }} />
+          )}
+          {inner.status === 'success' && (
+            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center" style={{ background: m.color }}>
+              <svg width="9" height="9" viewBox="0 0 16 16" fill="white"><path d="M13.485 3.929a1 1 0 01.036 1.414l-6 6.5a1 1 0 01-1.45.022l-3-3a1 1 0 111.414-1.414L6.95 9.915l5.293-5.95a1 1 0 011.242-.036z"/></svg>
+            </span>
+          )}
+          {inner.status === 'error' && (
+            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center" style={{ background: 'var(--err)' }}>
+              <svg width="9" height="9" viewBox="0 0 16 16" fill="white"><path d="M8 3.5a.75.75 0 01.75.75v4a.75.75 0 01-1.5 0v-4A.75.75 0 018 3.5zm0 7a1 1 0 100 2 1 1 0 000-2z"/></svg>
+            </span>
+          )}
+        </div>
+        <span
+          className="text-[9.5px] leading-tight text-center font-medium"
+          style={{
+            color: inner.disabled ? 'var(--content-faint)' : 'var(--content)',
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          }}
+        >
+          {inner.label}
+        </span>
+      </button>
     );
   };
 
@@ -1732,59 +1847,32 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
               )}
             </div>
 
-            {/* Inner-node chain — leaves render as chips (inline), scopes
-                render as expanded cards (basis-full → break to own row). */}
-            <div className="flex items-center gap-1 px-2 py-1.5 flex-wrap">
+            {/* Inner-node chain — Anypoint-style station track. Leaves render as
+                icon + caption stations joined by a rail; nested scopes break to
+                their own row as expanded cards. */}
+            <div className="flex items-start gap-x-1 gap-y-3 px-3 py-2.5 flex-wrap" style={{ background: 'color-mix(in oklch, var(--bg) 35%, transparent)' }}>
               {[...branch.nodes].sort((a, b) => a.x - b.x).map((inner, idx) => {
                 if (isScopeType(inner.type)) {
-                  // Nested scope — full-width expanded card with recursive body.
                   return renderNestedScope(inner, depth + 1);
                 }
-                const innerMeta = NODE_META[inner.type];
-                const isInnerSelected = inner.id === selectedId;
+                const prevIsLeaf = idx > 0 && !isScopeType(branch.nodes[idx - 1].type);
                 return (
                   <Fragment key={inner.id}>
-                    {idx > 0 && !isScopeType(branch.nodes[idx - 1].type) && (
-                      <span className="text-content-ghost text-[9px]">→</span>
+                    {prevIsLeaf && (
+                      <div className="shrink-0 self-start rounded-full" style={{ marginTop: 22, height: 2, width: 16, background: 'color-mix(in oklch, var(--content) 28%, transparent)' }} />
                     )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setSelectedId(inner.id); }}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setContextMenu({ x: e.clientX, y: e.clientY, nodeId: inner.id });
-                      }}
-                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-mono cursor-pointer transition-colors border ${isInnerSelected ? 'shadow-sm' : ''}`}
-                      style={{
-                        borderColor: isInnerSelected ? 'var(--accent)' : 'color-mix(in oklch, var(--content) 10%, transparent)',
-                        background: inner.status === 'success'
-                          ? `color-mix(in oklch, ${innerMeta.color} 14%, transparent)`
-                          : inner.status === 'error'
-                            ? 'color-mix(in oklch, var(--err) 10%, transparent)'
-                            : inner.status === 'skipped'
-                              ? 'color-mix(in oklch, var(--content) 4%, transparent)'
-                              : 'var(--surface)',
-                        color: inner.disabled || inner.status === 'skipped' ? 'var(--content-faint)' : innerMeta.color,
-                        opacity: inner.disabled || inner.status === 'skipped' ? 0.55 : 1,
-                      }}
-                      title={`${innerMeta.label} — ${inner.label}`}
-                    >
-                      <NodeIcon type={inner.type} size={9} />
-                      <span className="truncate max-w-[80px]" style={{ color: 'var(--content)' }}>{inner.label}</span>
-                      {inner.status === 'running' && (
-                        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: innerMeta.color }} />
-                      )}
-                    </button>
+                    {renderStation(inner)}
                   </Fragment>
                 );
               })}
+              {branch.nodes.length > 0 && !isScopeType(branch.nodes[branch.nodes.length - 1].type) && (
+                <div className="shrink-0 self-start rounded-full" style={{ marginTop: 22, height: 2, width: 12, background: 'color-mix(in oklch, var(--content) 18%, transparent)' }} />
+              )}
               <button
                 onClick={(e) => { e.stopPropagation(); setBranchPalette({ scopeId: scopeNode.id, branchId: branch.id }); }}
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-mono cursor-pointer border border-dashed text-content-faint hover:text-accent hover:border-accent transition-colors"
+                className="shrink-0 self-start flex items-center justify-center w-12 h-12 rounded-xl border-2 border-dashed text-content-faint hover:text-accent hover:border-accent cursor-pointer transition-colors text-[18px] leading-none"
                 title="Add a node to this branch"
-              >
-                + add
-              </button>
+              >+</button>
             </div>
           </div>
           );
@@ -1924,6 +2012,13 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
             </button>
           </>
         )}
+        <button
+          onClick={() => { setInputDraft(flowInput); setShowInputEditor(true); }}
+          className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] font-medium cursor-pointer transition-colors border border-accent-border text-accent hover:bg-accent-dim"
+          title="Set the flow's input message (payload + uriParams/queryParams/headers) used for test runs"
+        >
+          <span className="font-mono">{'{ }'}</span> Input
+        </button>
         <div className="w-px h-4 bg-line" />
         <button
           onClick={saveFlow}
@@ -3474,6 +3569,90 @@ output application/json
                 style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
               >
                 Import flow
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showInputEditor && (
+        <div
+          className="fixed inset-0 z-[100] flex items-start justify-center pt-[8vh] px-4"
+          style={{ background: 'color-mix(in oklch, var(--bg) 60%, transparent)', backdropFilter: 'blur(2px)' }}
+          onClick={() => setShowInputEditor(false)}
+        >
+          <div
+            className="w-full max-w-2xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[84vh]"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => { if (e.key === 'Escape') setShowInputEditor(false); }}
+          >
+            <div className="px-4 py-3 border-b border-line flex items-center gap-2">
+              <span className="font-mono text-[12px]" style={{ color: 'var(--accent)' }}>{'{ }'}</span>
+              <div className="flex-1">
+                <div className="text-[13px] font-semibold text-content">Flow input</div>
+                <div className="text-[10.5px] text-content-ghost mt-0.5">
+                  The starting message a <span className="font-mono">Run</span> uses — the payload a listener would hand the flow, plus inbound <span className="font-mono">attributes</span> (<span className="font-mono">uriParams</span>, <span className="font-mono">queryParams</span>, <span className="font-mono">headers</span>). It propagates forward: each node's output becomes the next node's input.
+                </div>
+              </div>
+              <button onClick={() => setShowInputEditor(false)} className="text-content-faint hover:text-content cursor-pointer p-1" title="Close">
+                <Icons.X size={13} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto px-4 py-3 space-y-3">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <ConfigLabel label="Payload" />
+                  <select
+                    value={inputDraft.mime}
+                    onChange={(e) => setInputDraft((d) => ({ ...d, mime: e.target.value }))}
+                    className="h-6 px-1.5 rounded bg-surface-2 border border-line text-[10.5px] text-content-faint cursor-pointer outline-none"
+                  >
+                    {['application/json', 'application/xml', 'text/plain', 'application/csv', 'application/java'].map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <textarea
+                  value={inputDraft.payload}
+                  onChange={(e) => setInputDraft((d) => ({ ...d, payload: e.target.value }))}
+                  placeholder={'{\n  "example": "starting payload"\n}'}
+                  spellCheck={false}
+                  className="w-full px-3 py-2 text-[11.5px] font-mono leading-relaxed bg-surface-2 border border-line rounded-md outline-none resize-y text-content placeholder:text-content-ghost"
+                  style={{ minHeight: 110 }}
+                />
+              </div>
+              <div>
+                <ConfigLabel label="Attributes (inbound message metadata)" />
+                <textarea
+                  value={inputDraft.attributesJson}
+                  onChange={(e) => setInputDraft((d) => ({ ...d, attributesJson: e.target.value }))}
+                  spellCheck={false}
+                  className="mt-1 w-full px-3 py-2 text-[11.5px] font-mono leading-relaxed bg-surface-2 border border-line rounded-md outline-none resize-y text-content placeholder:text-content-ghost"
+                  style={{ minHeight: 130 }}
+                />
+                {(() => { try { JSON.parse(inputDraft.attributesJson || '{}'); return null; } catch { return (
+                  <div className="mt-1 text-[10.5px]" style={{ color: 'var(--err)' }}>Not valid JSON — attributes fall back to an empty object at run time.</div>
+                ); } })()}
+              </div>
+            </div>
+            <div className="px-4 py-3 border-t border-line flex items-center gap-2">
+              <button
+                onClick={() => setInputDraft(DEFAULT_FLOW_INPUT)}
+                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer border border-line transition-colors"
+              >
+                Reset
+              </button>
+              <span className="flex-1" />
+              <button
+                onClick={() => setShowInputEditor(false)}
+                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer border border-line transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setFlowInput(inputDraft); setShowInputEditor(false); toast('Flow input updated', 'success'); }}
+                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] font-medium cursor-pointer transition-colors"
+                style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+              >
+                Save input
               </button>
             </div>
           </div>

@@ -156,6 +156,10 @@ pub struct WorkspaceFile {
     /// no flow attached."
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub flow: Option<serde_json::Value>,
+    /// Optional flow-entry input fixture (sample payload + inbound attributes)
+    /// the Flow Designer uses to seed test runs. Opaque to the backend.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flow_input: Option<serde_json::Value>,
 }
 
 // ===========================================================================
@@ -238,6 +242,7 @@ fn migrate_legacy(legacy: LegacyWorkspaceFile) -> WorkspaceFile {
         requests: vec![request],
         active_request_id: Some(request_id),
         flow: legacy.flow_nodes,
+        flow_input: None,
     }
 }
 
