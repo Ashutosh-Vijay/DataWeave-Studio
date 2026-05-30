@@ -1586,7 +1586,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     return (
       <div
         key={innerNode.id}
-        className="rounded-md border overflow-hidden basis-full"
+        className="rounded-md border overflow-hidden shrink-0 self-start"
         style={{
           // Subtle left accent in the scope's color so the user can spot
           // its type at a glance even when collapsed.
@@ -1850,22 +1850,16 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
             {/* Inner-node chain — Anypoint-style station track. Leaves render as
                 icon + caption stations joined by a rail; nested scopes break to
                 their own row as expanded cards. */}
-            <div className="flex items-start gap-x-1 gap-y-3 px-3 py-2.5 flex-wrap" style={{ background: 'color-mix(in oklch, var(--bg) 35%, transparent)' }}>
-              {[...branch.nodes].sort((a, b) => a.x - b.x).map((inner, idx) => {
-                if (isScopeType(inner.type)) {
-                  return renderNestedScope(inner, depth + 1);
-                }
-                const prevIsLeaf = idx > 0 && !isScopeType(branch.nodes[idx - 1].type);
-                return (
-                  <Fragment key={inner.id}>
-                    {prevIsLeaf && (
-                      <div className="shrink-0 self-start rounded-full" style={{ marginTop: 22, height: 2, width: 16, background: 'color-mix(in oklch, var(--content) 28%, transparent)' }} />
-                    )}
-                    {renderStation(inner)}
-                  </Fragment>
-                );
-              })}
-              {branch.nodes.length > 0 && !isScopeType(branch.nodes[branch.nodes.length - 1].type) && (
+            <div className="flex items-start gap-1 px-3 py-3" style={{ background: 'color-mix(in oklch, var(--bg) 35%, transparent)' }}>
+              {[...branch.nodes].sort((a, b) => a.x - b.x).map((inner, idx) => (
+                <Fragment key={inner.id}>
+                  {idx > 0 && (
+                    <div className="shrink-0 self-start rounded-full" style={{ marginTop: 22, height: 2, width: 16, background: 'color-mix(in oklch, var(--content) 28%, transparent)' }} />
+                  )}
+                  {isScopeType(inner.type) ? renderNestedScope(inner, depth + 1) : renderStation(inner)}
+                </Fragment>
+              ))}
+              {branch.nodes.length > 0 && (
                 <div className="shrink-0 self-start rounded-full" style={{ marginTop: 22, height: 2, width: 12, background: 'color-mix(in oklch, var(--content) 18%, transparent)' }} />
               )}
               <button
@@ -2201,7 +2195,10 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                   style={{
                     left: node.x,
                     top: node.y,
-                    width: nodeWidth(node.type),
+                    // Scopes grow to fit their now-horizontal body so the flow reads
+                    // left-to-right (the canvas scrolls); leaves keep a fixed width.
+                    width: isScopeType(node.type) ? 'max-content' : nodeWidth(node.type),
+                    minWidth: isScopeType(node.type) ? SCOPE_NODE_W : undefined,
                     opacity: node.disabled ? 0.45 : 1,
                   }}
                 >
