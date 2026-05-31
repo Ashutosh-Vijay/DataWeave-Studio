@@ -464,6 +464,17 @@ describe('muleXmlIO — namespace auto-repair & multi-flow', () => {
     expect(r2.allFlows.every((f) => f.nodes.length === 1 && f.nodes[0].type === 'logger')).toBe(true);
   });
 
+  it('emits <sub-flow> for a lone sub-flow and <flow> otherwise (export routing)', () => {
+    const node = leaf('logger', { payload: '#[payload]' });
+    const subOut = exportFlowsToMuleXml([{ name: 'helper', nodes: [node], isSubFlow: true }]);
+    expect(subOut).toContain('<sub-flow name="helper"');
+    expect(subOut).not.toMatch(/<flow\b/);
+
+    const flowOut = exportFlowsToMuleXml([{ name: 'main', nodes: [node], isSubFlow: false }]);
+    expect(flowOut).toContain('<flow name="main"');
+    expect(flowOut).not.toContain('<sub-flow');
+  });
+
   it('errors on empty input and on XML with no flow', () => {
     expect(importMuleXml('').ok).toBe(false);
     expect(importMuleXml('   ').ok).toBe(false);
