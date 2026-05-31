@@ -1639,26 +1639,74 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     setFinalRun(null);
   }, [activeFlowIdx, nodes, flows]);
 
+  // ── Multi-flow editing ──────────────────────────────────────────
+  // The flows collection with the active flow's *live* nodes (and current
+  // name) folded in. In single-flow mode (flows === []) the lone flow is the
+  // live `nodes`/`flowName`, so callers get a uniform ≥1-length array.
+  const materializeFlows = useCallback((): { name: string; nodes: FlowNode[]; isSubFlow?: boolean }[] => (
+    flows.length === 0
+      ? [{ name: flowName, nodes, isSubFlow: false }]
+      : flows.map((f, i) => (i === activeFlowIdx ? { ...f, nodes, name: flowName } : f))
+  ), [flows, activeFlowIdx, nodes, flowName]);
+
+  // Commit a fully-built flows array + active index, loading that flow live.
+  const loadFlows = useCallback((next: { name: string; nodes: FlowNode[]; isSubFlow?: boolean }[], idx: number) => {
+    setFlows(next);
+    setActiveFlowIdx(idx);
+    setNodes(next[idx].nodes);
+    setFlowName(next[idx].name);
+    setSelectedId(null);
+    setFinalRun(null);
+    setFlowDirty(true);
+  }, []);
+
+  const addFlow = useCallback(() => {
+    const base = materializeFlows();
+    const existing = new Set(base.map((f) => f.name));
+    let n = base.length + 1;
+    let name = `newFlow${n}`;
+    while (existing.has(name)) name = `newFlow${++n}`;
+    const next = [...base, { name, nodes: [], isSubFlow: false }];
+    loadFlows(next, next.length - 1);
+    toast(`Added "${name}" — ${next.length} flows in this document`, 'success');
+  }, [materializeFlows, loadFlows]);
+
+  const deleteFlow = useCallback(() => {
+    const base = materializeFlows();
+    if (base.length <= 1) { toast("Can't delete the only flow in the document.", 'error'); return; }
+    const removed = base[activeFlowIdx]?.name;
+    const next = base.filter((_, i) => i !== activeFlowIdx);
+    loadFlows(next, Math.min(activeFlowIdx, next.length - 1));
+    toast(`Deleted "${removed}" — ${next.length} flow${next.length === 1 ? '' : 's'} left`, 'success');
+  }, [materializeFlows, activeFlowIdx, loadFlows]);
+
+  // Flip the active flow between <flow> and <sub-flow> (affects XML export).
+  const toggleSubFlow = useCallback(() => {
+    const next = materializeFlows().map((f, i) => (i === activeFlowIdx ? { ...f, isSubFlow: !f.isSubFlow } : f));
+    setFlows(next);
+    setFlowDirty(true);
+    toast(`"${next[activeFlowIdx].name}" is now a ${next[activeFlowIdx].isSubFlow ? 'sub-flow' : 'flow'}`, 'success');
+  }, [materializeFlows, activeFlowIdx]);
+
   // ── Mule 4 XML round-trip ───────────────────────────────────────
   const handleExportMuleXml = useCallback(() => {
-    if (nodes.length === 0) {
+    const all = materializeFlows();
+    if (all.every((f) => f.nodes.length === 0)) {
       toast('Build a flow first — there\'s nothing to export.', 'error');
       return;
     }
     try {
-      let xml: string;
-      if (flows.length > 1) {
-        // Multi-flow document: export every flow/sub-flow, using the live nodes
-        // for the one currently being edited.
-        xml = exportFlowsToMuleXml(flows.map((f, i) => (i === activeFlowIdx ? { ...f, nodes } : f)));
-      } else {
-        xml = exportFlowToMuleXml(flowName, nodes);
-      }
+      // Multiple flows, or a single sub-flow, need the multi-flow exporter (it
+      // wraps every block in one <mule> and honours <flow> vs <sub-flow>). A
+      // lone plain flow keeps the simpler single-flow output.
+      const xml = (all.length > 1 || all[0].isSubFlow)
+        ? exportFlowsToMuleXml(all)
+        : exportFlowToMuleXml(all[0].name, all[0].nodes);
       setMuleXmlExport(xml);
     } catch (e) {
       toast(`Failed to export: ${(e as Error).message}`, 'error');
     }
-  }, [flowName, nodes, flows, activeFlowIdx]);
+  }, [nodes, materializeFlows]);
 
   const handleImportMuleXml = useCallback(() => {
     setMuleXmlImportText('');
@@ -2096,7 +2144,14 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         <Icons.Flow size={14} className="shrink-0" style={{ color: 'var(--accent)' }} />
         <input
           value={flowName}
-          onChange={(e) => { setFlowName(e.target.value); setFlowDirty(true); }}
+          onChange={(e) => {
+            const v = e.target.value;
+            setFlowName(v);
+            setFlowDirty(true);
+            // Keep the active flow's entry (and the switcher label) in sync so a
+            // rename survives a flow-switch in multi-flow documents.
+            if (flows.length > 0) setFlows((prev) => prev.map((f, i) => (i === activeFlowIdx ? { ...f, name: v } : f)));
+          }}
           className="text-[13px] font-semibold text-content tracking-tight bg-transparent border-none outline-none w-auto min-w-[80px] max-w-[200px] focus:bg-surface-2 focus:px-1.5 focus:rounded"
           spellCheck={false}
         />
@@ -2105,16 +2160,47 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           · {nodes.length} node{nodes.length !== 1 ? 's' : ''}
         </span>
 
-        {flows.length > 1 && (
-          <select
-            value={activeFlowIdx}
-            onChange={(e) => selectFlow(Number(e.target.value))}
-            className="h-6 px-1.5 rounded-md bg-surface-2 border border-line text-[11px] text-content cursor-pointer outline-none focus:border-accent max-w-[150px]"
-            title="Switch flow — this document imported multiple flows / sub-flows"
+        {/* Flow management: switch · flow/sub-flow kind · add · delete */}
+        <div className="flex items-center gap-1.5">
+          {flows.length > 1 && (
+            <select
+              value={activeFlowIdx}
+              onChange={(e) => selectFlow(Number(e.target.value))}
+              className="h-6 px-1.5 rounded-md bg-surface-2 border border-line text-[11px] text-content cursor-pointer outline-none focus:border-accent max-w-[150px]"
+              title="Switch flow — this document has multiple flows / sub-flows"
+            >
+              {flows.map((f, i) => <option key={i} value={i}>{f.isSubFlow ? '↳ ' : ''}{f.name}</option>)}
+            </select>
+          )}
+          {flows.length >= 1 && (
+            <button
+              onClick={toggleSubFlow}
+              disabled={isRunning || stepping}
+              className="h-6 px-2 rounded-md bg-surface-2 border border-line text-[10px] font-medium text-content-faint hover:text-content cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Toggle the active flow between <flow> and <sub-flow> (changes how it exports)"
+            >
+              {flows[activeFlowIdx]?.isSubFlow ? 'sub-flow' : 'flow'}
+            </button>
+          )}
+          <button
+            onClick={addFlow}
+            disabled={isRunning || stepping}
+            className="h-6 px-2 rounded-md bg-surface-2 border border-line text-[11px] text-content-faint hover:text-content cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Add a new empty flow to this document"
           >
-            {flows.map((f, i) => <option key={i} value={i}>{f.name}</option>)}
-          </select>
-        )}
+            + Flow
+          </button>
+          {flows.length > 1 && (
+            <button
+              onClick={deleteFlow}
+              disabled={isRunning || stepping}
+              className="h-6 px-1.5 rounded-md border border-line text-content-faint hover:text-red-400 hover:border-red-400/40 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Delete the active flow from this document"
+            >
+              <Icons.Trash size={11} />
+            </button>
+          )}
+        </div>
 
         {/* Show active variables count */}
         {Object.keys(pipelineVars).length > 0 && (
@@ -2212,7 +2298,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         <div className="w-px h-4 bg-line" />
         <button
           onClick={handleExportMuleXml}
-          disabled={nodes.length === 0}
+          disabled={materializeFlows().every((f) => f.nodes.length === 0)}
           className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           title={flows.length > 1 ? `Export all ${flows.length} flows / sub-flows as one Mule 4 XML file` : 'Export this flow as a deployable Mule 4 XML file'}
         >
