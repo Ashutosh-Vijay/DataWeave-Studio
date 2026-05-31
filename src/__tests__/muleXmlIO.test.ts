@@ -9,6 +9,8 @@ if (typeof globalThis.DOMParser === 'undefined') {
 
 import { exportFlowToMuleXml, exportFlowsToMuleXml, importMuleXml } from '../muleXmlIO';
 import type { FlowNode } from '../components/FlowDesigner';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 describe('muleXmlIO', () => {
   describe('Inlined Helpers & XML Escaping', () => {
@@ -653,6 +655,104 @@ describe('muleXmlIO — hardening / edge cases', () => {
     const mock = '{ "note": "a -- b", "raw": "x]]> y -->" }';
     const { nodes } = roundtrip([leaf('salesforce', { operation: 'query', request: 'SELECT Id FROM A', mockResponse: mock })]);
     expect(nodes[0].config.mockResponse).toBe(mock);
+  });
+});
+
+describe('muleXmlIO — real example files (local only)', () => {
+  // The example/ dir is gitignored (real workplace XML the user pastes in), so
+  // this is skipped in CI but gives a local regression net against actual data.
+  const dir = join(process.cwd(), 'example');
+  const files = existsSync(dir) ? readdirSync(dir).filter((f) => /\.(txt|xml)$/i.test(f)) : [];
+
+  it.skipIf(files.length === 0)('imports every example file without crashing', () => {
+    let imported = 0;
+    for (const f of files) {
+      const xml = readFileSync(join(dir, f), 'utf8');
+      const r = importMuleXml(xml); // must never throw
+      if (r.ok) {
+        imported++;
+        expect(r.allFlows.length).toBeGreaterThan(0);
+        // every imported flow should round-trip through export without throwing
+        expect(() => exportFlowsToMuleXml(r.allFlows)).not.toThrow();
+      } else {
+        expect(typeof r.error).toBe('string');
+      }
+    }
+    // at least one example should be a parseable Mule flow
+    expect(imported).toBeGreaterThan(0);
+  });
+});
+
+describe('muleXmlIO — realistic multi-flow integration', () => {
+  // Mirrors a real workplace document: a main flow that reads inbound attributes,
+  // routes on a Choice, calls Salesforce, references a sub-flow, has a disabled
+  // node, plus a separate <sub-flow>. Imported -> exported whole -> re-imported.
+  const REAL = `<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+        xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+        xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+        xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce">
+    <flow name="process-payment" doc:id="abc">
+      <set-variable variableName="opType" value="#[attributes.queryParams.opType default 'CREATE']" doc:name="opType"/>
+      <set-variable variableName="leadId" value="#[attributes.uriParams.'lead-id']" doc:name="leadId"/>
+      <choice doc:name="Route by op">
+        <when expression="#[vars.opType == 'CREATE']">
+          <salesforce:create type="Lead__c" doc:name="Create Lead" config-ref="Salesforce_Config">
+            <salesforce:records><![CDATA[#[payload]]]></salesforce:records>
+          </salesforce:create>
+          <logger level="INFO" doc:name="Created" message="#[payload]"/>
+        </when>
+        <otherwise>
+          <salesforce:query doc:name="Find Lead" config-ref="Salesforce_Config">
+            <salesforce:salesforce-query><![CDATA[#[payload]]]></salesforce:salesforce-query>
+          </salesforce:query>
+        </otherwise>
+      </choice>
+      <flow-ref doc:name="audit" name="save-audit-log" target="auditResult"/>
+      <logger level="DEBUG" doc:name="trace" message="#[vars.auditResult]"/>
+    </flow>
+    <sub-flow name="save-audit-log">
+      <ee:transform doc:name="Build audit"><ee:message/><ee:variables>
+        <ee:set-variable variableName="audit"><![CDATA[%dw 2.0
+output application/json
+---
+{ at: now(), op: vars.opType }]]></ee:set-variable>
+      </ee:variables></ee:transform>
+      <logger level="INFO" doc:name="Audit logged" message="#[vars.audit]"/>
+    </sub-flow>
+  </mule>`;
+
+  it('imports the whole document, then survives an export -> re-import round-trip', () => {
+    const r1 = importMuleXml(REAL);
+    expect(r1.ok).toBe(true);
+    if (!r1.ok) return;
+
+    // both flows present, kinds correct
+    expect(r1.allFlows.map((f) => f.name)).toEqual(['process-payment', 'save-audit-log']);
+    expect(r1.allFlows.map((f) => f.isSubFlow)).toEqual([false, true]);
+
+    // inbound attributes were surfaced for the input fixture
+    expect(r1.suggestedAttributes?.queryParams).toHaveProperty('opType');
+    expect(r1.suggestedAttributes?.uriParams).toHaveProperty('lead-id');
+
+    // main flow shape: 2 set-vars, a choice, a flow-ref, a logger
+    const main = r1.allFlows[0].nodes;
+    expect(main.map((n) => n.type)).toEqual(['set-variable', 'set-variable', 'choice', 'flow-ref', 'logger']);
+    const choice = main[2];
+    expect(choice.branches?.[0].predicate).toContain("vars.opType == 'CREATE'");
+    expect(choice.branches?.[0].nodes[0].type).toBe('salesforce');
+    expect(choice.branches?.[0].nodes[0].config.operation).toBe('insert'); // create -> insert
+    expect(main[3].config.flowRefName).toBe('save-audit-log');
+    expect(main[3].config.saveToVariable).toBe('auditResult');
+
+    // round-trip the whole collection
+    const r2 = importMuleXml(exportFlowsToMuleXml(r1.allFlows));
+    expect(r2.ok).toBe(true);
+    if (!r2.ok) return;
+    expect(r2.allFlows.map((f) => f.name)).toEqual(['process-payment', 'save-audit-log']);
+    expect(r2.allFlows.map((f) => f.isSubFlow)).toEqual([false, true]);
+    expect(r2.allFlows[0].nodes.map((n) => n.type)).toEqual(['set-variable', 'set-variable', 'choice', 'flow-ref', 'logger']);
+    // the variable expressions still carry their #[...] form (so they evaluate)
+    expect(r2.allFlows[0].nodes[0].config.variableValue).toContain('attributes.queryParams.opType');
   });
 });
 
