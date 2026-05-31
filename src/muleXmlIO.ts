@@ -867,10 +867,14 @@ function extractAttributeSkeleton(xml: string): FlowAttributes | null {
   return found ? result : null;
 }
 
+export interface ImportedFlow { name: string; nodes: FlowNode[]; }
+
 export interface ImportResult {
   ok: true;
   flowName: string;
   nodes: FlowNode[];
+  /** Every <flow>/<sub-flow> in the document (first = the active one). */
+  allFlows: ImportedFlow[];
   warnings: string[];
   /** Attribute keys the flow reads (empty values), or null if it reads none. */
   suggestedAttributes: FlowAttributes | null;
@@ -880,7 +884,8 @@ export interface ImportError {
   error: string;
 }
 
-/** Parse a Mule 4 XML document (or a bare flow fragment) into a Studio flow. */
+/** Parse a Mule 4 XML document (or a bare flow fragment) into Studio flows.
+ *  Returns every <flow>/<sub-flow> found; the first is the active one. */
 export function importMuleXml(xml: string): ImportResult | ImportError {
   if (!xml || !xml.trim()) return { ok: false, error: 'Empty input — paste Mule XML.' };
   // Tolerate flow-only pastes that lack the <mule> root + namespace declarations.
@@ -889,26 +894,31 @@ export function importMuleXml(xml: string): ImportResult | ImportError {
   if (parserError) {
     return { ok: false, error: parserError.textContent?.trim() || 'XML parse error.' };
   }
-  // Locate the first <flow>/<sub-flow> regardless of namespace handling.
-  const flowEl = doc.querySelector('flow, sub-flow');
-  if (!flowEl) {
+  const flowEls = Array.from(doc.querySelectorAll('flow, sub-flow'));
+  if (flowEls.length === 0) {
     return { ok: false, error: 'No <flow> or <sub-flow> element found in the XML.' };
   }
-  const flowName = flowEl.getAttribute('name') || 'imported-flow';
   const warnings: string[] = [];
-
-  // Walk the flow's children, ignoring whitespace.
-  _idCounter = 0;
-  const nodes = elementsToNodes(childElements(flowEl), flowEl);
-  // Collect warnings for any unrecognised elements that landed as Loggers.
   const walkForWarnings = (ns: FlowNode[]) => {
     for (const n of ns) {
-      if (typeof n.label === 'string' && n.label.includes('(unsupported:')) {
-        warnings.push(n.label);
-      }
+      if (typeof n.label === 'string' && n.label.includes('(unsupported:')) warnings.push(n.label);
       if (n.branches) for (const b of n.branches) walkForWarnings(b.nodes);
     }
   };
-  walkForWarnings(nodes);
-  return { ok: true, flowName, nodes, warnings, suggestedAttributes: extractAttributeSkeleton(xml) };
+  // One id counter across every flow so node ids stay unique document-wide.
+  _idCounter = 0;
+  const allFlows: ImportedFlow[] = flowEls.map((el, i) => {
+    const name = el.getAttribute('name') || (i === 0 ? 'imported-flow' : `flow-${i + 1}`);
+    const nodes = elementsToNodes(childElements(el), el);
+    walkForWarnings(nodes);
+    return { name, nodes };
+  });
+  return {
+    ok: true,
+    flowName: allFlows[0].name,
+    nodes: allFlows[0].nodes,
+    allFlows,
+    warnings,
+    suggestedAttributes: extractAttributeSkeleton(xml),
+  };
 }

@@ -254,7 +254,7 @@ function rowsToJson(r: AttrRows): string {
 /** In-session cache so the Flow Designer survives unmount (switching tools and
  *  coming back). Module-level → persists for the app's lifetime, cleared only on
  *  a full reload. */
-let flowStateCache: { nodes: FlowNode[]; flowName: string; flowCurrentFile: string | null; flowInput: FlowInput } | null = null;
+let flowStateCache: { nodes: FlowNode[]; flowName: string; flowCurrentFile: string | null; flowInput: FlowInput; flows: { name: string; nodes: FlowNode[] }[]; activeFlowIdx: number } | null = null;
 
 const NODE_W = 220;
 const PORT_R = 6;
@@ -371,6 +371,10 @@ interface FlowDesignerProps {
 
 export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   const [nodes, setNodes] = useState<FlowNode[]>(() => flowStateCache?.nodes ?? []);
+  // Every imported <flow>/<sub-flow> (for the switcher + flow-ref execution).
+  // The active flow's live nodes are in `nodes`; flows[activeFlowIdx] is its snapshot.
+  const [flows, setFlows] = useState<{ name: string; nodes: FlowNode[] }[]>(() => flowStateCache?.flows ?? []);
+  const [activeFlowIdx, setActiveFlowIdx] = useState(() => flowStateCache?.activeFlowIdx ?? 0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragState, setDragState] = useState<{ nodeId: string; offsetX: number; offsetY: number } | null>(null);
   const [paletteDrag, setPaletteDrag] = useState<{ type: NodeType; x: number; y: number } | null>(null);
@@ -846,6 +850,12 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
      *  is sufficient. */
     const forkCtx = (ctx: ExecCtx): ExecCtx => ({ ...ctx, variables: { ...ctx.variables } });
 
+    // Resolve flow-ref targets to imported flows' nodes (active flow → live nodes).
+    const activeName = flows[activeFlowIdx]?.name;
+    const flowsByName: Record<string, FlowNode[]> = {};
+    for (let i = 0; i < flows.length; i++) flowsByName[flows[i].name] = (i === activeFlowIdx ? nodes : flows[i].nodes);
+    const runningFlows = new Set<string>(activeName ? [activeName] : []); // cycle guard
+
     // Track step index globally across recursion so the header shows progress.
     let stepCounter = 0;
 
@@ -979,15 +989,51 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           return true;
         }
 
-        if (node.type === 'salesforce' || node.type === 'database' || node.type === 'http-request' || node.type === 'flow-ref') {
-          // flow-ref can't actually invoke the referenced flow: with no mock set
-          // it passes the payload through unchanged; otherwise it behaves like a
-          // mocked call (the mock becomes its output / target value).
-          const hasMock = (node.config.mockResponse ?? '') !== '';
-          if (node.type === 'flow-ref' && !hasMock) {
-            markNode(node.id, { status: 'success', output: `(flow-ref → ${node.config.flowRefName || '?'} — payload passed through; set a mock response to simulate its output)`, executionTimeMs: 0 });
+        if (node.type === 'flow-ref') {
+          const refName = node.config.flowRefName || '';
+          const refNodes = flowsByName[refName];
+          const target = node.config.saveToVariable;
+          // If the referenced flow was imported (and isn't already on the stack),
+          // actually run it — otherwise fall back to a mock / pass-through.
+          if (refNodes && !runningFlows.has(refName)) {
+            runningFlows.add(refName);
+            try {
+              if (target) {
+                // Result → target var; the caller's payload is preserved.
+                const sub = forkCtx(ctx);
+                if (!(await runList(refNodes, sub))) return false;
+                const v = parseMaybe(sub.payload);
+                ctx.variables[target] = v;
+                markNode(node.id, { status: 'success', output: `vars.${target} = ${displayVal(v)}  (ran ${refName})`, executionTimeMs: 0 });
+              } else {
+                // Inline like a sub-flow: shares the caller's payload + vars.
+                if (!(await runList(refNodes, ctx))) return false;
+                markNode(node.id, { status: 'success', output: `(ran flow-ref → ${refName})`, executionTimeMs: 0 });
+              }
+            } finally {
+              runningFlows.delete(refName);
+            }
             return true;
           }
+          const hasMock = (node.config.mockResponse ?? '') !== '';
+          if (!hasMock) {
+            markNode(node.id, { status: 'success', output: refName ? `(flow-ref → ${refName} not imported — payload passed through)` : '(flow-ref — payload passed through)', executionTimeMs: 0 });
+            return true;
+          }
+          const response = node.config.mockResponse || '';
+          if (target) {
+            const v = parseMaybe(response);
+            ctx.variables[target] = v;
+            markNode(node.id, { status: 'success', output: `vars.${target} = ${displayVal(v)}`, executionTimeMs: 0 });
+          } else {
+            ctx.payload = response;
+            ctx.mime = node.config.mockMime || 'application/json';
+            markNode(node.id, { status: 'success', output: response, executionTimeMs: 0 });
+          }
+          return true;
+        }
+
+        if (node.type === 'salesforce' || node.type === 'database' || node.type === 'http-request') {
           const response = node.config.mockResponse || '';
           const mime = node.config.mockMime || 'application/json';
           if (node.config.saveToVariable) {
@@ -1369,7 +1415,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     if (!stepThrough) setSelectedId(null);
     setIsRunning(false);
     setStepIndex(null);
-  }, [nodes, flowInput]);
+  }, [nodes, flowInput, flows, activeFlowIdx]);
 
   // ── Step-through controls ────────────────────────────────────────
   const stepNext = useCallback(() => {
@@ -1466,7 +1512,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   useEffect(() => { if (nodes.length > 0) setFlowDirty(true); }, [nodes]);
 
   // Persist across unmount (switch tools and return) via a module-level cache.
-  useEffect(() => { flowStateCache = { nodes, flowName, flowCurrentFile, flowInput }; }, [nodes, flowName, flowCurrentFile, flowInput]);
+  useEffect(() => { flowStateCache = { nodes, flowName, flowCurrentFile, flowInput, flows, activeFlowIdx }; }, [nodes, flowName, flowCurrentFile, flowInput, flows, activeFlowIdx]);
 
   const doSaveFlow = useCallback(async (name: string) => {
     try {
@@ -1536,6 +1582,8 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         setFlowCurrentFile(filename);
         setFlowDirty(false);
         setSelectedId(null);
+        setFlows([]);
+        setActiveFlowIdx(0);
         setFlowInput(ws.flowInput
           ? { payload: ws.flowInput.payload ?? '', mime: ws.flowInput.mime ?? 'application/json', attributesJson: ws.flowInput.attributesJson ?? DEFAULT_FLOW_INPUT.attributesJson }
           : DEFAULT_FLOW_INPUT);
@@ -1554,7 +1602,23 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     setSelectedId(null);
     setDismissedValidations(new Set());
     setFinalRun(null);
+    setFlows([]);
+    setActiveFlowIdx(0);
   }, []);
+
+  // Switch the active flow (multi-flow import). Saves the current flow's live
+  // nodes back into the collection before loading the selected one.
+  const selectFlow = useCallback((idx: number) => {
+    if (idx === activeFlowIdx) return;
+    const target = flows[idx];
+    if (!target) return;
+    setFlows((prev) => prev.map((f, i) => i === activeFlowIdx ? { ...f, nodes } : f));
+    setNodes(target.nodes);
+    setFlowName(target.name);
+    setActiveFlowIdx(idx);
+    setSelectedId(null);
+    setFinalRun(null);
+  }, [activeFlowIdx, nodes, flows]);
 
   // ── Mule 4 XML round-trip ───────────────────────────────────────
   const handleExportMuleXml = useCallback(() => {
@@ -1599,6 +1663,8 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       return;
     }
     setNodes(result.nodes);
+    setFlows(result.allFlows);
+    setActiveFlowIdx(0);
     setFlowName(result.flowName);
     setFlowDirty(true);
     setFlowCurrentFile(null);
@@ -1619,7 +1685,8 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     setMuleXmlImportText('');
     setMuleXmlImportResult(null);
     const tail = result.warnings.length > 0 ? ` (${result.warnings.length} unsupported element${result.warnings.length === 1 ? '' : 's'} imported as Logger placeholder)` : '';
-    toast(`Imported "${result.flowName}" — ${countAllNodes(result.nodes)} node${countAllNodes(result.nodes) === 1 ? '' : 's'}${tail}${attrNote}`, 'success');
+    const flowsNote = result.allFlows.length > 1 ? ` · ${result.allFlows.length} flows (switch in the header)` : '';
+    toast(`Imported "${result.flowName}" — ${countAllNodes(result.nodes)} node${countAllNodes(result.nodes) === 1 ? '' : 's'}${flowsNote}${tail}${attrNote}`, 'success');
   }, [muleXmlImportText]);
 
   if (!open) return null;
@@ -2011,6 +2078,17 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         <span className="text-[11px] text-content-faint font-mono">
           · {nodes.length} node{nodes.length !== 1 ? 's' : ''}
         </span>
+
+        {flows.length > 1 && (
+          <select
+            value={activeFlowIdx}
+            onChange={(e) => selectFlow(Number(e.target.value))}
+            className="h-6 px-1.5 rounded-md bg-surface-2 border border-line text-[11px] text-content cursor-pointer outline-none focus:border-accent max-w-[220px]"
+            title="Switch flow — this document imported multiple flows / sub-flows"
+          >
+            {flows.map((f, i) => <option key={i} value={i}>{f.name}</option>)}
+          </select>
+        )}
 
         {/* Show active variables count */}
         {Object.keys(pipelineVars).length > 0 && (
