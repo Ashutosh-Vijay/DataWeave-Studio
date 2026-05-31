@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
-import { check } from '@tauri-apps/plugin-updater';
+import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { invoke } from '@tauri-apps/api/core';
 import { openPath } from '@tauri-apps/plugin-opener';
@@ -576,6 +576,8 @@ function App() {
   const [appVersion, setAppVersion] = useState('');
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [updateBannerDismissed, setUpdateBannerDismissed] = useState(false);
+  const [downloadPct, setDownloadPct] = useState<number | null>(null);
+  const updateRef = useRef<Update | null>(null);
   const [encryptionKey, setEncryptionKey] = useState('');
 
   // === Stable props for memoized children ===
@@ -774,6 +776,28 @@ function App() {
     beginTransforming();
   }, [workspace, beginTransforming]);
 
+  // Download + install the pending update, reporting progress to the banner.
+  const installUpdate = useCallback(async () => {
+    const update = updateRef.current;
+    if (!update) return;
+    try {
+      let total = 0;
+      let got = 0;
+      setDownloadPct(0);
+      await update.downloadAndInstall((e) => {
+        if (e.event === 'Started') total = e.data.contentLength ?? 0;
+        else if (e.event === 'Progress') {
+          got += e.data.chunkLength;
+          if (total > 0) setDownloadPct(Math.min(99, Math.round((got / total) * 100)));
+        } else if (e.event === 'Finished') setDownloadPct(100);
+      });
+      await relaunch();
+    } catch (e) {
+      setDownloadPct(null);
+      toast({ title: 'Update failed', message: (e as Error).message || String(e), variant: 'error' });
+    }
+  }, []);
+
   // Load app version and silently check for updates on startup
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => {});
@@ -781,27 +805,17 @@ function App() {
       try {
         const update = await check();
         if (update?.available) {
+          updateRef.current = update;
           setUpdateAvailable(true);
           // Surface the update as an actionable toast — the banner+brand-dot
           // are persistent fallbacks but the toast is what gets noticed.
           toast({
             title: 'Update available',
-            message: `DataWeave Studio ${update.version || ''} is ready to install.`.trim() + ' Restart happens automatically after download.',
+            message: `DataWeave Studio ${update.version || ''} is ready to install.`.trim() + ' Download progress shows in the banner; it restarts automatically when done.',
             variant: 'warn',
             action: {
               label: 'Install',
-              onClick: async () => {
-                try {
-                  await update.downloadAndInstall();
-                  await relaunch();
-                } catch (e) {
-                  toast({
-                    title: 'Update failed',
-                    message: (e as Error).message || String(e),
-                    variant: 'error',
-                  });
-                }
-              },
+              onClick: () => { void installUpdate(); },
             },
           });
         }
@@ -1253,13 +1267,19 @@ function App() {
           <svg width="14" height="14" viewBox="0 0 16 16" fill="var(--accent)" className="shrink-0">
             <path d="M8 16A8 8 0 108 0a8 8 0 000 16zm.93-9.412l-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.399l-.009-.004.013-.045h2.09l-.174.82zM8 5.5a1 1 0 110-2 1 1 0 010 2z"/>
           </svg>
-          <span className="text-accent font-medium">A new version of DataWeave Studio is available.</span>
-          <button
-            onClick={() => setAboutOpen(true)}
-            className="px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-accent text-accent-ink hover:opacity-90 transition-opacity cursor-pointer"
-          >
-            Update now
-          </button>
+          <span className="text-accent font-medium">{downloadPct === null ? 'A new version of DataWeave Studio is available.' : `Downloading update… ${downloadPct}%`}</span>
+          {downloadPct === null ? (
+            <button
+              onClick={() => { void installUpdate(); }}
+              className="px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-accent text-accent-ink hover:opacity-90 transition-opacity cursor-pointer"
+            >
+              Update now
+            </button>
+          ) : (
+            <div className="w-40 h-1.5 rounded-full overflow-hidden" style={{ background: 'color-mix(in oklch, var(--accent) 25%, transparent)' }}>
+              <div className="h-full transition-all duration-200" style={{ width: `${downloadPct}%`, background: 'var(--accent)' }} />
+            </div>
+          )}
           <span className="flex-1" />
           <button
             onClick={() => setUpdateBannerDismissed(true)}

@@ -23,6 +23,7 @@ type UpdateStatus = 'idle' | 'update-available' | 'checking' | 'up-to-date' | 'd
 export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpdateInstalled }: AboutDialogProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
+  const [pct, setPct] = useState<number | null>(null);
   const [lastChecked, setLastChecked] = useState<string>('on launch');
 
   useEffect(() => {
@@ -48,7 +49,16 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
       const update = await check();
       if (update?.available) {
         setUpdateStatus('downloading');
-        await update.downloadAndInstall();
+        setPct(0);
+        let total = 0;
+        let got = 0;
+        await update.downloadAndInstall((e) => {
+          if (e.event === 'Started') total = e.data.contentLength ?? 0;
+          else if (e.event === 'Progress') {
+            got += e.data.chunkLength;
+            if (total > 0) setPct(Math.min(99, Math.round((got / total) * 100)));
+          } else if (e.event === 'Finished') setPct(100);
+        });
         onUpdateInstalled?.();
         await relaunch();
       } else {
@@ -74,7 +84,7 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
     'var(--accent)';
   const updateText =
     updateStatus === 'checking' ? 'Checking for updates…' :
-    updateStatus === 'downloading' ? 'Downloading update…' :
+    updateStatus === 'downloading' ? `Downloading update… ${pct ?? 0}%` :
     updateStatus === 'update-available' ? 'Update available' :
     updateStatus === 'error' ? 'Update check failed' :
     `Up to date · checked ${lastChecked}`;
