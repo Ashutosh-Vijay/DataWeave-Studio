@@ -484,6 +484,25 @@ mod tests {
     }
 
     #[test]
+    fn test_flow_and_flow_input_roundtrip_through_parse() {
+        // A flow-only workspace persists its node tree (`flow`) and the Flow
+        // Designer's input fixture (`flowInput`) — both opaque JSON to the backend.
+        let json = r#"{
+            "version": "2.0",
+            "projectName": "Flow WS",
+            "createdAt": "",
+            "updatedAt": "",
+            "requests": [],
+            "flow": [{"id":"n1","type":"logger","label":"L","x":0,"y":0,"config":{},"status":"idle"}],
+            "flowInput": {"payload":"{}","mime":"application/json","attributesJson":"{}"}
+        }"#;
+        let ws = parse_workspace(json).expect("v2 flow workspace should parse");
+        assert!(ws.flow.is_some(), "flow node tree should survive");
+        let fi = ws.flow_input.expect("flowInput should survive");
+        assert_eq!(fi["mime"].as_str(), Some("application/json"));
+    }
+
+    #[test]
     fn test_uuid_like_id() {
         let id1 = uuid_like_id();
         let id2 = uuid_like_id();
