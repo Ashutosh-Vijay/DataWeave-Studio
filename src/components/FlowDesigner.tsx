@@ -1535,18 +1535,32 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
   const doSaveFlow = useCallback(async (name: string) => {
     try {
-      // v2 schema: a flow-only workspace has 0 requests and the flow lives
-      // in the top-level `flow` field. The Rust save_workspace skips its
-      // default-request injection when flow is present.
+      // Materialize the whole document: the active flow folds in the live
+      // `nodes` and the name being saved; every other flow comes straight from
+      // `flows`. (Inlined rather than calling materializeFlows() — that's
+      // declared below this callback, so referencing it would hit the TDZ.)
+      const allFlows = flows.length === 0
+        ? [{ name, nodes, isSubFlow: false }]
+        : flows.map((f, i) => (i === activeFlowIdx ? { ...f, nodes, name } : f));
+      // Reset transient runtime fields on every node of every flow (including
+      // nodes nested inside scope branches) before serialization.
+      const cleaned = allFlows.map((f) => ({
+        ...f,
+        nodes: mapNodesDeep(f.nodes, (n) => ({ ...n, status: 'idle', output: undefined, error: undefined, executionTimeMs: undefined })),
+      }));
+      // v2 schema: a flow document has 0 requests. `flows` + `activeFlowIdx`
+      // persist the whole collection; `flow` mirrors the active flow's nodes —
+      // kept so the Rust save skips its default-request injection, the meta
+      // probe still reports "flow" mode, and old single-flow readers keep working.
       const workspace = {
         version: '2.0',
         projectName: name,
         createdAt: '',
         updatedAt: '',
         requests: [],
-        // Reset transient runtime fields on every node in the tree (including
-        // nodes nested inside scope branches) before serialization.
-        flow: mapNodesDeep(nodes, (n) => ({ ...n, status: 'idle', output: undefined, error: undefined, executionTimeMs: undefined })),
+        flow: (cleaned[activeFlowIdx] ?? cleaned[0]).nodes,
+        flows: cleaned,
+        activeFlowIdx,
         flowInput,
       };
       const path = await invoke<string>('save_workspace', { workspace });
@@ -1558,7 +1572,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     } catch (e) {
       toast(`Failed to save: ${(e as Error).message}`, 'error');
     }
-  }, [nodes, flowInput]);
+  }, [nodes, flowInput, flows, activeFlowIdx]);
 
   const saveFlow = useCallback(() => {
     if (flowCurrentFile) {
@@ -1588,28 +1602,47 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
   const loadFlowFile = useCallback(async (filename: string) => {
     try {
-      // v2 schema: the flow lives in the top-level `flow` field. Legacy v1
-      // workspaces auto-migrated by the Rust backend still expose their
-      // nodes through this field (migration copies flowNodes -> flow).
-      const ws = await invoke<{ projectName: string; flow?: FlowNode[] | null; flowInput?: Partial<FlowInput> | null }>('load_workspace', { filename });
-      const flowNodes = ws.flow;
-      if (flowNodes && Array.isArray(flowNodes) && flowNodes.length > 0) {
-        // Backfill kind: 'leaf' for v1/v2 nodes that pre-date scope support.
-        const migrated = migrateLegacyNodes(flowNodes);
-        setNodes(migrated.map((n) => ({ ...n, status: 'idle' as const, output: undefined, error: undefined, executionTimeMs: undefined })));
-        setFlowName(ws.projectName);
-        setFlowCurrentFile(filename);
-        setFlowDirty(false);
-        setSelectedId(null);
-        setFlows([]);
-        setActiveFlowIdx(0);
-        setFlowInput(ws.flowInput
-          ? { payload: ws.flowInput.payload ?? '', mime: ws.flowInput.mime ?? 'application/json', attributesJson: ws.flowInput.attributesJson ?? DEFAULT_FLOW_INPUT.attributesJson }
-          : DEFAULT_FLOW_INPUT);
-        toast(`Opened "${ws.projectName}"`, 'success');
+      // v2 schema: multi-flow documents persist the whole collection in
+      // `flows` ({ name, nodes, isSubFlow }) plus `activeFlowIdx`. Older
+      // single-flow files (and v1 migrations) only expose `flow` — treat that
+      // as a 1-element collection named after the project.
+      const ws = await invoke<{ projectName: string; flow?: FlowNode[] | null; flows?: { name: string; nodes: FlowNode[]; isSubFlow?: boolean }[] | null; activeFlowIdx?: number | null; flowInput?: Partial<FlowInput> | null }>('load_workspace', { filename });
+      // Backfill kind:'leaf' on pre-scope nodes and clear any stale run state.
+      const restore = (ns: FlowNode[]) => mapNodesDeep(migrateLegacyNodes(ns ?? []), (n) => ({ ...n, status: 'idle' as const, output: undefined, error: undefined, executionTimeMs: undefined }));
+
+      let collection: { name: string; nodes: FlowNode[]; isSubFlow?: boolean }[];
+      if (ws.flows && ws.flows.length > 0) {
+        collection = ws.flows.map((f) => ({ name: f.name, nodes: restore(f.nodes), isSubFlow: f.isSubFlow ?? false }));
+      } else if (ws.flow && Array.isArray(ws.flow) && ws.flow.length > 0) {
+        collection = [{ name: ws.projectName, nodes: restore(ws.flow), isSubFlow: false }];
       } else {
         toast('This workspace does not contain a message flow.', 'error');
+        return;
       }
+
+      const idx = Math.min(Math.max(0, ws.activeFlowIdx ?? 0), collection.length - 1);
+      // A lone plain <flow> stays in the `flows: []` convention (no switcher /
+      // toggle chrome); anything else — multiple flows, or a single sub-flow —
+      // keeps the explicit collection so its kind + selection survive.
+      if (collection.length === 1 && !collection[0].isSubFlow) {
+        setFlows([]);
+        setActiveFlowIdx(0);
+        setNodes(collection[0].nodes);
+        setFlowName(collection[0].name);
+      } else {
+        setFlows(collection);
+        setActiveFlowIdx(idx);
+        setNodes(collection[idx].nodes);
+        setFlowName(collection[idx].name);
+      }
+      setFlowCurrentFile(filename);
+      setFlowDirty(false);
+      setSelectedId(null);
+      setFinalRun(null);
+      setFlowInput(ws.flowInput
+        ? { payload: ws.flowInput.payload ?? '', mime: ws.flowInput.mime ?? 'application/json', attributesJson: ws.flowInput.attributesJson ?? DEFAULT_FLOW_INPUT.attributesJson }
+        : DEFAULT_FLOW_INPUT);
+      toast(`Opened "${ws.projectName}"`, 'success');
     } catch (e) {
       toast(`Failed to load: ${(e as Error).message}`, 'error');
     }

@@ -153,9 +153,20 @@ pub struct WorkspaceFile {
     pub active_request_id: Option<String>,
     /// Optional message-flow definition that pipelines this workspace's
     /// requests. `None` means "this workspace is just a request collection,
-    /// no flow attached."
+    /// no flow attached." For multi-flow documents this mirrors the *active*
+    /// flow's nodes — kept for backward compat and the `list_workspaces_meta`
+    /// "flow"-mode probe; the full collection lives in `flows`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub flow: Option<serde_json::Value>,
+    /// Optional multi-flow collection: every `<flow>`/`<sub-flow>` in the
+    /// document as `{ name, nodes, isSubFlow }`. `None` on legacy single-flow
+    /// files (which only carry `flow`). Opaque JSON to the backend.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flows: Option<Vec<serde_json::Value>>,
+    /// Index of the active flow within `flows` when the document was saved, so
+    /// the UI can restore the same selection on reopen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub active_flow_idx: Option<usize>,
     /// Optional flow-entry input fixture (sample payload + inbound attributes)
     /// the Flow Designer uses to seed test runs. Opaque to the backend.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -242,6 +253,8 @@ fn migrate_legacy(legacy: LegacyWorkspaceFile) -> WorkspaceFile {
         requests: vec![request],
         active_request_id: Some(request_id),
         flow: legacy.flow_nodes,
+        flows: None,
+        active_flow_idx: None,
         flow_input: None,
     }
 }
@@ -500,6 +513,53 @@ mod tests {
         assert!(ws.flow.is_some(), "flow node tree should survive");
         let fi = ws.flow_input.expect("flowInput should survive");
         assert_eq!(fi["mime"].as_str(), Some("application/json"));
+    }
+
+    #[test]
+    fn test_flows_collection_roundtrip_through_parse() {
+        // A multi-flow document persists the whole collection in `flows`
+        // (each `{ name, nodes, isSubFlow }`) plus the active index. `flow`
+        // mirrors the active flow for backward compat. All opaque JSON.
+        let json = r#"{
+            "version": "2.0",
+            "projectName": "Multi WS",
+            "createdAt": "",
+            "updatedAt": "",
+            "requests": [],
+            "flow": [{"id":"b1","type":"transform","label":"T","x":0,"y":0,"config":{},"status":"idle"}],
+            "flows": [
+                {"name":"main","isSubFlow":false,"nodes":[{"id":"a1","type":"logger","label":"L","x":0,"y":0,"config":{},"status":"idle"}]},
+                {"name":"helper","isSubFlow":true,"nodes":[{"id":"b1","type":"transform","label":"T","x":0,"y":0,"config":{},"status":"idle"}]}
+            ],
+            "activeFlowIdx": 1
+        }"#;
+        let ws = parse_workspace(json).expect("multi-flow workspace should parse");
+        let flows = ws.flows.expect("flows collection should survive");
+        assert_eq!(flows.len(), 2);
+        assert_eq!(flows[0]["name"].as_str(), Some("main"));
+        assert_eq!(flows[1]["isSubFlow"].as_bool(), Some(true));
+        assert_eq!(flows[1]["nodes"][0]["id"].as_str(), Some("b1"));
+        assert_eq!(ws.active_flow_idx, Some(1));
+        // `flow` (active mirror) stays present for the meta "flow"-mode probe.
+        assert!(ws.flow.is_some());
+    }
+
+    #[test]
+    fn test_legacy_single_flow_has_no_flows_collection() {
+        // A pre-multi-flow workspace carries only `flow`. It must parse with
+        // `flows: None` so the frontend falls back to the 1-element path.
+        let json = r#"{
+            "version": "2.0",
+            "projectName": "Old Flow WS",
+            "createdAt": "",
+            "updatedAt": "",
+            "requests": [],
+            "flow": [{"id":"n1","type":"logger","label":"L","x":0,"y":0,"config":{},"status":"idle"}]
+        }"#;
+        let ws = parse_workspace(json).expect("single-flow workspace should parse");
+        assert!(ws.flow.is_some(), "flow nodes should survive");
+        assert!(ws.flows.is_none(), "no flows collection on a legacy single-flow file");
+        assert!(ws.active_flow_idx.is_none());
     }
 
     #[test]
