@@ -113,6 +113,9 @@ export interface FlowNode {
     maxConcurrency?: number;     // informational only — Studio always Promise.all-s
     // Scatter-Gather
     aggregatorStrategy?: 'object' | 'array'; // how to merge branch outputs
+    // unsupported/unmodeled element imported as a placeholder logger: its
+    // verbatim source XML, re-emitted on export so it survives a round-trip.
+    rawXml?: string;
   };
   /** Only present on scope nodes (kind === 'scope'). */
   branches?: Branch[];

@@ -5,6 +5,7 @@ import { JSDOM } from 'jsdom';
 if (typeof globalThis.DOMParser === 'undefined') {
   const { window } = new JSDOM();
   globalThis.DOMParser = window.DOMParser;
+  globalThis.XMLSerializer = window.XMLSerializer;
 }
 
 import { exportFlowToMuleXml, exportFlowsToMuleXml, importMuleXml } from '../muleXmlIO';
@@ -285,6 +286,31 @@ describe('muleXmlIO', () => {
         expect(result.warnings.length).toBe(1);
         expect(result.warnings[0]).toContain('unsupported: unsupported-operation');
       }
+    });
+
+    it('round-trips an unsupported element verbatim through import → export', () => {
+      const original = '<batch:job jobName="bj"><batch:process-records/></batch:job>';
+      const xml = `<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:batch="http://www.mulesoft.org/schema/mule/batch"><flow name="f">${original}</flow></mule>`;
+
+      const imported = importMuleXml(xml);
+      expect(imported.ok).toBe(true);
+      if (!imported.ok) return;
+      // The placeholder logger carries the element's verbatim source XML…
+      expect(imported.nodes[0].type).toBe('logger');
+      expect(imported.nodes[0].config.rawXml).toContain('batch:job');
+      expect(imported.nodes[0].config.rawXml).toContain('batch:process-records');
+
+      // …so an export re-emits the real component instead of a <logger>.
+      const out = exportFlowToMuleXml('f', imported.nodes);
+      expect(out).toContain('batch:job');
+      expect(out).toContain('batch:process-records');
+      expect(out).toContain('jobName="bj"');
+      expect(out).not.toMatch(/<logger[^>]*Imported from/);
+
+      // And it stays intact across a second import → export (stable round-trip).
+      const again = importMuleXml(out);
+      expect(again.ok).toBe(true);
+      if (again.ok) expect(again.nodes[0].config.rawXml).toContain('batch:job');
     });
   });
 });

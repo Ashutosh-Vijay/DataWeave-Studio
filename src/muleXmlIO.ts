@@ -162,6 +162,9 @@ function leafToXml(node: FlowNode): string {
       return `<set-variable${attr('variableName', name)}${attr('value', value)}${docAttrs(node)}/>`;
     }
     case 'logger': {
+      // A placeholder for an unsupported element — re-emit its original XML
+      // verbatim so unknown components survive an import → export round-trip.
+      if (node.config.rawXml) return node.config.rawXml;
       // Studio loggers just dump payload + vars; Mule's logger needs a message
       // expression. Use a sensible default if none is specified.
       const msg = (node.config.payload || '#[payload]').trim().startsWith('#[')
@@ -806,10 +809,13 @@ function elementToNode(el: Element): FlowNode {
     }
   }
 
-  // Unrecognised element — emit a Logger node carrying the original tag name
-  // so the user can see what was imported and what slot it occupies.
+  // Unrecognised element — emit a Logger node carrying the original tag name so
+  // the user can see what was imported and what slot it occupies. We also stash
+  // the element's verbatim XML so an export round-trips it losslessly instead of
+  // silently replacing the real component with a <logger>.
   const unknownLogger = makeNode('logger', `${label} (unsupported: ${name})`, {
     payload: `#[/* Imported from <${escXml(name)}> — Studio doesn't simulate this element */]`,
+    rawXml: new XMLSerializer().serializeToString(el),
   });
   return unknownLogger;
 }
