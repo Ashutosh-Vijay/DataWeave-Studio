@@ -37,7 +37,7 @@ function mimeToEditorLang(mime: string): 'json' | 'sql' | 'plaintext' | 'datawea
 
 // ── Types ──────────────────────────────────────────────────────────
 
-export type LeafNodeType = 'set-payload' | 'transform' | 'set-variable' | 'salesforce' | 'database' | 'http-request' | 'logger';
+export type LeafNodeType = 'set-payload' | 'transform' | 'set-variable' | 'salesforce' | 'database' | 'http-request' | 'logger' | 'flow-ref';
 export type ScopeNodeType = 'choice' | 'for-each' | 'parallel-for-each' | 'scatter-gather' | 'try' | 'first-successful' | 'round-robin' | 'async';
 export type NodeType = LeafNodeType | ScopeNodeType;
 type ConnectorOp = 'query' | 'insert' | 'update' | 'upsert' | 'delete' | 'select';
@@ -98,6 +98,8 @@ export interface FlowNode {
     mockResponse?: string;
     mockMime?: string;
     saveToVariable?: string; // if set, store output in vars instead of replacing payload
+    // flow-ref
+    flowRefName?: string;   // name of the referenced flow / sub-flow
     // http-request
     httpMethod?: HttpMethod;
     httpUrl?: string;
@@ -219,6 +221,41 @@ const DEFAULT_FLOW_INPUT: FlowInput = {
   attributesJson: '{\n  "uriParams": {},\n  "queryParams": {},\n  "headers": {},\n  "method": "GET"\n}',
 };
 
+/** Best-effort parse of a DataWeave engine result into a structured value, so
+ *  variables hold objects/arrays/numbers (not JSON text) and downstream scripts
+ *  can do `vars.x.field`. Falls back to the raw string when it isn't JSON. */
+function parseMaybe(s: string): unknown {
+  try { return JSON.parse(s); } catch { return s; }
+}
+/** A value bound to a variable must come back as structured JSON, so coerce an
+ *  `output application/java` directive to `application/json` before running. */
+function forceJsonOutput(script: string): string {
+  return script.replace(/output(\s+)application\/java\b/g, 'output$1application/json');
+}
+/** Render a variable value for inline status display. */
+function displayVal(v: unknown): string {
+  return typeof v === 'string' ? v : JSON.stringify(v);
+}
+
+/** Editable key/value rows for the flow Input editor (nicer than raw JSON). */
+type AttrRows = { uriParams: [string, string][]; queryParams: [string, string][]; headers: [string, string][]; method: string };
+function attrsToRows(json: string): AttrRows {
+  let a: Record<string, unknown> = {};
+  try { a = JSON.parse(json || '{}'); } catch {}
+  const grp = (o: unknown): [string, string][] =>
+    (o && typeof o === 'object') ? Object.entries(o as Record<string, unknown>).map(([k, v]) => [k, typeof v === 'string' ? v : JSON.stringify(v)] as [string, string]) : [];
+  return { uriParams: grp(a.uriParams), queryParams: grp(a.queryParams), headers: grp(a.headers), method: typeof a.method === 'string' ? a.method : 'GET' };
+}
+function rowsToJson(r: AttrRows): string {
+  const pick = (rows: [string, string][]) => Object.fromEntries(rows.filter(([k]) => k.trim() !== ''));
+  return JSON.stringify({ uriParams: pick(r.uriParams), queryParams: pick(r.queryParams), headers: pick(r.headers), method: r.method }, null, 2);
+}
+
+/** In-session cache so the Flow Designer survives unmount (switching tools and
+ *  coming back). Module-level → persists for the app's lifetime, cleared only on
+ *  a full reload. */
+let flowStateCache: { nodes: FlowNode[]; flowName: string; flowCurrentFile: string | null; flowInput: FlowInput } | null = null;
+
 const NODE_W = 220;
 const PORT_R = 6;
 
@@ -230,6 +267,7 @@ const NODE_META: Record<NodeType, { label: string; color: string; desc: string; 
   'database':     { label: 'Database',       color: '#a855f7',       desc: 'DB query / operation',           badge: 'SQL'  },
   'http-request': { label: 'HTTP Request',   color: '#f97316',       desc: 'HTTP endpoint mock',             badge: 'HTTP' },
   'logger':       { label: 'Logger',         color: '#6b7280',       desc: 'Inspect payload (pass-through)', badge: 'LOG'  },
+  'flow-ref':     { label: 'Flow Reference', color: '#0ea5e9',       desc: 'Call another flow / sub-flow',   badge: 'REF'  },
   'choice':              { label: 'Choice',             color: '#06b6d4', desc: 'When/otherwise router',           badge: 'CHOICE' },
   'for-each':            { label: 'For Each',           color: '#eab308', desc: 'Iterate over a collection',       badge: 'EACH'   },
   'parallel-for-each':   { label: 'Parallel For Each',  color: '#ca8a04', desc: 'Iterate concurrently',            badge: 'PARFE'  },
@@ -294,6 +332,9 @@ function NodeIcon({ type, size = 14 }: { type: NodeType; size?: number }) {
       return <svg {...s} viewBox="0 0 16 16"><path d="M0 8a8 8 0 1116 0A8 8 0 010 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 005.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 01.64-1.539 6.7 6.7 0 01.597-.933A7.025 7.025 0 002.255 4H4.09zm-.582 3.5c.03-.877.138-1.718.312-2.5H1.674a6.958 6.958 0 00-.656 2.5h2.49zM4.847 5a12.5 12.5 0 00-.338 2.5H7.5V5H4.847zM8.5 5v2.5h2.99a12.495 12.495 0 00-.337-2.5H8.5zM4.51 8.5a12.5 12.5 0 00.337 2.5H7.5V8.5H4.51zm3.99 0V11h2.653c.187-.765.306-1.608.338-2.5H8.5zM5.145 12c.138.386.295.744.468 1.068.552 1.035 1.218 1.65 1.887 1.855V12H5.145zm.182 2.472a6.696 6.696 0 01-.597-.933A9.268 9.268 0 014.09 12H2.255a7.024 7.024 0 003.072 2.472zM3.82 11a13.652 13.652 0 01-.312-2.5h-2.49c.062.89.291 1.733.656 2.5H3.82zm6.853 3.472A7.024 7.024 0 0013.745 12H11.91a9.27 9.27 0 01-.64 1.539 6.688 6.688 0 01-.597.933zM8.5 12v2.923c.67-.204 1.335-.82 1.887-1.855.173-.324.33-.682.468-1.068H8.5zm3.68-1h2.146c.365-.767.594-1.61.656-2.5h-2.49a13.65 13.65 0 01-.312 2.5zm2.802-3.5a6.959 6.959 0 00-.656-2.5H12.18c.174.782.282 1.623.312 2.5h2.49zM11.27 2.461c.247.464.462.98.64 1.539h1.835a7.024 7.024 0 00-3.072-2.472c.218.284.418.598.597.933zM10.855 4a7.966 7.966 0 00-.468-1.068C9.835 1.897 9.17 1.282 8.5 1.077V4h2.355z"/></svg>;
     case 'logger':
       return <svg {...s} viewBox="0 0 16 16"><path d="M5 0a1 1 0 00-1 1v1H3a2 2 0 00-2 2v9a2 2 0 002 2h10a2 2 0 002-2V4a2 2 0 00-2-2h-1V1a1 1 0 00-1-1H5zm0 4h6v1H5V4zm0 3h6v1H5V7zm0 3h4v1H5v-1z"/></svg>;
+    case 'flow-ref':
+      // Arrow leaving a rounded square — a reference/call out to another flow.
+      return <svg {...s} viewBox="0 0 16 16"><path d="M9 2a.5.5 0 000 1h3.793L6.146 9.646a.5.5 0 10.708.708L13.5 3.707V7.5a.5.5 0 001 0v-5A.5.5 0 0014 2H9z"/><path d="M3 4a1 1 0 00-1 1v8a1 1 0 001 1h8a1 1 0 001-1V9a.5.5 0 00-1 0v4a.01.01 0 01-.01.01H3.01A.01.01 0 013 13V5a.01.01 0 01.01-.01H7a.5.5 0 000-1H3z"/></svg>;
     case 'choice':
       // Branching arrow: one input that splits into two output paths.
       return <svg {...s} viewBox="0 0 16 16"><path d="M8 1.5a.5.5 0 01.5.5v3.5h3a2 2 0 012 2v2h1.793l-2.146-2.146a.5.5 0 11.707-.707l3 3a.5.5 0 010 .707l-3 3a.5.5 0 11-.707-.707L13.293 10.5H11.5v-3a1 1 0 00-1-1H8.5V11l-.5 1-.5-1V6.5H5.5a1 1 0 00-1 1v3H2.707l2.147 2.146a.5.5 0 01-.708.708l-3-3a.5.5 0 010-.708l3-3a.5.5 0 01.708.707L2.707 9.5H3.5v-2a2 2 0 012-2h2V2a.5.5 0 01.5-.5z"/></svg>;
@@ -329,11 +370,15 @@ interface FlowDesignerProps {
 }
 
 export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
-  const [nodes, setNodes] = useState<FlowNode[]>([]);
+  const [nodes, setNodes] = useState<FlowNode[]>(() => flowStateCache?.nodes ?? []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragState, setDragState] = useState<{ nodeId: string; offsetX: number; offsetY: number } | null>(null);
   const [paletteDrag, setPaletteDrag] = useState<{ type: NodeType; x: number; y: number } | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  // Final payload + vars after a full run, shown in the side panel when no node
+  // is selected (so the flow's end state is visible even if the last node is a
+  // flow-ref / connector that doesn't replace the payload).
+  const [finalRun, setFinalRun] = useState<{ payload: string; mime: string; vars: [string, string][] } | null>(null);
   const [stepIndex, setStepIndex] = useState<number | null>(null);
   const [stepping, setStepping] = useState(false); // true = waiting for user to click Next
   const stepResolveRef = useRef<(() => void) | null>(null);
@@ -354,9 +399,10 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
    *  the full nested body. Top-level scopes can't be collapsed. */
   const [collapsedScopes, setCollapsedScopes] = useState<Set<string>>(new Set());
   // Flow-entry input fixture (declared up here so runPipeline can read it).
-  const [flowInput, setFlowInput] = useState<FlowInput>(DEFAULT_FLOW_INPUT);
+  const [flowInput, setFlowInput] = useState<FlowInput>(() => flowStateCache?.flowInput ?? DEFAULT_FLOW_INPUT);
   const [showInputEditor, setShowInputEditor] = useState(false);
   const [inputDraft, setInputDraft] = useState<FlowInput>(DEFAULT_FLOW_INPUT);
+  const [attrRows, setAttrRows] = useState<AttrRows>(() => attrsToRows(DEFAULT_FLOW_INPUT.attributesJson));
   const toggleScopeCollapsed = useCallback((id: string) => {
     setCollapsedScopes((prev) => {
       const next = new Set(prev);
@@ -763,6 +809,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   const runPipeline = useCallback(async (stepThrough = false) => {
     if (nodes.length === 0) return;
     setIsRunning(true);
+    setFinalRun(null);
     abortRef.current = false;
 
     // Reset all statuses across the entire tree (including branch-inner nodes).
@@ -779,7 +826,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       attributes: string;
       multipartJson: string | null;
       payloadFilePath: string | null;
-      variables: Record<string, string>;
+      variables: Record<string, unknown>;
     };
     // Seed from the flow-entry input fixture so payload + attributes.* resolve
     // the way they would behind a real HTTP listener. Invalid attributes JSON
@@ -870,12 +917,12 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           // `attributes.*` / `vars.*` / `payload` resolve against the run context).
           let scriptToRun: string | null = null;
           if (node.config.variableSource === 'script' && node.config.script) {
-            scriptToRun = node.config.script;
+            scriptToRun = forceJsonOutput(node.config.script);
           } else {
             const exprMatch = (node.config.variableValue || '').match(/^#\[([\s\S]*)\]$/);
             if (exprMatch) scriptToRun = `%dw 2.0\noutput application/json\n---\n${exprMatch[1]}`;
           }
-          let varValue: string;
+          let stored: unknown;
           if (scriptToRun !== null) {
             const result = await invoke<RunResult>('run_dataweave', {
               script: scriptToRun,
@@ -893,18 +940,19 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
               markNode(node.id, { status: 'error', error: result.error ?? undefined, executionTimeMs: result.execution_time_ms });
               return false;
             }
-            varValue = result.output;
+            stored = parseMaybe(result.output);
           } else {
-            varValue = node.config.variableValue || ctx.payload;
+            stored = node.config.variableValue || ctx.payload;
           }
-          ctx.variables[varName] = varValue;
-          markNode(node.id, { status: 'success', output: `vars.${varName} = ${varValue}`, executionTimeMs: 0 });
+          ctx.variables[varName] = stored;
+          markNode(node.id, { status: 'success', output: `vars.${varName} = ${displayVal(stored)}`, executionTimeMs: 0 });
           return true;
         }
 
         if (node.type === 'transform') {
           const result = await invoke<RunResult>('run_dataweave', {
-            script: node.config.script || DEFAULT_SCRIPT,
+            // A transform bound to a variable must yield structured JSON.
+            script: node.config.saveToVariable ? forceJsonOutput(node.config.script || DEFAULT_SCRIPT) : (node.config.script || DEFAULT_SCRIPT),
             payload: ctx.payload,
             payloadMimeType: ctx.mime,
             attributesJson: ctx.attributes,
@@ -920,8 +968,9 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
             return false;
           }
           if (node.config.saveToVariable) {
-            ctx.variables[node.config.saveToVariable] = result.output;
-            markNode(node.id, { status: 'success', output: `vars.${node.config.saveToVariable} = ${result.output}`, executionTimeMs: result.execution_time_ms });
+            const v = parseMaybe(result.output);
+            ctx.variables[node.config.saveToVariable] = v;
+            markNode(node.id, { status: 'success', output: `vars.${node.config.saveToVariable} = ${displayVal(v)}`, executionTimeMs: result.execution_time_ms });
           } else {
             ctx.payload = result.output;
             ctx.mime = node.config.outputMime || 'application/json';
@@ -930,12 +979,21 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           return true;
         }
 
-        if (node.type === 'salesforce' || node.type === 'database' || node.type === 'http-request') {
+        if (node.type === 'salesforce' || node.type === 'database' || node.type === 'http-request' || node.type === 'flow-ref') {
+          // flow-ref can't actually invoke the referenced flow: with no mock set
+          // it passes the payload through unchanged; otherwise it behaves like a
+          // mocked call (the mock becomes its output / target value).
+          const hasMock = (node.config.mockResponse ?? '') !== '';
+          if (node.type === 'flow-ref' && !hasMock) {
+            markNode(node.id, { status: 'success', output: `(flow-ref → ${node.config.flowRefName || '?'} — payload passed through; set a mock response to simulate its output)`, executionTimeMs: 0 });
+            return true;
+          }
           const response = node.config.mockResponse || '';
           const mime = node.config.mockMime || 'application/json';
           if (node.config.saveToVariable) {
-            ctx.variables[node.config.saveToVariable] = response;
-            markNode(node.id, { status: 'success', output: `vars.${node.config.saveToVariable} = ${response}`, executionTimeMs: 0 });
+            const v = parseMaybe(response);
+            ctx.variables[node.config.saveToVariable] = v;
+            markNode(node.id, { status: 'success', output: `vars.${node.config.saveToVariable} = ${displayVal(v)}`, executionTimeMs: 0 });
           } else {
             ctx.payload = response;
             ctx.mime = mime;
@@ -946,7 +1004,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
         if (node.type === 'logger') {
           const logOutput = `── Logger ──\nPayload (${ctx.mime}):\n${ctx.payload}\n\n── Variables ──\n${Object.keys(ctx.variables).length > 0
-            ? Object.entries(ctx.variables).map(([k, v]) => `${k}: ${v}`).join('\n')
+            ? Object.entries(ctx.variables).map(([k, v]) => `${k}: ${displayVal(v)}`).join('\n')
             : '(none)'}`;
           markNode(node.id, { status: 'success', output: logOutput, executionTimeMs: 0 });
           return true;
@@ -1302,6 +1360,13 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
     await runList(nodes, initialCtx);
 
+    // Capture the flow's end state so the final payload is always visible.
+    setFinalRun({
+      payload: initialCtx.payload,
+      mime: initialCtx.mime,
+      vars: Object.entries(initialCtx.variables).map(([k, v]) => [k, displayVal(v)] as [string, string]),
+    });
+    if (!stepThrough) setSelectedId(null);
     setIsRunning(false);
     setStepIndex(null);
   }, [nodes, flowInput]);
@@ -1378,9 +1443,9 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   }, []);
 
   // ── Save / Load flow ────────────────────────────────────────────
-  const [flowName, setFlowName] = useState('Untitled Flow');
+  const [flowName, setFlowName] = useState(() => flowStateCache?.flowName ?? 'Untitled Flow');
   const [flowDirty, setFlowDirty] = useState(false);
-  const [flowCurrentFile, setFlowCurrentFile] = useState<string | null>(null);
+  const [flowCurrentFile, setFlowCurrentFile] = useState<string | null>(() => flowStateCache?.flowCurrentFile ?? null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveDialogName, setSaveDialogName] = useState('');
   const [showOpenDialog, setShowOpenDialog] = useState(false);
@@ -1399,6 +1464,9 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
   // Mark dirty on any node change
   useEffect(() => { if (nodes.length > 0) setFlowDirty(true); }, [nodes]);
+
+  // Persist across unmount (switch tools and return) via a module-level cache.
+  useEffect(() => { flowStateCache = { nodes, flowName, flowCurrentFile, flowInput }; }, [nodes, flowName, flowCurrentFile, flowInput]);
 
   const doSaveFlow = useCallback(async (name: string) => {
     try {
@@ -1485,6 +1553,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     setNodes([]);
     setSelectedId(null);
     setDismissedValidations(new Set());
+    setFinalRun(null);
   }, []);
 
   // ── Mule 4 XML round-trip ───────────────────────────────────────
@@ -2007,7 +2076,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           </>
         )}
         <button
-          onClick={() => { setInputDraft(flowInput); setShowInputEditor(true); }}
+          onClick={() => { setInputDraft(flowInput); setAttrRows(attrsToRows(flowInput.attributesJson)); setShowInputEditor(true); }}
           className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] font-medium cursor-pointer transition-colors border border-accent-border text-accent hover:bg-accent-dim"
           title="Set the flow's input message (payload + uriParams/queryParams/headers) used for test runs"
         >
@@ -2919,6 +2988,46 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                 </div>
               )}
 
+              {/* ── Flow Reference config ───────────────────────────── */}
+              {selected.type === 'flow-ref' && (
+                <div className="p-4 space-y-3">
+                  <div className="text-[12px] text-content-muted leading-relaxed">
+                    Calls another flow / sub-flow. Studio can't run the referenced flow, so by default the payload passes through unchanged — set a mock response to simulate its output.
+                  </div>
+                  <div>
+                    <ConfigLabel label="Referenced flow name" />
+                    <input
+                      value={selected.config.flowRefName || ''}
+                      onChange={(e) => updateConfig(selected.id, { flowRefName: e.target.value })}
+                      placeholder="my-subflow"
+                      className="mt-1 w-full px-2.5 py-1.5 text-[11.5px] font-mono bg-surface-2 border border-line rounded-md outline-none text-content focus:border-accent"
+                      spellCheck={false}
+                    />
+                  </div>
+                  <div>
+                    <ConfigLabel label="Target variable (optional)" />
+                    <input
+                      value={selected.config.saveToVariable || ''}
+                      onChange={(e) => updateConfig(selected.id, { saveToVariable: e.target.value })}
+                      placeholder="empty → replaces payload"
+                      className="mt-1 w-full px-2.5 py-1.5 text-[11.5px] font-mono bg-surface-2 border border-line rounded-md outline-none text-content focus:border-accent"
+                      spellCheck={false}
+                    />
+                  </div>
+                  <div>
+                    <ConfigLabel label="Mock response (optional)" />
+                    <textarea
+                      value={selected.config.mockResponse || ''}
+                      onChange={(e) => updateConfig(selected.id, { mockResponse: e.target.value })}
+                      placeholder={'{ "result": "ok" }'}
+                      spellCheck={false}
+                      className="mt-1 w-full px-2.5 py-2 text-[11.5px] font-mono leading-relaxed bg-surface-2 border border-line rounded-md outline-none resize-y text-content placeholder:text-content-ghost"
+                      style={{ minHeight: 90 }}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* ── Choice config ───────────────────────────────────── */}
               {selected.type === 'choice' && (
                 <div className="p-4 space-y-3">
@@ -3147,6 +3256,39 @@ output application/json
                   <pre className="mt-2 text-[11px] font-mono text-[var(--err)] leading-relaxed whitespace-pre-wrap break-all max-h-[200px] overflow-y-auto select-text">
                     {selected.error}
                   </pre>
+                </div>
+              )}
+            </div>
+          </aside>
+        )}
+
+        {!selected && finalRun && (
+          <aside className="w-[380px] shrink-0 border-l border-line bg-surface-panel flex flex-col">
+            <div className="px-4 py-3 border-b border-line flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0" style={{ background: 'color-mix(in oklch, var(--accent) 15%, transparent)', color: 'var(--accent)' }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.485 3.929a1 1 0 01.036 1.414l-6 6.5a1 1 0 01-1.45.022l-3-3a1 1 0 111.414-1.414L6.95 9.915l5.293-5.95a1 1 0 011.242-.036z"/></svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-semibold text-content">Run result</div>
+                <div className="text-[10px] text-content-ghost">Final payload &amp; variables after the flow ran</div>
+              </div>
+              <button onClick={() => setFinalRun(null)} className="text-content-faint hover:text-content cursor-pointer p-1" title="Dismiss"><Icons.X size={13} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              <div>
+                <ConfigLabel label={`Final payload (${finalRun.mime})`} />
+                <pre className="mt-1 px-3 py-2 text-[11px] font-mono leading-relaxed bg-surface-2 border border-line rounded-md whitespace-pre-wrap break-words text-content" style={{ maxHeight: '42vh', overflow: 'auto' }}>{finalRun.payload || '(empty)'}</pre>
+              </div>
+              {finalRun.vars.length > 0 && (
+                <div>
+                  <ConfigLabel label="Variables" />
+                  <div className="mt-1 space-y-1">
+                    {finalRun.vars.map(([k, v]) => (
+                      <div key={k} className="text-[10.5px] font-mono leading-relaxed">
+                        <span style={{ color: '#10b981' }}>vars.{k}</span> <span className="text-content-faint">=</span> <span className="text-content break-words">{v.length > 240 ? v.slice(0, 240) + '…' : v}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -3604,7 +3746,7 @@ output application/json
                     onChange={(e) => setInputDraft((d) => ({ ...d, mime: e.target.value }))}
                     className="h-6 px-1.5 rounded bg-surface-2 border border-line text-[10.5px] text-content-faint cursor-pointer outline-none"
                   >
-                    {['application/json', 'application/xml', 'text/plain', 'application/csv', 'application/java'].map((m) => <option key={m} value={m}>{m}</option>)}
+                    {MIME_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
                 <textarea
@@ -3616,23 +3758,60 @@ output application/json
                   style={{ minHeight: 110 }}
                 />
               </div>
-              <div>
-                <ConfigLabel label="Attributes (inbound message metadata)" />
-                <textarea
-                  value={inputDraft.attributesJson}
-                  onChange={(e) => setInputDraft((d) => ({ ...d, attributesJson: e.target.value }))}
-                  spellCheck={false}
-                  className="mt-1 w-full px-3 py-2 text-[11.5px] font-mono leading-relaxed bg-surface-2 border border-line rounded-md outline-none resize-y text-content placeholder:text-content-ghost"
-                  style={{ minHeight: 130 }}
-                />
-                {(() => { try { JSON.parse(inputDraft.attributesJson || '{}'); return null; } catch { return (
-                  <div className="mt-1 text-[10.5px]" style={{ color: 'var(--err)' }}>Not valid JSON — attributes fall back to an empty object at run time.</div>
-                ); } })()}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <ConfigLabel label="Attributes — HTTP method" />
+                  <select
+                    value={attrRows.method}
+                    onChange={(e) => setAttrRows((r) => ({ ...r, method: e.target.value }))}
+                    className="h-6 px-1.5 rounded bg-surface-2 border border-line text-[10.5px] text-content-faint cursor-pointer outline-none"
+                  >
+                    {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                {([
+                  ['uriParams', 'URI params', 'loan-application-id'],
+                  ['queryParams', 'Query params', 'applicantId'],
+                  ['headers', 'Headers', 'content-type'],
+                ] as const).map(([gk, label, ph]) => (
+                  <div key={gk}>
+                    <ConfigLabel label={label} />
+                    <div className="mt-1 space-y-1">
+                      {attrRows[gk].map(([k, v], i) => (
+                        <div key={i} className="flex items-center gap-1.5">
+                          <input
+                            value={k}
+                            onChange={(e) => setAttrRows((r) => { const rows = r[gk].slice(); rows[i] = [e.target.value, rows[i][1]] as [string, string]; return { ...r, [gk]: rows }; })}
+                            placeholder={ph}
+                            className="w-1/3 px-2 py-1 text-[11px] font-mono bg-surface-2 border border-line rounded outline-none text-content placeholder:text-content-ghost focus:border-accent"
+                            spellCheck={false}
+                          />
+                          <input
+                            value={v}
+                            onChange={(e) => setAttrRows((r) => { const rows = r[gk].slice(); rows[i] = [rows[i][0], e.target.value] as [string, string]; return { ...r, [gk]: rows }; })}
+                            placeholder="value"
+                            className="flex-1 px-2 py-1 text-[11px] font-mono bg-surface-2 border border-line rounded outline-none text-content placeholder:text-content-ghost focus:border-accent"
+                            spellCheck={false}
+                          />
+                          <button
+                            onClick={() => setAttrRows((r) => ({ ...r, [gk]: r[gk].filter((_, j) => j !== i) }))}
+                            className="shrink-0 w-5 h-5 rounded text-content-ghost hover:text-[var(--err)] hover:bg-surface-3 cursor-pointer text-[12px]"
+                            title="Remove"
+                          >×</button>
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => setAttrRows((r) => ({ ...r, [gk]: [...r[gk], ['', ''] as [string, string]] }))}
+                        className="text-[10.5px] font-mono px-2 py-0.5 rounded border border-dashed border-line text-content-faint hover:text-accent hover:border-accent cursor-pointer transition-colors"
+                      >+ add</button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
             <div className="px-4 py-3 border-t border-line flex items-center gap-2">
               <button
-                onClick={() => setInputDraft(DEFAULT_FLOW_INPUT)}
+                onClick={() => { setInputDraft(DEFAULT_FLOW_INPUT); setAttrRows(attrsToRows(DEFAULT_FLOW_INPUT.attributesJson)); }}
                 className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer border border-line transition-colors"
               >
                 Reset
@@ -3645,7 +3824,7 @@ output application/json
                 Cancel
               </button>
               <button
-                onClick={() => { setFlowInput(inputDraft); setShowInputEditor(false); toast('Flow input updated', 'success'); }}
+                onClick={() => { setFlowInput({ ...inputDraft, attributesJson: rowsToJson(attrRows) }); setShowInputEditor(false); toast('Flow input updated', 'success'); }}
                 className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] font-medium cursor-pointer transition-colors"
                 style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
               >

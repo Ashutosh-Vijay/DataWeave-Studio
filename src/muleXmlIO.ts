@@ -169,6 +169,10 @@ function leafToXml(node: FlowNode): string {
         : `#[${cdataish(node.config.payload || '"' + node.label + '"')}]`;
       return `<logger${attr('level', 'INFO')}${attr('message', msg)}${docAttrs(node)}/>`;
     }
+    case 'flow-ref': {
+      const saveTo = node.config.saveToVariable;
+      return `<flow-ref${attr('name', node.config.flowRefName || node.label)}${saveTo ? ` target="${escXml(saveTo)}"` : ''}${docAttrs(node)}/>`;
+    }
     case 'salesforce': {
       // Mule 4 Salesforce connector (verified against the connector reference
       // and real Studio output):
@@ -519,10 +523,14 @@ function elementsToNodes(elements: Element[], parent: Element): FlowNode[] {
     elementIdx++;
   }
 
-  // Auto-assign x positions so they render left-to-right.
+  // Auto-assign x positions so they render left-to-right. Scopes render much
+  // wider than leaves (their body flows horizontally), so advance further after
+  // one to avoid the next node overlapping it on the canvas.
+  let cx = 0;
   for (let i = 0; i < nodes.length; i++) {
-    nodes[i].x = i * 260;
+    nodes[i].x = cx;
     nodes[i].y = 100;
+    cx += (nodes[i].branches && nodes[i].branches!.length > 0) ? 760 : 260;
   }
   return nodes;
 }
@@ -591,6 +599,13 @@ function elementToNode(el: Element): FlowNode {
     case 'logger': {
       const msg = el.getAttribute('message') || '#[payload]';
       return makeNode('logger', label, { payload: msg });
+    }
+    case 'flow-ref': {
+      const refName = el.getAttribute('name') || '';
+      return makeNode('flow-ref', el.getAttribute('doc:name') || refName || 'Flow Reference', {
+        flowRefName: refName,
+        saveToVariable: el.getAttribute('target') || '',
+      });
     }
     case 'query':
     case 'create':
