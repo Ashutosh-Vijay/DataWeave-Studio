@@ -515,10 +515,26 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           setSelectedId(null);
         }
       }
+      // F3 → jump to the flow a selected flow-ref points at.
+      if (e.key === 'F3') {
+        const sel = selectedId ? findNodeById(nodes, selectedId) : null;
+        if (sel?.type === 'flow-ref') {
+          const idx = flows.findIndex((f) => f.name === sel.config.flowRefName);
+          if (idx >= 0 && idx !== activeFlowIdx) {
+            e.preventDefault();
+            setFlows((prev) => prev.map((f, i) => i === activeFlowIdx ? { ...f, nodes } : f));
+            setNodes(flows[idx].nodes);
+            setFlowName(flows[idx].name);
+            setActiveFlowIdx(idx);
+            setSelectedId(null);
+            setFinalRun(null);
+          }
+        }
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open, onClose, selectedId, contextMenu]);
+  }, [open, onClose, selectedId, contextMenu, nodes, flows, activeFlowIdx]);
 
   // ── Node dragging ───────────────────────────────────────────────
   const handleNodeMouseDown = useCallback((e: React.MouseEvent, nodeId: string) => {
@@ -859,8 +875,12 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     // Track step index globally across recursion so the header shows progress.
     let stepCounter = 0;
 
+    // Most-recent error message — lets a flow-ref surface a failure that
+    // happened inside the (invisible) referenced flow.
+    let lastError: string | undefined;
     /** Mark a node's status by id, anywhere in the tree. */
     const markNode = (id: string, patch: Partial<FlowNode>) => {
+      if (patch.status === 'error' && patch.error) lastError = patch.error;
       setNodes((prev) => mapNodesDeep(prev, (n) => n.id === id ? { ...n, ...patch } : n));
     };
 
@@ -1001,13 +1021,19 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
               if (target) {
                 // Result → target var; the caller's payload is preserved.
                 const sub = forkCtx(ctx);
-                if (!(await runList(refNodes, sub))) return false;
+                if (!(await runList(refNodes, sub))) {
+                  markNode(node.id, { status: 'error', error: lastError ? `${refName} → ${lastError}` : `flow-ref "${refName}" failed` });
+                  return false;
+                }
                 const v = parseMaybe(sub.payload);
                 ctx.variables[target] = v;
                 markNode(node.id, { status: 'success', output: `vars.${target} = ${displayVal(v)}  (ran ${refName})`, executionTimeMs: 0 });
               } else {
                 // Inline like a sub-flow: shares the caller's payload + vars.
-                if (!(await runList(refNodes, ctx))) return false;
+                if (!(await runList(refNodes, ctx))) {
+                  markNode(node.id, { status: 'error', error: lastError ? `${refName} → ${lastError}` : `flow-ref "${refName}" failed` });
+                  return false;
+                }
                 markNode(node.id, { status: 'success', output: `(ran flow-ref → ${refName})`, executionTimeMs: 0 });
               }
             } finally {
@@ -2057,7 +2083,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   return (
     <div className="fixed inset-0 z-[80] flex flex-col bg-bg">
       {/* ── Header ───────────────────────────────────────────────── */}
-      <header data-tauri-drag-region className="h-11 shrink-0 flex items-center gap-3 pl-4 pr-3 bg-surface border-b border-line">
+      <header data-tauri-drag-region className="h-11 shrink-0 flex items-center gap-3 pl-4 pr-3 bg-surface border-b border-line whitespace-nowrap overflow-x-auto [&>*]:shrink-0">
         <button
           onClick={onClose}
           className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer transition-colors"
@@ -2083,7 +2109,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           <select
             value={activeFlowIdx}
             onChange={(e) => selectFlow(Number(e.target.value))}
-            className="h-6 px-1.5 rounded-md bg-surface-2 border border-line text-[11px] text-content cursor-pointer outline-none focus:border-accent max-w-[220px]"
+            className="h-6 px-1.5 rounded-md bg-surface-2 border border-line text-[11px] text-content cursor-pointer outline-none focus:border-accent max-w-[150px]"
             title="Switch flow — this document imported multiple flows / sub-flows"
           >
             {flows.map((f, i) => <option key={i} value={i}>{f.name}</option>)}
@@ -3405,6 +3431,17 @@ output application/json
               hint={ctxNode.disabled ? 'Re-enable this node' : 'Skip during execution'}
               onClick={() => { toggleDisabled(contextMenu.nodeId); setContextMenu(null); }}
             />
+            {ctxNode.type === 'flow-ref' && flows.some((f) => f.name === ctxNode.config.flowRefName) && (
+              <CtxItem
+                label="Go to flow"
+                hint={`Open "${ctxNode.config.flowRefName}"`}
+                onClick={() => {
+                  const idx = flows.findIndex((f) => f.name === ctxNode.config.flowRefName);
+                  if (idx >= 0) selectFlow(idx);
+                  setContextMenu(null);
+                }}
+              />
+            )}
             {!isInner && (
               <CtxItem
                 label="Duplicate"
