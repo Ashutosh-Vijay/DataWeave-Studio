@@ -549,6 +549,113 @@ describe('muleXmlIO — scopes round-trip', () => {
   });
 });
 
+describe('muleXmlIO — hardening / edge cases', () => {
+  it('sanitizes flow names (spaces, punctuation, leading digit)', () => {
+    const xml = exportFlowToMuleXml('123 my flow! (v2)', [leaf('logger', {}, { label: 'L' })]);
+    // non-identifier chars → _, and a leading non-letter gets an f_ prefix
+    expect(xml).toMatch(/<flow name="f_123_my_flow___v2_"/);
+    expect(importMuleXml(xml).ok).toBe(true);
+  });
+
+  it('round-trips a label containing XML special chars and quotes', () => {
+    const label = `A & B <c> "d" 'e'`;
+    const { nodes } = roundtrip([leaf('logger', { payload: '#[payload]' }, { label })]);
+    expect(nodes[0].label).toBe(label);
+  });
+
+  it('round-trips a DISABLED node whose label contains ] and -- (escaping in the STUDIO comment)', () => {
+    const label = 'weird ] name -- end';
+    const node = leaf('logger', { payload: '#[payload]' }, { disabled: true, label });
+    const xml = exportFlowToMuleXml('F', [node]);
+    const r = importMuleXml(xml);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.nodes[0].disabled).toBe(true);
+      expect(r.nodes[0].label).toBe(label);
+    }
+  });
+
+  it('round-trips a choice with several when branches + otherwise', () => {
+    const branches: NonNullable<FlowNode['branches']> = [
+      { id: 'w1', predicate: 'payload.a == 1', nodes: [leaf('logger', {}, { label: 'one' })] },
+      { id: 'w2', predicate: 'payload.a == 2', nodes: [leaf('logger', {}, { label: 'two' })] },
+      { id: 'w3', predicate: 'payload.a == 3', nodes: [leaf('logger', {}, { label: 'three' })] },
+      { id: 'o', isOtherwise: true, nodes: [leaf('logger', {}, { label: 'else' })] },
+    ];
+    const { nodes } = roundtrip([scope('choice', branches, { label: 'Multi' })]);
+    expect(nodes[0].branches?.length).toBe(4);
+    expect(nodes[0].branches?.filter((b) => b.isOtherwise).length).toBe(1);
+    expect(nodes[0].branches?.[1].predicate).toBe('payload.a == 2');
+  });
+
+  it('round-trips deeply nested scopes (choice > try > choice)', () => {
+    const deepest = scope('choice', [
+      { id: 'dw', predicate: 'vars.y', nodes: [leaf('logger', {}, { label: 'deep' })] },
+      { id: 'do', isOtherwise: true, nodes: [] },
+    ], { label: 'Deepest' });
+    const mid = scope('try', [
+      { id: 'm', nodes: [deepest] },
+      { id: 'h', isErrorHandler: true, nodes: [leaf('logger', {}, { label: 'err' })] },
+    ], { label: 'Try' });
+    const top = scope('choice', [
+      { id: 'tw', predicate: 'payload.x', nodes: [mid] },
+      { id: 'to', isOtherwise: true, nodes: [] },
+    ], { label: 'Top' });
+    const { nodes } = roundtrip([top]);
+    const tryNode = nodes[0].branches?.[0].nodes[0];
+    expect(tryNode?.type).toBe('try');
+    const deepChoice = tryNode?.branches?.find((b) => !b.isErrorHandler)?.nodes[0];
+    expect(deepChoice?.type).toBe('choice');
+  });
+
+  it('for-each round-trips its collection and counter name', () => {
+    const node = scope('for-each', [{ id: 'b', nodes: [leaf('logger', {}, { label: 'L' })] }], {
+      config: { forEachCollection: 'payload.items', forEachCounter: 'idx' },
+    });
+    const { nodes } = roundtrip([node]);
+    expect(nodes[0].config.forEachCollection).toBe('payload.items');
+    expect(nodes[0].config.forEachCounter).toBe('idx');
+  });
+
+  it('flow-ref with no explicit name falls back to the label', () => {
+    const xml = exportFlowToMuleXml('F', [leaf('flow-ref', {}, { label: 'do-the-thing' })]);
+    expect(xml).toContain('name="do-the-thing"');
+    const r = importMuleXml(xml);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.nodes[0].config.flowRefName).toBe('do-the-thing');
+  });
+
+  it('exportFlowsToMuleXml of an empty list yields a flow-less doc that fails import cleanly', () => {
+    const xml = exportFlowsToMuleXml([]);
+    expect(xml).toContain('<mule');
+    expect(xml).toContain('</mule>');
+    expect(importMuleXml(xml).ok).toBe(false);
+  });
+
+  it('survives a disabled scope that itself contains a disabled child (nested STUDIO comments)', () => {
+    const innerDisabled = leaf('logger', { payload: '#[payload]' }, { disabled: true, label: 'inner off' });
+    const outer = scope('choice', [
+      { id: 'w', predicate: 'payload.x', nodes: [innerDisabled, leaf('logger', {}, { label: 'on' })] },
+      { id: 'o', isOtherwise: true, nodes: [] },
+    ], { label: 'Outer off', disabled: true });
+    const xml = exportFlowToMuleXml('F', [outer]);
+    // No raw "--" may leak into the emitted XML comment (would be invalid).
+    expect(importMuleXml(xml).ok).toBe(true);
+    const r = importMuleXml(xml);
+    if (r.ok) {
+      expect(r.nodes.length).toBe(1);
+      expect(r.nodes[0].disabled).toBe(true);
+      expect(r.nodes[0].type).toBe('choice');
+    }
+  });
+
+  it('round-trips a mock response containing comment-breaking chars (-- / ]]> / -->)', () => {
+    const mock = '{ "note": "a -- b", "raw": "x]]> y -->" }';
+    const { nodes } = roundtrip([leaf('salesforce', { operation: 'query', request: 'SELECT Id FROM A', mockResponse: mock })]);
+    expect(nodes[0].config.mockResponse).toBe(mock);
+  });
+});
+
 describe('muleXmlIO — connectors & transform round-trips', () => {
   it('http-request preserves method/url + headers/body via studio meta', () => {
     const node = leaf('http-request', {

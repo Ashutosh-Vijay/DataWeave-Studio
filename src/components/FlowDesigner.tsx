@@ -1002,6 +1002,10 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           // actually run it — otherwise fall back to a mock / pass-through.
           if (refNodes && !runningFlows.has(refName)) {
             runningFlows.add(refName);
+            // Treat the referenced flow as ONE step in step-through mode — its
+            // nodes aren't shown on the active canvas, so don't pause on them.
+            const prevSkip = skipUntilNodeRef.current;
+            skipUntilNodeRef.current = `flow-ref:${refName}`;
             try {
               if (target) {
                 // Result → target var; the caller's payload is preserved.
@@ -1022,6 +1026,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                 markNode(node.id, { status: 'success', output: `(ran flow-ref → ${refName})`, executionTimeMs: 0 });
               }
             } finally {
+              skipUntilNodeRef.current = prevSkip;
               runningFlows.delete(refName);
             }
             return true;
