@@ -7,7 +7,7 @@ if (typeof globalThis.DOMParser === 'undefined') {
   globalThis.DOMParser = window.DOMParser;
 }
 
-import { exportFlowToMuleXml, importMuleXml } from '../muleXmlIO';
+import { exportFlowToMuleXml, exportFlowsToMuleXml, importMuleXml } from '../muleXmlIO';
 import type { FlowNode } from '../components/FlowDesigner';
 
 describe('muleXmlIO', () => {
@@ -418,6 +418,22 @@ describe('muleXmlIO — namespace auto-repair & multi-flow', () => {
       expect(r.flowName).toBe('main');
       expect(r.nodes).toBe(r.allFlows[0].nodes);
     }
+  });
+
+  it('round-trips a multi-flow document via exportFlowsToMuleXml, preserving flow/sub-flow kinds', () => {
+    const xml = `<mule xmlns="http://www.mulesoft.org/schema/mule/core">
+      <flow name="main"><logger doc:name="A"/></flow>
+      <sub-flow name="sub1"><logger doc:name="B"/></sub-flow>
+      <flow name="other"><logger doc:name="C"/></flow></mule>`;
+    const r1 = importMuleXml(xml);
+    expect(r1.ok).toBe(true);
+    if (!r1.ok) return;
+    const r2 = importMuleXml(exportFlowsToMuleXml(r1.allFlows));
+    expect(r2.ok).toBe(true);
+    if (!r2.ok) return;
+    expect(r2.allFlows.map((f) => f.name)).toEqual(['main', 'sub1', 'other']);
+    expect(r2.allFlows.map((f) => f.isSubFlow)).toEqual([false, true, false]);
+    expect(r2.allFlows.every((f) => f.nodes.length === 1 && f.nodes[0].type === 'logger')).toBe(true);
   });
 
   it('errors on empty input and on XML with no flow', () => {

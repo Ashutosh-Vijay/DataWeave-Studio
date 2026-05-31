@@ -383,21 +383,28 @@ function nodeToXml(node: FlowNode): string {
   return leafToXml(node);
 }
 
-/** Top-level: produce a complete Mule XML document for the given flow. */
+/** Sanitize a flow name — Mule requires identifier-like names. */
+function sanitizeFlowName(name: string): string {
+  return (name || 'studioFlow').replace(/[^A-Za-z0-9_-]/g, '_').replace(/^[^A-Za-z_]/, 'f_$&');
+}
+
+/** Emit one `<flow>` / `<sub-flow>` block, indented to sit under <mule>. */
+function flowBlock(name: string, nodes: FlowNode[], isSubFlow: boolean): string {
+  const tag = isSubFlow ? 'sub-flow' : 'flow';
+  return `    <${tag} name="${escXml(sanitizeFlowName(name))}">\n${indent(branchNodesToXml(nodes), 2)}\n    </${tag}>`;
+}
+
+/** Produce a complete Mule XML document for a single flow. */
 export function exportFlowToMuleXml(flowName: string, nodes: FlowNode[]): string {
-  const body = branchNodesToXml(nodes);
-  // Sanitize the flow name — Mule requires identifier-like names.
-  const safeName = (flowName || 'studioFlow')
-    .replace(/[^A-Za-z0-9_-]/g, '_')
-    .replace(/^[^A-Za-z_]/, 'f_$&');
-  return `${ROOT_HEADER}
+  return `${ROOT_HEADER}\n\n${flowBlock(flowName, nodes, false)}\n\n</mule>\n`;
+}
 
-    <flow name="${escXml(safeName)}">
-${indent(body, 2)}
-    </flow>
-
-</mule>
-`;
+/** Produce a complete Mule XML document for several flows / sub-flows, so a
+ *  multi-flow document imported with importMuleXml can be edited and exported
+ *  back whole (instead of dropping every flow but the active one). */
+export function exportFlowsToMuleXml(flows: { name: string; nodes: FlowNode[]; isSubFlow?: boolean }[]): string {
+  const blocks = flows.map((f) => flowBlock(f.name, f.nodes, f.isSubFlow ?? false)).join('\n\n');
+  return `${ROOT_HEADER}\n\n${blocks}\n\n</mule>\n`;
 }
 
 // ---------------------------------------------------------------------------
@@ -867,7 +874,7 @@ function extractAttributeSkeleton(xml: string): FlowAttributes | null {
   return found ? result : null;
 }
 
-export interface ImportedFlow { name: string; nodes: FlowNode[]; }
+export interface ImportedFlow { name: string; nodes: FlowNode[]; isSubFlow: boolean; }
 
 export interface ImportResult {
   ok: true;
@@ -911,7 +918,7 @@ export function importMuleXml(xml: string): ImportResult | ImportError {
     const name = el.getAttribute('name') || (i === 0 ? 'imported-flow' : `flow-${i + 1}`);
     const nodes = elementsToNodes(childElements(el), el);
     walkForWarnings(nodes);
-    return { name, nodes };
+    return { name, nodes, isSubFlow: localName(el) === 'sub-flow' };
   });
   return {
     ok: true,

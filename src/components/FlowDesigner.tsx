@@ -6,7 +6,7 @@ import { WindowControls } from './WindowControls';
 import { MIME_OPTIONS } from '../types';
 import { toast } from './Toast';
 import { open as tauriOpen, save as tauriSave } from '@tauri-apps/plugin-dialog';
-import { exportFlowToMuleXml, importMuleXml } from '../muleXmlIO';
+import { exportFlowToMuleXml, exportFlowsToMuleXml, importMuleXml } from '../muleXmlIO';
 import { parseMaybe, forceJsonOutput, displayVal } from '../flowRunHelpers';
 const openFile = tauriOpen;
 
@@ -239,7 +239,7 @@ function rowsToJson(r: AttrRows): string {
 /** In-session cache so the Flow Designer survives unmount (switching tools and
  *  coming back). Module-level → persists for the app's lifetime, cleared only on
  *  a full reload. */
-let flowStateCache: { nodes: FlowNode[]; flowName: string; flowCurrentFile: string | null; flowInput: FlowInput; flows: { name: string; nodes: FlowNode[] }[]; activeFlowIdx: number } | null = null;
+let flowStateCache: { nodes: FlowNode[]; flowName: string; flowCurrentFile: string | null; flowInput: FlowInput; flows: { name: string; nodes: FlowNode[]; isSubFlow?: boolean }[]; activeFlowIdx: number } | null = null;
 
 const NODE_W = 220;
 const PORT_R = 6;
@@ -358,7 +358,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   const [nodes, setNodes] = useState<FlowNode[]>(() => flowStateCache?.nodes ?? []);
   // Every imported <flow>/<sub-flow> (for the switcher + flow-ref execution).
   // The active flow's live nodes are in `nodes`; flows[activeFlowIdx] is its snapshot.
-  const [flows, setFlows] = useState<{ name: string; nodes: FlowNode[] }[]>(() => flowStateCache?.flows ?? []);
+  const [flows, setFlows] = useState<{ name: string; nodes: FlowNode[]; isSubFlow?: boolean }[]>(() => flowStateCache?.flows ?? []);
   const [activeFlowIdx, setActiveFlowIdx] = useState(() => flowStateCache?.activeFlowIdx ?? 0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragState, setDragState] = useState<{ nodeId: string; offsetX: number; offsetY: number } | null>(null);
@@ -1638,12 +1638,19 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       return;
     }
     try {
-      const xml = exportFlowToMuleXml(flowName, nodes);
+      let xml: string;
+      if (flows.length > 1) {
+        // Multi-flow document: export every flow/sub-flow, using the live nodes
+        // for the one currently being edited.
+        xml = exportFlowsToMuleXml(flows.map((f, i) => (i === activeFlowIdx ? { ...f, nodes } : f)));
+      } else {
+        xml = exportFlowToMuleXml(flowName, nodes);
+      }
       setMuleXmlExport(xml);
     } catch (e) {
       toast(`Failed to export: ${(e as Error).message}`, 'error');
     }
-  }, [flowName, nodes]);
+  }, [flowName, nodes, flows, activeFlowIdx]);
 
   const handleImportMuleXml = useCallback(() => {
     setMuleXmlImportText('');
@@ -2199,7 +2206,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           onClick={handleExportMuleXml}
           disabled={nodes.length === 0}
           className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          title="Export this flow as a deployable Mule 4 XML file"
+          title={flows.length > 1 ? `Export all ${flows.length} flows / sub-flows as one Mule 4 XML file` : 'Export this flow as a deployable Mule 4 XML file'}
         >
           <span className="font-mono">&lt;/&gt;</span> Export XML
         </button>
