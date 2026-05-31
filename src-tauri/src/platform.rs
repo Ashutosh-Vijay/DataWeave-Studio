@@ -24,3 +24,24 @@ pub fn strip_unc_prefix(path: std::path::PathBuf) -> std::path::PathBuf {
 pub fn strip_unc_prefix(path: std::path::PathBuf) -> std::path::PathBuf {
     path
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_strip_unc_prefix() {
+        let unc_path = PathBuf::from("\\\\?\\C:\\some\\path");
+        let stripped = strip_unc_prefix(unc_path.clone());
+        // Under windows, the prefix is stripped. Under non-windows, both functions exist and we can test it directly
+        #[cfg(target_os = "windows")]
+        assert_eq!(stripped, PathBuf::from("C:\\some\\path"));
+        #[cfg(not(target_os = "windows"))]
+        assert_eq!(stripped, unc_path);
+
+        let normal_path = PathBuf::from("C:\\some\\path");
+        let unstripped = strip_unc_prefix(normal_path.clone());
+        assert_eq!(unstripped, normal_path);
+    }
+}

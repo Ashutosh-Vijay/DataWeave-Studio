@@ -7,6 +7,7 @@ import { MIME_OPTIONS } from '../types';
 import { toast } from './Toast';
 import { open as tauriOpen, save as tauriSave } from '@tauri-apps/plugin-dialog';
 import { exportFlowToMuleXml, importMuleXml } from '../muleXmlIO';
+import { parseMaybe, forceJsonOutput, displayVal } from '../flowRunHelpers';
 const openFile = tauriOpen;
 
 export interface MultipartPart {
@@ -220,22 +221,6 @@ const DEFAULT_FLOW_INPUT: FlowInput = {
   mime: 'application/json',
   attributesJson: '{\n  "uriParams": {},\n  "queryParams": {},\n  "headers": {},\n  "method": "GET"\n}',
 };
-
-/** Best-effort parse of a DataWeave engine result into a structured value, so
- *  variables hold objects/arrays/numbers (not JSON text) and downstream scripts
- *  can do `vars.x.field`. Falls back to the raw string when it isn't JSON. */
-function parseMaybe(s: string): unknown {
-  try { return JSON.parse(s); } catch { return s; }
-}
-/** A value bound to a variable must come back as structured JSON, so coerce an
- *  `output application/java` directive to `application/json` before running. */
-function forceJsonOutput(script: string): string {
-  return script.replace(/output(\s+)application\/java\b/g, 'output$1application/json');
-}
-/** Render a variable value for inline status display. */
-function displayVal(v: unknown): string {
-  return typeof v === 'string' ? v : JSON.stringify(v);
-}
 
 /** Editable key/value rows for the flow Input editor (nicer than raw JSON). */
 type AttrRows = { uriParams: [string, string][]; queryParams: [string, string][]; headers: [string, string][]; method: string };

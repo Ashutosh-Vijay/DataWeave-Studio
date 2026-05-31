@@ -9,6 +9,7 @@ import { ScriptEditor, ScriptEditorHandle } from './components/ScriptEditor';
 import { WindowControls } from './components/WindowControls';
 import { WorkspaceMenu } from './components/WorkspaceMenu';
 import { ToastHost, toast } from './components/Toast';
+import { buildAttributesJson, buildVarsJson } from './runInput';
 // Lazy-loaded — pulls in dataweaveDocs (371KB) plus its own 60KB UI.
 const FunctionBrowser = lazy(() =>
   import('./components/FunctionBrowser').then((m) => ({ default: m.FunctionBrowser }))
@@ -56,7 +57,7 @@ import { useWorkspace } from './hooks/useWorkspace';
 import { useDWRunner } from './hooks/useDWRunner';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { useTheme } from './ThemeContext';
-import { KeyValuePair, VarEntry, METHOD_COLORS, NODE_LABEL_COLORS, NODE_LABELS } from './types';
+import { KeyValuePair, METHOD_COLORS, NODE_LABEL_COLORS, NODE_LABELS } from './types';
 import { Icons } from './components/Icons';
 import yaml from 'js-yaml';
 import { CurlImportResult } from './components/CurlImporter';
@@ -136,65 +137,7 @@ function contextCount(pairs: KeyValuePair[]): number {
   return pairs.filter((p) => p.enabled !== false && p.key && p.value !== '').length;
 }
 
-function buildAttributesJson(
-  method: string,
-  queryParams: KeyValuePair[],
-  headers: KeyValuePair[],
-  uriParams: KeyValuePair[] = []
-): string {
-  const attrs: Record<string, unknown> = { method };
-
-  if (uriParams.length > 0) {
-    const up: Record<string, string> = {};
-    uriParams.forEach((p) => {
-      if (p.enabled === false) return;
-      if (p.key && p.value !== '') up[p.key] = p.value;
-    });
-    if (Object.keys(up).length > 0) attrs.uriParams = up;
-  }
-
-  if (queryParams.length > 0) {
-    const qp: Record<string, string> = {};
-    queryParams.forEach((p) => {
-      // Skip disabled or empty rows (absent param ≠ empty-string param in DW)
-      if (p.enabled === false) return;
-      if (p.key && p.value !== '') qp[p.key] = p.value;
-    });
-    if (Object.keys(qp).length > 0) attrs.queryParams = qp;
-  }
-
-  if (headers.length > 0) {
-    const h: Record<string, string> = {};
-    headers.forEach((p) => {
-      if (p.enabled === false) return;
-      if (p.key && p.value !== '') h[p.key] = p.value;
-    });
-    if (Object.keys(h).length > 0) attrs.headers = h;
-  }
-
-  return JSON.stringify(attrs);
-}
-
-function buildVarsJson(vars: VarEntry[]): string {
-  const obj: Record<string, unknown> = {};
-  vars.forEach((v) => {
-    if (!v.key) return;
-    if (v.enabled === false) return;
-    if (v.value.trim() === '') {
-      // Empty value → DataWeave null (avoids "cannot operate on empty string" errors)
-      obj[v.key] = null;
-    } else if (v.valueType === 'json') {
-      try {
-        obj[v.key] = JSON.parse(v.value);
-      } catch {
-        obj[v.key] = v.value;
-      }
-    } else {
-      obj[v.key] = v.value;
-    }
-  });
-  return JSON.stringify(obj);
-}
+// buildAttributesJson + buildVarsJson live in ./runInput.ts (unit-tested there).
 
 /**
  * Flatten a nested YAML object into dot-notation keys.

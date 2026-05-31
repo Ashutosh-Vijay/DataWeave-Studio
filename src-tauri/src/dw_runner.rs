@@ -721,3 +721,89 @@ pub async fn warm_dataweave_script(
     .await;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_error_location() {
+        let stderr = "Exception in thread \"main\" java.lang.RuntimeException: Error at line 5, column 12: something went wrong";
+        assert_eq!(parse_error_location(stderr), (Some(5), Some(12)));
+
+        let stderr_colon = "Exception in thread \"main\" java.lang.RuntimeException: Error at line: 10, column: 25: something went wrong";
+        assert_eq!(parse_error_location(stderr_colon), (Some(10), Some(25)));
+
+        let stderr_none = "Exception in thread \"main\" java.lang.RuntimeException: Error: something went wrong";
+        assert_eq!(parse_error_location(stderr_none), (None, None));
+    }
+
+    #[test]
+    fn test_shift_stderr_lines() {
+        // Shift structured line prefix
+        let stderr = "Error at line 5, column 12\n  line 7, column 3";
+        let shifted = shift_stderr_lines(stderr, 2);
+        assert!(shifted.contains("line 3"));
+        assert!(shifted.contains("line 5"));
+
+        // Shift gutter-based line prefix
+        let stderr_gutter = "  5| payload.foo\n  6| payload.bar";
+        let shifted_gutter = shift_stderr_lines(stderr_gutter, 2);
+        assert!(shifted_gutter.contains("  3| payload.foo"));
+        assert!(shifted_gutter.contains("  4| payload.bar"));
+    }
+
+    #[test]
+    fn test_build_full_script() {
+        // Scenario 1: Entirely empty script, should auto-insert DW header & JSON output
+        let script = "";
+        let full = build_full_script(script, "application/json", false, false, &[]);
+        assert!(full.contains("%dw 2.0"));
+        assert!(full.contains("input payload application/json"));
+        assert!(full.contains("output application/json"));
+        assert!(full.contains("---"));
+
+        // Scenario 2: Already contains headers, should not duplicate
+        let script_full = "%dw 2.0\ninput payload application/json\noutput application/json\n---\npayload.foo";
+        let full = build_full_script(script_full, "application/json", false, false, &[]);
+        assert_eq!(full, script_full);
+
+        // Scenario 3: Has a %dw 2.0 but missing output/separator
+        let script_dw = "%dw 2.0\ninput payload application/json";
+        let full = build_full_script(script_dw, "application/json", false, false, &[]);
+        assert!(full.contains("output application/json"));
+        assert!(full.contains("---"));
+
+        // Scenario 4: Multiple named inputs
+        let named_inputs = vec![
+            NamedInput {
+                name: "headers".to_string(),
+                content: "{}".to_string(),
+                mime_type: "application/json".to_string(),
+                file_path: None,
+            }
+        ];
+        let full_named = build_full_script("", "application/json", false, false, &named_inputs);
+        assert!(full_named.contains("input headers application/json"));
+    }
+
+    #[test]
+    fn test_build_multipart_body() {
+        let parts = vec![
+            MultipartPartData {
+                name: "field1".to_string(),
+                value: "hello".to_string(),
+                content_type: "text/plain".to_string(),
+                is_file: false,
+                file_path: None,
+                filename: None,
+            }
+        ];
+        let (body, boundary) = build_multipart_body(&parts);
+        let body_str = String::from_utf8_lossy(&body);
+        assert!(body_str.contains(&boundary));
+        assert!(body_str.contains("Content-Disposition: form-data; name=\"field1\""));
+        assert!(body_str.contains("Content-Type: text/plain"));
+        assert!(body_str.contains("hello"));
+    }
+}

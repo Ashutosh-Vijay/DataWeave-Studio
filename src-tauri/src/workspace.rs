@@ -467,3 +467,111 @@ pub fn delete_workspace(app: AppHandle, filename: String) -> Result<(), String> 
     fs::remove_file(&file_path)
         .map_err(|e| format!("Failed to delete workspace '{}': {}", filename, e))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_filename() {
+        assert!(validate_filename("my-project.dwstudio").is_ok());
+        assert!(validate_filename("").is_err());
+        assert!(validate_filename("test/file.dwstudio").is_err());
+        assert!(validate_filename("test\\file.dwstudio").is_err());
+        assert!(validate_filename("../escape.dwstudio").is_err());
+        assert!(validate_filename("no-ext").is_err());
+        assert!(validate_filename("wrong-ext.txt").is_err());
+    }
+
+    #[test]
+    fn test_uuid_like_id() {
+        let id1 = uuid_like_id();
+        let id2 = uuid_like_id();
+        assert!(!id1.is_empty());
+        assert_ne!(id1, id2);
+        // Should be alphanumeric/hex
+        assert!(id1.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn test_parse_workspace_v2() {
+        let v2_json = r#"{
+            "version": "2.0",
+            "projectName": "Test Project",
+            "createdAt": "2026-05-31T00:00:00Z",
+            "updatedAt": "2026-05-31T00:00:00Z",
+            "requests": [
+                {
+                    "id": "req-123",
+                    "name": "My Request",
+                    "script": "payload",
+                    "payload": "{}",
+                    "payloadMimeType": "application/json",
+                    "nodeLabel": "Transform",
+                    "namedInputs": [],
+                    "queryTemplate": "",
+                    "classpath": [],
+                    "multipartParts": [],
+                    "context": {
+                        "method": "POST",
+                        "queryParams": [],
+                        "headers": [],
+                        "vars": [],
+                        "configYaml": "",
+                        "secureConfigYaml": ""
+                    },
+                    "tests": []
+                }
+            ],
+            "activeRequestId": "req-123"
+        }"#;
+
+        let parsed = parse_workspace(v2_json);
+        assert!(parsed.is_ok());
+        let ws = parsed.unwrap();
+        assert_eq!(ws.project_name, "Test Project");
+        assert_eq!(ws.requests.len(), 1);
+        assert_eq!(ws.requests[0].id, "req-123");
+        assert_eq!(ws.requests[0].context.method, "POST");
+    }
+
+    #[test]
+    fn test_parse_workspace_v1_migration() {
+        let v1_json = r#"{
+            "version": "1.0",
+            "projectName": "Legacy Project",
+            "createdAt": "2026-05-31T00:00:00Z",
+            "updatedAt": "2026-05-31T00:00:00Z",
+            "mode": "single",
+            "singleTransform": {
+                "script": "payload",
+                "payload": "{}",
+                "payloadMimeType": "application/json",
+                "nodeLabel": "Transform",
+                "namedInputs": [],
+                "queryTemplate": "",
+                "classpath": [],
+                "multipartParts": []
+            },
+            "context": {
+                "method": "GET",
+                "queryParams": [],
+                "headers": [],
+                "vars": [],
+                "configYaml": "",
+                "secureConfigYaml": ""
+            }
+        }"#;
+
+        let parsed = parse_workspace(v1_json);
+        assert!(parsed.is_ok());
+        let ws = parsed.unwrap();
+        assert_eq!(ws.project_name, "Legacy Project");
+        assert_eq!(ws.version, "2.0"); // auto-migrated version
+        assert_eq!(ws.requests.len(), 1);
+        assert_eq!(ws.requests[0].name, "Legacy Project"); // migrated request name
+        assert_eq!(ws.requests[0].script, "payload");
+        assert_eq!(ws.requests[0].context.method, "GET");
+        assert!(ws.active_request_id.is_some());
+    }
+}
