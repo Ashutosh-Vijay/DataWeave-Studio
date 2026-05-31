@@ -23,6 +23,7 @@ export interface EncryptionSettings {
 
 export interface ContextState {
   method: string;
+  uriParams?: KeyValuePair[];
   queryParams: KeyValuePair[];
   headers: KeyValuePair[];
   vars: VarEntry[];

@@ -139,9 +139,19 @@ function contextCount(pairs: KeyValuePair[]): number {
 function buildAttributesJson(
   method: string,
   queryParams: KeyValuePair[],
-  headers: KeyValuePair[]
+  headers: KeyValuePair[],
+  uriParams: KeyValuePair[] = []
 ): string {
   const attrs: Record<string, unknown> = { method };
+
+  if (uriParams.length > 0) {
+    const up: Record<string, string> = {};
+    uriParams.forEach((p) => {
+      if (p.enabled === false) return;
+      if (p.key && p.value !== '') up[p.key] = p.value;
+    });
+    if (Object.keys(up).length > 0) attrs.uriParams = up;
+  }
 
   if (queryParams.length > 0) {
     const qp: Record<string, string> = {};
@@ -809,7 +819,8 @@ function App() {
     const attributesJson = buildAttributesJson(
       workspace.context.method,
       workspace.context.queryParams,
-      workspace.context.headers
+      workspace.context.headers,
+      workspace.context.uriParams ?? []
     );
     const varsJson = buildVarsJson(workspace.context.vars);
 

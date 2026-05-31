@@ -57,11 +57,12 @@ export const ContextPanel = memo(function ContextPanel({ context, onChange, encr
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;
 
   const updateMethod = (method: string) => onChange({ ...context, method });
+  const updateUriParams = (uriParams: KeyValuePair[]) => onChange({ ...context, uriParams });
   const updateQueryParams = (queryParams: KeyValuePair[]) => onChange({ ...context, queryParams });
   const updateHeaders = (headers: KeyValuePair[]) => onChange({ ...context, headers });
   const updateVars = (vars: VarEntry[]) => onChange({ ...context, vars });
 
-  const reqCount = activeCount(context.queryParams) + activeCount(context.headers);
+  const reqCount = activeCount(context.uriParams ?? []) + activeCount(context.queryParams) + activeCount(context.headers);
   const varsCount = context.vars.filter((v) => v.key).length;
   const configCount =
     (context.configYaml && context.configYaml.trim() ? 1 : 0) +
@@ -132,6 +133,14 @@ export const ContextPanel = memo(function ContextPanel({ context, onChange, encr
                 })}
               </div>
             </div>
+
+            <KeyValueRows
+              label="URI Params"
+              pairs={context.uriParams ?? []}
+              onChange={updateUriParams}
+              keyPlaceholder="param"
+              valuePlaceholder="value"
+            />
 
             <KeyValueRows
               label="Query Params"
