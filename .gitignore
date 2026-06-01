@@ -62,6 +62,9 @@ AGENTS.md
 # Playwright MCP artifacts (screenshots / console logs from live-app inspection)
 .playwright-mcp/
 
+# Graphify knowledge-graph output (generated)
+graphify-out/
+
 # Local sample data and AI-generated notes
 example/
 project_summary.md

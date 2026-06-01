@@ -1,0 +1,29 @@
+# Keep the knowledge graph to actual source — exclude deps & build artifacts.
+# (.gitignore syntax)
+node_modules/
+dist/
+dist-ssr/
+src-tauri/target/
+dw-server/target/
+src-tauri/resources/jre/
+src-tauri/resources/dw-server/*.jar
+.git/
+.playwright-mcp/
+.claude/
+example/
+logs/
+*.log
+*.pdb
+*.min.js
+package-lock.json
+
+# Images — useless for a code graph, and they'd burn Gemini vision calls / rate limits
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.icns
+*.webp
+*.bmp
+src-tauri/icons/
