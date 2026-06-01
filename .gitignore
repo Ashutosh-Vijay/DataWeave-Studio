@@ -59,6 +59,10 @@ AGENTS.md
 # Claude Code agent state (worktrees, session metadata)
 .claude/
 
+# Playwright MCP artifacts (screenshots / console logs from live-app inspection)
+.playwright-mcp/
+
 # Local sample data and AI-generated notes
 example/
 project_summary.md
+FLOW_OVERHAUL_PLAN.md

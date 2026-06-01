@@ -11,6 +11,15 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Dev-only: expose the WebView2 (Edge/Chromium) Chrome DevTools Protocol on
+    // port 9222 so external tooling — e.g. a Playwright MCP server — can attach
+    // to the *running* app and screenshot / inspect / drive the real UI,
+    // backend `invoke` round-trips included. Must be set before the webview is
+    // created, hence the top of `run()`. Windows/WebView2-only (a harmless
+    // no-op on macOS/Linux); never compiled into release builds.
+    #[cfg(debug_assertions)]
+    std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--remote-debugging-port=9222");
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
