@@ -97,6 +97,11 @@ jobs:
 
             Fully self-contained — bundles the DataWeave 2.11 runtime and a
             minimal JRE 17. No system Java required.
+
+            ### Opening an unsigned build
+            The app isn't code-signed yet, so your OS warns on first launch — it's safe.
+            - **Windows**: SmartScreen → **More info → Run anyway** (use the `.zip` if a proxy blocks the `.exe`).
+            - **macOS**: a *"damaged"* warning is just Gatekeeper. Move the app to Applications, then **System Settings → Privacy & Security → Open Anyway** — or run `xattr -cr "/Applications/DataWeave Studio.app"` and launch it.
           releaseDraft: true
           prerelease: false
           updaterJsonPreferNsis: true

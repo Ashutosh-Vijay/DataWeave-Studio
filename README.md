@@ -274,7 +274,19 @@ Download the latest installer from the **[landing page](https://ashutosh-vijay.d
 - **macOS** — `.dmg` for Apple Silicon (93 MB) and Intel (94 MB)
 - **Linux** — `.AppImage`, `.deb`, or `.rpm`
 
-> **Note:** The app is not code-signed. On Windows, click "More info → Run anyway". On macOS, right-click → Open.
+> **Note: the app isn't code-signed yet** (it's a free side-project — Apple notarization runs $99/yr). Your OS will warn you on first launch. It's safe — here's how to open it:
+>
+> **Windows** — SmartScreen may say *"Windows protected your PC."* Click **More info → Run anyway**. If a corporate proxy blocks the `.exe` outright, grab the `.zip` build instead.
+>
+> **macOS** — Gatekeeper may say the app *"is damaged and can't be opened"* — it isn't. That's just the unsigned-app + quarantine warning. To open it:
+> 1. Drag **DataWeave Studio** into your **Applications** folder.
+> 2. Open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**, then confirm on the next launch.
+> 3. If it still won't open (or shows *"damaged"*), clear the quarantine flag in Terminal and launch it:
+>    ```bash
+>    xattr -cr "/Applications/DataWeave Studio.app"
+>    ```
+>
+> *(On macOS Sequoia and later, the old right-click → Open shortcut no longer bypasses Gatekeeper for unsigned apps — use the steps above.)*
 
 JRE 17 and the DataWeave runtime are bundled — no separate Java installation needed.
 
