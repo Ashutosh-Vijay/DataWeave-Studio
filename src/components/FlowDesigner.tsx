@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect, useMemo, Fragment } fr
 import { invoke } from '@tauri-apps/api/core';
 import { Icons } from './Icons';
 import { MiniEditor } from './MiniEditor';
+import { QueryEditor } from './QueryEditor';
 import { WindowControls } from './WindowControls';
 import { ConfirmDialog } from './ConfirmDialog';
 import { MIME_OPTIONS } from '../types';
@@ -9,6 +10,7 @@ import { toast } from './Toast';
 import { open as tauriOpen, save as tauriSave } from '@tauri-apps/plugin-dialog';
 import { exportFlowToMuleXml, exportFlowsToMuleXml, importMuleXml } from '../muleXmlIO';
 import { parseMaybe, forceJsonOutput, displayVal } from '../flowRunHelpers';
+import { substituteQueryParams } from '../queryRender';
 const openFile = tauriOpen;
 
 export interface MultipartPart {
@@ -97,6 +99,7 @@ export interface FlowNode {
     // connectors: shared
     operation?: ConnectorOp;
     request?: string;       // the query / script / body being "sent"
+    bindParams?: string;    // DataWeave expr producing :param values (SF/DB query former)
     mockResponse?: string;
     mockMime?: string;
     saveToVariable?: string; // if set, store output in vars instead of replacing payload
@@ -414,6 +417,77 @@ function JsonKeyValueRows({ value, onChange, keyPlaceholder = 'Key', valuePlaceh
       >
         + Add row
       </button>
+    </div>
+  );
+}
+
+/** Live "query former" for the Salesforce/Database nodes: evaluates the node's
+ *  bind-parameters DataWeave expression against the flow's Input fixture, then
+ *  renders the SOQL/SQL template with the resulting `:param` values — so you can
+ *  see how the query actually forms (same idea as single-script Query mode).
+ *  Debounced; the Input fixture is the sample data source. */
+function FlowQueryPreview({ template, bindParams, isDbMode, flowInput }: {
+  template: string;
+  bindParams: string;
+  isDbMode: boolean;
+  flowInput: FlowInput;
+}) {
+  const [state, setState] = useState<{ query: string; unbound: string[]; unused: string[] } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    if (!template.trim()) { setState(null); setErr(null); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      let paramsJson = '{}';
+      const expr = bindParams.trim();
+      if (expr) {
+        try {
+          let attrs = '{}';
+          try { attrs = JSON.stringify(JSON.parse(flowInput.attributesJson || '{}')); } catch {}
+          const r = await invoke<RunResult>('run_dataweave', {
+            script: `%dw 2.0\noutput application/json\n---\n${expr}`,
+            payload: flowInput.payload,
+            payloadMimeType: flowInput.mime || 'application/json',
+            attributesJson: attrs,
+            varsJson: '{}',
+            namedInputsJson: '[]',
+            payloadFilePath: null,
+            classpath: [],
+            timeoutMs: 0,
+            multipartPartsJson: null,
+          });
+          if (cancelled) return;
+          if (r.error) { setErr(r.error); setState(null); return; }
+          paramsJson = r.output;
+        } catch (e) { if (!cancelled) { setErr(String(e)); setState(null); } return; }
+      }
+      const sub = substituteQueryParams(template, paramsJson, isDbMode);
+      if (cancelled) return;
+      setErr(null);
+      setState(sub
+        ? { query: sub.result, unbound: sub.unbound, unused: sub.unused }
+        : { query: template, unbound: [], unused: [] });
+    }, 350);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [template, bindParams, isDbMode, flowInput.payload, flowInput.mime, flowInput.attributesJson]);
+
+  if (!template.trim()) return null;
+  return (
+    <div className="space-y-1.5">
+      <ConfigLabel label="Rendered query · from Input fixture" />
+      {err ? (
+        <div className="px-2.5 py-2 rounded-md text-[11px] font-mono leading-relaxed" style={{ background: 'color-mix(in oklch, var(--err) 8%, transparent)', color: 'var(--err)' }}>
+          Bind-params error: {err}
+        </div>
+      ) : (
+        <pre className="px-2.5 py-2 rounded-md bg-surface-2 border border-line text-[11px] text-content font-mono whitespace-pre-wrap break-words max-h-40 overflow-auto">{state?.query ?? '…'}</pre>
+      )}
+      {state && (state.unbound.length > 0 || state.unused.length > 0) && (
+        <div className="text-[10px] text-content-ghost leading-relaxed">
+          {state.unbound.length > 0 && <div>Unbound placeholder{state.unbound.length === 1 ? '' : 's'}: <span className="font-mono" style={{ color: 'var(--warn)' }}>:{state.unbound.join(', :')}</span></div>}
+          {state.unused.length > 0 && <div>Unused param{state.unused.length === 1 ? '' : 's'}: <span className="font-mono">{state.unused.join(', ')}</span></div>}
+        </div>
+      )}
     </div>
   );
 }
@@ -3144,15 +3218,29 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                   {configTab === 'request' && (
                     <div className="p-4 space-y-3">
                       <ConfigLabel label={selected.type === 'salesforce' ? 'SOQL / DML Statement' : 'SQL Query / Statement'} />
+                      <div style={{ height: 200 }}>
+                        <QueryEditor
+                          query={selected.config.request || ''}
+                          onChange={(v) => updateConfig(selected.id, { request: v ?? '' })}
+                          language={selected.type === 'salesforce' ? 'SOQL' : 'SQL'}
+                        />
+                      </div>
+                      <ConfigLabel label="Bind parameters (DataWeave)" />
                       <MiniEditor
-                        value={selected.config.request || ''}
-                        onChange={(v) => updateConfig(selected.id, { request: v })}
-                        language="sql"
-                        height={240}
+                        value={selected.config.bindParams || ''}
+                        onChange={(v) => updateConfig(selected.id, { bindParams: v })}
+                        language="dataweave"
+                        height={100}
                       />
                       <div className="text-[10px] text-content-ghost leading-relaxed">
-                        This is the {selected.type === 'salesforce' ? 'SOQL/DML' : 'SQL'} that would be sent in a real Mule app. It's shown for documentation — actual data comes from the Response tab.
+                        A DataWeave expression producing the <code className="text-content-faint">:param</code> values from the message, e.g. <code className="text-content-faint">{'{ id: payload.orderId, status: "OPEN" }'}</code>. Leave empty for a static query.
                       </div>
+                      <FlowQueryPreview
+                        template={selected.config.request || ''}
+                        bindParams={selected.config.bindParams || ''}
+                        isDbMode={selected.type === 'database'}
+                        flowInput={flowInput}
+                      />
                     </div>
                   )}
 

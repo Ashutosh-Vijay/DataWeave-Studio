@@ -11,6 +11,7 @@ import { WorkspaceMenu } from './components/WorkspaceMenu';
 import { ToastHost, toast } from './components/Toast';
 import { buildAttributesJson, buildVarsJson } from './runInput';
 import { resolveVarsJson } from './resolveVars';
+import { substituteQueryParams } from './queryRender';
 // Lazy-loaded — pulls in dataweaveDocs (371KB) plus its own 60KB UI.
 const FunctionBrowser = lazy(() =>
   import('./components/FunctionBrowser').then((m) => ({ default: m.FunctionBrowser }))
@@ -67,72 +68,8 @@ import { decryptFlatMap, hasEncryptedValues, DEFAULT_ENCRYPTION_SETTINGS } from 
 
 // Version is loaded dynamically from tauri.conf.json at runtime
 
-/**
- * Substitute :paramName placeholders with values from a parameter map.
- *
- * Salesforce mode: literal string replace — user controls quoting in the
- * SOQL template (e.g. ':industry' for strings, :fromDate bare for dates).
- *
- * DB mode: simulates JDBC prepared statements — auto-quotes strings,
- * escapes single quotes, bare numbers/booleans, NULL for nulls.
- * User must NEVER add quotes around :param in SQL.
- */
-// Format a single scalar value per the active connector's quoting rules.
-function formatQueryScalar(value: unknown, isDbMode: boolean): string {
-  if (isDbMode) {
-    // DB connector: JDBC-style — driver handles quoting
-    if (value === null || value === undefined) return 'NULL';
-    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-    // String: auto-wrap in quotes, escape internal single quotes
-    return `'${String(value).replace(/'/g, "''")}'`;
-  }
-  // Salesforce connector: literal replace — user controls quoting in template
-  if (value === null || value === undefined) return 'null';
-  return String(value);
-}
-
-// Format a param value, expanding arrays for IN clauses.
-// SOQL: literal join (user controls outer parens). SQL: wraps in (...).
-function formatQueryValue(value: unknown, isDbMode: boolean): string {
-  if (Array.isArray(value)) {
-    const inner = value.map((v) => formatQueryScalar(v, isDbMode)).join(',');
-    return isDbMode ? `(${inner})` : inner;
-  }
-  return formatQueryScalar(value, isDbMode);
-}
-
-function substituteQueryParams(
-  query: string,
-  paramsJson: string,
-  isDbMode: boolean
-): { result: string; params: Record<string, unknown>; unbound: string[]; unused: string[] } | null {
-  try {
-    const params = JSON.parse(paramsJson);
-    if (typeof params !== 'object' || params === null || Array.isArray(params)) return null;
-
-    // Single-pass replacement: scan the original template once. Substituted
-    // text is NOT re-scanned by String.replace, so an earlier param's value
-    // containing ":otherParam" can no longer trigger accidental re-injection.
-    const referenced = new Set<string>();
-    const unbound = new Set<string>();
-
-    const result = query.replace(/:(\w+)\b/g, (match, key) => {
-      if (Object.prototype.hasOwnProperty.call(params, key)) {
-        referenced.add(key);
-        return formatQueryValue(params[key], isDbMode);
-      }
-      // :placeholder with no matching param — leave it verbatim and flag it.
-      unbound.add(key);
-      return match;
-    });
-
-    const unused = Object.keys(params).filter((k) => !referenced.has(k));
-
-    return { result, params, unbound: [...unbound], unused };
-  } catch {
-    return null;
-  }
-}
+// substituteQueryParams + the SOQL/SQL quoting helpers now live in
+// ./queryRender.ts (shared with the Flow Designer's Salesforce/Database nodes).
 
 function contextCount(pairs: KeyValuePair[]): number {
   return pairs.filter((p) => p.enabled !== false && p.key && p.value !== '').length;
