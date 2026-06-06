@@ -54,9 +54,19 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
     onChange(vars.map((v, i) => {
       if (i !== index) return v;
       const newEntry = { ...v, [field]: val };
-      if (field === 'value') newEntry.valueType = detectValueType(val);
+      // Expression mode is explicit (fx toggle) — don't let auto-detect override it.
+      if (field === 'value' && v.valueType !== 'expression') newEntry.valueType = detectValueType(val);
       return newEntry;
     }));
+  };
+
+  // Toggle a row between literal (auto string/json) and fx expression mode.
+  const toggleExpr = (index: number) => {
+    onChange(vars.map((v, i) =>
+      i === index
+        ? { ...v, valueType: v.valueType === 'expression' ? detectValueType(v.value) : 'expression' }
+        : v
+    ));
   };
 
   const enabledCount = vars.filter((v) => v.enabled !== false && v.key).length;
@@ -83,7 +93,7 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
         </button>
       </div>
       <div className="text-[10px] text-content-ghost">
-        Access in script as <code className="text-content-faint">vars.name</code>
+        Access in script as <code className="text-content-faint">vars.name</code>. Use <span className="font-mono italic">fx</span> to set a value from an expression (e.g. <code className="text-content-faint">payload.name</code>).
       </div>
       {vars.length === 0 && <div className="text-xs text-content-ghost italic">No variables set</div>}
       {vars.map((v, i) => {
@@ -138,25 +148,37 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
                       cancelCollapse();
                       setFocusedRow(i);
                     }}
-                    placeholder="Value"
+                    placeholder={v.valueType === 'expression' ? 'payload.name' : 'Value'}
                     rows={1}
                     style={{ resize: 'none', overflow: 'hidden' }}
                     className="flex-1 bg-surface-elevated border border-line rounded px-2 py-1 text-xs text-content placeholder-content-ghost focus:border-accent focus:outline-none"
                   />
-                  <span
-                    className={`text-[10px] px-1 py-0.5 rounded shrink-0 ${
-                      v.valueType === 'json'
-                        ? 'bg-violet-tint text-violet'
-                        : 'bg-line-subtle text-content-faint'
+                  <button
+                    onClick={() => toggleExpr(i)}
+                    onFocus={() => cancelCollapse()}
+                    title={v.valueType === 'expression' ? 'Expression — evaluated against the message. Click for a literal value.' : 'Treat as a DataWeave expression (payload.x, vars.y)'}
+                    className={`text-[10px] font-mono italic px-1 py-0.5 rounded shrink-0 cursor-pointer transition-colors ${
+                      v.valueType === 'expression' ? 'bg-accent-dim text-accent' : 'bg-line-subtle text-content-faint hover:text-content'
                     }`}
-                    title={
-                      v.valueType === 'json'
-                        ? 'Parsed as JSON — supports null, true/false, numbers, objects, arrays'
-                        : 'Passed as plain string'
-                    }
                   >
-                    {v.valueType === 'json' ? 'JSON' : 'STR'}
-                  </span>
+                    fx
+                  </button>
+                  {v.valueType !== 'expression' && (
+                    <span
+                      className={`text-[10px] px-1 py-0.5 rounded shrink-0 ${
+                        v.valueType === 'json'
+                          ? 'bg-violet-tint text-violet'
+                          : 'bg-line-subtle text-content-faint'
+                      }`}
+                      title={
+                        v.valueType === 'json'
+                          ? 'Parsed as JSON — supports null, true/false, numbers, objects, arrays'
+                          : 'Passed as plain string'
+                      }
+                    >
+                      {v.valueType === 'json' ? 'JSON' : 'STR'}
+                    </span>
+                  )}
                 </>
               )}
               <button
@@ -176,21 +198,35 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
                   onFocus={() => cancelCollapse()}
                   value={v.value}
                   onChange={(e) => updateVar(i, 'value', e.target.value)}
-                  placeholder={'e.g.  "hello"  •  42  •  null  •  true  •  {"key": "val"}  •  [1,2,3]'}
+                  placeholder={
+                    v.valueType === 'expression'
+                      ? 'DataWeave expression — e.g.  payload.name  •  payload.items filter ($.active)  •  vars.count + 1'
+                      : 'e.g.  "hello"  •  42  •  null  •  true  •  {"key": "val"}  •  [1,2,3]'
+                  }
                   rows={4}
                   style={{ resize: 'vertical' }}
                   className="w-full bg-surface-input border border-accent-border rounded px-2 py-1.5 text-xs text-content placeholder-content-ghost focus:border-accent focus:outline-none font-mono"
                 />
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded ${
-                      v.valueType === 'json'
-                        ? 'bg-violet-tint text-violet'
-                        : 'bg-line-subtle text-content-faint'
-                    }`}
-                  >
-                    {v.valueType === 'json' ? 'JSON — parsed as DataWeave value' : 'String — passed as-is'}
-                  </span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => toggleExpr(i)}
+                      onFocus={() => cancelCollapse()}
+                      title={v.valueType === 'expression' ? 'Expression mode is on — click for a literal value' : 'Treat as a DataWeave expression'}
+                      className={`text-[10px] font-mono italic px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+                        v.valueType === 'expression' ? 'bg-accent-dim text-accent' : 'bg-line-subtle text-content-faint hover:text-content'
+                      }`}
+                    >
+                      fx
+                    </button>
+                    <span className="text-[10px] text-content-faint">
+                      {v.valueType === 'expression'
+                        ? 'Expression — evaluated against the message'
+                        : v.valueType === 'json'
+                          ? 'JSON — parsed as DataWeave value'
+                          : 'String — passed as-is'}
+                    </span>
+                  </div>
                   <span className="text-[9px] text-content-ghost">Click elsewhere to collapse</span>
                 </div>
               </div>

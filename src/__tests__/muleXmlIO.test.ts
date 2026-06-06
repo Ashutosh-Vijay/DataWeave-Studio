@@ -483,12 +483,26 @@ describe('muleXmlIO — namespace auto-repair & multi-flow', () => {
 });
 
 describe('muleXmlIO — set-variable expression handling', () => {
-  it('keeps the #[...] wrapper so expressions evaluate and round-trip', () => {
+  it('exports #[...] for an expression and re-imports it as a bare fx expression', () => {
     const xml = exportFlowToMuleXml('F', [leaf('set-variable', { variableName: 'loanId', variableValue: '#[attributes.uriParams.id]', variableSource: 'raw' })]);
     expect(xml).toContain('value="#[attributes.uriParams.id]"');
     const r = importMuleXml(xml);
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.nodes[0].config.variableValue).toBe('#[attributes.uriParams.id]');
+    if (r.ok) {
+      expect(r.nodes[0].config.variableSource).toBe('expression');
+      expect(r.nodes[0].config.variableValue).toBe('attributes.uriParams.id');
+    }
+  });
+
+  it('round-trips an fx expression var (bare in app, #[...] in XML)', () => {
+    const xml = exportFlowToMuleXml('F', [leaf('set-variable', { variableName: 'v', variableValue: 'payload.id', variableSource: 'expression' })]);
+    expect(xml).toContain('value="#[payload.id]"');
+    const r = importMuleXml(xml);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.nodes[0].config.variableSource).toBe('expression');
+      expect(r.nodes[0].config.variableValue).toBe('payload.id');
+    }
   });
 
   it('script-sourced set-variable exports as an ee:transform and re-imports', () => {

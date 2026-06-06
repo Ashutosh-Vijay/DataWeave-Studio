@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Icons } from './Icons';
 import { MiniEditor } from './MiniEditor';
 import { WindowControls } from './WindowControls';
+import { ConfirmDialog } from './ConfirmDialog';
 import { MIME_OPTIONS } from '../types';
 import { toast } from './Toast';
 import { open as tauriOpen, save as tauriSave } from '@tauri-apps/plugin-dialog';
@@ -92,7 +93,7 @@ export interface FlowNode {
     // set-variable
     variableName?: string;
     variableValue?: string;
-    variableSource?: 'raw' | 'script'; // raw = paste value, script = DW expression
+    variableSource?: 'raw' | 'expression' | 'script'; // raw = literal value, expression = inline DW expression (fx), script = full %dw script
     // connectors: shared
     operation?: ConnectorOp;
     request?: string;       // the query / script / body being "sent"
@@ -348,6 +349,73 @@ function NodeIcon({ type, size = 14 }: { type: NodeType; size?: number }) {
       // Lightning bolt — fire and forget.
       return <svg {...s} viewBox="0 0 16 16"><path d="M5.52.359A.5.5 0 016 0h4a.5.5 0 01.474.658L8.694 6H12.5a.5.5 0 01.395.807l-7 9a.5.5 0 01-.873-.454L6.823 9.5H3.5a.5.5 0 01-.48-.641l2.5-8.5z"/></svg>;
   }
+}
+
+/** Edit a JSON-object string (e.g. {"a":"b"}) as key/value rows — the picker
+ *  used for HTTP headers / query params so users don't hand-write JSON. Keeps
+ *  local row state (so a key can be typed before its value without the row
+ *  collapsing on serialize) and emits a pretty JSON object of the non-empty
+ *  rows, leaving on-disk storage + the Mule XML round-trip unchanged. Pass a
+ *  `key` tied to the node id so rows re-seed when the selected node changes. */
+function JsonKeyValueRows({ value, onChange, keyPlaceholder = 'Key', valuePlaceholder = 'Value' }: {
+  value: string;
+  onChange: (json: string) => void;
+  keyPlaceholder?: string;
+  valuePlaceholder?: string;
+}) {
+  const [rows, setRows] = useState<[string, string][]>(() => {
+    try {
+      const o = JSON.parse(value || '{}');
+      if (o && typeof o === 'object' && !Array.isArray(o)) {
+        return Object.entries(o).map(([k, v]) => [k, typeof v === 'string' ? v : JSON.stringify(v)] as [string, string]);
+      }
+    } catch {}
+    return [];
+  });
+  const emit = (next: [string, string][]) => {
+    setRows(next);
+    const obj: Record<string, string> = {};
+    for (const [k, v] of next) if (k.trim()) obj[k] = v;
+    onChange(JSON.stringify(obj, null, 2));
+  };
+  const update = (i: number, field: 0 | 1, val: string) =>
+    emit(rows.map((r, j) => (j === i ? (field === 0 ? [val, r[1]] : [r[0], val]) : r)));
+  return (
+    <div className="space-y-1.5">
+      {rows.length === 0 && <div className="text-[11px] text-content-ghost italic">None set</div>}
+      {rows.map((r, i) => (
+        <div key={i} className="flex items-center gap-1.5">
+          <input
+            data-no-drag
+            value={r[0]}
+            onChange={(e) => update(i, 0, e.target.value)}
+            placeholder={keyPlaceholder}
+            className="w-[40%] h-7 px-2 rounded-md bg-surface-2 border border-line text-[11px] text-content font-mono placeholder-content-ghost focus:outline-none focus:border-accent"
+          />
+          <input
+            data-no-drag
+            value={r[1]}
+            onChange={(e) => update(i, 1, e.target.value)}
+            placeholder={valuePlaceholder}
+            className="flex-1 h-7 px-2 rounded-md bg-surface-2 border border-line text-[11px] text-content font-mono placeholder-content-ghost focus:outline-none focus:border-accent"
+          />
+          <button
+            data-no-drag
+            onClick={() => emit(rows.filter((_, j) => j !== i))}
+            className="text-content-faint hover:text-err text-xs px-1 cursor-pointer shrink-0"
+            title="Remove"
+          >✕</button>
+        </div>
+      ))}
+      <button
+        data-no-drag
+        onClick={() => emit([...rows, ['', '']])}
+        className="text-[11px] text-accent hover:opacity-80 cursor-pointer"
+      >
+        + Add row
+      </button>
+    </div>
+  );
 }
 
 // ── Main Component ────────────────────────────────────────────────
@@ -936,6 +1004,10 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           let scriptToRun: string | null = null;
           if (node.config.variableSource === 'script' && node.config.script) {
             scriptToRun = forceJsonOutput(node.config.script);
+          } else if (node.config.variableSource === 'expression' && node.config.variableValue) {
+            // Inline DataWeave expression (fx mode) — tolerate an outer #[…] if pasted.
+            const expr = node.config.variableValue.trim().replace(/^#\[([\s\S]*)\]$/, '$1');
+            scriptToRun = `%dw 2.0\noutput application/json\n---\n${expr}`;
           } else {
             const exprMatch = (node.config.variableValue || '').match(/^#\[([\s\S]*)\]$/);
             if (exprMatch) scriptToRun = `%dw 2.0\noutput application/json\n---\n${exprMatch[1]}`;
@@ -1525,7 +1597,11 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   const [muleXmlImportText, setMuleXmlImportText] = useState('');
   const [muleXmlImportResult, setMuleXmlImportResult] = useState<{ kind: 'error'; msg: string } | { kind: 'preview'; flowName: string; nodeCount: number; warnings: string[] } | null>(null);
   // Sync dialog-open ref for keyboard handler (declared earlier)
-  dialogOpenRef.current = showSaveDialog || showOpenDialog || muleXmlExport !== null || showMuleXmlImport || showInputEditor;
+  // Guard destructive actions (Open another flow / Clear) when there are
+  // unsaved edits — confirm before throwing the work away.
+  const [pendingDiscard, setPendingDiscard] = useState<null | (() => void)>(null);
+  const confirmIfDirty = (run: () => void) => { if (flowDirty) setPendingDiscard(() => run); else run(); };
+  dialogOpenRef.current = showSaveDialog || showOpenDialog || muleXmlExport !== null || showMuleXmlImport || showInputEditor || pendingDiscard !== null;
 
   // Mark dirty on any node change
   useEffect(() => { if (nodes.length > 0) setFlowDirty(true); }, [nodes]);
@@ -1656,6 +1732,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     setFinalRun(null);
     setFlows([]);
     setActiveFlowIdx(0);
+    setFlowDirty(false); // empty canvas = nothing unsaved
   }, []);
 
   // Switch the active flow (multi-flow import). Saves the current flow's live
@@ -2164,7 +2241,8 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   return (
     <div className="fixed inset-0 z-[80] flex flex-col bg-bg">
       {/* ── Header ───────────────────────────────────────────────── */}
-      <header data-tauri-drag-region className="h-11 shrink-0 flex items-center gap-3 pl-4 pr-3 bg-surface border-b border-line whitespace-nowrap overflow-x-auto [&>*]:shrink-0">
+      <header data-tauri-drag-region className="h-11 shrink-0 flex items-center bg-surface border-b border-line">
+        <div className="flex-1 min-w-0 h-full flex items-center gap-3 pl-4 pr-3 whitespace-nowrap overflow-x-auto [&>*]:shrink-0">
         <button
           onClick={onClose}
           className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer transition-colors"
@@ -2322,7 +2400,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           <Icons.Folder size={11} /> Open
         </button>
         <button
-          onClick={clearFlow}
+          onClick={() => confirmIfDirty(clearFlow)}
           disabled={nodes.length === 0}
           className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
@@ -2362,9 +2440,11 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
             title="Zoom in"
           >+</button>
         </div>
-        {/* OS window controls — Flow Designer is fixed-fullscreen so the
-            app's top-bar controls are covered. Without these the user can't
-            minimize / maximize / close while in the flow view. */}
+        </div>
+        {/* OS window controls — Flow Designer is fixed-fullscreen so the app's
+            top-bar controls are covered. Pinned OUTSIDE the scrollable toolbar
+            so a crowded bar (e.g. after a multi-flow import) can't push the
+            minimize / maximize / close buttons off-screen. */}
         <WindowControls />
       </header>
 
@@ -2600,7 +2680,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                       {node.type === 'set-variable' && (
                         <div className="text-[10px] text-content-muted font-mono truncate">
                           <span style={{ color: '#10b981' }}>vars.</span>{node.config.variableName || 'myVar'}
-                          {node.config.variableSource === 'script' ? ' ← DW script' : ' ← raw value'}
+                          {node.config.variableSource === 'script' ? ' ← script' : node.config.variableSource === 'expression' ? ' ← fx' : ' ← value'}
                         </div>
                       )}
                       {(node.type === 'salesforce' || node.type === 'database') && (
@@ -2917,51 +2997,64 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                     placeholder="myVar"
                     className="w-full h-8 px-2.5 rounded-md bg-surface-2 border border-line text-[12px] text-content font-mono focus:outline-none focus:border-accent"
                   />
-                  <ConfigLabel label="Value Source" />
-                  <div className="flex gap-2">
-                    <button
-                      data-no-drag
-                      onClick={() => updateConfig(selected.id, { variableSource: 'raw' })}
-                      className={`flex-1 h-8 rounded-md text-[11px] font-medium cursor-pointer transition-colors border ${
-                        (selected.config.variableSource || 'raw') === 'raw'
-                          ? 'border-accent bg-accent-dim text-accent'
-                          : 'border-line text-content-faint hover:text-content'
-                      }`}
-                    >
-                      Raw value
-                    </button>
-                    <button
-                      data-no-drag
-                      onClick={() => updateConfig(selected.id, { variableSource: 'script' })}
-                      className={`flex-1 h-8 rounded-md text-[11px] font-medium cursor-pointer transition-colors border ${
-                        selected.config.variableSource === 'script'
-                          ? 'border-accent bg-accent-dim text-accent'
-                          : 'border-line text-content-faint hover:text-content'
-                      }`}
-                    >
-                      DW Script
-                    </button>
-                  </div>
-
-                  {(selected.config.variableSource || 'raw') === 'raw' ? (
+                  {selected.config.variableSource === 'script' ? (
+                    /* Legacy full-script vars (older saved flows). Kept runnable,
+                       with a one-click path to the simple fx model. */
                     <>
-                      <ConfigLabel label="Value" />
-                      <MiniEditor
-                        value={selected.config.variableValue || ''}
-                        onChange={(v) => updateConfig(selected.id, { variableValue: v })}
-                        language="json"
-                        height={160}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <ConfigLabel label="DataWeave Script" />
+                      <div className="flex items-center justify-between">
+                        <ConfigLabel label="DataWeave Script (legacy)" />
+                        <button
+                          data-no-drag
+                          onClick={() => { const s = selected.config.script || ''; const i = s.lastIndexOf('---'); updateConfig(selected.id, { variableSource: 'expression', variableValue: (i >= 0 ? s.slice(i + 3) : s).trim() }); }}
+                          className="text-[10px] text-accent hover:opacity-80 cursor-pointer"
+                          title="Convert this full script to a simple fx expression"
+                        >
+                          Simplify to fx →
+                        </button>
+                      </div>
                       <MiniEditor
                         value={selected.config.script || '%dw 2.0\noutput application/json\n---\npayload'}
                         onChange={(v) => updateConfig(selected.id, { script: v })}
                         language="dataweave"
-                        height={200}
+                        height={180}
                       />
+                      <div className="text-[10px] text-content-ghost leading-relaxed">
+                        A full DataWeave script (from an older flow) — its output is stored in <code className="text-content-faint">vars.{selected.config.variableName || 'myVar'}</code>. Most variables don't need this; use <span style={{ color: 'var(--accent)' }}>Simplify to fx</span> for a one-liner.
+                      </div>
+                    </>
+                  ) : (
+                    /* The simple model: one field + an fx toggle.
+                       fx off → literal value · fx on → DataWeave expression. */
+                    <>
+                      <div className="flex items-center justify-between">
+                        <ConfigLabel label={selected.config.variableSource === 'expression' ? 'Expression' : 'Value'} />
+                        <button
+                          data-no-drag
+                          onClick={() => updateConfig(selected.id, { variableSource: selected.config.variableSource === 'expression' ? 'raw' : 'expression' })}
+                          title={selected.config.variableSource === 'expression'
+                            ? 'fx is ON — the value is DataWeave code evaluated against the message. Click to use a literal value.'
+                            : 'fx is OFF — the value is a literal. Click to set it from a DataWeave expression (payload.x, vars.y).'}
+                          className={`flex items-center gap-1.5 text-[11px] font-medium px-2 h-6 rounded-md cursor-pointer transition-colors border ${
+                            selected.config.variableSource === 'expression' ? 'border-accent bg-accent-dim text-accent' : 'border-line text-content-faint hover:text-content'
+                          }`}
+                        >
+                          <span className="font-mono italic">fx</span>
+                          <span>{selected.config.variableSource === 'expression' ? 'on' : 'off'}</span>
+                        </button>
+                      </div>
+                      <MiniEditor
+                        value={selected.config.variableValue || ''}
+                        onChange={(v) => updateConfig(selected.id, { variableValue: v })}
+                        language={selected.config.variableSource === 'expression' ? 'dataweave' : 'json'}
+                        height={140}
+                      />
+                      <div className="text-[10px] text-content-ghost leading-relaxed">
+                        {selected.config.variableSource === 'expression' ? (
+                          <>A DataWeave expression, evaluated against the live message — <code className="text-content-faint">payload</code>, <code className="text-content-faint">vars</code>, <code className="text-content-faint">attributes</code>. e.g. <code className="text-content-faint">payload.vendorName default 'EASEBUZZ'</code>. No <code className="text-content-faint">#[ ]</code> needed.</>
+                        ) : (
+                          <>A fixed value — text, number, or JSON. e.g. <code className="text-content-faint">42</code> · <code className="text-content-faint">"hello"</code> · <code className="text-content-faint">{'{ "id": 1 }'}</code>. Turn on <span style={{ color: 'var(--accent)' }}>fx</span> to compute it from the message.</>
+                        )}
+                      </div>
                     </>
                   )}
                 </div>
@@ -3148,19 +3241,21 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
                   {configTab === 'request' && (
                     <div className="p-4 space-y-3">
-                      <ConfigLabel label="Headers (JSON object)" />
-                      <MiniEditor
+                      <ConfigLabel label="Headers" />
+                      <JsonKeyValueRows
+                        key={`${selected.id}:headers`}
                         value={selected.config.httpHeaders || '{}'}
                         onChange={(v) => updateConfig(selected.id, { httpHeaders: v })}
-                        language="json"
-                        height={120}
+                        keyPlaceholder="Header name"
+                        valuePlaceholder="Value"
                       />
-                      <ConfigLabel label="Query Parameters (JSON object)" />
-                      <MiniEditor
+                      <ConfigLabel label="Query Parameters" />
+                      <JsonKeyValueRows
+                        key={`${selected.id}:query`}
                         value={selected.config.httpQueryParams || '{}'}
                         onChange={(v) => updateConfig(selected.id, { httpQueryParams: v })}
-                        language="json"
-                        height={80}
+                        keyPlaceholder="Param name"
+                        valuePlaceholder="Value"
                       />
                       {(selected.config.httpMethod !== 'GET' && selected.config.httpMethod !== 'DELETE') && (
                         <>
@@ -3722,7 +3817,7 @@ output application/json
                 else if (e.key === 'Enter') {
                   e.preventDefault();
                   const f = filtered[openDialogActive];
-                  if (f) { setShowOpenDialog(false); loadFlowFile(f.filename); }
+                  if (f) { setShowOpenDialog(false); confirmIfDirty(() => loadFlowFile(f.filename)); }
                 }
               }}
             >
@@ -3746,7 +3841,7 @@ output application/json
                   <button
                     key={f.filename}
                     onMouseEnter={() => setOpenDialogActive(i)}
-                    onClick={() => { setShowOpenDialog(false); loadFlowFile(f.filename); }}
+                    onClick={() => { setShowOpenDialog(false); confirmIfDirty(() => loadFlowFile(f.filename)); }}
                     className={`w-full flex items-center gap-2.5 px-3.5 h-8 text-left cursor-pointer ${
                       i === openDialogActive ? 'bg-surface-2' : 'hover:bg-surface-2'
                     }`}
@@ -3769,6 +3864,18 @@ output application/json
           </div>
         );
       })()}
+
+      {/* ── Discard-unsaved-changes guard (Open / Clear) ────────────── */}
+      <ConfirmDialog
+        open={pendingDiscard !== null}
+        title="Discard unsaved changes?"
+        description="This flow has edits that haven't been saved. Continuing will discard them."
+        tone="warn"
+        confirmLabel="Discard"
+        cancelLabel="Keep editing"
+        onConfirm={() => pendingDiscard?.()}
+        onClose={() => setPendingDiscard(null)}
+      />
 
       {/* ── Mule XML Export Dialog ──────────────────────────────────── */}
       {muleXmlExport !== null && (

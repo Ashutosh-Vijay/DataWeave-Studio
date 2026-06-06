@@ -10,7 +10,9 @@ export interface KeyValuePair {
 export interface VarEntry {
   key: string;
   value: string;
-  valueType: 'string' | 'json';
+  /** 'string'/'json' = literal value; 'expression' = a DataWeave expression
+   *  (fx) evaluated against the message at run time (e.g. `payload.name`). */
+  valueType: 'string' | 'json' | 'expression';
   /** Per-row enable. Undefined or true = included in execution; false = skipped. */
   enabled?: boolean;
 }

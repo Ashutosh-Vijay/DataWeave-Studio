@@ -336,8 +336,13 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
             ...editorFont,
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
-            wordWrap: 'on',
-            diffWordWrap: 'on',
+            // Monaco's side-by-side diff CANNOT word-wrap the original (left)
+            // pane — only the modified side wraps, which looks broken and
+            // misaligned. So we keep side-by-side un-wrapped (both scroll, lines
+            // stay aligned) and only wrap in single-pane inline mode, where one
+            // editor renders consistently.
+            wordWrap: sideBySide ? 'off' : 'on',
+            diffWordWrap: sideBySide ? 'off' : 'on',
             renderWhitespace: 'selection',
           }}
         />

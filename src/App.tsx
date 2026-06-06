@@ -10,6 +10,7 @@ import { WindowControls } from './components/WindowControls';
 import { WorkspaceMenu } from './components/WorkspaceMenu';
 import { ToastHost, toast } from './components/Toast';
 import { buildAttributesJson, buildVarsJson } from './runInput';
+import { resolveVarsJson } from './resolveVars';
 // Lazy-loaded — pulls in dataweaveDocs (371KB) plus its own 60KB UI.
 const FunctionBrowser = lazy(() =>
   import('./components/FunctionBrowser').then((m) => ({ default: m.FunctionBrowser }))
@@ -779,8 +780,6 @@ function App() {
       workspace.context.headers,
       workspace.context.uriParams ?? []
     );
-    const varsJson = buildVarsJson(workspace.context.vars);
-
     const namedInputsJson = JSON.stringify(
       workspace.namedInputs.filter((ni) => ni.name)
     );
@@ -788,6 +787,18 @@ function App() {
     // Substitute ${key} and ${secure::key} in script and payload (with decryption)
     const resolvedScript = await substitutePropertiesAsync(workspace.script, configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings);
     const resolvedPayload = await substitutePropertiesAsync(workspace.payload, configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings);
+
+    // Expression-typed vars (fx) are evaluated through the engine against the
+    // resolved message before the run, so `vars.x = payload.name` computes
+    // instead of being passed as the literal string "payload.name".
+    const varsJson = await resolveVarsJson(
+      workspace.context.vars,
+      resolvedPayload,
+      workspace.payloadMimeType,
+      attributesJson,
+      namedInputsJson,
+      workspace.payloadFilePath,
+    );
 
     const multipartPartsJson =
       workspace.payloadMimeType === 'multipart/form-data' && workspace.multipartParts.length > 0

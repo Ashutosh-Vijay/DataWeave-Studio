@@ -155,10 +155,12 @@ function leafToXml(node: FlowNode): string {
         // Script-sourced var → wrap in an EE Transform so DataWeave can run.
         return `<ee:transform${docAttrs(node)}>\n    <ee:variables>\n        <ee:set-variable${attr('variableName', name)}>${cdata(node.config.script!)}</ee:set-variable>\n    </ee:variables>\n</ee:transform>`;
       }
-      // Same logic as set-payload: literal values stay literal, only re-wrap
-      // when the user explicitly authored an expression with #[…].
+      // fx expressions are stored bare → re-wrap as #[…]. Literal values stay
+      // literal (only auto-wrap a legacy raw value that already carries #[…]).
       const raw = node.config.variableValue || '';
-      const value = raw.trim().startsWith('#[') ? raw : cdataish(raw);
+      const value = node.config.variableSource === 'expression'
+        ? `#[${raw}]`
+        : (raw.trim().startsWith('#[') ? raw : cdataish(raw));
       return `<set-variable${attr('variableName', name)}${attr('value', value)}${docAttrs(node)}/>`;
     }
     case 'logger': {
@@ -584,14 +586,14 @@ function elementToNode(el: Element): FlowNode {
     }
     case 'set-variable': {
       const varName = el.getAttribute('variableName') || 'myVar';
-      // Keep the raw value verbatim (including any #[…] wrapper) so the runtime
-      // can evaluate expressions and an export round-trips to the same XML.
       const value = el.getAttribute('value') || '';
-      return makeNode('set-variable', label, {
-        variableName: varName,
-        variableValue: value,
-        variableSource: 'raw',
-      });
+      // A Mule `value="#[…]"` is a DataWeave expression → import it as an fx
+      // expression (bare, no #[…] noise) so the node reads clearly. A plain
+      // literal stays a literal value.
+      const exprMatch = value.trim().match(/^#\[([\s\S]*)\]$/);
+      return makeNode('set-variable', label, exprMatch
+        ? { variableName: varName, variableValue: exprMatch[1].trim(), variableSource: 'expression' }
+        : { variableName: varName, variableValue: value, variableSource: 'raw' });
     }
     case 'transform': {
       // EE Transform — body is either <ee:message>/<ee:set-payload> or <ee:variables>/<ee:set-variable>.
