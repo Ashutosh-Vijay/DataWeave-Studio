@@ -249,10 +249,9 @@ function rowsToJson(r: AttrRows): string {
 let flowStateCache: { nodes: FlowNode[]; flowName: string; flowCurrentFile: string | null; flowInput: FlowInput; flows: { name: string; nodes: FlowNode[]; isSubFlow?: boolean }[]; activeFlowIdx: number } | null = null;
 
 const NODE_W = 220;
-const PORT_R = 6;
 
 const NODE_META: Record<NodeType, { label: string; color: string; desc: string; badge: string }> = {
-  'set-payload':  { label: 'Set Payload',    color: '#f59e0b',       desc: 'Initial payload data',           badge: 'PAYL' },
+  'set-payload':  { label: 'Set Payload',    color: '#f59e0b',       desc: 'Overwrite the payload mid-flow', badge: 'PAYL' },
   'transform':    { label: 'Transform',      color: 'var(--accent)', desc: 'DataWeave 2.0 script',           badge: 'DW'   },
   'set-variable': { label: 'Set Variable',   color: '#10b981',       desc: 'Store a value in vars',          badge: 'VAR'  },
   'salesforce':   { label: 'Salesforce',     color: '#00a1e0',       desc: 'SF query / operation',           badge: 'SOQL' },
@@ -554,6 +553,14 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   // Execution order at the TOP level: sort by x position, skip disabled nodes.
   // Inside scopes, each branch has its own internal X-sort applied at run time.
   const executionOrder = useMemo(() => [...nodes].filter(n => !n.disabled).sort((a, b) => a.x - b.x), [nodes]);
+  // Map each top-level node id -> its 1-based run position, so each card can show
+  // an order badge. Makes the implicit left-to-right ordering explicit instead of
+  // something the user has to infer from x-position.
+  const orderIndex = useMemo(() => {
+    const m = new Map<string, number>();
+    executionOrder.forEach((n, i) => m.set(n.id, i + 1));
+    return m;
+  }, [executionOrder]);
 
   // Connections: sequential pairs in execution order
   const connections = useMemo(() => {
@@ -818,6 +825,15 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     setSelectedId(node.id);
   }, []);
 
+  /** Click-to-add: drop a node in a row to the right of the rightmost existing
+   *  one (or at a sensible start). Lets a plain click on a palette item add a
+   *  node — not just drag — since clicking is most people's first instinct. */
+  const addNodeAtNextSlot = useCallback((type: NodeType) => {
+    const x = nodes.length ? Math.max(...nodes.map((n) => n.x + nodeWidth(n.type))) + 48 : 60;
+    const y = nodes.length ? nodes[0].y : 90;
+    addNode(type, x, y);
+  }, [nodes, addNode]);
+
   // ── Update selected node config ─────────────────────────────────
   // Deep so nodes nested inside Choice branches are also updatable.
   const updateNode = useCallback((id: string, patch: Partial<FlowNode>) => {
@@ -958,6 +974,21 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   // context (payload, mime, attributes, variables) flows through every node.
   const runPipeline = useCallback(async (stepThrough = false) => {
     if (nodes.length === 0) return;
+
+    // Usability nudge: if the flow reads an empty payload and there's no
+    // Set Payload node to seed one, the run silently produces nothing. Point
+    // the user at the Input fixture instead of leaving them confused.
+    if (!flowInput.payload.trim() && !nodes.some((n) => n.type === 'set-payload')) {
+      toast({
+        message: 'No Input message set — this flow runs on an empty payload.',
+        variant: 'warn',
+        action: {
+          label: 'Set Input',
+          onClick: () => { setInputDraft(flowInput); setAttrRows(attrsToRows(flowInput.attributesJson)); setShowInputEditor(true); },
+        },
+      });
+    }
+
     setIsRunning(true);
     setFinalRun(null);
     abortRef.current = false;
@@ -2537,6 +2568,8 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                   e.preventDefault();
                   setPaletteDrag({ type, x: e.clientX, y: e.clientY });
                 }}
+                onClick={() => addNodeAtNextSlot(type)}
+                title={`${NODE_META[type].label} — click to add, or drag onto the canvas`}
                 className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-grab active:cursor-grabbing hover:bg-surface-2 transition-colors select-none"
               >
                 <div
@@ -2554,10 +2587,10 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           </div>
           <div className="px-3 py-2 border-t border-line-subtle space-y-1">
             <div className="text-[9.5px] text-content-ghost leading-relaxed">
-              Drag a component onto the canvas. Nodes execute left-to-right.
+              Click or drag a component onto the canvas. Nodes run left-to-right (see the number on each card).
             </div>
             <div className="text-[9px] text-content-ghost leading-relaxed">
-              Tip: Click a node, then edit its name in the config panel. Right-click for more options.
+              Tip: set the <span className="font-mono">{'{ }'} Input</span> message (top bar) to feed test runs. Right-click a node for more options.
             </div>
           </div>
         </aside>
@@ -2581,8 +2614,8 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           {nodes.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="text-center">
-                <div className="text-[13px] text-content-faint mb-1">Drag components from the palette to build your flow</div>
-                <div className="text-[11px] text-content-ghost">Nodes execute in left-to-right order</div>
+                <div className="text-[13px] text-content-faint mb-1">Click or drag a component from the palette to build your flow</div>
+                <div className="text-[11px] text-content-ghost">Nodes run left-to-right · set the {'{ }'} Input message (top bar) to feed test data</div>
               </div>
             </div>
           )}
@@ -2648,30 +2681,27 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                     opacity: node.disabled ? 0.45 : 1,
                   }}
                 >
-                  {/* Input port */}
-                  <div
-                    className="absolute rounded-full border-2 transition-colors"
-                    style={{
-                      width: PORT_R * 2,
-                      height: PORT_R * 2,
-                      left: -PORT_R,
-                      top: 45 - PORT_R,
-                      borderColor: meta.color,
-                      background: node.status === 'success' ? meta.color : 'var(--bg)',
-                    }}
-                  />
-                  {/* Output port */}
-                  <div
-                    className="absolute rounded-full border-2 transition-colors"
-                    style={{
-                      width: PORT_R * 2,
-                      height: PORT_R * 2,
-                      right: -PORT_R,
-                      top: 45 - PORT_R,
-                      borderColor: meta.color,
-                      background: node.status === 'success' ? meta.color : 'var(--bg)',
-                    }}
-                  />
+                  {/* Execution-order badge. Replaces the old decorative input/
+                      output ports, which looked draggable (like a wire-up canvas)
+                      but weren't — order is purely left-to-right. The number makes
+                      that explicit. */}
+                  {(() => {
+                    const ord = orderIndex.get(node.id);
+                    return (
+                      <div
+                        className="absolute z-10 flex items-center justify-center rounded-full text-[10px] font-semibold font-mono pointer-events-none"
+                        style={{
+                          width: 18, height: 18, left: -7, top: -7,
+                          background: node.disabled ? 'var(--surface-2)' : meta.color,
+                          color: node.disabled ? 'var(--content-ghost)' : '#fff',
+                          border: '2px solid var(--bg)',
+                        }}
+                        title={node.disabled ? 'Disabled — skipped during execution' : `Runs in position ${ord}`}
+                      >
+                        {node.disabled ? '–' : ord}
+                      </div>
+                    );
+                  })()}
 
                   {/* Card */}
                   <div
