@@ -1,6 +1,9 @@
 # Dependencies
 node_modules
 
+# Vendored cookbook source (sparse clone; only generated src/cookbookRecipes.ts is committed)
+.cookbook-src
+
 # Build output
 dist
 dist-ssr

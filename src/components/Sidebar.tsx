@@ -45,6 +45,7 @@ interface SidebarProps {
   onCurlImport: (result: CurlImportResult) => void;
   onInsertSnippet?: (body: string) => void;
   onOpenReference: () => void;
+  onOpenRecipes: () => void;
   onOpenSecure: () => void;
   onOpenCompare: () => void;
   onOpenFlowDesigner: () => void;
@@ -142,7 +143,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     projectName, onProjectNameChange, currentFile, isDirty, currentMethod,
     onNew, onSave, onLoad, onDelete, listWorkspaces,
     onCurlImport, onInsertSnippet, onOpenSecure, onOpenCompare, onOpenFlowDesigner, onOpenSettings,
-    onOpenReference,
+    onOpenReference, onOpenRecipes,
     collapsed, onToggleCollapse,
     requests, activeRequestId, onSelectRequest, onAddRequest, onRenameRequest, onRemoveRequest, onDuplicateRequest,
   } = props;
@@ -219,6 +220,14 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
         >
           <Icons.Braces size={18} />
+        </button>
+        <button
+          onClick={onOpenRecipes}
+          title="DataWeave cookbook"
+          aria-label="DataWeave cookbook"
+          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
+        >
+          <Icons.Book size={18} />
         </button>
         <button
           onClick={onOpenFlowDesigner}

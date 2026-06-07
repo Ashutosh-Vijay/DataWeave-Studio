@@ -16,6 +16,10 @@ import { substituteQueryParams } from './queryRender';
 const FunctionBrowser = lazy(() =>
   import('./components/FunctionBrowser').then((m) => ({ default: m.FunctionBrowser }))
 );
+// Lazy-loaded — pulls in the 147KB cookbookRecipes data + its UI. Only when opened.
+const RecipeBrowser = lazy(() =>
+  import('./components/RecipeBrowser').then((m) => ({ default: m.RecipeBrowser }))
+);
 // Lazy-loaded — FlowDesigner is ~1800 lines and only rendered when the user
 // opens the message flow designer. Don't pay for it on initial load.
 const FlowDesigner = lazy(() =>
@@ -59,7 +63,7 @@ import { useWorkspace } from './hooks/useWorkspace';
 import { useDWRunner } from './hooks/useDWRunner';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { useTheme } from './ThemeContext';
-import { KeyValuePair, METHOD_COLORS, NODE_LABEL_COLORS, NODE_LABELS } from './types';
+import { KeyValuePair, METHOD_COLORS, NODE_LABEL_COLORS, NODE_LABELS, isValidMimeType } from './types';
 import { Icons } from './components/Icons';
 import yaml from 'js-yaml';
 import { CurlImportResult } from './components/CurlImporter';
@@ -347,6 +351,7 @@ function App() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [referenceOpen, setReferenceOpen] = useState(false);
+  const [recipesOpen, setRecipesOpen] = useState(false);
   const [flowDesignerOpen, setFlowDesignerOpen] = useState(false);
   const [focusDrawerOpen, setFocusDrawerOpen] = useState(false);
   const [showFirstRun, setShowFirstRun] = useState(() => shouldShowFirstRun());
@@ -947,6 +952,7 @@ function App() {
       run: () => workspace.setNodeLabel(l),
     })),
     { id: 'reference', label: 'Open DataWeave function reference', group: 'Tools', run: () => setReferenceOpen(true) },
+    { id: 'recipes', label: 'Open DataWeave cookbook', group: 'Tools', run: () => setRecipesOpen(true) },
     { id: 'flow', label: 'Open Message Flow designer', group: 'Tools', run: () => setFlowDesignerOpen(true) },
     { id: 'secure', label: 'Open Secure Properties tool', shortcut: '⌘⇧E', group: 'Tools', run: () => setSecureToolOpen(true) },
     { id: 'compare', label: 'Open Compare tool', group: 'Tools', run: () => setCompareToolOpen(true) },
@@ -1215,6 +1221,7 @@ function App() {
           onOpenFlowDesigner={() => setFlowDesignerOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenReference={() => setReferenceOpen(true)}
+          onOpenRecipes={() => setRecipesOpen(true)}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />}
@@ -1623,6 +1630,24 @@ function App() {
             open={referenceOpen}
             onClose={() => setReferenceOpen(false)}
             onInsertAtCursor={(text) => scriptEditorRef.current?.insertAtCursor(text)}
+          />
+        </Suspense>
+      )}
+
+      {recipesOpen && (
+        <Suspense fallback={null}>
+          <RecipeBrowser
+            open={recipesOpen}
+            onClose={() => setRecipesOpen(false)}
+            onInsertAtCursor={(text) => scriptEditorRef.current?.insertAtCursor(text)}
+            onOpenInPlayground={(r) => {
+              workspace.setScript(r.script);
+              workspace.setPayload(r.input || '');
+              workspace.setPayloadMimeType(isValidMimeType(r.inputMime) ? r.inputMime : 'application/json');
+              setRecipesOpen(false);
+              // Let the new script/payload commit, then run + focus.
+              setTimeout(() => { handleRunRef.current?.(); scriptEditorRef.current?.focus(); }, 120);
+            }}
           />
         </Suspense>
       )}
