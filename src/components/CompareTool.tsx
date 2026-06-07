@@ -344,6 +344,11 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
             wordWrap: sideBySide ? 'off' : 'on',
             diffWordWrap: sideBySide ? 'off' : 'on',
             renderWhitespace: 'selection',
+            // VSCode-style gutter arrow on each change — click to revert that
+            // hunk on the modified (right) side back to the original (left).
+            // Appears on hover over a changed line; needs an actual diff.
+            renderMarginRevertIcon: true,
+            renderGutterMenu: true,
           }}
         />
       </div>
