@@ -684,9 +684,14 @@ function App() {
     }
   }, []);
 
-  // Load app version and silently check for updates on startup
+  // Load app version and check for updates on startup — unless the user opted
+  // out (Settings → Advanced → Privacy). Disabling it makes the app fully
+  // no-network, which matters for locked-down / compliance environments.
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => {});
+    let updateCheckEnabled = true;
+    try { updateCheckEnabled = localStorage.getItem('dw.updateCheck') !== '0'; } catch { /* default on */ }
+    if (!updateCheckEnabled) return;
     const timer = setTimeout(async () => {
       try {
         const update = await check();

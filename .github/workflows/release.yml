@@ -92,15 +92,18 @@ jobs:
           releaseName: 'DataWeave Studio ${{ github.ref_name }}'
           releaseBody: |
             ### Downloads
-            - **Windows**: `.exe` (NSIS installer), `.exe.zip` (if .exe is blocked), or `.msi`
+            - **Windows**: `.exe` (NSIS installer), `.msi`, `_x64_portable.zip` (no install — unzip & run), or `_x64-setup.zip` (zipped installer, if a proxy blocks the `.exe`)
             - **macOS**: `.dmg` (Apple Silicon and Intel)
 
             Fully self-contained — bundles the DataWeave 2.11 runtime and a
-            minimal JRE 17. No system Java required.
+            minimal JRE 17. No system Java required. See
+            [SECURITY.md](https://github.com/Ashutosh-Vijay/DataWeave-Studio/blob/main/SECURITY.md)
+            for data-handling / network details.
 
             ### Opening an unsigned build
             The app isn't code-signed yet, so your OS warns on first launch — it's safe.
-            - **Windows**: SmartScreen → **More info → Run anyway** (use the `.zip` if a proxy blocks the `.exe`).
+            - **Windows (SmartScreen)**: **More info → Run anyway**.
+            - **Windows (Smart App Control / "admin prevented install")**: use the **`_x64_portable.zip`** — unzip anywhere and run `DataWeave Studio.exe`, no installer. (Signing-level blocks like Smart App Control can't be bypassed per-app.)
             - **macOS**: a *"damaged"* warning is just Gatekeeper. Move the app to Applications, then **System Settings → Privacy & Security → Open Anyway** — or run `xattr -cr "/Applications/DataWeave Studio.app"` and launch it.
           releaseDraft: true
           prerelease: false
@@ -118,6 +121,36 @@ jobs:
             Compress-Archive -Path $exe.FullName -DestinationPath $zip -Force
             gh release upload "${{ github.ref_name }}" $zip --repo "${{ github.repository }}" --clobber
           }
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # True portable build: silently install the NSIS bundle (currentUser, no
+      # admin) into a folder, then zip that folder. Unzipping it anywhere gives a
+      # run-in-place "DataWeave Studio.exe" — no installer, so it works where the
+      # MSI/NSIS install step is policy-blocked. (Does NOT bypass code-signing
+      # warnings like Smart App Control / SmartScreen — only signing does.)
+      - name: Build portable Windows zip (run-in-place, no installer)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          $exe = Get-ChildItem -Recurse -Filter "*_x64-setup.exe" src-tauri/target | Select-Object -First 1
+          if (-not $exe) { Write-Host "No NSIS setup exe found; skipping portable build"; exit 0 }
+          $dest = "C:\dwsportable"
+          if (Test-Path $dest) { Remove-Item -Recurse -Force $dest }
+          # NSIS silent install to a folder. /D must be the LAST arg and unquoted.
+          Start-Process -FilePath $exe.FullName -ArgumentList "/S","/D=$dest" -Wait
+          # /S can return before files are flushed — poll for the app exe.
+          $appExe = $null
+          for ($i = 0; $i -lt 60; $i++) {
+            $appExe = Get-ChildItem -Recurse -Filter "DataWeave Studio.exe" $dest -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($appExe) { break }
+            Start-Sleep -Seconds 2
+          }
+          if (-not $appExe) { Write-Error "Portable build: app exe never appeared in $dest"; exit 1 }
+          $zip = "DataWeave.Studio_${version}_x64_portable.zip"
+          Compress-Archive -Path "$dest\*" -DestinationPath $zip -Force
+          gh release upload "${{ github.ref_name }}" $zip --repo "${{ github.repository }}" --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

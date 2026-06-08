@@ -270,36 +270,43 @@ Quick access to all actions via **Cmd/Ctrl+K**. Grouped commands: Run, Workspace
 
 Download the latest installer from the **[landing page](https://ashutosh-vijay.dev/dataweave/)** or the [Releases page](https://github.com/Ashutosh-Vijay/DataWeave-Studio/releases):
 
-- **Windows** — `.exe` (NSIS installer, 88 MB), `.msi` (93 MB), or `.zip` (88 MB)
-- **macOS** — `.dmg` for Apple Silicon (93 MB) and Intel (94 MB)
+- **Windows** — `.exe` (NSIS installer), `.msi`, `_x64_portable.zip` (no install — unzip and run), or `_x64-setup.zip` (the installer, zipped, for proxy-blocked `.exe` downloads)
+- **macOS** — `.dmg` for Apple Silicon and Intel
 - **Linux** — `.AppImage`, `.deb`, or `.rpm`
 
-> **Note: the app isn't code-signed yet** (it's a free side-project — Apple notarization runs $99/yr). Your OS will warn you on first launch. It's safe — here's how to open it:
+> **The app isn't code-signed yet** (a free side-project — Apple notarization is ~$99/yr, a Windows EV cert ~$300+/yr). Your OS warns on first launch because the publisher isn't *verified* — not because the app is unsafe. See **[SECURITY.md](SECURITY.md)** for exactly what the app does and doesn't do on your network.
 >
-> **Windows** — SmartScreen may say *"Windows protected your PC."* Click **More info → Run anyway**. If a corporate proxy blocks the `.exe` outright, grab the `.zip` build instead.
+> Pick the path that matches what you're seeing:
 >
-> **macOS** — Gatekeeper may say the app *"is damaged and can't be opened"* — it isn't. That's just the unsigned-app + quarantine warning. To open it:
-> 1. Drag **DataWeave Studio** into your **Applications** folder.
-> 2. Open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**, then confirm on the next launch.
-> 3. If it still won't open (or shows *"damaged"*), clear the quarantine flag in Terminal and launch it:
+> **Windows — "Windows protected your PC" (SmartScreen):** click **More info → Run anyway**.
+>
+> **Windows — "Smart App Control has blocked this app":** SmartScreen-style click-through won't appear here. Either use the **`_x64_portable.zip`** (unzip anywhere and run `DataWeave Studio.exe` — no installer), or, if Smart App Control is on, it can't be bypassed per-app without turning it off (which usually requires a Windows reset). On a personal machine without Smart App Control, the portable zip just runs.
+>
+> **Windows — "Your system administrator has prevented this install" (managed/work laptop):** that's a device-management policy on the *installer*. Try the **`_x64_portable.zip`** (no install step). If your IT also blocks running unapproved `.exe`s (common at banks), you'll need IT to whitelist it — no unsigned app gets around that.
+>
+> **macOS — "is damaged and can't be opened":** that's just the unsigned-app quarantine, not real damage.
+> 1. Drag **DataWeave Studio** into **Applications**.
+> 2. **System Settings → Privacy & Security**, scroll down, **Open Anyway**, then confirm on next launch.
+> 3. If it still won't open, clear the quarantine flag and launch:
 >    ```bash
 >    xattr -cr "/Applications/DataWeave Studio.app"
 >    ```
->
-> *(On macOS Sequoia and later, the old right-click → Open shortcut no longer bypasses Gatekeeper for unsigned apps — use the steps above.)*
+> *(On macOS Sequoia and later the old right-click → Open trick no longer works for unsigned apps — use the steps above.)*
 
 JRE 17 and the DataWeave runtime are bundled — no separate Java installation needed.
 
-**Auto-update:** The app checks for updates on startup and shows a toast notification when a new version is available.
+**Auto-update:** On by default — the app checks for a newer version on startup and shows a toast when one is available (nothing downloads without your click). Turn it off in **Settings → Advanced → Privacy** to make the app fully offline. Details in [SECURITY.md](SECURITY.md).
 
 ---
 
 ## Privacy & Security
 
 - **Local execution** — no code or data ever leaves your machine
-- **Zero telemetry** — no tracking, no analytics, no phone-home
+- **Zero telemetry** — no tracking, no analytics, no accounts
 - **Memory-only keys** — encryption keys held in memory only, never written to disk
-- **Offline-capable** — everything works without internet (except update checks)
+- **One optional network call** — a startup update check (to the release server), which you can disable in **Settings → Advanced → Privacy** for a 100% no-network app
+
+See **[SECURITY.md](SECURITY.md)** for the full breakdown of data handling and network activity — written for compliance/security reviewers.
 
 ---
 

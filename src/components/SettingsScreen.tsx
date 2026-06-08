@@ -583,6 +583,9 @@ function AdvancedPanel() {
   const [verbose, setVerbose] = useState<boolean>(() => {
     try { return localStorage.getItem('dw.verbose') === '1'; } catch { return false; }
   });
+  const [updateCheck, setUpdateCheck] = useState<boolean>(() => {
+    try { return localStorage.getItem('dw.updateCheck') !== '0'; } catch { return true; }
+  });
   const [resetOpen, setResetOpen] = useState(false);
 
   const isWin = navigator.userAgent.includes('Windows') || (navigator as any).userAgentData?.platform === 'Windows';
@@ -603,6 +606,12 @@ function AdvancedPanel() {
           <Icons.Folder size={14} />
           <span className="flex-1 font-mono text-[11.5px] text-content-secondary truncate">{dataPath}</span>
         </div>
+      </Group>
+
+      <Group title="Privacy" desc="DataWeave Studio runs fully offline. The only outbound network call is the update check below — turn it off for a 100% no-network app.">
+        <SRow label="Check for updates on startup" desc="Contacts the release server once on launch to see if a newer version exists. No other data is sent.">
+          <Toggle on={updateCheck} onChange={(v) => { setUpdateCheck(v); try { localStorage.setItem('dw.updateCheck', v ? '1' : '0'); } catch {} }} />
+        </SRow>
       </Group>
 
       <Group title="Diagnostics">
