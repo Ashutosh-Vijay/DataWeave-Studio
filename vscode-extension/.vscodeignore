@@ -8,6 +8,7 @@ out/**
 .vscodeignore
 tsconfig.json
 esbuild.js
+DEVELOPMENT.md
 **/*.ts
 **/*.map
 

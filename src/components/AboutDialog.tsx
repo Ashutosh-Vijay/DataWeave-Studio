@@ -239,7 +239,7 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
                   fontFamily: 'var(--font-mono)',
                 }}
               >
-                — vibe-coded at 02:14 IST on a Tuesday
+                — 02:14 IST, on a Tuesday, after one Anypoint restart too many
               </div>
             </div>
           </div>
