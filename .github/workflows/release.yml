@@ -19,6 +19,10 @@ env:
   # no FUSE, so tell them to self-extract instead of FUSE-mounting. Harmless on
   # Windows/macOS jobs.
   APPIMAGE_EXTRACT_AND_RUN: "1"
+  # linuxdeploy runs `strip` on every ELF it bundles — the jlinked JRE's
+  # binaries/libs make it bail ("failed to run linuxdeploy" right after deb+rpm
+  # bundle fine). Skip stripping; jlink already stripped the JRE.
+  NO_STRIP: "true"
 
 jobs:
   prepare:
@@ -134,7 +138,9 @@ jobs:
           releaseDraft: true
           prerelease: false
           updaterJsonPreferNsis: true
-          args: --target ${{ matrix.target }}
+          # --verbose on Linux so a linuxdeploy failure prints its actual stderr
+          # instead of the bare "failed to run linuxdeploy".
+          args: --target ${{ matrix.target }} ${{ matrix.platform == 'ubuntu-latest' && '--verbose' || '' }}
 
       - name: Zip Windows installer for proxy-restricted environments
         if: matrix.platform == 'windows-latest'

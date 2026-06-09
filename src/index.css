@@ -189,16 +189,21 @@ code, pre, .font-mono, [class*="font-mono"] {
   padding: 1px 4px;
 }
 
-/* Simple Monaco tooltips (e.g. the Ctrl+F find widget's Close / Prev / Next
-   buttons) are bare .monaco-hover nodes positioned over their trigger — and they
-   render at the document root, NOT inside the editor's overflow-widgets root.
-   With pointer-events on they steal the hover + click from the button beneath,
-   so the close button flickers ("Close (Escape)" blinks) and can't be clicked.
-   Make ALL .monaco-hover pointer-transparent, then re-enable the scrollable
-   code-symbol hover, which Monaco wraps in .monaco-resizable-hover. (The suggest
-   list and signature help use their own classes — .suggest-widget /
-   .parameter-hints-widget — so they keep pointer events.) Fixes desktop + webview. */
-.monaco-hover { pointer-events: none !important; }
+/* Monaco renders simple UI tooltips (the Ctrl+F find widget's Close/Prev/Next
+   buttons, etc.) through its hover service as a .workbench-hover-container
+   inside a .context-view, positioned overlapping the trigger button. The whole
+   context-view stack takes pointer events, so the tooltip steals hover + clicks
+   from the button beneath it: "Close (Escape)" flickers (~20 shows/sec, live-
+   measured via CDP) and the button can't be clicked. Make the stack pointer-
+   transparent — but only while it hosts a hover (:has guard), because the same
+   context-view hosts menus that must stay clickable. pointer-events inherits,
+   so children are covered. The editor's scrollable code hover is a separate
+   widget (.monaco-resizable-hover under the overflow root) and keeps pointer
+   events for scrolling/links. Fixes desktop + the VS Code webview. */
+.context-view:has(.workbench-hover-container),
+.workbench-hover-container {
+  pointer-events: none !important;
+}
 .monaco-resizable-hover,
 .monaco-resizable-hover .monaco-hover {
   pointer-events: auto !important;
