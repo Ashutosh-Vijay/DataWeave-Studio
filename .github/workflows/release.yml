@@ -3,7 +3,10 @@ name: Build & Release
 on:
   push:
     tags:
-      - 'v*'
+      # Digit required after the v: plain `v*` also matched the VS Code
+      # extension tags (vscode-v0.0.1 starts with "v"), double-triggering this
+      # workflow on every extension release.
+      - 'v[0-9]*'
   workflow_dispatch:
 
 permissions:
@@ -12,6 +15,10 @@ permissions:
 env:
   # Vite + Monaco bundle exceeds Node's 2 GB default on macOS x86_64 runners.
   NODE_OPTIONS: --max-old-space-size=4096
+  # linuxdeploy/appimagetool are themselves AppImages; ubuntu-24.04 runners have
+  # no FUSE, so tell them to self-extract instead of FUSE-mounting. Harmless on
+  # Windows/macOS jobs.
+  APPIMAGE_EXTRACT_AND_RUN: "1"
 
 jobs:
   prepare:
@@ -82,6 +89,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+          # FUSE for linuxdeploy (belt-and-suspenders alongside APPIMAGE_EXTRACT_AND_RUN).
+          sudo apt-get install -y libfuse2t64 || sudo apt-get install -y libfuse2 || true
 
       - name: Build dwstudio-server.jar
         shell: bash
@@ -167,6 +176,12 @@ jobs:
           # Drop NSIS scaffolding that isn't part of the shipped app.
           Remove-Item -Recurse -Force "$dest\`$PLUGINSDIR" -ErrorAction SilentlyContinue
           Remove-Item -Force "$dest\uninstall.exe" -ErrorAction SilentlyContinue
+          # 7z extracts the main binary under its NSIS *source* name (app.exe,
+          # the cargo bin name) — the install-time rename to the product name is
+          # an NSIS script step that doesn't run during extraction. Rename it.
+          if ((Test-Path "$dest\app.exe") -and -not (Test-Path "$dest\DataWeave Studio.exe")) {
+            Rename-Item "$dest\app.exe" "DataWeave Studio.exe"
+          }
           $appExe = Get-ChildItem -Recurse -Filter "DataWeave Studio.exe" $dest -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $appExe) {
             Write-Host "Extraction tree under ${dest}:"

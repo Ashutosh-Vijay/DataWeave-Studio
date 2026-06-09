@@ -201,15 +201,13 @@ struct LegacySingleTransform {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct LegacyWorkspaceFile {
-    #[serde(default)]
-    version: String,
+    // v1 files also carry `version` and `mode`; serde skips unknown fields, and
+    // migration never reads them (output is always version 2.0).
     project_name: String,
     #[serde(default)]
     created_at: String,
     #[serde(default)]
     updated_at: String,
-    #[serde(default)]
-    mode: String,
     single_transform: LegacySingleTransform,
     #[serde(default)]
     context: Option<ContextState>,

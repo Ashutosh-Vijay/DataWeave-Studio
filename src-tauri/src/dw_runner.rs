@@ -70,7 +70,10 @@ fn shift_stderr_lines(stderr: &str, offset: i64) -> String {
     }).to_string()
 }
 
-use crate::platform::{hide_console_window, strip_unc_prefix};
+use crate::platform::strip_unc_prefix;
+// Only the Windows kill path opens a console-capable subprocess.
+#[cfg(target_os = "windows")]
+use crate::platform::hide_console_window;
 
 #[derive(serde::Serialize)]
 pub struct WarmupStatus {
