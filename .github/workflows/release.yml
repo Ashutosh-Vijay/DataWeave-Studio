@@ -124,11 +124,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # True portable build: silently install the NSIS bundle (currentUser, no
-      # admin) into a folder, then zip that folder. Unzipping it anywhere gives a
-      # run-in-place "DataWeave Studio.exe" — no installer, so it works where the
-      # MSI/NSIS install step is policy-blocked. (Does NOT bypass code-signing
-      # warnings like Smart App Control / SmartScreen — only signing does.)
+      # True portable build: extract the NSIS bundle's files (no install, no
+      # admin) into a folder, then zip it. Unzipping anywhere gives a run-in-place
+      # "DataWeave Studio.exe" — no installer, so it works where the MSI/NSIS
+      # install step is policy-blocked. (Does NOT bypass code-signing warnings
+      # like Smart App Control / SmartScreen — only signing does.)
       - name: Build portable Windows zip (run-in-place, no installer)
         if: matrix.platform == 'windows-latest'
         shell: pwsh
@@ -138,18 +138,28 @@ jobs:
           if (-not $exe) { Write-Host "No NSIS setup exe found; skipping portable build"; exit 0 }
           $dest = "C:\dwsportable"
           if (Test-Path $dest) { Remove-Item -Recurse -Force $dest }
-          # NSIS silent install to a folder. /D must be the LAST arg and unquoted.
-          Start-Process -FilePath $exe.FullName -ArgumentList "/S","/D=$dest" -Wait
-          # /S can return before files are flushed — poll for the app exe.
-          $appExe = $null
-          for ($i = 0; $i -lt 60; $i++) {
-            $appExe = Get-ChildItem -Recurse -Filter "DataWeave Studio.exe" $dest -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($appExe) { break }
-            Start-Sleep -Seconds 2
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          # Extract the NSIS bundle's payload WITHOUT running it. The previous
+          # "/S silent install + poll" was flaky in CI — the installer can return
+          # before (or without) writing files, or ignore /D, leaving $dest empty.
+          # 7-Zip understands the NSIS format and ships on GitHub windows runners,
+          # so this is deterministic, needs no admin, and triggers no WebView2
+          # bootstrap.
+          & 7z x "$($exe.FullName)" "-o$dest" -y | Out-Null
+          if ($LASTEXITCODE -ne 0) { Write-Error "7z failed to extract $($exe.Name) (exit $LASTEXITCODE)"; exit 1 }
+          # Drop NSIS scaffolding that isn't part of the shipped app.
+          Remove-Item -Recurse -Force "$dest\`$PLUGINSDIR" -ErrorAction SilentlyContinue
+          Remove-Item -Force "$dest\uninstall.exe" -ErrorAction SilentlyContinue
+          $appExe = Get-ChildItem -Recurse -Filter "DataWeave Studio.exe" $dest -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $appExe) {
+            Write-Host "Extraction tree under ${dest}:"
+            Get-ChildItem -Recurse $dest | Select-Object -ExpandProperty FullName
+            Write-Error "Portable build: app exe not found after extracting $($exe.Name)"
+            exit 1
           }
-          if (-not $appExe) { Write-Error "Portable build: app exe never appeared in $dest"; exit 1 }
+          # Zip the folder that actually holds the exe (root, or a nested app dir).
           $zip = "DataWeave.Studio_${version}_x64_portable.zip"
-          Compress-Archive -Path "$dest\*" -DestinationPath $zip -Force
+          Compress-Archive -Path "$($appExe.Directory.FullName)\*" -DestinationPath $zip -Force
           gh release upload "${{ github.ref_name }}" $zip --repo "${{ github.repository }}" --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
