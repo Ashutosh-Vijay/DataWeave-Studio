@@ -2,7 +2,7 @@
   "name": "dataweave-studio",
   "displayName": "DataWeave Studio",
   "description": "DataWeave playground — run, test, and design MuleSoft DataWeave transforms inside VS Code. Bundles the real DataWeave 2.11 engine; no Anypoint, no Maven.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "ashutosh-vijay",
   "license": "MIT",
   "icon": "icon.png",
@@ -67,14 +67,54 @@
       }
     ],
     "keybindings": [
-      { "command": "dataweaveStudio.noop", "key": "ctrl+s", "mac": "cmd+s", "when": "activeWebviewPanelId == 'dataweaveStudio'" },
-      { "command": "dataweaveStudio.noop", "key": "ctrl+k", "mac": "cmd+k", "when": "activeWebviewPanelId == 'dataweaveStudio'" },
-      { "command": "dataweaveStudio.noop", "key": "ctrl+n", "mac": "cmd+n", "when": "activeWebviewPanelId == 'dataweaveStudio'" },
-      { "command": "dataweaveStudio.noop", "key": "ctrl+o", "mac": "cmd+o", "when": "activeWebviewPanelId == 'dataweaveStudio'" },
-      { "command": "dataweaveStudio.noop", "key": "ctrl+b", "mac": "cmd+b", "when": "activeWebviewPanelId == 'dataweaveStudio'" },
-      { "command": "dataweaveStudio.noop", "key": "ctrl+,", "mac": "cmd+,", "when": "activeWebviewPanelId == 'dataweaveStudio'" },
-      { "command": "dataweaveStudio.noop", "key": "ctrl+shift+e", "mac": "cmd+shift+e", "when": "activeWebviewPanelId == 'dataweaveStudio'" },
-      { "command": "dataweaveStudio.noop", "key": "ctrl+shift+t", "mac": "cmd+shift+t", "when": "activeWebviewPanelId == 'dataweaveStudio'" }
+      {
+        "command": "dataweaveStudio.noop",
+        "key": "ctrl+s",
+        "mac": "cmd+s",
+        "when": "activeWebviewPanelId == 'dataweaveStudio'"
+      },
+      {
+        "command": "dataweaveStudio.noop",
+        "key": "ctrl+k",
+        "mac": "cmd+k",
+        "when": "activeWebviewPanelId == 'dataweaveStudio'"
+      },
+      {
+        "command": "dataweaveStudio.noop",
+        "key": "ctrl+n",
+        "mac": "cmd+n",
+        "when": "activeWebviewPanelId == 'dataweaveStudio'"
+      },
+      {
+        "command": "dataweaveStudio.noop",
+        "key": "ctrl+o",
+        "mac": "cmd+o",
+        "when": "activeWebviewPanelId == 'dataweaveStudio'"
+      },
+      {
+        "command": "dataweaveStudio.noop",
+        "key": "ctrl+b",
+        "mac": "cmd+b",
+        "when": "activeWebviewPanelId == 'dataweaveStudio'"
+      },
+      {
+        "command": "dataweaveStudio.noop",
+        "key": "ctrl+,",
+        "mac": "cmd+,",
+        "when": "activeWebviewPanelId == 'dataweaveStudio'"
+      },
+      {
+        "command": "dataweaveStudio.noop",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e",
+        "when": "activeWebviewPanelId == 'dataweaveStudio'"
+      },
+      {
+        "command": "dataweaveStudio.noop",
+        "key": "ctrl+shift+t",
+        "mac": "cmd+shift+t",
+        "when": "activeWebviewPanelId == 'dataweaveStudio'"
+      }
     ]
   },
   "scripts": {
