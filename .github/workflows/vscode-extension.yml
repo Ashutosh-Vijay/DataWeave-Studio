@@ -31,15 +31,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # jdkArch selects the Temurin build (and thus the jlinked JRE's arch).
+        # macos-13 (the last Intel hosted runner) is retired, so darwin-x64 is
+        # built on an arm64 runner using an x64 JDK via Rosetta.
         include:
           - os: windows-latest
             target: win32-x64
+            jdkArch: x64
           - os: ubuntu-latest
             target: linux-x64
-          - os: macos-latest
+            jdkArch: x64
+          - os: macos-14
             target: darwin-arm64
-          - os: macos-13
+            jdkArch: aarch64
+          - os: macos-14
             target: darwin-x64
+            jdkArch: x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -53,6 +60,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+          architecture: ${{ matrix.jdkArch }}
 
       - name: Build DataWeave server jar
         shell: bash
