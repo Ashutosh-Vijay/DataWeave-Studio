@@ -1,0 +1,94 @@
+{
+  "name": "dataweave-studio",
+  "displayName": "DataWeave Studio",
+  "description": "DataWeave playground — run, test, and design MuleSoft DataWeave transforms inside VS Code. Bundles the real DataWeave 2.11 engine; no Anypoint, no Maven.",
+  "version": "0.0.1",
+  "publisher": "ashutosh-vijay",
+  "license": "MIT",
+  "icon": "icon.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "dataweave",
+    "mulesoft",
+    "anypoint",
+    "dwl",
+    "transform",
+    "playground"
+  ],
+  "galleryBanner": {
+    "color": "#0b0e14",
+    "theme": "dark"
+  },
+  "pricing": "Free",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ashutosh-Vijay/DataWeave-Studio.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ashutosh-Vijay/DataWeave-Studio/issues"
+  },
+  "homepage": "https://ashutosh-vijay.dev/dataweave/",
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "dataweaveStudio.open",
+        "title": "DataWeave Studio: Open Playground"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "dataweaveStudio",
+          "title": "DataWeave Studio",
+          "icon": "media/activitybar.svg"
+        }
+      ]
+    },
+    "views": {
+      "dataweaveStudio": [
+        {
+          "id": "dataweaveStudio.welcome",
+          "name": "DataWeave Studio"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "dataweaveStudio.welcome",
+        "contents": "Run, test, and design MuleSoft DataWeave transforms — powered by the bundled DataWeave 2.11 engine.\n\n[Open Playground](command:dataweaveStudio.open)"
+      }
+    ],
+    "keybindings": [
+      { "command": "dataweaveStudio.noop", "key": "ctrl+s", "mac": "cmd+s", "when": "activeWebviewPanelId == 'dataweaveStudio'" },
+      { "command": "dataweaveStudio.noop", "key": "ctrl+k", "mac": "cmd+k", "when": "activeWebviewPanelId == 'dataweaveStudio'" },
+      { "command": "dataweaveStudio.noop", "key": "ctrl+n", "mac": "cmd+n", "when": "activeWebviewPanelId == 'dataweaveStudio'" },
+      { "command": "dataweaveStudio.noop", "key": "ctrl+o", "mac": "cmd+o", "when": "activeWebviewPanelId == 'dataweaveStudio'" },
+      { "command": "dataweaveStudio.noop", "key": "ctrl+b", "mac": "cmd+b", "when": "activeWebviewPanelId == 'dataweaveStudio'" },
+      { "command": "dataweaveStudio.noop", "key": "ctrl+,", "mac": "cmd+,", "when": "activeWebviewPanelId == 'dataweaveStudio'" },
+      { "command": "dataweaveStudio.noop", "key": "ctrl+shift+e", "mac": "cmd+shift+e", "when": "activeWebviewPanelId == 'dataweaveStudio'" },
+      { "command": "dataweaveStudio.noop", "key": "ctrl+shift+t", "mac": "cmd+shift+t", "when": "activeWebviewPanelId == 'dataweaveStudio'" }
+    ]
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "compile": "npm run check-types && node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "npm run check-types && node esbuild.js --production",
+    "vscode:prepublish": "npm run package",
+    "bundle:resources": "node scripts/bundle-resources.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.24.0",
+    "typescript": "~5.8.3"
+  }
+}

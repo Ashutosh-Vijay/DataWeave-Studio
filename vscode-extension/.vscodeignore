@@ -1,0 +1,18 @@
+# Sources / dev-only — keep them OUT of the .vsix.
+.vscode/**
+src/**
+scripts/**
+node_modules/**
+out/**
+.gitignore
+.vscodeignore
+tsconfig.json
+esbuild.js
+**/*.ts
+**/*.map
+
+# Shipped in the .vsix (NOT ignored):
+#   dist/**           bundled extension host (esbuild → dist/extension.js)
+#   webview-dist/**   built React UI
+#   resources/**      bundled JRE + dwstudio-server.jar + secure-properties-tool.jar
+#   icon.png, package.json, README.md, PRIVACY.md, LICENSE

@@ -1,0 +1,114 @@
+name: Publish VS Code Extension
+
+# Per-platform builds: each runner jlinks a JRE for its own OS and bundles it
+# into a platform-specific .vsix (the Marketplace serves the matching one).
+#
+# Release a version:  bump nothing by hand — just push a tag `vscode-vX.Y.Z`
+# (the tag is the source of truth; CI stamps that version into package.json).
+# Existing users auto-update via the Marketplace once the new version is live.
+#
+# Dry run: trigger manually (workflow_dispatch) with publish=false to get the
+# .vsix artifacts without publishing.
+on:
+  push:
+    tags:
+      - 'vscode-v*'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to the Marketplace (false = build .vsix artifacts only)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: win32-x64
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: macos-latest
+            target: darwin-arm64
+          - os: macos-13
+            target: darwin-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Build DataWeave server jar
+        shell: bash
+        run: |
+          cd dw-server
+          mvn -B -q -DskipTests package
+          mkdir -p ../src-tauri/resources/dw-server
+          cp target/dwstudio-server.jar ../src-tauri/resources/dw-server/
+
+      - name: jlink minimal JRE for this platform
+        shell: bash
+        run: |
+          MODULES=$(jdeps --print-module-deps --ignore-missing-deps --multi-release 17 src-tauri/resources/dw-server/dwstudio-server.jar 2>/dev/null || echo "java.base,java.compiler,java.desktop,java.management,java.security.sasl,java.sql.rowset")
+          rm -rf src-tauri/resources/jre
+          jlink --add-modules "$MODULES" --strip-debug --no-man-pages --no-header-files --compress=2 --output src-tauri/resources/jre
+
+      - name: Build webview UI
+        run: |
+          npm ci
+          npm run build:vscode
+
+      - name: Assemble + package extension
+        working-directory: vscode-extension
+        shell: bash
+        run: |
+          npm ci
+          # Tag is the source of truth: stamp vscode-vX.Y.Z -> package.json X.Y.Z.
+          if [[ "$GITHUB_REF" == refs/tags/vscode-v* ]]; then
+            npm version "${GITHUB_REF_NAME#vscode-v}" --no-git-tag-version --allow-same-version
+          fi
+          npm run bundle:resources
+          npx @vscode/vsce package --target ${{ matrix.target }} -o "dataweave-studio-${{ matrix.target }}.vsix"
+
+      - name: Upload .vsix artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix-${{ matrix.target }}
+          path: vscode-extension/*.vsix
+
+      - name: Publish to Marketplace
+        if: github.event_name == 'push' || inputs.publish
+        working-directory: vscode-extension
+        shell: bash
+        run: npx @vscode/vsce publish --packagePath "dataweave-studio-${{ matrix.target }}.vsix" -p "$VSCE_PAT"
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+      - name: Attach .vsix to a GitHub release (direct / offline download)
+        if: startsWith(github.ref, 'refs/tags/vscode-v')
+        working-directory: vscode-extension
+        shell: bash
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "DataWeave Studio (VS Code) $GITHUB_REF_NAME" \
+            --notes "VS Code extension. Install from the Marketplace, or download the platform .vsix below and run: code --install-extension <file>" \
+            2>/dev/null || true
+          gh release upload "$GITHUB_REF_NAME" "dataweave-studio-${{ matrix.target }}.vsix" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
