@@ -9,7 +9,7 @@
  * Requires a system Java runtime (JRE 8+, JAR ships supporting up to Java 17).
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from './bridge';
 
 export interface EncryptionSettings {
   algorithm: string; // 'AES' | 'Blowfish' | 'DES' | 'DESede' | 'RC2'

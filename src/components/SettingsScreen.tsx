@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
+import { logoUrl } from '../assets';
 import { Icons } from './Icons';
 import { ConfirmDialog } from './ConfirmDialog';
 import { MIME_OPTIONS, MimeType } from '../types';
@@ -704,7 +705,7 @@ function AboutPanel({ appVersion, onOpenAbout }: { appVersion: string; onOpenAbo
   return (
     <div className="flex flex-col items-center gap-3.5 pt-10 pb-6">
       <img
-        src="/logo.svg"
+        src={logoUrl}
         alt="DataWeave Studio"
         width="64"
         height="64"

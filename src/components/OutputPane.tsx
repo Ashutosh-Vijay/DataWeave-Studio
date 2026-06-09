@@ -2,7 +2,7 @@ import React, { useEffect, useState, memo } from 'react';
 import Editor, { BeforeMount, useMonaco } from '@monaco-editor/react';
 import { configureEditor } from '../editorInit';
 import { save } from '@tauri-apps/plugin-dialog';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '../bridge';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';

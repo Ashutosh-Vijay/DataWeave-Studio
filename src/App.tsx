@@ -2,7 +2,8 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { getVersion } from '@tauri-apps/api/app';
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from './bridge';
+import { logoUrl } from './assets';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { ScriptEditor, ScriptEditorHandle } from './components/ScriptEditor';
@@ -985,7 +986,7 @@ function App() {
             title={updateAvailable ? 'Update available — open About' : 'About DataWeave Studio'}
             className="relative w-[22px] h-[22px] flex items-center justify-center cursor-pointer"
           >
-            <img src="/logo.svg" alt="DataWeave Studio" width="22" height="22" />
+            <img src={logoUrl} alt="DataWeave Studio" width="22" height="22" />
             {updateAvailable && (
               <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-accent ring-2 ring-surface" />
             )}

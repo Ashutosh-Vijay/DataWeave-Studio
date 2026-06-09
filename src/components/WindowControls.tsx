@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { isTauri } from '../bridge';
 
 export function WindowControls() {
   const [maximized, setMaximized] = useState(false);
@@ -13,6 +14,9 @@ export function WindowControls() {
     })();
     return () => { if (unlisten) unlisten(); };
   }, [win]);
+
+  // A VS Code webview is a tab, not an OS window — no min/max/close chrome.
+  if (!isTauri) return null;
 
   return (
     <div className="flex items-center h-full -mr-3">

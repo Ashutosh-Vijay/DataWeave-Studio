@@ -1,0 +1,474 @@
+/**
+ * DataWeave Studio — VS Code extension host.
+ *
+ * Registers the "Open Playground" command, which opens a webview panel and
+ * wires its postMessage channel to the Node DataWeave backend (dwHost.ts).
+ * This is the extension half of the bridge in src/bridge.ts:
+ *   webview → host:  { kind: 'invoke',        id, cmd, args }
+ *   host → webview:  { kind: 'invoke:result', id, ok, value? , error? }
+ *
+ * FIRST MILESTONE: the webview is a minimal test page that runs one eval to
+ * prove the round-trip (webview → host → JVM → output). Later milestones swap
+ * its HTML for the real built React UI.
+ */
+
+import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as crypto from 'crypto';
+import { execFile } from 'child_process';
+import { DwServer, resolveJava, resolveServerJar, runDataweave, warmDataweave, detectJavaMajor, RunArgs, WarmArgs } from './dwHost';
+import * as ws from './workspaceStore';
+
+let server: DwServer | null = null;
+let warmupError: string | null = null;
+let storageDir = '';
+let logDir = '';
+
+/** Start the JVM server once, lazily. Shared across all panels. */
+async function getServer(extensionRoot: string): Promise<DwServer> {
+  if (server) {
+    await server.start(); // idempotent
+    return server;
+  }
+  const java = resolveJava(extensionRoot);
+  // Preflight: a clear, actionable message beats a cryptic spawn ENOENT. (The
+  // "optional auto-download" of a JRE into global storage is the packaging-time
+  // follow-up; for now we point the user at a download.)
+  const major = await detectJavaMajor(java);
+  if (major === null) {
+    throw new Error(
+      'Java not found. DataWeave Studio needs a Java 11+ runtime on your PATH (or set JAVA_HOME).'
+    );
+  }
+  if (major < 11) {
+    throw new Error(
+      `Found Java ${major}, but DataWeave 2.11 needs Java 11 or newer. Install a newer JDK.`
+    );
+  }
+  const jar = resolveServerJar(extensionRoot);
+  server = new DwServer(java, jar);
+  await server.start();
+  return server;
+}
+
+export function activate(context: vscode.ExtensionContext) {
+  // Per-extension persistent dirs (VS Code-managed, survive restarts).
+  storageDir = context.globalStorageUri.fsPath;
+  logDir = path.join(storageDir, 'logs');
+  fs.mkdirSync(logDir, { recursive: true });
+
+  // No-op target for the keybindings that swallow VS Code's defaults while our
+  // webview is focused (see contributes.keybindings) — the app's own in-webview
+  // handler does the real work; this just stops VS Code from also acting.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('dataweaveStudio.noop', () => {})
+  );
+
+  // Empty provider for the activity-bar view — keeps it empty so the
+  // viewsWelcome content ("Open Playground" button) shows.
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider('dataweaveStudio.welcome', {
+      getChildren: () => [],
+      getTreeItem: (e: vscode.TreeItem) => e,
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('dataweaveStudio.open', () => {
+      const webviewDist = vscode.Uri.joinPath(context.extensionUri, 'webview-dist');
+      const panel = vscode.window.createWebviewPanel(
+        'dataweaveStudio',
+        'DataWeave Studio',
+        vscode.ViewColumn.Active,
+        {
+          enableScripts: true,
+          retainContextWhenHidden: true,
+          localResourceRoots: [webviewDist],
+        }
+      );
+      // Brand the editor tab with the logo.
+      panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'icon.png');
+      panel.webview.html = getWebviewHtml(panel.webview, webviewDist);
+
+      // Kick off JVM spawn + compiler priming now, while the loader is showing,
+      // so the first Run is warm. Push the warm-up result to the webview so it
+      // can swap the loader for the UI (the webview also polls
+      // get_warmup_status on load to cover the already-warm case).
+      warmupError = null;
+      getServer(context.extensionPath).then(
+        () => panel.webview.postMessage({ kind: 'warmup', ready: true, error: null }),
+        (e) => {
+          warmupError = e instanceof Error ? e.message : String(e);
+          panel.webview.postMessage({ kind: 'warmup', ready: false, error: warmupError });
+          // Java-runtime problems get an actionable notification with a download link.
+          if (/\bjava\b/i.test(warmupError)) {
+            vscode.window.showErrorMessage(warmupError, 'Download Java').then((choice) => {
+              if (choice === 'Download Java') {
+                vscode.env.openExternal(vscode.Uri.parse('https://adoptium.net/temurin/releases/?version=17'));
+              }
+            });
+          }
+        }
+      );
+
+      panel.webview.onDidReceiveMessage(
+        async (msg) => {
+          if (!msg || msg.kind !== 'invoke') return;
+          const { id, cmd, args } = msg;
+          try {
+            const value = await handleInvoke(context.extensionPath, cmd, args);
+            panel.webview.postMessage({ kind: 'invoke:result', id, ok: true, value });
+          } catch (e) {
+            panel.webview.postMessage({
+              kind: 'invoke:result',
+              id,
+              ok: false,
+              error: e instanceof Error ? e.message : String(e),
+            });
+          }
+        },
+        undefined,
+        context.subscriptions
+      );
+    })
+  );
+}
+
+/** The Node reimplementation of the Tauri command surface. Milestone: just the
+ *  subset needed to prove an end-to-end eval. */
+async function handleInvoke(
+  extensionRoot: string,
+  cmd: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  switch (cmd) {
+    case 'run_dataweave': {
+      const srv = await getServer(extensionRoot);
+      return runDataweave(srv, args as unknown as RunArgs);
+    }
+    case 'is_warmed_up':
+      return server?.isWarmed() ?? false;
+    case 'get_warmup_status':
+      return { ready: server?.isWarmed() ?? false, error: warmupError };
+    case 'warm_dataweave_script': {
+      const srv = await getServer(extensionRoot);
+      await warmDataweave(srv, args as unknown as WarmArgs);
+      return null;
+    }
+    case 'cancel_dataweave': {
+      // Best-effort: restart the JVM to abort an in-flight run. The pending
+      // run rejects and the UI surfaces it. (Runs are usually ~20ms, so cancel
+      // rarely matters; this matches "kill the engine" semantics.)
+      if (!server) return false;
+      await server.restart();
+      warmupError = null;
+      return true;
+    }
+    case 'restart_engine': {
+      const srv = await getServer(extensionRoot);
+      await srv.restart();
+      warmupError = null;
+      return null;
+    }
+    case 'get_log_dir':
+      return logDir;
+
+    // --- Workspaces (port of workspace.rs) ----------------------------------
+    case 'save_workspace':
+      return ws.saveWorkspace(storageDir, args.workspace);
+    case 'load_workspace':
+      return ws.loadWorkspace(storageDir, args.filename as string);
+    case 'list_workspaces':
+      return ws.listWorkspaces(storageDir);
+    case 'list_workspaces_meta':
+      return ws.listWorkspacesMeta(storageDir);
+    case 'delete_workspace':
+      ws.deleteWorkspace(storageDir, args.filename as string);
+      return null;
+    case 'get_workspaces_dir':
+      return ws.getWorkspacesDir(storageDir);
+
+    // --- Secure properties (port of secure_properties.rs) -------------------
+    case 'secure_properties_invoke':
+      return securePropertiesInvoke(extensionRoot, args);
+
+    case 'read_text_file':
+      return fs.readFileSync(args.path as string, 'utf8');
+    case 'save_output_file':
+      fs.writeFileSync(args.path as string, args.content as string);
+      return null;
+    case 'save_binary_file': {
+      // The UI sends bytes as a number[] (Array.from(Uint8Array)).
+      fs.writeFileSync(args.path as string, Buffer.from(args.contents as number[]));
+      return null;
+    }
+    case 'get_app_version': {
+      const pkg = JSON.parse(fs.readFileSync(path.join(extensionRoot, 'package.json'), 'utf8'));
+      return pkg.version ?? '0.0.0';
+    }
+
+    // --- VS Code dialog / opener bridges (replace Tauri dialog/opener) -------
+    case 'vscode_open_dialog': {
+      const o = (args.options ?? {}) as {
+        multiple?: boolean; directory?: boolean;
+        filters?: { name: string; extensions: string[] }[]; defaultPath?: string; title?: string;
+      };
+      const uris = await vscode.window.showOpenDialog({
+        canSelectMany: !!o.multiple,
+        canSelectFiles: !o.directory,
+        canSelectFolders: !!o.directory,
+        filters: mapFilters(o.filters),
+        defaultUri: o.defaultPath ? vscode.Uri.file(o.defaultPath) : undefined,
+        title: o.title,
+      });
+      if (!uris || uris.length === 0) return null;
+      const paths = uris.map((u) => u.fsPath);
+      return o.multiple ? paths : paths[0];
+    }
+    case 'vscode_save_dialog': {
+      const o = (args.options ?? {}) as {
+        filters?: { name: string; extensions: string[] }[]; defaultPath?: string; title?: string;
+      };
+      let defaultUri: vscode.Uri | undefined;
+      if (o.defaultPath) {
+        defaultUri = /[\\/]/.test(o.defaultPath)
+          ? vscode.Uri.file(o.defaultPath)
+          : (() => {
+              const ws = vscode.workspace.workspaceFolders?.[0]?.uri;
+              return ws ? vscode.Uri.joinPath(ws, o.defaultPath!) : undefined;
+            })();
+      }
+      const uri = await vscode.window.showSaveDialog({
+        filters: mapFilters(o.filters),
+        defaultUri,
+        title: o.title,
+      });
+      return uri ? uri.fsPath : null;
+    }
+    case 'vscode_open_path':
+      await vscode.env.openExternal(vscode.Uri.file(args.path as string));
+      return null;
+    case 'vscode_open_external':
+      await vscode.env.openExternal(vscode.Uri.parse(args.url as string));
+      return null;
+
+    default:
+      throw new Error(`Command not implemented in extension host yet: ${cmd}`);
+  }
+}
+
+/** Tauri dialog filters ([{name, extensions}]) → VS Code's ({ name: extensions }). */
+function mapFilters(
+  filters?: { name: string; extensions: string[] }[]
+): { [name: string]: string[] } | undefined {
+  if (!filters || filters.length === 0) return undefined;
+  const out: { [name: string]: string[] } = {};
+  for (const f of filters) out[f.name] = f.extensions;
+  return out;
+}
+
+/** Port of secure_properties.rs — runs MuleSoft's secure-properties-tool.jar so
+ *  output is byte-for-byte compatible with what the Mule runtime decrypts. */
+function securePropertiesInvoke(
+  extensionRoot: string,
+  args: Record<string, unknown>
+): Promise<string> {
+  const operation = args.operation as string;
+  const algorithm = args.algorithm as string;
+  const mode = args.mode as string;
+  const key = args.key as string;
+  const value = args.value as string;
+  const useRandomIv = !!args.useRandomIv;
+
+  if (operation !== 'encrypt' && operation !== 'decrypt') {
+    return Promise.reject(new Error(`Invalid operation '${operation}', expected 'encrypt' or 'decrypt'.`));
+  }
+  if (!['AES', 'Blowfish', 'DES', 'DESede', 'RC2'].includes(algorithm)) {
+    return Promise.reject(new Error(`Invalid algorithm '${algorithm}'.`));
+  }
+  if (!['CBC', 'CFB', 'ECB', 'OFB'].includes(mode)) {
+    return Promise.reject(new Error(`Invalid mode '${mode}'.`));
+  }
+  if (!key) return Promise.reject(new Error('Key is required.'));
+  if (!value) return Promise.reject(new Error('Value is required.'));
+
+  const jar = resolveSecurePropsJar(extensionRoot);
+  const java = resolveJava(extensionRoot);
+  const cmdArgs = [
+    '-cp', jar,
+    'com.mulesoft.tools.SecurePropertiesTool',
+    'string', operation, algorithm, mode, key, value,
+  ];
+  if (useRandomIv) cmdArgs.push('--use-random-iv');
+
+  return new Promise<string>((resolve, reject) => {
+    execFile(java, cmdArgs, { windowsHide: true }, (err, stdout, stderr) => {
+      const out = (stdout || '').trim();
+      const errOut = (stderr || '').trim();
+      if (err) {
+        return reject(new Error(errOut || (err as Error).message));
+      }
+      // The tool prints usage to stdout (exit 0) on bad input — detect that.
+      if (out.startsWith('Invalid arguments') || out.includes('Usage:')) {
+        return reject(new Error(`secure-properties-tool rejected the inputs.\n${out}`));
+      }
+      resolve(out);
+    });
+  });
+}
+
+function resolveSecurePropsJar(extensionRoot: string): string {
+  const candidates = [
+    path.join(extensionRoot, 'resources', 'secure-properties', 'secure-properties-tool.jar'),
+    path.join(extensionRoot, '..', 'src-tauri', 'resources', 'secure-properties', 'secure-properties-tool.jar'),
+  ];
+  for (const c of candidates) if (fs.existsSync(c)) return c;
+  throw new Error(`secure-properties-tool.jar not found. Looked in:\n${candidates.join('\n')}`);
+}
+
+export function deactivate() {
+  if (server) {
+    server.stop();
+    server = null;
+  }
+}
+
+/** Load the built React UI (webview-dist/) into the webview. Rewrites relative
+ *  asset URLs to absolute webview resource URIs, exposes that base to the bundle
+ *  as window.__WEBVIEW_BASE__ (for runtime asset paths like the logo), makes the
+ *  stylesheets non-render-blocking (so the boot loader paints immediately rather
+ *  than after a blank delay), injects a CSP, and overlays a boot loader that
+ *  hides once the engine reports warm. */
+function getWebviewHtml(webview: vscode.Webview, webviewDist: vscode.Uri): string {
+  const indexPath = path.join(webviewDist.fsPath, 'index.html');
+  if (!fs.existsSync(indexPath)) {
+    return /* html */ `<!doctype html><html><body style="font-family:sans-serif;padding:24px">
+      <h2>DataWeave Studio isn't built yet</h2>
+      <p>Run <code>npm run build:vscode</code> in the repo root to produce
+      <code>vscode-extension/webview-dist/</code>, then reopen this panel.</p>
+      </body></html>`;
+  }
+
+  let html = fs.readFileSync(indexPath, 'utf8');
+
+  // Rewrite the relative "./asset" URLs in index.html (script/css/preload/icon)
+  // to webview resource URIs. We deliberately do NOT use <base href>: in
+  // Chromium a <base> makes SVG fragment refs (fill="url(#id)") resolve against
+  // it and break, and this UI is full of inline SVGs. Monaco's worker/chunk
+  // URLs still resolve correctly because the bundle computes them from
+  // import.meta.url — which is the webview URI once the entry script loads from
+  // one.
+  const baseUri = webview.asWebviewUri(webviewDist).toString().replace(/\/?$/, '/');
+  html = html.replace(
+    /(\s(?:src|href)=)"\.\/([^"]*)"/g,
+    (_m, attr, rel) => `${attr}"${baseUri}${rel}"`
+  );
+
+  // Make stylesheets non-render-blocking: VS Code shows a blank/spinner until
+  // first paint, which a render-blocking <link rel="stylesheet"> delays. Load
+  // them as media="print" (non-blocking) and flip to "all" on load (done in the
+  // boot script). The app CSS lands a beat later — hidden under the boot overlay.
+  html = html.replace(/<link\b[^>]*\brel="stylesheet"[^>]*>/g, (tag) =>
+    tag.includes('data-async-css') ? tag : tag.replace(/\s*\/?>$/, ' media="print" data-async-css="1">')
+  );
+
+  // Defer the heavy (~4MB) entry bundle: pull it out of <head> and inject it
+  // from the boot script after first paint. Otherwise VS Code's blank loading
+  // frame lingers while the module downloads/parses; deferring lets our overlay
+  // paint immediately, then the bundle loads underneath it.
+  let entrySrc = '';
+  html = html.replace(
+    /<script\s+type="module"[^>]*\ssrc="([^"]+)"[^>]*><\/script>/,
+    (_m, src) => {
+      entrySrc = src;
+      return '';
+    }
+  );
+
+  const nonce = getNonce();
+  const csp = [
+    `default-src 'none'`,
+    `img-src ${webview.cspSource} data: https:`,
+    `font-src ${webview.cspSource} data: https://fonts.gstatic.com`,
+    `style-src ${webview.cspSource} 'unsafe-inline' https://fonts.googleapis.com`,
+    `script-src ${webview.cspSource} 'unsafe-eval' 'nonce-${nonce}'`,
+    `worker-src ${webview.cspSource} blob:`,
+    `connect-src ${webview.cspSource} blob: data:`,
+  ].join('; ');
+
+  const headInjection = `
+  <meta http-equiv="Content-Security-Policy" content="${csp}">
+  <script nonce="${nonce}">window.__WEBVIEW_BASE__ = ${JSON.stringify(baseUri)};</script>
+  <style nonce="${nonce}">
+    #dw-boot { position: fixed; inset: 0; z-index: 99999; display: flex;
+      flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+      background: var(--vscode-editor-background, #1e1e1e); transition: opacity .35s ease; }
+    #dw-boot.hidden { opacity: 0; pointer-events: none; }
+    #dw-boot .spin { width: 42px; height: 42px; border-radius: 50%;
+      border: 3px solid var(--vscode-panel-border, #ffffff22);
+      border-top-color: var(--vscode-progressBar-background, #3794ff);
+      animation: dwspin .8s linear infinite; }
+    @keyframes dwspin { to { transform: rotate(360deg); } }
+    #dw-boot .t { font: 600 15px var(--vscode-font-family, sans-serif); color: var(--vscode-foreground, #ccc); }
+    #dw-boot .s { font: 12px var(--vscode-font-family, sans-serif); color: var(--vscode-descriptionForeground, #999);
+      max-width: 360px; text-align: center; line-height: 1.5; }
+  </style>`;
+
+  const bootOverlay = `
+  <div id="dw-boot">
+    <div class="spin"></div>
+    <div class="t">DataWeave Studio</div>
+    <div class="s">Starting the engine…</div>
+  </div>
+  <script nonce="${nonce}">
+    // Hide the splash once the host reports warm (or errors — the app then
+    // shows its own engine-error UI). Does NOT call acquireVsCodeApi (the
+    // React bridge owns that single handle); only listens for the push.
+    (function () {
+      // Activate the non-blocking stylesheets (flipped from media="print").
+      var links = document.querySelectorAll('link[data-async-css]');
+      links.forEach(function (l) {
+        if (l.sheet) l.media = 'all';
+        else l.addEventListener('load', function () { l.media = 'all'; });
+      });
+      setTimeout(function () { links.forEach(function (l) { l.media = 'all'; }); }, 1500);
+
+      var boot = document.getElementById('dw-boot');
+      function hide() { if (boot) boot.classList.add('hidden'); }
+      // Hide only once the engine is warm AND React has mounted — so the
+      // overlay never lifts onto a still-blank screen (e.g. when the engine is
+      // already warm on reopen but the bundle is still loading).
+      var warm = false, mounted = false;
+      function maybeHide() { if (warm && mounted) hide(); }
+      window.addEventListener('message', function (ev) {
+        var m = ev.data;
+        if (!m) return;
+        if (m.kind === 'warmup') { warm = true; maybeHide(); }       // ready or error
+        else if (m.kind === 'dw-app-mounted') { mounted = true; maybeHide(); }
+      });
+      // Fallback so the splash can never get stuck if a signal is missed.
+      setTimeout(hide, 25000);
+
+      // Load the deferred entry bundle after the overlay has painted (2 rAFs).
+      var entry = ${JSON.stringify(entrySrc)};
+      if (entry) {
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            var s = document.createElement('script');
+            s.type = 'module'; s.crossOrigin = 'anonymous'; s.src = entry;
+            document.body.appendChild(s);
+          });
+        });
+      }
+    })();
+  </script>`;
+
+  html = html.replace('<head>', '<head>' + headInjection);
+  html = html.replace('</body>', bootOverlay + '</body>');
+  return html;
+}
+
+function getNonce(): string {
+  return crypto.randomBytes(16).toString('base64');
+}

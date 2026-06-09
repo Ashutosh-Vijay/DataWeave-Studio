@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Icons } from './Icons';
 import { MiniPreview } from './MiniPreview';
+import { logoUrl } from '../assets';
 
 const FIRST_RUN_KEY = 'dw.firstRun.seen';
 
@@ -43,7 +44,7 @@ export function FirstRunPicker({ initialTheme, initialLayout, onComplete }: Firs
         {/* Hero */}
         <div className="px-8 pt-7 pb-5 flex items-start gap-4">
           <img
-            src="/logo.svg"
+            src={logoUrl}
             alt="DataWeave Studio"
             width="48"
             height="48"

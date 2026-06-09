@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:vscode": "tsc && vite build --config vite.config.vscode.ts",
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run"

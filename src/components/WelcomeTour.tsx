@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { logoUrl } from '../assets';
 
 const TOUR_SEEN_KEY = 'dwstudio_tour_seen';
 
@@ -356,7 +357,7 @@ export function WelcomeTour({ onComplete }: WelcomeTourProps) {
               {/* Brand lockup */}
               <div className="flex items-center gap-4 mb-5">
                 <img
-                  src="/logo.svg"
+                  src={logoUrl}
                   alt="DataWeave Studio"
                   width="48"
                   height="48"

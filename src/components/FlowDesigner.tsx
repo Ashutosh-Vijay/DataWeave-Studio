@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo, Fragment } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '../bridge';
 import { Icons } from './Icons';
 import { MiniEditor } from './MiniEditor';
 import { QueryEditor } from './QueryEditor';

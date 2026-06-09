@@ -1,4 +1,5 @@
 import { Icons } from './Icons';
+import { logoUrl } from '../assets';
 
 const LAST_WS_KEY = 'dw.lastWorkspace';
 
@@ -37,7 +38,7 @@ export function EmptyState({
     <div className="flex-1 flex items-center justify-center bg-bg overflow-auto">
       <div className="text-center max-w-[640px] px-6 py-10">
         <img
-          src="/logo.svg"
+          src={logoUrl}
           alt="DataWeave Studio"
           width="64"
           height="64"

@@ -14,6 +14,7 @@ import { loader } from "@monaco-editor/react";
 import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ThemeProvider } from "./ThemeContext";
+import { isTauri } from "./bridge";
 import "./index.css";
 
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
@@ -66,3 +67,10 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     </ErrorBoundary>
   </React.StrictMode>,
 );
+
+// Tell the VS Code webview boot overlay that React has mounted, so it can lift
+// once the engine is also warm (no-op on desktop — nothing listens). Guarded so
+// we don't post on Tauri.
+if (!isTauri) {
+  requestAnimationFrame(() => window.postMessage({ kind: "dw-app-mounted" }, "*"));
+}

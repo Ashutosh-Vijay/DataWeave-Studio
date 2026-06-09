@@ -3,6 +3,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { Icons } from './Icons';
+import { isTauri } from '../bridge';
 
 interface AboutDialogProps {
   open: boolean;
@@ -77,7 +78,6 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
   const issueLabel = `Vol. 1 · Issue ${issue}`;
   const releaseMonth = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
-  const isUpToDate = updateStatus === 'up-to-date' || updateStatus === 'idle';
   const updateDotColor =
     updateStatus === 'update-available' ? 'var(--warn)' :
     updateStatus === 'error' ? 'var(--err)' :
@@ -141,7 +141,9 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
             className="text-[11px] font-semibold uppercase tracking-[1px] mb-3"
             style={{ color: 'var(--accent)' }}
           >
-            A free desktop tool for MuleSoft developers
+            {isTauri
+              ? 'A free desktop tool for MuleSoft developers'
+              : 'A free DataWeave playground for VS Code'}
           </div>
 
           {/* Title — display-size, tight */}
@@ -159,8 +161,8 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
             className="mt-[18px] mb-0 text-[15px] leading-[1.55] max-w-[560px]"
             style={{ color: 'var(--content-muted)' }}
           >
-            The real DataWeave 2.11 engine, in a desktop app. No Anypoint Studio, no
-            browser tab, no signup. Write a script, drop a payload, hit Run.
+            The real DataWeave 2.11 engine, {isTauri ? 'in a desktop app' : 'right inside VS Code'}.
+            No Anypoint Studio, no browser tab, no signup. Write a script, drop a payload, hit Run.
           </p>
 
           <Divider />
@@ -170,9 +172,17 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
             <Stat kicker="version" value={appVersion || '—'} sub="latest stable" valueAccent />
             <Stat kicker="license" value="MIT" sub="free forever" />
             <Stat kicker="dw engine" value="2.11.0" sub="BSD-3 · MuleSoft" />
-            <Stat kicker="size" value="~87 MB" sub="installer · all bundled" />
+            {isTauri ? (
+              <Stat kicker="size" value="~87 MB" sub="installer · all bundled" />
+            ) : (
+              <Stat kicker="java" value="17" sub="bundled · zero setup" />
+            )}
             <Stat kicker="platforms" value="3" sub="Windows · macOS · Linux" />
-            <Stat kicker="dependencies" value="0" sub="no cloud · no signup" />
+            {isTauri ? (
+              <Stat kicker="dependencies" value="0" sub="no cloud · no signup" />
+            ) : (
+              <Stat kicker="telemetry" value="0" sub="no cloud · no signup" />
+            )}
           </div>
 
           <Divider />
@@ -238,19 +248,26 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
 
           {/* Footer row — status + tech stack + actions */}
           <div className="flex items-center gap-[14px] text-[11.5px] flex-wrap" style={{ color: 'var(--content-muted)' }}>
-            <button
-              onClick={isUpToDate ? handleCheckForUpdates : handleCheckForUpdates}
-              disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
-              className="inline-flex items-center gap-[6px] cursor-pointer disabled:cursor-wait bg-transparent border-none p-0 font-inherit text-[11.5px]"
-              style={{ color: updateDotColor, fontFamily: 'inherit' }}
-              title="Click to check for updates"
-            >
-              <Icons.Dot size={8} />
-              <span>{updateText}</span>
-              {updateStatus === 'update-available' && <span style={{ color: 'var(--warn)' }}>· install now</span>}
-            </button>
+            {isTauri ? (
+              <button
+                onClick={handleCheckForUpdates}
+                disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
+                className="inline-flex items-center gap-[6px] cursor-pointer disabled:cursor-wait bg-transparent border-none p-0 font-inherit text-[11.5px]"
+                style={{ color: updateDotColor, fontFamily: 'inherit' }}
+                title="Click to check for updates"
+              >
+                <Icons.Dot size={8} />
+                <span>{updateText}</span>
+                {updateStatus === 'update-available' && <span style={{ color: 'var(--warn)' }}>· install now</span>}
+              </button>
+            ) : (
+              <span className="inline-flex items-center gap-[6px]" style={{ color: 'var(--accent)' }}>
+                <Icons.Dot size={8} />
+                <span>Installed via VS Code · Marketplace handles updates</span>
+              </span>
+            )}
             <span style={{ color: 'var(--content-faint)' }}>·</span>
-            <span>Tauri 2 · React · Monaco · Rust</span>
+            <span>{isTauri ? 'Tauri 2 · React · Monaco · Rust' : 'VS Code · React · Monaco · Node'}</span>
             <span className="flex-1" />
             <button
               onClick={() => openUrl('https://github.com/Ashutosh-Vijay/dataweave-studio/releases')}

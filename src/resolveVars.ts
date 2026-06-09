@@ -11,7 +11,7 @@
  * Lives outside runInput.ts on purpose: that module is kept pure/Tauri-free for
  * unit tests, and this one calls `invoke`.
  */
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from './bridge';
 import type { VarEntry } from './types';
 import { buildVarsJson } from './runInput';
 

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '../bridge';
 import { TestCase, Request, ContextState } from '../types';
 
 /**

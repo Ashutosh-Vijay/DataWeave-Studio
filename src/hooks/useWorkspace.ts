@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '../bridge';
 import {
   WorkspaceFile,
   ContextState,
