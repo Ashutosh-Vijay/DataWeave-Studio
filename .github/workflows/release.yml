@@ -116,6 +116,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # AppImage: linuxdeploy resolves dependencies for every ELF in the
+          # AppDir, including the bundled JRE's libs. libnet.so & co. declare
+          # libjvm.so, which lives in jre/lib/server/ and is found via the JVM's
+          # own rpath at runtime — but linuxdeploy only searches standard paths
+          # and hard-fails ("Could not find dependency: libjvm.so"). Point it at
+          # the JRE's lib dirs. Empty/harmless on Windows & macOS jobs.
+          LD_LIBRARY_PATH: ${{ matrix.platform == 'ubuntu-latest' && format('{0}/src-tauri/resources/jre/lib:{0}/src-tauri/resources/jre/lib/server', github.workspace) || '' }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'DataWeave Studio ${{ github.ref_name }}'

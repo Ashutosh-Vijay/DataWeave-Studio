@@ -37,6 +37,8 @@ And because it runs MuleSoft's actual DataWeave runtime — not a reimplementati
 
 None. The DataWeave 2.11 runtime and a Java 17 runtime are bundled inside the extension and run fully offline. Nothing to install, and nothing touches your system Java, `JAVA_HOME`, or `PATH` — safe alongside Anypoint Studio's Java 8.
 
+Works on **Windows**, **macOS** (Apple Silicon and Intel), and **Linux** — the Marketplace picks the right build for your machine automatically.
+
 ## Privacy
 
 Everything runs on your machine. No telemetry, no analytics, no accounts, no network calls. Scripts, payloads, and workspaces stay local; encryption keys are held in memory only. Full statement: [PRIVACY.md](https://github.com/Ashutosh-Vijay/DataWeave-Studio/blob/main/vscode-extension/PRIVACY.md).
