@@ -30,6 +30,29 @@ self.MonacoEnvironment = {
 // Use locally bundled Monaco instead of CDN
 loader.config({ monaco });
 
+// Webview-only: force Monaco's classic hidden-<textarea> input model instead of
+// the experimental EditContext (default-on in 0.55). EditContext attaches its
+// paste/copy listeners to a plain <div>; inside VS Code's sandboxed webview
+// iframe the browser gates `paste`-event delivery on clipboard-READ permission
+// for the frame (copy/cut = write still fire), so Ctrl+V / right-click paste /
+// Shift+Insert all silently die while copy works. The <textarea> model isn't
+// gated this way — it's how VS Code's own editors paste in the same sandbox.
+// Patch both factories once here so every editor (and any future one) inherits
+// it. Desktop runs in WebView2 (not a sandboxed iframe) and pastes fine on
+// EditContext, so leave it alone there.
+if (!isTauri) {
+  const ed = monaco.editor as unknown as {
+    create: (...a: any[]) => unknown;
+    createDiffEditor: (...a: any[]) => unknown;
+  };
+  const origCreate = ed.create;
+  const origDiff = ed.createDiffEditor;
+  ed.create = (el: unknown, opts?: any, ...rest: unknown[]) =>
+    origCreate(el, { editContext: false, ...opts }, ...rest);
+  ed.createDiffEditor = (el: unknown, opts?: any, ...rest: unknown[]) =>
+    origDiff(el, { editContext: false, ...opts }, ...rest);
+}
+
 // Apply the user's saved accent before React mounts so the first paint
 // already has the right color. Without this, the app boots with emerald
 // and only updates to the saved accent once SettingsScreen mounts and
