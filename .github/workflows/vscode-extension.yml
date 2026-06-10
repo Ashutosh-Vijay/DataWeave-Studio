@@ -108,15 +108,31 @@ jobs:
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
-      - name: Attach .vsix to a GitHub release (direct / offline download)
-        if: startsWith(github.ref, 'refs/tags/vscode-v')
-        working-directory: vscode-extension
+  # Attach all .vsix to one GitHub release in a SINGLE job after every build.
+  # Previously each matrix job did its own `gh release create || true` + upload;
+  # run in parallel they race — one wins the create and the others' uploads hit
+  # "release not found" before it propagates (3 of 4 failed on vscode-v0.0.4).
+  # One job, created once, uploads all four — no race. (Marketplace publish stays
+  # per-platform above: vsce publish is per-target.)
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/vscode-v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all .vsix artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: vsix-*
+          path: vsix
+          merge-multiple: true
+      - name: Create release and attach all .vsix
         shell: bash
         run: |
           gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
             --title "DataWeave Studio (VS Code) $GITHUB_REF_NAME" \
             --notes "VS Code extension. Install from the Marketplace, or download the platform .vsix below and run: code --install-extension <file>" \
             2>/dev/null || true
-          gh release upload "$GITHUB_REF_NAME" "dataweave-studio-${{ matrix.target }}.vsix" --clobber
+          gh release upload "$GITHUB_REF_NAME" vsix/*.vsix --clobber --repo "$GITHUB_REPOSITORY"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
