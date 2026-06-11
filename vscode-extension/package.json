@@ -123,7 +123,12 @@
     "watch": "node esbuild.js --watch",
     "package": "npm run check-types && node esbuild.js --production",
     "vscode:prepublish": "npm run package",
-    "bundle:resources": "node scripts/bundle-resources.mjs"
+    "bundle:resources": "node scripts/bundle-resources.mjs",
+    "mcp": "node dist/mcp.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
