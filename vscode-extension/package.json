@@ -2,7 +2,7 @@
   "name": "dataweave-studio",
   "displayName": "DataWeave Studio",
   "description": "DataWeave playground — run, test, and design MuleSoft DataWeave transforms inside VS Code. Bundles the real DataWeave 2.11 engine; no Anypoint, no Maven.",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "publisher": "ashutosh-vijay",
   "license": "MIT",
   "icon": "icon.png",

@@ -100,7 +100,7 @@ export function FirstRunPicker({ initialTheme, initialLayout, onComplete }: Firs
               recommended
               onClick={() => setLayout('workbench')}
               title="Workbench"
-              desc="Icon rail + tabbed context"
+              desc="Input → Script → Output, plus a sidebar with workspaces, tools, and tests."
               tags={['Discoverable', 'Everything in reach']}
             />
             <LayoutCard
@@ -108,9 +108,9 @@ export function FirstRunPicker({ initialTheme, initialLayout, onComplete }: Firs
               theme={theme}
               active={layout === 'focus'}
               onClick={() => setLayout('focus')}
-              title="Focus"
-              desc="Editor + output take the stage. Context opens as a right drawer on demand."
-              tags={['Minimal chrome', 'Keyboard-first']}
+              title="Playground"
+              desc="The familiar three-pane playground: Input → Script → Output, no sidebar."
+              tags={['Minimal chrome', 'Familiar']}
             />
           </div>
         </div>
@@ -131,7 +131,7 @@ export function FirstRunPicker({ initialTheme, initialLayout, onComplete }: Firs
             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-hover)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--accent)'; }}
           >
-            Start with {layout === 'workbench' ? 'Workbench' : 'Focus'}
+            Start with {layout === 'workbench' ? 'Workbench' : 'Playground'}
             <span className="opacity-80">→</span>
           </button>
         </div>

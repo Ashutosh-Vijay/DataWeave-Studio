@@ -28,7 +28,7 @@ interface SettingsScreenProps {
 }
 
 const SECTIONS: { id: Section; label: string; icon: keyof typeof Icons; keywords: string[] }[] = [
-  { id: 'appearance', label: 'Appearance', icon: 'Panel', keywords: ['theme', 'dark', 'light', 'dusk', 'paper', 'accent', 'color', 'layout', 'workbench', 'focus', 'compact', 'density'] },
+  { id: 'appearance', label: 'Appearance', icon: 'Panel', keywords: ['theme', 'dark', 'light', 'dusk', 'paper', 'accent', 'color', 'layout', 'workbench', 'focus', 'playground', 'compact', 'density'] },
   { id: 'general',    label: 'General',    icon: 'Settings', keywords: ['startup', 'autosave', 'tour', 'updates', 'last workspace'] },
   { id: 'runtime',    label: 'Runtime',    icon: 'Terminal', keywords: ['engine', 'restart', 'jvm', 'java', 'timeout', 'classpath', 'jar', 'mime', 'input format'] },
   { id: 'editor',     label: 'Editor',     icon: 'Braces', keywords: ['font', 'size', 'line height', 'tab', 'word wrap', 'bracket', 'minimap'] },
@@ -304,8 +304,8 @@ function AppearancePanel({
         <div className="grid grid-cols-2 gap-3.5">
           {(['workbench', 'focus'] as const).map((id) => {
             const selected = layout === id;
-            const name = id === 'workbench' ? 'Workbench' : 'Focus';
-            const desc = id === 'workbench' ? 'Icon rail · tabbed context' : 'Editor-first · right drawer';
+            const name = id === 'workbench' ? 'Workbench' : 'Playground';
+            const desc = id === 'workbench' ? 'Sidebar · tabs · tests' : 'Clean three-pane';
             return (
               <button
                 key={id}
@@ -667,7 +667,7 @@ function ShortcutsList() {
     ]},
     { title: 'Appearance', items: [
       ['Switch to Workbench', ['⌘', '⇧', '1']],
-      ['Switch to Focus', ['⌘', '⇧', '2']],
+      ['Switch to Playground', ['⌘', '⇧', '2']],
       ['Toggle theme', ['⌘', '⇧', 'T']],
       ['Toggle sidebar', ['⌘', 'B']],
       ['Open settings', ['⌘', ',']],

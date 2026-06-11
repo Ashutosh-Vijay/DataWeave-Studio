@@ -46,7 +46,6 @@ const FirstRunPicker = lazy(() => import('./components/FirstRunPicker').then((m)
 import { SplashScreen } from './components/SplashScreen';
 import { CommandPalette, Command } from './components/CommandPalette';
 import { CompactLayout } from './components/CompactLayout';
-import { FocusDrawer } from './components/FocusDrawer';
 
 // Inlined helpers — used to be `import { shouldShowFirstRun, markFirstRunSeen }`
 // from FirstRunPicker etc. but that made the whole component bundle eager.
@@ -274,18 +273,11 @@ function StatusBar({
   appVersion,
   dwVersion,
   workspaceFile,
-  focusToggles,
 }: {
   isReady: boolean;
   appVersion: string;
   dwVersion?: string;
   workspaceFile?: string;
-  focusToggles?: {
-    drawerOpen: boolean;
-    activeTab: 'Request' | 'Vars' | 'Config';
-    counts: { Request: number; Vars: number; Config: number };
-    onSelect: (tab: 'Request' | 'Vars' | 'Config') => void;
-  };
 }) {
   return (
     <div
@@ -299,31 +291,6 @@ function StatusBar({
       </span>
       <span>DW {dwVersion || '2.11.0'}</span>
       {workspaceFile && <span className="truncate max-w-[280px]">{workspaceFile}</span>}
-      {focusToggles && (
-        <span className="flex items-center gap-1 ml-1">
-          {(['Request', 'Vars', 'Config'] as const).map((t) => {
-            const active = focusToggles.drawerOpen && focusToggles.activeTab === t;
-            const count = focusToggles.counts[t];
-            return (
-              <button
-                key={t}
-                onClick={() => focusToggles.onSelect(t)}
-                className={`inline-flex items-center gap-1 h-[18px] px-1.5 rounded text-[10.5px] font-sans border cursor-pointer transition-colors ${
-                  active
-                    ? 'bg-accent-dim border-accent-border text-accent'
-                    : 'border-transparent text-content-faint hover:text-content-secondary hover:border-line-secondary'
-                }`}
-                title={`Toggle ${t}`}
-              >
-                {t}
-                {count > 0 && (
-                  <span className="font-mono text-[9.5px] opacity-80">{count}</span>
-                )}
-              </button>
-            );
-          })}
-        </span>
-      )}
       <span className="flex-1" />
       <CursorIndicator />
       <span>UTF-8</span>
@@ -350,11 +317,11 @@ function App() {
   const [showTour, setShowTour] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [referenceOpen, setReferenceOpen] = useState(false);
   const [recipesOpen, setRecipesOpen] = useState(false);
   const [flowDesignerOpen, setFlowDesignerOpen] = useState(false);
-  const [focusDrawerOpen, setFocusDrawerOpen] = useState(false);
   const [showFirstRun, setShowFirstRun] = useState(() => shouldShowFirstRun());
   /** One-time prompt for the very first workspace. Surfaced only after the
    *  theme/layout FirstRunPicker is dismissed (or skipped — for returning
@@ -372,7 +339,6 @@ function App() {
   // only the tiny <CursorIndicator/> re-renders on cursor moves — not the
   // entire 1500-line App tree.
   const [openWsOpen, setOpenWsOpen] = useState(false);
-  const [focusDrawerTab, setFocusDrawerTab] = useState<'Request' | 'Vars' | 'Config'>('Request');
   const scriptEditorRef = useRef<ScriptEditorHandle>(null);
   const sidebarRef = useRef<SidebarHandle>(null);
   const savePendingRef = useRef(false);
@@ -857,12 +823,8 @@ function App() {
         toggle();
       } else if ((e.ctrlKey || e.metaKey) && e.key === '.') {
         e.preventDefault();
-        // Context-sensitive: cancel a running script first; otherwise toggle the focus drawer.
-        if (runner.isRunning) {
-          runner.cancel();
-        } else {
-          setFocusDrawerOpen((o) => !o);
-        }
+        // Cancel a running script (context now lives inline, not in a drawer).
+        if (runner.isRunning) runner.cancel();
       } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'o' || e.key === 'O')) {
         e.preventDefault();
         setOpenWsOpen(true);
@@ -941,11 +903,8 @@ function App() {
     { id: 'export-playground', label: 'Export as Playground zip…', group: 'Workspace', run: handleExportPlayground },
     { id: 'format', label: 'Format script', shortcut: '⌥⇧F', group: 'Editor', run: () => scriptEditorRef.current?.format() },
     { id: 'sidebar', label: sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar', shortcut: '⌘B', group: 'View', run: () => setSidebarCollapsed(!sidebarCollapsed) },
-    { id: 'layout-workbench', label: 'Switch UI → Workbench', hint: layout === 'workbench' ? 'current' : 'Icon rail · sidebar · tabs', shortcut: '⌘⇧1', group: 'View', run: () => setLayout('workbench') },
-    { id: 'layout-focus', label: 'Switch UI → Focus', hint: layout === 'focus' ? 'current' : 'Editor · payload · drawer', shortcut: '⌘⇧2', group: 'View', run: () => setLayout('focus') },
-    ...(effectiveLayout === 'focus' && !isCompact
-      ? [{ id: 'focus-drawer', label: focusDrawerOpen ? 'Close context drawer' : 'Open context drawer', shortcut: '⌘.', group: 'View', run: () => setFocusDrawerOpen((o) => !o) }]
-      : []),
+    { id: 'layout-workbench', label: 'Switch UI → Workbench', hint: layout === 'workbench' ? 'current' : 'Sidebar · tabs · tests', shortcut: '⌘⇧1', group: 'View', run: () => setLayout('workbench') },
+    { id: 'layout-focus', label: 'Switch UI → Playground', hint: layout === 'focus' ? 'current' : 'Input · script · output', shortcut: '⌘⇧2', group: 'View', run: () => setLayout('focus') },
     { id: 'theme', label: isDark ? 'Switch to Paper (light)' : 'Switch to Dusk (dark)', shortcut: '⌘⇧T', group: 'View', run: () => toggle() },
     { id: 'out-json', label: 'Output: JSON', hint: outputFormat === 'json' ? 'current' : '', group: 'Output', run: () => setOutputFormat('json') },
     { id: 'out-xml', label: 'Output: XML', hint: outputFormat === 'xml' ? 'current' : '', group: 'Output', run: () => setOutputFormat('xml') },
@@ -1029,6 +988,78 @@ function App() {
         <div className="flex items-center gap-1">
           <IconBtn title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggle}>
             {isDark ? <Icons.Sun size={15} /> : <Icons.Moon size={15} />}
+          </IconBtn>
+
+          <div className="w-px h-4 bg-line mx-1" />
+
+          {/* Layout switch — Workbench (full IDE) vs Playground (clean 3-pane).
+              Hidden on compact viewports, where the layout is forced anyway. */}
+          {!isCompact && (
+            <div
+              className="inline-flex gap-0.5 p-0.5 rounded-md border"
+              style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}
+              title="Switch layout (⌘⇧1 / ⌘⇧2)"
+            >
+              {([['workbench', 'Workbench'], ['focus', 'Playground']] as const).map(([id, name]) => {
+                const active = layout === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => setLayout(id)}
+                    className="inline-flex items-center h-5 px-2 rounded text-[11px] cursor-pointer transition-colors"
+                    style={{
+                      background: active ? 'var(--surface)' : 'transparent',
+                      color: active ? 'var(--content)' : 'var(--content-faint)',
+                      fontWeight: active ? 600 : 500,
+                    }}
+                  >
+                    {name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Tools menu — same actions as the sidebar / ⌘K, surfaced here so the
+              Playground (which has no sidebar) can still reach every tool. */}
+          <div className="relative">
+            <button
+              onClick={() => setToolsMenuOpen((o) => !o)}
+              className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-[12px] font-medium text-content-faint hover:text-content-secondary hover:bg-surface-2 cursor-pointer transition-colors"
+              title="Tools"
+            >
+              Tools <Icons.ChevronDown size={12} />
+            </button>
+            {toolsMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setToolsMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 z-50 w-56 py-1 rounded-lg border border-line bg-surface shadow-2xl">
+                  {([
+                    ['Function reference', () => setReferenceOpen(true)],
+                    ['DataWeave cookbook', () => setRecipesOpen(true)],
+                    ['Message Flow designer', () => setFlowDesignerOpen(true)],
+                    ['Secure Properties tool', () => setSecureToolOpen(true)],
+                    ['Compare tool', () => setCompareToolOpen(true)],
+                    ['Import cURL', handleOpenImport],
+                    ['Snippets', handleOpenSnippets],
+                    ['Keyboard shortcuts', () => setShortcutsOpen(true)],
+                    ['About DataWeave Studio', () => setAboutOpen(true)],
+                  ] as const).map(([label, run]) => (
+                    <button
+                      key={label}
+                      onClick={() => { setToolsMenuOpen(false); run(); }}
+                      className="w-full text-left px-3 h-8 flex items-center text-[12.5px] text-content-secondary hover:bg-surface-2 hover:text-content cursor-pointer transition-colors"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          <IconBtn title="Settings (⌘,)" onClick={() => setSettingsOpen(true)}>
+            <Icons.Settings size={15} />
           </IconBtn>
 
           <div className="w-px h-4 bg-line mx-1" />
@@ -1363,12 +1394,54 @@ function App() {
         <main className="flex-1 overflow-hidden bg-bg">
           <PanelGroup orientation="horizontal" className="h-full gap-0">
 
-            {/* Left column: Query + Script + Payload (vertical splits) */}
-            <Panel defaultSize={42} minSize={20} data-tour="script-editor">
+            {/* Left column: Inputs — Payload (top) + Context (bottom).
+                Inputs lead the flow left→right: Input/Context → Transformation
+                → Output. Context is inline in BOTH layouts now (no more drawer). */}
+            <Panel defaultSize={28} minSize={18}>
+              <PanelGroup orientation="vertical" className="h-full">
+                <Panel defaultSize={55} minSize={20}>
+                  <div className="h-full pb-1" data-tour="payload">
+                    <PayloadTabs
+                      payload={workspace.payload}
+                      onPayloadChange={handlePayloadChange}
+                      payloadMimeType={workspace.payloadMimeType}
+                      onPayloadMimeTypeChange={workspace.setPayloadMimeType}
+                      payloadFilePath={workspace.payloadFilePath}
+                      onPayloadFilePathChange={workspace.setPayloadFilePath}
+                      multipartParts={workspace.multipartParts}
+                      onMultipartPartsChange={workspace.setMultipartParts}
+                      namedInputs={workspace.namedInputs}
+                      onNamedInputsChange={workspace.setNamedInputs}
+                    />
+                  </div>
+                </Panel>
+                <PanelResizeHandle className="h-1.5 flex items-center justify-center cursor-row-resize group">
+                  <div className="w-8 h-0.5 rounded-full bg-line-secondary group-hover:bg-accent/50 transition-colors" />
+                </PanelResizeHandle>
+                <Panel defaultSize={45} minSize={15}>
+                  <div className="h-full pt-1" data-tour="context-panel">
+                    <ContextPanel
+                      context={workspace.context}
+                      onChange={workspace.setContext}
+                      encryptionKey={encryptionKey}
+                      onEncryptionKeyChange={setEncryptionKey}
+                    />
+                  </div>
+                </Panel>
+              </PanelGroup>
+            </Panel>
+
+            <PanelResizeHandle className="w-px bg-line hover:bg-accent/50 transition-colors cursor-col-resize relative group mx-1">
+              <div className="absolute top-1/2 -translate-y-1/2 -left-[1px] h-8 w-[3px] rounded bg-line group-hover:bg-accent transition-colors" />
+            </PanelResizeHandle>
+
+            {/* Center: Transformation — the DataWeave script. In query mode the
+                SOQL/SQL template editor sits on top of the parameters script. */}
+            <Panel defaultSize={40} minSize={20} data-tour="script-editor">
               <PanelGroup orientation="vertical" className="h-full">
                 {isQueryMode && (
                   <>
-                    <Panel defaultSize={30} minSize={10}>
+                    <Panel defaultSize={35} minSize={10}>
                       <div className="h-full pb-1">
                         <QueryEditor
                           query={workspace.queryTemplate}
@@ -1377,13 +1450,13 @@ function App() {
                         />
                       </div>
                     </Panel>
-                    <PanelResizeHandle className="h-px bg-line hover:bg-accent/50 transition-colors cursor-row-resize relative group">
-                      <div className="absolute left-1/2 -translate-x-1/2 -top-[1px] w-8 h-[3px] rounded bg-line group-hover:bg-accent transition-colors" />
+                    <PanelResizeHandle className="h-1.5 flex items-center justify-center cursor-row-resize group">
+                      <div className="w-8 h-0.5 rounded-full bg-line-secondary group-hover:bg-accent/50 transition-colors" />
                     </PanelResizeHandle>
                   </>
                 )}
-                <Panel defaultSize={isQueryMode ? 40 : 60} minSize={15}>
-                  <div className="h-full pb-1 flex flex-col" data-tour="script-editor">
+                <Panel defaultSize={isQueryMode ? 65 : 100} minSize={15}>
+                  <div className="h-full flex flex-col">
                     {!isQueryMode && (
                       <div className="h-10 shrink-0 flex items-center gap-2 px-3.5 bg-surface border-b border-line">
                         <span className={`font-mono text-[10.5px] font-bold tracking-wide px-1.5 h-5 inline-flex items-center rounded ${methodColors.bg} ${methodColors.text} ${methodColors.border} border`}>
@@ -1428,25 +1501,6 @@ function App() {
                     </div>
                   </div>
                 </Panel>
-                <PanelResizeHandle className="h-1.5 flex items-center justify-center cursor-row-resize group">
-                  <div className="w-8 h-0.5 rounded-full bg-line-secondary group-hover:bg-accent/50 transition-colors" />
-                </PanelResizeHandle>
-                <Panel defaultSize={isQueryMode ? 30 : 40} minSize={10}>
-                  <div className="h-full pt-1" data-tour="payload">
-                    <PayloadTabs
-                      payload={workspace.payload}
-                      onPayloadChange={handlePayloadChange}
-                      payloadMimeType={workspace.payloadMimeType}
-                      onPayloadMimeTypeChange={workspace.setPayloadMimeType}
-                      payloadFilePath={workspace.payloadFilePath}
-                      onPayloadFilePathChange={workspace.setPayloadFilePath}
-                      multipartParts={workspace.multipartParts}
-                      onMultipartPartsChange={workspace.setMultipartParts}
-                      namedInputs={workspace.namedInputs}
-                      onNamedInputsChange={workspace.setNamedInputs}
-                    />
-                  </div>
-                </Panel>
               </PanelGroup>
             </Panel>
 
@@ -1454,26 +1508,8 @@ function App() {
               <div className="absolute top-1/2 -translate-y-1/2 -left-[1px] h-8 w-[3px] rounded bg-line group-hover:bg-accent transition-colors" />
             </PanelResizeHandle>
 
-            {/* Center: Context Panel — hidden in Focus layout / compact viewport */}
-            {effectiveLayout === 'workbench' && (
-              <>
-                <Panel defaultSize={20} minSize={10} data-tour="context-panel">
-                  <ContextPanel
-                    context={workspace.context}
-                    onChange={workspace.setContext}
-                    encryptionKey={encryptionKey}
-                    onEncryptionKeyChange={setEncryptionKey}
-                  />
-                </Panel>
-
-                <PanelResizeHandle className="w-px bg-line hover:bg-accent/50 transition-colors cursor-col-resize relative group mx-1">
-                  <div className="absolute top-1/2 -translate-y-1/2 -left-[1px] h-8 w-[3px] rounded bg-line group-hover:bg-accent transition-colors" />
-                </PanelResizeHandle>
-              </>
-            )}
-
             {/* Right: Output */}
-            <Panel defaultSize={38} minSize={15} data-tour="output">
+            <Panel defaultSize={32} minSize={15} data-tour="output">
               <OutputPane
                 output={runner.output}
                 error={runner.error}
@@ -1500,23 +1536,6 @@ function App() {
         isReady={runner.isWarmedUp}
         appVersion={appVersion}
         workspaceFile={workspace.currentFile || undefined}
-        focusToggles={effectiveLayout === 'focus' && !isCompact ? {
-          drawerOpen: focusDrawerOpen,
-          activeTab: focusDrawerTab,
-          counts: {
-            Request: workspace.context.queryParams.filter(p => p.enabled !== false && p.key && p.value).length + workspace.context.headers.filter(h => h.enabled !== false && h.key && h.value).length,
-            Vars: workspace.context.vars.filter(v => v.enabled !== false && v.key).length,
-            Config: ((workspace.context.configYaml ?? '').trim() ? 1 : 0) + ((workspace.context.secureConfigYaml ?? '').trim() ? 1 : 0),
-          },
-          onSelect: (tab) => {
-            if (focusDrawerOpen && focusDrawerTab === tab) {
-              setFocusDrawerOpen(false);
-            } else {
-              setFocusDrawerTab(tab);
-              setFocusDrawerOpen(true);
-            }
-          },
-        } : undefined}
       />
 
       {/* About dialog */}
@@ -1547,19 +1566,6 @@ function App() {
         </Suspense>
       )}
 
-      {/* Focus mode: context drawer */}
-      {effectiveLayout === 'focus' && !isCompact && (
-        <FocusDrawer open={focusDrawerOpen} onClose={() => setFocusDrawerOpen(false)}>
-          <ContextPanel
-            key={focusDrawerTab}
-            context={workspace.context}
-            onChange={workspace.setContext}
-            encryptionKey={encryptionKey}
-            onEncryptionKeyChange={setEncryptionKey}
-            defaultTab={focusDrawerTab}
-          />
-        </FocusDrawer>
-      )}
 
       {/* Command palette */}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={paletteCommands} />

@@ -31,18 +31,10 @@ const STEPS: TourStep[] = [
     placement: 'right',
   },
   {
-    target: 'script-editor',
-    title: 'Script editor',
-    description:
-      'Write DataWeave with syntax highlighting, autocomplete (300+ functions from the official docs), inline error markers, and hover docs. Toggle Auto-run for live preview, or hit ⌘↵ from the editor to run manually.',
-    tip: 'The node-label chip beside the project name picks the script\'s role — Transform, Salesforce Query, DB Query — and swaps to a relevant starter template.',
-    placement: 'right',
-  },
-  {
     target: 'payload',
     title: 'Payload & named inputs',
     description:
-      'Set your input data and MIME type here. Add named inputs for multi-source transforms, attach binary files, or build multipart/form-data payloads with the parts editor.',
+      'Start here — the inputs feed the transform. Set your input data and MIME type, add named inputs for multi-source transforms, attach binary files, or build multipart/form-data payloads with the parts editor.',
     tip: 'Paste raw data, pick the MIME, run — no files needed. Use the file-attach icon to load larger payloads off disk.',
     placement: 'right',
   },
@@ -50,15 +42,23 @@ const STEPS: TourStep[] = [
     target: 'context-panel',
     title: 'Context: Request · Vars · Config',
     description:
-      'Simulate HTTP request attributes (method, headers, query params), define variables, and paste config / secure-config YAML. Each tab badges its active count so you see what\'s wired in.',
+      'Just below the payload: simulate HTTP request attributes (method, headers, query params), define variables, and paste config / secure-config YAML. Each tab badges its active count so you see what\'s wired in.',
     tip: '⌘⇧E opens the Secure Properties tool — encrypt/decrypt values for ${secure::key} placeholders.',
-    placement: 'left',
+    placement: 'right',
+  },
+  {
+    target: 'script-editor',
+    title: 'Script editor',
+    description:
+      'The transformation sits in the middle. Write DataWeave with syntax highlighting, autocomplete (300+ functions from the official docs), inline error markers, and hover docs. Toggle Auto-run for live preview, or hit ⌘↵ to run manually.',
+    tip: 'The node-label chip beside the project name picks the script\'s role — Transform, Salesforce Query, DB Query — and swaps to a relevant starter template.',
+    placement: 'right',
   },
   {
     target: 'output',
     title: 'Output',
     description:
-      'See results as formatted JSON, XML, or raw text. Copy or export with one click. Errors show the exact line, a source snippet, and a collapsible Java stack trace.',
+      'Results land on the right as formatted JSON, XML, or raw text. Copy or export with one click. Errors show the exact line, a source snippet, and a collapsible Java stack trace.',
     placement: 'left',
   },
   {
@@ -73,7 +73,7 @@ const STEPS: TourStep[] = [
     target: 'palette',
     title: 'Command palette — your launchpad',
     description:
-      'Press ⌘K to search every action: run, save, open, theme, layout, snippets, settings, function reference, flow designer. Two layouts: Workbench (⌘⇧1) and Focus (⌘⇧2).',
+      'Press ⌘K to search every action: run, save, open, theme, layout, snippets, settings, function reference, flow designer. Two layouts: Workbench (⌘⇧1) and Playground (⌘⇧2).',
     tip: '⌘/ shows all keyboard shortcuts · ⌘⇧T toggles dark/light theme · ⌘N for a fresh workspace.',
     placement: 'bottom',
   },

@@ -41,7 +41,7 @@ const GROUPS: { title: string; items: Shortcut[] }[] = [
     title: 'Appearance',
     items: [
       { keys: ['⌘', '⇧', '1'], label: 'Switch to Workbench' },
-      { keys: ['⌘', '⇧', '2'], label: 'Switch to Focus' },
+      { keys: ['⌘', '⇧', '2'], label: 'Switch to Playground' },
       { keys: ['⌘', '⇧', 'T'], label: 'Toggle theme' },
       { keys: ['⌘', 'B'], label: 'Toggle sidebar' },
       { keys: ['⌘', ','], label: 'Open settings' },

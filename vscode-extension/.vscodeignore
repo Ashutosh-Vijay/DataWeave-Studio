@@ -16,4 +16,4 @@ DEVELOPMENT.md
 #   dist/**           bundled extension host (esbuild → dist/extension.js)
 #   webview-dist/**   built React UI
 #   resources/**      bundled JRE + dwstudio-server.jar + secure-properties-tool.jar
-#   icon.png, package.json, README.md, PRIVACY.md, LICENSE
+#   icon.png, package.json, README.md, CHANGELOG.md, PRIVACY.md, LICENSE
