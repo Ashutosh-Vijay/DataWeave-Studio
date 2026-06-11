@@ -289,7 +289,7 @@ function extractJsonFields(json: string): string[] {
   try {
     const parsed = JSON.parse(json);
     if (Array.isArray(parsed)) {
-      return parsed.length > 0 && typeof parsed[0] === 'object' ? Object.keys(parsed[0]) : [];
+      return parsed.length > 0 && typeof parsed[0] === 'object' && parsed[0] !== null ? Object.keys(parsed[0]) : [];
     }
     return typeof parsed === 'object' && parsed !== null ? Object.keys(parsed) : [];
   } catch { return []; }
@@ -659,7 +659,9 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           const idx = flows.findIndex((f) => f.name === sel.config.flowRefName);
           if (idx >= 0 && idx !== activeFlowIdx) {
             e.preventDefault();
-            setFlows((prev) => prev.map((f, i) => i === activeFlowIdx ? { ...f, nodes } : f));
+            // Persist the current flow's nodes AND its (possibly just-renamed)
+            // name before jumping — otherwise an unflushed rename is lost.
+            setFlows((prev) => prev.map((f, i) => i === activeFlowIdx ? { ...f, nodes, name: flowName } : f));
             setNodes(flows[idx].nodes);
             setFlowName(flows[idx].name);
             setActiveFlowIdx(idx);
@@ -3812,7 +3814,7 @@ output application/json
             <div className="py-1.5 px-2 max-h-[60vh] overflow-y-auto">
               {/* Leaf nodes */}
               <div className="px-1 pt-1 pb-0.5 text-[9px] font-semibold uppercase tracking-wider text-content-ghost">Steps</div>
-              {(['set-payload', 'transform', 'set-variable', 'salesforce', 'database', 'http-request', 'logger'] as LeafNodeType[]).map((t) => {
+              {(['set-payload', 'transform', 'set-variable', 'salesforce', 'database', 'http-request', 'logger', 'flow-ref'] as LeafNodeType[]).map((t) => {
                 const m = NODE_META[t];
                 return (
                   <button
