@@ -130,16 +130,24 @@ export class DwServer {
       this.proc = proc;
 
       let ready = false;
-      proc.on('error', (e) => {
-        if (!ready) reject(e);
-        this.failAll(e);
-      });
-      proc.on('exit', (code) => {
-        const err = new Error(`DataWeave server exited (code ${code}).`);
+      // If the JVM dies — crash, OOM, or an external kill — reset ALL state so
+      // the next start()/getServer() transparently respawns + re-primes. Without
+      // resetting readyPromise, start() would keep returning a stale resolved
+      // promise over a null proc, leaving the engine bricked ("server not
+      // running") until a full window reload.
+      const onDead = (err: Error) => {
         if (!ready) reject(err);
         this.failAll(err);
         this.proc = null;
-      });
+        this.warmed = false;
+        this.readyPromise = null;
+        if (this.keepaliveTimer) {
+          clearInterval(this.keepaliveTimer);
+          this.keepaliveTimer = null;
+        }
+      };
+      proc.on('error', (e) => onDead(e instanceof Error ? e : new Error(String(e))));
+      proc.on('exit', (code) => onDead(new Error(`DataWeave server exited (code ${code}).`)));
 
       proc.stdout.setEncoding('utf8');
       proc.stdout.on('data', (chunk: string) => {

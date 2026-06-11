@@ -254,8 +254,41 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Internal run error, split so `run` knows whether respawning could help.
+enum RunErr {
+    /// The pipe/process looks dead (broken pipe, EOF, missing inner) —
+    /// respawning the JVM and retrying may recover.
+    Dead(String),
+    /// A non-transport failure (serialize / parse) — respawning won't help.
+    Other(String),
+}
+impl From<RunErr> for String {
+    fn from(e: RunErr) -> String {
+        match e {
+            RunErr::Dead(s) | RunErr::Other(s) => s,
+        }
+    }
+}
+
 /// Send a request, block on the response. Single-threaded through the mutex.
 pub fn run(app: &AppHandle, args: DwRunArgs) -> Result<DwResponse, String> {
+    match run_once(app, &args) {
+        Ok(resp) => Ok(resp),
+        Err(RunErr::Dead(msg)) => {
+            // The JVM is gone (crash, OOM, or an external kill). Respawn +
+            // re-prime and retry the request once, so the user's run just works
+            // instead of erroring until a manual "Restart engine" / app reload.
+            log::warn!("DW server appears dead ({}); respawning and retrying once", msg);
+            stop(app);
+            start(app)?;
+            run_once(app, &args).map_err(String::from)
+        }
+        Err(RunErr::Other(msg)) => Err(msg),
+    }
+}
+
+/// One request/response round-trip over the existing process.
+fn run_once(app: &AppHandle, args: &DwRunArgs) -> Result<DwResponse, RunErr> {
     let state = app.state::<DwServerState>();
     let id = state.next_id.fetch_add(1, Ordering::Relaxed);
     let req = DwRequest {
@@ -271,25 +304,25 @@ pub fn run(app: &AppHandle, args: DwRunArgs) -> Result<DwResponse, String> {
         compile_only: args.compile_only,
     };
     let line = serde_json::to_string(&req)
-        .map_err(|e| format!("Failed to serialize request: {}", e))?;
+        .map_err(|e| RunErr::Other(format!("Failed to serialize request: {}", e)))?;
 
     let mut guard = state.inner.lock().unwrap_or_else(|e| e.into_inner());
     let inner = guard
         .as_mut()
-        .ok_or_else(|| "DataWeave server not running".to_string())?;
+        .ok_or_else(|| RunErr::Dead("DataWeave server not running".to_string()))?;
 
     inner
         .stdin
         .write_all(line.as_bytes())
-        .map_err(|e| format!("Failed to write to server: {}", e))?;
+        .map_err(|e| RunErr::Dead(format!("Failed to write to server: {}", e)))?;
     inner
         .stdin
         .write_all(b"\n")
-        .map_err(|e| format!("Failed to flush newline: {}", e))?;
+        .map_err(|e| RunErr::Dead(format!("Failed to flush newline: {}", e)))?;
     inner
         .stdin
         .flush()
-        .map_err(|e| format!("Failed to flush stdin: {}", e))?;
+        .map_err(|e| RunErr::Dead(format!("Failed to flush stdin: {}", e)))?;
 
     // Read raw bytes until newline — the DW runtime can produce binary output
     // (e.g. multipart/form-data with file parts) which the Java server base64-
@@ -299,14 +332,16 @@ pub fn run(app: &AppHandle, args: DwRunArgs) -> Result<DwResponse, String> {
     inner
         .stdout
         .read_until(b'\n', &mut resp_bytes)
-        .map_err(|e| format!("Failed to read from server: {}", e))?;
+        .map_err(|e| RunErr::Dead(format!("Failed to read from server: {}", e)))?;
     if resp_bytes.is_empty() {
-        return Err("DataWeave server closed unexpectedly. Try restarting the runtime.".into());
+        return Err(RunErr::Dead(
+            "DataWeave server closed unexpectedly.".into(),
+        ));
     }
     let resp_line = String::from_utf8_lossy(&resp_bytes);
 
     serde_json::from_str::<DwResponse>(&resp_line)
-        .map_err(|e| format!("Bad server response: {} (line: {})", e, resp_line.trim()))
+        .map_err(|e| RunErr::Other(format!("Bad server response: {} (line: {})", e, resp_line.trim())))
 }
 
 /// Kill the server process. Used on shutdown or restart.
