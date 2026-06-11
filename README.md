@@ -1,12 +1,14 @@
 # DataWeave Studio
 
-A desktop IDE for DataWeave 2.0 — run, test, and debug transforms locally without Anypoint Studio.
+A local IDE for DataWeave 2.0 — run, test, and debug transforms without Anypoint Studio. Available as a **desktop app** or a **VS Code extension**.
 
-> **Anypoint Studio is 2 GB. The online playground can't go offline. The VS Code extension needs Java + Maven. DataWeave Studio bundles everything in one ~90 MB installer.**
+> **Anypoint Studio is 2 GB. The online playground can't go offline. MuleSoft's VS Code extension needs Java + Maven. DataWeave Studio bundles everything — desktop or extension — with the engine and a Java runtime built in.**
 
 Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor. Ships with a bundled JRE 17 and the DataWeave runtime — no Java install required.
 
-**[Download](https://ashutosh-vijay.dev/dataweave/)** | **[Landing Page](https://ashutosh-vijay.dev/dataweave/)** | **[Releases](https://github.com/Ashutosh-Vijay/DataWeave-Studio/releases)**
+**[Download](https://ashutosh-vijay.dev/dataweave/)** | **[VS Code Extension](https://marketplace.visualstudio.com/items?itemName=ashutosh-vijay.dataweave-studio)** | **[Landing Page](https://ashutosh-vijay.dev/dataweave/)** | **[Releases](https://github.com/Ashutosh-Vijay/DataWeave-Studio/releases)**
+
+> **Also on the VS Code Marketplace.** The same engine and UI run inside a VS Code webview with a bundled Java runtime — install from the Marketplace, nothing else to set up. Handy on locked-down corporate machines where a desktop installer isn't an option. (This is *DataWeave Studio's own* extension — not MuleSoft's official one, which is what the comparisons below refer to.)
 
 ---
 
@@ -36,11 +38,11 @@ Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor. Ships with a bu
 ![Secure Properties Tool](docs/screenshots/secure_tool_encryption_dark_mode.png)
 *Offline Secure Properties Tool — encrypt/decrypt values locally using AES-CBC, nothing sent to any server*
 
-![Focus mode — Paper theme](docs/screenshots/focus_mode_paper_theme.png)
-*Focus layout in Paper (light) theme — editor-first with right-side output drawer*
+![Playground layout — Paper theme](docs/screenshots/focus_mode_paper_theme.png)
+*Playground layout in Paper (light) theme — a clean three-pane Input → Script → Output view*
 
 ![Settings — appearance customization](docs/screenshots/settings_dark_mode.png)
-*Settings — Dusk/Paper themes, 5 accent colors, Workbench and Focus layouts*
+*Settings — Dusk/Paper themes, 5 accent colors, Workbench and Playground layouts*
 
 ---
 
@@ -50,7 +52,7 @@ DataWeave testing today is painful:
 
 - **Anypoint Studio** is 2 GB, Eclipse-based, and takes minutes to start. Testing a single DataWeave script requires deploying an entire Mule app locally.
 - **The online Playground** runs in the browser (WASM) — no offline mode, no binary format support (Excel, Avro, Protobuf), payload size limited by browser memory, no version switching, no dark/light theme toggle, and no direct URL sharing of scripts.
-- **The VS Code Extension** requires Java 8+ and Maven 3.6+ installed, a full Maven project structure (`pom.xml`, `src/main/dw/`, `src/test/dw/`), and manual scenario resource files for every input. Still in BETA after years.
+- **MuleSoft's official VS Code extension** requires Java 8+ and Maven 3.6+ installed, a full Maven project structure (`pom.xml`, `src/main/dw/`, `src/test/dw/`), and manual scenario resource files for every input. Still in BETA after years. *(DataWeave Studio's own VS Code extension — see above — has none of these requirements; it bundles the engine and Java.)*
 
 DataWeave Studio fixes all of it — one window, everything from a UI, no file management, no setup beyond running the installer.
 
@@ -85,7 +87,7 @@ Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA
 
 ## vs. The Alternatives
 
-| Feature | DataWeave Studio | VS Code Extension | Online Playground | Anypoint Studio |
+| Feature | DataWeave Studio | MuleSoft VS Code Ext | Online Playground | Anypoint Studio |
 |---|---|---|---|---|
 | **Setup** | Download + run | Java + Maven + project scaffold | Open browser | 2 GB download |
 | **Startup time** | ~1-2s (first), instant after | Depends on project indexing | Instant | Minutes |
@@ -116,7 +118,7 @@ Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA
 | **Cancel running script** | Yes | No | No | No |
 | **Configurable timeout** | Yes | No | No | No |
 
-**In short:** Studio sits between the Playground and the VS Code extension. More powerful than the Playground (offline, testing, binary formats, real config). More convenient than the VS Code extension (no Java/Maven, no project scaffolding, everything in one window). Unique features like cURL import, Flow Designer, query modes, and secure properties that neither has.
+**In short:** Studio sits between the Playground and MuleSoft's VS Code extension. More powerful than the Playground (offline, testing, binary formats, real config). More convenient than MuleSoft's extension (no Java/Maven, no project scaffolding, everything in one window). Unique features like cURL import, Flow Designer, query modes, and secure properties that neither has. And it ships as its own VS Code extension too — same power, inside the editor.
 
 ---
 
@@ -230,8 +232,8 @@ Rewrites legacy scripts in-place. Converts `%dw 1.0` directives, `flowVars`, `in
 ### Appearance & Layout
 - **Dusk** (dark) and **Paper** (light) themes with custom DataWeave syntax highlighting
 - **5 accent colors**: Emerald, Sky, Violet, Amber, Rose
-- **Workbench layout** — 3-column: icon rail + sidebar + main editor area with resizable panes
-- **Focus layout** — editor-first with toggleable right drawer for context
+- **Workbench layout** — sidebar + the Input/Context → Script → Output panes, with resizable splits and the Tests view
+- **Playground layout** — the same Input/Context → Script → Output flow without the sidebar; a clean three-pane view like the online DataWeave playground
 - Responsive compact mode at ≤720px viewport width
 - Custom title bar with window controls
 - Configurable editor font, size, line height, tab size, word wrap, bracket guides
@@ -258,9 +260,9 @@ Quick access to all actions via **Cmd/Ctrl+K**. Grouped commands: Run, Workspace
 | `Ctrl+Shift+R` / `Cmd+Shift+R` | Toggle auto-run |
 | `Ctrl+Shift+T` / `Cmd+Shift+T` | Toggle theme |
 | `Ctrl+Shift+1` / `Cmd+Shift+1` | Workbench layout |
-| `Ctrl+Shift+2` / `Cmd+Shift+2` | Focus layout |
+| `Ctrl+Shift+2` / `Cmd+Shift+2` | Playground layout |
 | `Alt+Shift+F` | Format script |
-| `Ctrl+.` / `Cmd+.` | Toggle context drawer (Focus) |
+| `Ctrl+.` / `Cmd+.` | Cancel running script |
 | `Ctrl+/` / `Cmd+/` | Show shortcuts |
 | `Escape` | Close dialogs |
 
@@ -342,6 +344,8 @@ DataWeave Studio does **not** shell out to the MuleSoft CLI for each run. Instea
 4. A 64-entry LRU compile cache skips recompilation for repeated scripts
 5. Result: ~10-50ms per run after warm-up (vs ~700ms with the native CLI)
 
+The **VS Code extension reuses this exact protocol** — its Node host (`vscode-extension/src/dwHost.ts`) spawns the same `dwstudio-server.jar` and speaks the same NDJSON, so a script behaves identically in the desktop app and the extension. A thin `src/bridge.ts` routes the UI's `invoke()` calls to Tauri on the desktop and to the extension host inside VS Code, which is how one React codebase serves both.
+
 ---
 
 ## Project Structure
@@ -359,12 +363,17 @@ src/                        # React frontend
   dataweaveHover.ts         # Hover provider for DW functions
   dataweaveTheme.ts         # Dusk + Paper Monaco themes
   ThemeContext.tsx           # Dark/light theme + accent color state
-src-tauri/                  # Rust backend
+  bridge.ts                 # Routes invoke() to Tauri (desktop) or the VS Code host (webview)
+src-tauri/                  # Rust backend (desktop)
   src/dw_runner.rs          # Script execution via long-lived Java server
   src/dw_server.rs          # Spawns and manages dwstudio-server.jar process
   src/workspace.rs          # Workspace save/load
   resources/dw-server/      # Bundled dwstudio-server.jar
   resources/jre/            # Bundled minimal JRE 17 (via jlink)
+vscode-extension/           # VS Code extension — reuses the React UI (src/) in a webview
+  src/extension.ts          # Extension host: reimplements the Tauri commands in Node
+  src/dwHost.ts             # Spawns dwstudio-server.jar (same NDJSON protocol as Rust)
+  webview-dist/             # Built shared UI, loaded into the webview
 dw-server/                  # Scala/Java server (Maven project)
   src/main/scala/.../DwServer.scala  # Long-lived DW runtime with compile cache
 licenses/                   # Third-party licenses
@@ -378,7 +387,7 @@ licenses/                   # Third-party licenses
 - Undo/redo is per-session and does not persist across workspace reloads.
 - Config property autocomplete triggers on `$` — type `${` to see suggestions.
 - Trackpad pinch-to-zoom in the flow designer is limited by WebView2 — use Ctrl+scroll or the +/- buttons instead.
-- No Language Server Protocol (LSP) — no Go to Definition, Find References, Rename Symbol, or type inference. The VS Code extension has these via MuleSoft's LSP.
+- No Language Server Protocol (LSP) — no Go to Definition, Find References, Rename Symbol, or type inference. MuleSoft's official VS Code extension has these via its LSP.
 - No breakpoint-level debugging of DataWeave expressions (the Flow Designer offers node-level step-through instead).
 - No Anypoint Exchange publishing or Maven dependency management.
 
