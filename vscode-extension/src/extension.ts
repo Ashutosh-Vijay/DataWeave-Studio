@@ -19,6 +19,7 @@ import * as crypto from 'crypto';
 import { execFile } from 'child_process';
 import { DwServer, resolveJava, resolveServerJar, runDataweave, warmDataweave, detectJavaMajor, RunArgs, WarmArgs } from './dwHost';
 import * as ws from './workspaceStore';
+import * as jarStore from './jarStore';
 
 let server: DwServer | null = null;
 let warmupError: string | null = null;
@@ -188,6 +189,21 @@ async function handleInvoke(
       return null;
     case 'get_workspaces_dir':
       return ws.getWorkspacesDir(storageDir);
+
+    // --- Managed JARs + Java compilation (port of jars.rs) ------------------
+    case 'list_managed_jars':
+      return jarStore.listManagedJars(storageDir);
+    case 'get_jars_dir':
+      return jarStore.getJarsDir(storageDir);
+    case 'import_jar_file':
+      return jarStore.importJarFile(storageDir, args.srcPath as string);
+    case 'remove_managed_jar':
+      jarStore.removeManagedJar(storageDir, args.path as string);
+      return null;
+    case 'download_maven_jar':
+      return jarStore.downloadMavenJar(storageDir, args.group as string, args.artifact as string, args.version as string);
+    case 'compile_java':
+      return jarStore.compileJava(storageDir, extensionRoot, args.sources as any, args.classpath as string[]);
 
     // --- Secure properties (port of secure_properties.rs) -------------------
     case 'secure_properties_invoke':

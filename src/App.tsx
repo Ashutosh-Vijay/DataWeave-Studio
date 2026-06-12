@@ -1148,6 +1148,7 @@ function App() {
           onOpenSecure={() => setSecureToolOpen(true)}
           onOpenCompare={() => setCompareToolOpen(true)}
           onOpenFlowDesigner={() => setFlowDesignerOpen(true)}
+          onOpenJavaTester={() => setJavaTesterOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenReference={() => setReferenceOpen(true)}
           onOpenRecipes={() => setRecipesOpen(true)}

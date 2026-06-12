@@ -58,6 +58,7 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
   const [right, setRight] = useState('');
   const [lang, setLang] = useState<CompareLang>('plaintext');
   const [sideBySide, setSideBySide] = useState(true);
+  const [wrap, setWrap] = useState(false);
   const diffEditorRef = useRef<Monaco.editor.IStandaloneDiffEditor | null>(null);
   const [stats, setStats] = useState<{ added: number; removed: number; same: boolean } | null>(null);
 
@@ -240,6 +241,16 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
           ))}
         </div>
 
+        <button
+          onClick={() => setWrap((w) => !w)}
+          className={`px-2 h-6 text-[10.5px] rounded-md border cursor-pointer transition-colors ${
+            wrap ? 'bg-accent-dim text-accent border-accent-border' : 'text-content-faint hover:text-content border-line-secondary bg-surface-2'
+          }`}
+          title="Toggle word wrap"
+        >
+          Wrap
+        </button>
+
         <div className="w-px h-4 bg-line" />
         <button
           onClick={swap}
@@ -336,13 +347,11 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
             ...editorFont,
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
-            // Monaco's side-by-side diff CANNOT word-wrap the original (left)
-            // pane — only the modified side wraps, which looks broken and
-            // misaligned. So we keep side-by-side un-wrapped (both scroll, lines
-            // stay aligned) and only wrap in single-pane inline mode, where one
-            // editor renders consistently.
-            wordWrap: sideBySide ? 'off' : 'on',
-            diffWordWrap: sideBySide ? 'off' : 'on',
+            // Wrap is a user toggle. Inline mode also wraps by default (single
+            // editor renders consistently); in side-by-side, diffWordWrap wraps
+            // both panes together so lines stay aligned.
+            wordWrap: wrap || !sideBySide ? 'on' : 'off',
+            diffWordWrap: wrap || !sideBySide ? 'on' : 'off',
             renderWhitespace: 'selection',
             // VSCode-style gutter arrow on each change — click to revert that
             // hunk on the modified (right) side back to the original (left).

@@ -49,6 +49,7 @@ interface SidebarProps {
   onOpenSecure: () => void;
   onOpenCompare: () => void;
   onOpenFlowDesigner: () => void;
+  onOpenJavaTester: () => void;
   onOpenSettings: () => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
@@ -142,7 +143,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const {
     projectName, onProjectNameChange, currentFile, isDirty, currentMethod,
     onNew, onSave, onLoad, onDelete, listWorkspaces,
-    onCurlImport, onInsertSnippet, onOpenSecure, onOpenCompare, onOpenFlowDesigner, onOpenSettings,
+    onCurlImport, onInsertSnippet, onOpenSecure, onOpenCompare, onOpenFlowDesigner, onOpenJavaTester, onOpenSettings,
     onOpenReference, onOpenRecipes,
     collapsed, onToggleCollapse,
     requests, activeRequestId, onSelectRequest, onAddRequest, onRenameRequest, onRemoveRequest, onDuplicateRequest,
@@ -236,6 +237,14 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
         >
           <Icons.Flow size={18} />
+        </button>
+        <button
+          onClick={onOpenJavaTester}
+          title="Java tester"
+          aria-label="Java tester"
+          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
+        >
+          <Icons.Terminal size={18} />
         </button>
         <button
           onClick={onOpenCompare}
