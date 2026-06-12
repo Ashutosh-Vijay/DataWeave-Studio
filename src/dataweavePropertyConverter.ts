@@ -64,15 +64,36 @@ export function findPropertyCalls(source: string): PropertyMatch[] {
   P_CALL_REGEX.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = P_CALL_REGEX.exec(source)) !== null) {
+    const start = m.index;
+    const end = m.index + m[0].length;
+    const placeholder = convertPropertyKey(m[2]); // ${key}
+    // Mule's `p()` returns a String, so emit a *quoted* placeholder — once the
+    // value is substituted in, `{ host: "${host}" }` → `{ host: "localhost" }`
+    // is valid DataWeave, whereas the bare `{ host: localhost }` is a syntax
+    // error. Exception: if the call already fills a string literal (`"p('x')"`),
+    // reuse the surrounding quotes instead of doubling them.
+    const before = source[start - 1];
+    const after = source[end];
+    const alreadyQuoted = (before === '"' && after === '"') || (before === "'" && after === "'");
     out.push({
-      start: m.index,
-      end: m.index + m[0].length,
+      start,
+      end,
       matchText: m[0],
-      replacement: convertPropertyKey(m[2]),
+      replacement: alreadyQuoted ? placeholder : `"${placeholder}"`,
       key: m[2],
     });
   }
   return out;
+}
+
+/**
+ * Strip an `import p from (dw::)?Mule` line — after converting every `p()` call
+ * to a `${}` placeholder, the import is dead. Wildcard imports
+ * (`import * from dw::Mule`) and multi-name imports are left alone since they
+ * may pull in other functions.
+ */
+export function stripMulePImport(source: string): string {
+  return source.replace(/^[ \t]*import[ \t]+p[ \t]+from[ \t]+(?:dw::)?Mule[ \t]*\r?\n?/gm, '');
 }
 
 /**
@@ -94,6 +115,7 @@ export function convertAllPropertyCalls(source: string): {
     const m = matches[i];
     out = out.slice(0, m.start) + m.replacement + out.slice(m.end);
   }
+  out = stripMulePImport(out);
   return {
     text: out,
     count: matches.length,

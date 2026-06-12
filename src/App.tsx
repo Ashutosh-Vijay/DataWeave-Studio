@@ -65,10 +65,10 @@ import { useMediaQuery } from './hooks/useMediaQuery';
 import { useTheme } from './ThemeContext';
 import { KeyValuePair, METHOD_COLORS, NODE_LABEL_COLORS, NODE_LABELS, isValidMimeType } from './types';
 import { Icons } from './components/Icons';
-import yaml from 'js-yaml';
 import { CurlImportResult } from './components/CurlImporter';
 import { publishCursor, useCursor } from './cursorStore';
-import { decryptFlatMap, hasEncryptedValues, DEFAULT_ENCRYPTION_SETTINGS } from './cryptoUtils';
+import { substituteProperties, substitutePropertiesAsync } from './propertySubstitution';
+import { convertAllPropertyCalls } from './dataweavePropertyConverter';
 
 // Version is loaded dynamically from tauri.conf.json at runtime
 
@@ -81,123 +81,6 @@ function contextCount(pairs: KeyValuePair[]): number {
 
 // buildAttributesJson + buildVarsJson live in ./runInput.ts (unit-tested there).
 
-/**
- * Flatten a nested YAML object into dot-notation keys.
- * e.g. { salesforce: { path: "/api" } } → { "salesforce.path": "/api" }
- */
-/**
- * Pre-process secure-config YAML before js-yaml gets it. The `!` character
- * is a YAML tag indicator, so a bare `![Base64Blob]` value gets parsed as
- * "apply tag `!` to flow sequence" — which either throws or returns junk.
- * We replace each bare `![...]` value with its quoted-string equivalent so
- * js-yaml parses it as a literal string. The leading `![` stays in the
- * value, so hasEncryptedValues + decryptFlatMap still find and decrypt it.
- */
-function escapeBangBracketValues(yamlSource: string): string {
-  // Match a `:` (key separator) followed by optional whitespace, then a
-  // bare ![...] value, up to end-of-line. Quote it.
-  return yamlSource.replace(
-    /(:\s*)(!\[[^\]\n]+\])(\s*$)/gm,
-    (_, prefix, value, trailing) => `${prefix}"${value.replace(/"/g, '\\"')}"${trailing}`,
-  );
-}
-
-function flattenYaml(obj: unknown, prefix = ''): Record<string, string> {
-  const result: Record<string, string> = {};
-  if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
-      const fullKey = prefix ? `${prefix}.${key}` : key;
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
-        Object.assign(result, flattenYaml(value, fullKey));
-      } else {
-        result[fullKey] = String(value ?? '');
-      }
-    }
-  }
-  return result;
-}
-
-/**
- * Substitute ${key} / ${secure::key} using pre-flattened maps.
- * The secure map may already have decrypted ![...] values.
- */
-function substituteFromMaps(
-  text: string,
-  configFlat: Record<string, string>,
-  secureFlat: Record<string, string>
-): string {
-  let result = text;
-
-  for (const [key, value] of Object.entries(configFlat)) {
-    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    result = result.replace(new RegExp(`\\$\\{${escaped}\\}`, 'g'), value);
-  }
-
-  for (const [key, value] of Object.entries(secureFlat)) {
-    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    result = result.replace(new RegExp(`\\$\\{secure::${escaped}\\}`, 'g'), value);
-    // Also allow ${key} to reference secure props (MuleSoft behavior)
-    result = result.replace(new RegExp(`\\$\\{${escaped}\\}`, 'g'), value);
-  }
-
-  return result;
-}
-
-/**
- * Parse YAML config strings and substitute ${key} / ${secure::key} placeholders.
- * Synchronous version — does NOT decrypt ![...] values.
- * Used for non-critical paths like query template preview.
- */
-function substituteProperties(text: string, configYaml?: string, secureConfigYaml?: string): string {
-  if (!configYaml && !secureConfigYaml) return text;
-
-  let configFlat: Record<string, string> = {};
-  let secureFlat: Record<string, string> = {};
-
-  if (configYaml) {
-    try { configFlat = flattenYaml(yaml.load(configYaml)); } catch { /* skip */ }
-  }
-  if (secureConfigYaml) {
-    try { secureFlat = flattenYaml(yaml.load(escapeBangBracketValues(secureConfigYaml))); } catch { /* skip */ }
-  }
-
-  return substituteFromMaps(text, configFlat, secureFlat);
-}
-
-/**
- * Async version that decrypts ![...] values in secure config before substitution.
- */
-async function substitutePropertiesAsync(
-  text: string,
-  configYaml: string | undefined,
-  secureConfigYaml: string | undefined,
-  encryptionKey: string,
-  encryptionSettings?: import('./types').EncryptionSettings,
-): Promise<string> {
-  if (!configYaml && !secureConfigYaml) return text;
-
-  let configFlat: Record<string, string> = {};
-  let secureFlat: Record<string, string> = {};
-
-  if (configYaml) {
-    try { configFlat = flattenYaml(yaml.load(configYaml)); } catch { /* skip */ }
-  }
-
-  if (secureConfigYaml) {
-    try {
-      secureFlat = flattenYaml(yaml.load(escapeBangBracketValues(secureConfigYaml)));
-      // Decrypt ![...] values if key is provided
-      if (encryptionKey && hasEncryptedValues(secureConfigYaml)) {
-        const settings = encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS;
-        secureFlat = await decryptFlatMap(secureFlat, encryptionKey, settings);
-      }
-    } catch (e) {
-      console.warn('Secure config parse failed:', e);
-    }
-  }
-
-  return substituteFromMaps(text, configFlat, secureFlat);
-}
 
 function NodeLabelChip({ nodeLabel, onChange }: { nodeLabel: string; onChange: (l: string) => void }) {
   const [open, setOpen] = useState(false);
@@ -698,8 +581,11 @@ function App() {
       workspace.namedInputs.filter((ni) => ni.name)
     );
 
-    // Substitute ${key} and ${secure::key} in script and payload (with decryption)
-    const resolvedScript = await substitutePropertiesAsync(workspace.script, configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings);
+    // p() / Mule::p() can't compile in the pure-DataWeave engine, so transparently
+    // rewrite them to "${key}" (and drop a now-dead `import p from Mule`) before
+    // resolving placeholders — a pasted Mule script runs without a manual convert.
+    // Substitute ${key} and ${secure::key} in script and payload (with decryption).
+    const resolvedScript = await substitutePropertiesAsync(convertAllPropertyCalls(workspace.script).text, configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings);
     const resolvedPayload = await substitutePropertiesAsync(workspace.payload, configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings);
 
     // Expression-typed vars (fx) are evaluated through the engine against the

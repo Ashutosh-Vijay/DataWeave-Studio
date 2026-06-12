@@ -11,6 +11,8 @@ import { open as tauriOpen, save as tauriSave } from '@tauri-apps/plugin-dialog'
 import { exportFlowToMuleXml, exportFlowsToMuleXml, importMuleXml } from '../muleXmlIO';
 import { parseMaybe, forceJsonOutput, displayVal } from '../flowRunHelpers';
 import { substituteQueryParams } from '../queryRender';
+import { substitutePropertiesAsync } from '../propertySubstitution';
+import { convertAllPropertyCalls, findPropertyCalls } from '../dataweavePropertyConverter';
 const openFile = tauriOpen;
 
 export interface MultipartPart {
@@ -222,11 +224,18 @@ interface FlowInput {
   payload: string;
   mime: string;
   attributesJson: string;
+  // Mule property placeholders (${key} / ${secure::key}) resolved before each
+  // node run, same as the single-script app. Optional so old saved flows (which
+  // don't carry them) still load. Persisted via the opaque `flowInput` blob.
+  configYaml?: string;
+  secureConfigYaml?: string;
 }
 const DEFAULT_FLOW_INPUT: FlowInput = {
   payload: '',
   mime: 'application/json',
   attributesJson: '{\n  "uriParams": {},\n  "queryParams": {},\n  "headers": {},\n  "method": "GET"\n}',
+  configYaml: '',
+  secureConfigYaml: '',
 };
 
 /** Editable key/value rows for the flow Input editor (nicer than raw JSON). */
@@ -247,6 +256,10 @@ function rowsToJson(r: AttrRows): string {
  *  coming back). Module-level → persists for the app's lifetime, cleared only on
  *  a full reload. */
 let flowStateCache: { nodes: FlowNode[]; flowName: string; flowCurrentFile: string | null; flowInput: FlowInput; flows: { name: string; nodes: FlowNode[]; isSubFlow?: boolean }[]; activeFlowIdx: number } | null = null;
+/** Secure-config decryption key — session-only, never written to the flow file
+ *  (same stance as the single-script app). Module-level so it survives the
+ *  designer unmounting and remounting when you switch tools. */
+let flowEncryptionKeyCache = '';
 
 const NODE_W = 220;
 
@@ -425,11 +438,12 @@ function JsonKeyValueRows({ value, onChange, keyPlaceholder = 'Key', valuePlaceh
  *  renders the SOQL/SQL template with the resulting `:param` values — so you can
  *  see how the query actually forms (same idea as single-script Query mode).
  *  Debounced; the Input fixture is the sample data source. */
-function FlowQueryPreview({ template, bindParams, isDbMode, flowInput }: {
+function FlowQueryPreview({ template, bindParams, isDbMode, flowInput, encryptionKey }: {
   template: string;
   bindParams: string;
   isDbMode: boolean;
   flowInput: FlowInput;
+  encryptionKey: string;
 }) {
   const [state, setState] = useState<{ query: string; unbound: string[]; unused: string[] } | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -444,7 +458,7 @@ function FlowQueryPreview({ template, bindParams, isDbMode, flowInput }: {
           let attrs = '{}';
           try { attrs = JSON.stringify(JSON.parse(flowInput.attributesJson || '{}')); } catch {}
           const r = await invoke<RunResult>('run_dataweave', {
-            script: `%dw 2.0\noutput application/json\n---\n${expr}`,
+            script: await substitutePropertiesAsync(convertAllPropertyCalls(`%dw 2.0\noutput application/json\n---\n${expr}`).text, flowInput.configYaml, flowInput.secureConfigYaml, encryptionKey),
             payload: flowInput.payload,
             payloadMimeType: flowInput.mime || 'application/json',
             attributesJson: attrs,
@@ -460,15 +474,16 @@ function FlowQueryPreview({ template, bindParams, isDbMode, flowInput }: {
           paramsJson = r.output;
         } catch (e) { if (!cancelled) { setErr(String(e)); setState(null); } return; }
       }
-      const sub = substituteQueryParams(template, paramsJson, isDbMode);
+      const resolvedTemplate = await substitutePropertiesAsync(template, flowInput.configYaml, flowInput.secureConfigYaml, encryptionKey);
+      const sub = substituteQueryParams(resolvedTemplate, paramsJson, isDbMode);
       if (cancelled) return;
       setErr(null);
       setState(sub
         ? { query: sub.result, unbound: sub.unbound, unused: sub.unused }
-        : { query: template, unbound: [], unused: [] });
+        : { query: resolvedTemplate, unbound: [], unused: [] });
     }, 350);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [template, bindParams, isDbMode, flowInput.payload, flowInput.mime, flowInput.attributesJson]);
+  }, [template, bindParams, isDbMode, flowInput.payload, flowInput.mime, flowInput.attributesJson, flowInput.configYaml, flowInput.secureConfigYaml, encryptionKey]);
 
   if (!template.trim()) return null;
   return (
@@ -533,6 +548,12 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   const [collapsedScopes, setCollapsedScopes] = useState<Set<string>>(new Set());
   // Flow-entry input fixture (declared up here so runPipeline can read it).
   const [flowInput, setFlowInput] = useState<FlowInput>(() => flowStateCache?.flowInput ?? DEFAULT_FLOW_INPUT);
+  // Secure-config decryption key (session-only; ref so the run closure reads
+  // the latest value without being recreated on every keystroke).
+  const [flowEncryptionKey, setFlowEncryptionKey] = useState(() => flowEncryptionKeyCache);
+  const flowEncKeyRef = useRef(flowEncryptionKey);
+  flowEncKeyRef.current = flowEncryptionKey;
+  useEffect(() => { flowEncryptionKeyCache = flowEncryptionKey; }, [flowEncryptionKey]);
   const [showInputEditor, setShowInputEditor] = useState(false);
   const [inputDraft, setInputDraft] = useState<FlowInput>(DEFAULT_FLOW_INPUT);
   const [attrRows, setAttrRows] = useState<AttrRows>(() => attrsToRows(DEFAULT_FLOW_INPUT.attributesJson));
@@ -1122,7 +1143,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           let stored: unknown;
           if (scriptToRun !== null) {
             const result = await invoke<RunResult>('run_dataweave', {
-              script: scriptToRun,
+              script: await substitutePropertiesAsync(convertAllPropertyCalls(scriptToRun).text, flowInput.configYaml, flowInput.secureConfigYaml, flowEncKeyRef.current),
               payload: ctx.payload,
               payloadMimeType: ctx.mime,
               attributesJson: ctx.attributes,
@@ -1149,7 +1170,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         if (node.type === 'transform') {
           const result = await invoke<RunResult>('run_dataweave', {
             // A transform bound to a variable must yield structured JSON.
-            script: node.config.saveToVariable ? forceJsonOutput(node.config.script || DEFAULT_SCRIPT) : (node.config.script || DEFAULT_SCRIPT),
+            script: await substitutePropertiesAsync(convertAllPropertyCalls(node.config.saveToVariable ? forceJsonOutput(node.config.script || DEFAULT_SCRIPT) : (node.config.script || DEFAULT_SCRIPT)).text, flowInput.configYaml, flowInput.secureConfigYaml, flowEncKeyRef.current),
             payload: ctx.payload,
             payloadMimeType: ctx.mime,
             attributesJson: ctx.attributes,
@@ -1263,7 +1284,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     /** Evaluate a DataWeave expression against the given context.
      *  Returns the parsed JSON value on success, or an error string. */
     const evalExpression = async (expr: string, ctx: ExecCtx): Promise<{ ok: true; value: unknown; raw: string } | { ok: false; error: string }> => {
-      const script = `%dw 2.0\noutput application/json\n---\n${expr}`;
+      const script = await substitutePropertiesAsync(convertAllPropertyCalls(`%dw 2.0\noutput application/json\n---\n${expr}`).text, flowInput.configYaml, flowInput.secureConfigYaml, flowEncKeyRef.current);
       try {
         const result = await invoke<RunResult>('run_dataweave', {
           script,
@@ -1769,6 +1790,22 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     }
   }, [flowCurrentFile, flowName, doSaveFlow]);
 
+  // Ctrl/Cmd+S saves the *flow* while the designer is open. Intercept in the
+  // capture phase and stopPropagation so the app-level Ctrl+S (which saves the
+  // single-script workspace) never fires underneath us.
+  useEffect(() => {
+    if (!open) return;
+    const onSave = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (nodes.length > 0) saveFlow();
+      }
+    };
+    window.addEventListener('keydown', onSave, true);
+    return () => window.removeEventListener('keydown', onSave, true);
+  }, [open, saveFlow, nodes.length]);
+
   const openFlowPicker = useCallback(async () => {
     try {
       const metas = await invoke<{ filename: string; projectName: string; mode: string }[]>('list_workspaces_meta');
@@ -1823,7 +1860,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       setSelectedId(null);
       setFinalRun(null);
       setFlowInput(ws.flowInput
-        ? { payload: ws.flowInput.payload ?? '', mime: ws.flowInput.mime ?? 'application/json', attributesJson: ws.flowInput.attributesJson ?? DEFAULT_FLOW_INPUT.attributesJson }
+        ? { payload: ws.flowInput.payload ?? '', mime: ws.flowInput.mime ?? 'application/json', attributesJson: ws.flowInput.attributesJson ?? DEFAULT_FLOW_INPUT.attributesJson, configYaml: ws.flowInput.configYaml ?? '', secureConfigYaml: ws.flowInput.secureConfigYaml ?? '' }
         : DEFAULT_FLOW_INPUT);
       toast(`Opened "${ws.projectName}"`, 'success');
     } catch (e) {
@@ -2486,9 +2523,9 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         <button
           onClick={() => { setInputDraft(flowInput); setAttrRows(attrsToRows(flowInput.attributesJson)); setShowInputEditor(true); }}
           className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] font-medium cursor-pointer transition-colors border border-accent-border text-accent hover:bg-accent-dim"
-          title="Set the flow's input message (payload + uriParams/queryParams/headers) used for test runs"
+          title="Set the flow's input message (payload + attributes) and property config (${key} / ${secure::key}) used for test runs"
         >
-          <span className="font-mono">{'{ }'}</span> Input
+          <span className="font-mono">{'{ }'}</span> Input / Config
         </button>
         <div className="w-px h-4 bg-line" />
         <button
@@ -3044,7 +3081,23 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                   >
                     {MIME_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label} ({o.value})</option>)}
                   </select>
-                  <ConfigLabel label="DataWeave Script" />
+                  <div className="flex items-center justify-between">
+                    <ConfigLabel label="DataWeave Script" />
+                    {findPropertyCalls(selected.config.script || '').length > 0 && (
+                      <button
+                        data-no-drag
+                        onClick={() => {
+                          const { text, count } = convertAllPropertyCalls(selected.config.script || '');
+                          updateConfig(selected.id, { script: text });
+                          toast('Converted ' + count + ' p() call' + (count === 1 ? '' : 's') + ' to ${…} placeholders', 'success');
+                        }}
+                        className="text-[10px] font-mono text-accent border border-accent-border rounded px-2 py-0.5 cursor-pointer hover:bg-accent-dim"
+                        title={'Convert Mule p("key") calls to "${key}" placeholders — resolved from the flow\'s Config / Secure Config'}
+                      >
+                        {'p() → ${ }'}
+                      </button>
+                    )}
+                  </div>
                   <MiniEditor
                     value={selected.config.script || ''}
                     onChange={(v) => updateConfig(selected.id, { script: v })}
@@ -3272,6 +3325,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                         bindParams={selected.config.bindParams || ''}
                         isDbMode={selected.type === 'database'}
                         flowInput={flowInput}
+                        encryptionKey={flowEncryptionKey}
                       />
                     </div>
                   )}
@@ -4189,9 +4243,9 @@ output application/json
             <div className="px-4 py-3 border-b border-line flex items-center gap-2">
               <span className="font-mono text-[12px]" style={{ color: 'var(--accent)' }}>{'{ }'}</span>
               <div className="flex-1">
-                <div className="text-[13px] font-semibold text-content">Flow input</div>
+                <div className="text-[13px] font-semibold text-content">Flow input &amp; config</div>
                 <div className="text-[10.5px] text-content-ghost mt-0.5">
-                  The starting message a <span className="font-mono">Run</span> uses — the payload a listener would hand the flow, plus inbound <span className="font-mono">attributes</span> (<span className="font-mono">uriParams</span>, <span className="font-mono">queryParams</span>, <span className="font-mono">headers</span>). It propagates forward: each node's output becomes the next node's input.
+                  The starting message a <span className="font-mono">Run</span> uses — the payload a listener would hand the flow, plus inbound <span className="font-mono">attributes</span> (<span className="font-mono">uriParams</span>, <span className="font-mono">queryParams</span>, <span className="font-mono">headers</span>). It propagates forward: each node's output becomes the next node's input. Property config (below) feeds <span className="font-mono">{'${…}'}</span> placeholders.
                 </div>
               </div>
               <button onClick={() => setShowInputEditor(false)} className="text-content-faint hover:text-content cursor-pointer p-1" title="Close">
@@ -4268,6 +4322,52 @@ output application/json
                     </div>
                   </div>
                 ))}
+              </div>
+              {/* Config + Secure Config — ${key} / ${secure::key} placeholders */}
+              <div className="pt-2 border-t border-line-subtle space-y-3">
+                <div className="text-[10.5px] text-content-ghost">
+                  Optional Mule property config. <span className="font-mono">{'${key}'}</span> and <span className="font-mono">{'${secure::key}'}</span> placeholders in any node's script or query are replaced with these values before each run (same as the single-script editor). On a Transform node, the <span className="font-mono">p()</span> button converts <span className="font-mono">p("key")</span> calls for you.
+                </div>
+                <div>
+                  <ConfigLabel label="Config YAML" />
+                  <textarea
+                    value={inputDraft.configYaml || ''}
+                    onChange={(e) => setInputDraft((d) => ({ ...d, configYaml: e.target.value }))}
+                    placeholder={'db:\n  host: localhost\n  port: "5432"'}
+                    spellCheck={false}
+                    className="w-full px-3 py-2 text-[11.5px] font-mono leading-relaxed bg-surface-2 border border-line rounded-md outline-none resize-y text-content placeholder:text-content-ghost"
+                    style={{ minHeight: 80 }}
+                  />
+                </div>
+                <div>
+                  <ConfigLabel label="Secure Config YAML" />
+                  <textarea
+                    value={inputDraft.secureConfigYaml || ''}
+                    onChange={(e) => setInputDraft((d) => ({ ...d, secureConfigYaml: e.target.value }))}
+                    placeholder={'db:\n  password: s3cr3t'}
+                    spellCheck={false}
+                    className="w-full px-3 py-2 text-[11.5px] font-mono leading-relaxed bg-surface-2 border border-line rounded-md outline-none resize-y text-content placeholder:text-content-ghost"
+                    style={{ minHeight: 70 }}
+                  />
+                  <div className="text-[10px] text-content-ghost mt-1">
+                    Reference as <span className="font-mono">{'${secure::key}'}</span> (or plain <span className="font-mono">{'${key}'}</span>). Encrypted <span className="font-mono">![…]</span> values are decrypted with the key below.
+                  </div>
+                </div>
+                <div>
+                  <ConfigLabel label="Decryption key (for ![…] values)" />
+                  <input
+                    type="password"
+                    value={flowEncryptionKey}
+                    onChange={(e) => setFlowEncryptionKey(e.target.value)}
+                    placeholder="Mule secure-properties key — leave blank for plaintext config"
+                    spellCheck={false}
+                    autoComplete="off"
+                    className="w-full px-3 py-1.5 text-[11.5px] font-mono bg-surface-2 border border-line rounded-md outline-none text-content placeholder:text-content-ghost focus:border-accent"
+                  />
+                  <div className="text-[10px] text-content-ghost mt-1">
+                    Session only — never written to the flow file. Same Blowfish/AES key you'd pass to <span className="font-mono">secure-properties-tool.jar</span>.
+                  </div>
+                </div>
               </div>
             </div>
             <div className="px-4 py-3 border-t border-line flex items-center gap-2">

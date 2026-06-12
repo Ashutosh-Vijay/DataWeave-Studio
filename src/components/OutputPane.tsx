@@ -317,6 +317,9 @@ export const OutputPane = memo(function OutputPane({
               lineNumbers: 'on',
               renderLineHighlight: 'none',
               folding: true,
+              // Keep the fold chevrons in the gutter visible at all times —
+              // Monaco hides them until you hover, which reads as "no folding".
+              showFoldingControls: 'always',
             }}
           />
         ) : (
