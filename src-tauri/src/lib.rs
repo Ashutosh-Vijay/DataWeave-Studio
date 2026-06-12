@@ -1,5 +1,6 @@
 mod dw_runner;
 mod dw_server;
+mod jars;
 mod platform;
 mod secure_properties;
 mod workspace;
@@ -92,6 +93,12 @@ pub fn run() {
             workspace::list_workspaces_meta,
             workspace::delete_workspace,
             workspace::get_workspaces_dir,
+            jars::list_managed_jars,
+            jars::get_jars_dir,
+            jars::import_jar_file,
+            jars::remove_managed_jar,
+            jars::download_maven_jar,
+            jars::compile_java,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

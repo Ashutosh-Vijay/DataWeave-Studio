@@ -23,6 +23,9 @@ const RecipeBrowser = lazy(() =>
 );
 // Lazy-loaded — FlowDesigner is ~1800 lines and only rendered when the user
 // opens the message flow designer. Don't pay for it on initial load.
+const JavaTester = lazy(() =>
+  import('./components/JavaTester').then((m) => ({ default: m.JavaTester }))
+);
 const FlowDesigner = lazy(() =>
   import('./components/FlowDesigner').then((m) => ({ default: m.FlowDesigner }))
 );
@@ -205,6 +208,7 @@ function App() {
   const [referenceOpen, setReferenceOpen] = useState(false);
   const [recipesOpen, setRecipesOpen] = useState(false);
   const [flowDesignerOpen, setFlowDesignerOpen] = useState(false);
+  const [javaTesterOpen, setJavaTesterOpen] = useState(false);
   const [showFirstRun, setShowFirstRun] = useState(() => shouldShowFirstRun());
   /** One-time prompt for the very first workspace. Surfaced only after the
    *  theme/layout FirstRunPicker is dismissed (or skipped — for returning
@@ -805,6 +809,7 @@ function App() {
     { id: 'reference', label: 'Open DataWeave function reference', group: 'Tools', run: () => setReferenceOpen(true) },
     { id: 'recipes', label: 'Open DataWeave cookbook', group: 'Tools', run: () => setRecipesOpen(true) },
     { id: 'flow', label: 'Open Message Flow designer', group: 'Tools', run: () => setFlowDesignerOpen(true) },
+    { id: 'java', label: 'Open Java tester', group: 'Tools', run: () => setJavaTesterOpen(true) },
     { id: 'secure', label: 'Open Secure Properties tool', shortcut: '⌘⇧E', group: 'Tools', run: () => setSecureToolOpen(true) },
     { id: 'compare', label: 'Open Compare tool', group: 'Tools', run: () => setCompareToolOpen(true) },
     { id: 'import-curl', label: 'Import cURL', shortcut: '⌘⇧I', group: 'Tools', run: handleOpenImport },
@@ -924,6 +929,7 @@ function App() {
                     ['Function reference', () => setReferenceOpen(true)],
                     ['DataWeave cookbook', () => setRecipesOpen(true)],
                     ['Message Flow designer', () => setFlowDesignerOpen(true)],
+                    ['Java tester', () => setJavaTesterOpen(true)],
                     ['Secure Properties tool', () => setSecureToolOpen(true)],
                     ['Compare tool', () => setCompareToolOpen(true)],
                     ['Import cURL', handleOpenImport],
@@ -1553,6 +1559,12 @@ function App() {
       {flowDesignerOpen && (
         <Suspense fallback={null}>
           <FlowDesigner open={flowDesignerOpen} onClose={() => setFlowDesignerOpen(false)} />
+        </Suspense>
+      )}
+
+      {javaTesterOpen && (
+        <Suspense fallback={null}>
+          <JavaTester open={javaTesterOpen} onClose={() => setJavaTesterOpen(false)} />
         </Suspense>
       )}
 

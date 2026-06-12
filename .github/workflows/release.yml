@@ -108,7 +108,9 @@ jobs:
         shell: bash
         run: |
           MODULES=$(jdeps --print-module-deps --ignore-missing-deps --multi-release 17 src-tauri/resources/dw-server/dwstudio-server.jar 2>/dev/null || echo "java.base,java.compiler,java.desktop,java.management,java.security.sasl,java.sql.rowset")
-          jlink --add-modules "$MODULES" --strip-debug --no-man-pages --no-header-files --compress=2 --output src-tauri/resources/jre
+          # jdk.compiler (+jdk.zipfs) give the bundled runtime a real javac so the
+          # Java tester can compile the user's src/main/java offline.
+          jlink --add-modules "$MODULES,jdk.compiler,jdk.zipfs" --strip-debug --no-man-pages --no-header-files --compress=2 --output src-tauri/resources/jre
           echo "Bundled JRE size: $(du -sh src-tauri/resources/jre | cut -f1)"
 
       - name: Build Tauri app

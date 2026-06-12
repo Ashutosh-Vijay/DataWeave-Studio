@@ -438,12 +438,13 @@ function JsonKeyValueRows({ value, onChange, keyPlaceholder = 'Key', valuePlaceh
  *  renders the SOQL/SQL template with the resulting `:param` values — so you can
  *  see how the query actually forms (same idea as single-script Query mode).
  *  Debounced; the Input fixture is the sample data source. */
-function FlowQueryPreview({ template, bindParams, isDbMode, flowInput, encryptionKey }: {
+function FlowQueryPreview({ template, bindParams, isDbMode, flowInput, encryptionKey, classpath }: {
   template: string;
   bindParams: string;
   isDbMode: boolean;
   flowInput: FlowInput;
   encryptionKey: string;
+  classpath: string[];
 }) {
   const [state, setState] = useState<{ query: string; unbound: string[]; unused: string[] } | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -465,7 +466,7 @@ function FlowQueryPreview({ template, bindParams, isDbMode, flowInput, encryptio
             varsJson: '{}',
             namedInputsJson: '[]',
             payloadFilePath: null,
-            classpath: [],
+            classpath,
             timeoutMs: 0,
             multipartPartsJson: null,
           });
@@ -483,7 +484,7 @@ function FlowQueryPreview({ template, bindParams, isDbMode, flowInput, encryptio
         : { query: resolvedTemplate, unbound: [], unused: [] });
     }, 350);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [template, bindParams, isDbMode, flowInput.payload, flowInput.mime, flowInput.attributesJson, flowInput.configYaml, flowInput.secureConfigYaml, encryptionKey]);
+  }, [template, bindParams, isDbMode, flowInput.payload, flowInput.mime, flowInput.attributesJson, flowInput.configYaml, flowInput.secureConfigYaml, encryptionKey, classpath]);
 
   if (!template.trim()) return null;
   return (
@@ -554,6 +555,21 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   const flowEncKeyRef = useRef(flowEncryptionKey);
   flowEncKeyRef.current = flowEncryptionKey;
   useEffect(() => { flowEncryptionKeyCache = flowEncryptionKey; }, [flowEncryptionKey]);
+  // Managed JARs (from the Java Interop tester) — put on every node's classpath
+  // so `import java!` / dw::core::Java works in flows too. Ref for the run
+  // closure; empty if the backend doesn't expose the command (e.g. extension host).
+  const [managedJars, setManagedJars] = useState<string[]>([]);
+  const managedJarsRef = useRef<string[]>([]);
+  managedJarsRef.current = managedJars;
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      try {
+        const list = await invoke<{ path: string }[]>('list_managed_jars');
+        setManagedJars(list.map((j) => j.path));
+      } catch { setManagedJars([]); }
+    })();
+  }, [open]);
   const [showInputEditor, setShowInputEditor] = useState(false);
   const [inputDraft, setInputDraft] = useState<FlowInput>(DEFAULT_FLOW_INPUT);
   const [attrRows, setAttrRows] = useState<AttrRows>(() => attrsToRows(DEFAULT_FLOW_INPUT.attributesJson));
@@ -1150,7 +1166,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
               varsJson: JSON.stringify(ctx.variables),
               namedInputsJson: '[]',
               payloadFilePath: ctx.payloadFilePath,
-              classpath: [],
+              classpath: managedJarsRef.current,
               timeoutMs: 0,
               multipartPartsJson: ctx.multipartJson,
             });
@@ -1177,7 +1193,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
             varsJson: JSON.stringify(ctx.variables),
             namedInputsJson: '[]',
             payloadFilePath: null,
-            classpath: [],
+            classpath: managedJarsRef.current,
             timeoutMs: 0,
             multipartPartsJson: null,
           });
@@ -1294,7 +1310,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           varsJson: JSON.stringify(ctx.variables),
           namedInputsJson: '[]',
           payloadFilePath: ctx.payloadFilePath,
-          classpath: [],
+          classpath: managedJarsRef.current,
           timeoutMs: 0,
           multipartPartsJson: ctx.multipartJson,
         });
@@ -3326,6 +3342,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                         isDbMode={selected.type === 'database'}
                         flowInput={flowInput}
                         encryptionKey={flowEncryptionKey}
+                        classpath={managedJars}
                       />
                     </div>
                   )}
