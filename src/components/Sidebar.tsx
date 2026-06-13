@@ -215,6 +215,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           <Icons.Secure size={18} />
         </button>
         <button
+          data-tour="rail-ref"
           onClick={onOpenReference}
           title="Function reference"
           aria-label="Function reference"
@@ -231,6 +232,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           <Icons.Book size={18} />
         </button>
         <button
+          data-tour="rail-flow"
           onClick={onOpenFlowDesigner}
           title="Message Flow designer"
           aria-label="Message Flow designer"
@@ -239,6 +241,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           <Icons.Flow size={18} />
         </button>
         <button
+          data-tour="rail-java"
           onClick={onOpenJavaTester}
           title="Java tester"
           aria-label="Java tester"

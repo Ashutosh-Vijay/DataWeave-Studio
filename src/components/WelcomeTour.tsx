@@ -1,524 +1,185 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { logoUrl } from '../assets';
-
-const TOUR_SEEN_KEY = 'dwstudio_tour_seen';
+/**
+ * Guided spotlight tour — dims the app and cuts a hole around the real element
+ * each step describes, with a callout anchored beside it. Ported from the Claude
+ * Design "Spotlight Tour" mock, using the app's real `data-tour` anchors + theme
+ * tokens. Steps whose anchor isn't on screen are skipped (so e.g. the MCP step
+ * shows up only once that rail button exists).
+ *
+ * Same contract as before — App renders <WelcomeTour onComplete={…}/> off the
+ * `showTour` flag; onComplete fires on Done or Skip.
+ */
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
 interface WelcomeTourProps {
   onComplete: () => void;
 }
 
-interface TourStep {
-  target: string | null; // data-tour selector, null = centered welcome
+type Side = 'right' | 'left' | 'bottom' | 'top';
+interface Step {
+  sel: string;       // data-tour value
+  side: Side;
+  kicker: string;
   title: string;
-  description: string;
+  desc: string;
   tip?: string;
-  placement?: 'top' | 'bottom' | 'left' | 'right' | 'auto';
+  tag?: string;
 }
 
-const STEPS: TourStep[] = [
-  {
-    target: null,
-    title: 'Welcome to DataWeave Studio',
-    description:
-      'A fast, local workbench for DataWeave 2.0 — write, run, and iterate on transforms entirely on your machine. JSON, XML, CSV, multipart, YAML, NDJSON, Java Properties — all parsed locally by the bundled DataWeave 2.11 runtime.',
-  },
-  {
-    target: 'sidebar',
-    title: 'Sidebar — your toolbox',
-    description:
-      'Snippets, function reference, cURL import, secure properties, message flow designer — every tool lives here. Click an icon to dock its panel; ⌘B toggles the whole rail.',
-    tip: 'New: the Message Flow designer (chain icon) lets you wire transforms together as a pipeline.',
-    placement: 'right',
-  },
-  {
-    target: 'payload',
-    title: 'Payload & named inputs',
-    description:
-      'Start here — the inputs feed the transform. Set your input data and MIME type, add named inputs for multi-source transforms, attach binary files, or build multipart/form-data payloads with the parts editor.',
-    tip: 'Paste raw data, pick the MIME, run — no files needed. Use the file-attach icon to load larger payloads off disk.',
-    placement: 'right',
-  },
-  {
-    target: 'context-panel',
-    title: 'Context: Request · Vars · Config',
-    description:
-      'Just below the payload: simulate HTTP request attributes (method, headers, query params), define variables, and paste config / secure-config YAML. Each tab badges its active count so you see what\'s wired in.',
-    tip: '⌘⇧E opens the Secure Properties tool — encrypt/decrypt values for ${secure::key} placeholders.',
-    placement: 'right',
-  },
-  {
-    target: 'script-editor',
-    title: 'Script editor',
-    description:
-      'The transformation sits in the middle. Write DataWeave with syntax highlighting, autocomplete (300+ functions from the official docs), inline error markers, and hover docs. Toggle Auto-run for live preview, or hit ⌘↵ to run manually.',
-    tip: 'The node-label chip beside the project name picks the script\'s role — Transform, Salesforce Query, DB Query — and swaps to a relevant starter template.',
-    placement: 'right',
-  },
-  {
-    target: 'output',
-    title: 'Output',
-    description:
-      'Results land on the right as formatted JSON, XML, or raw text. Copy or export with one click. Errors show the exact line, a source snippet, and a collapsible Java stack trace.',
-    placement: 'left',
-  },
-  {
-    target: 'run-controls',
-    title: 'Run controls',
-    description:
-      'Hit Run (⌘↵ in the editor) or flip on Auto (⌘⇧R) to re-execute 1.5s after you stop typing. The dot indicator turns green once the engine is warm — first launch takes ~2-3s.',
-    tip: '⌘. cancels a running script. Long-running scripts have a 30s default timeout you can change in Settings.',
-    placement: 'bottom',
-  },
-  {
-    target: 'palette',
-    title: 'Command palette — your launchpad',
-    description:
-      'Press ⌘K to search every action: run, save, open, theme, layout, snippets, settings, function reference, flow designer. Two layouts: Workbench (⌘⇧1) and Playground (⌘⇧2).',
-    tip: '⌘/ shows all keyboard shortcuts · ⌘⇧T toggles dark/light theme · ⌘N for a fresh workspace.',
-    placement: 'bottom',
-  },
+const STEPS: Step[] = [
+  { sel: 'palette', side: 'bottom', kicker: 'Command palette', title: 'Everything, one keystroke away',
+    desc: 'Press ⌘K to run, save, open a tool, switch theme or jump anywhere without leaving the keyboard.',
+    tip: '⌘/ lists every shortcut · ⌘B toggles the sidebar.' },
+  { sel: 'payload', side: 'right', kicker: 'Input', title: 'Feed it real data',
+    desc: 'Paste a payload, pick its MIME type (JSON, XML, CSV, YAML…), or attach files. Add named inputs here for multi-source transforms.',
+    tip: 'Drop a file straight onto this pane to load larger samples from disk.' },
+  { sel: 'script-editor', side: 'right', kicker: 'Editor', title: 'Write the transform',
+    desc: 'The center pane is your DataWeave script — syntax highlighting, 309-function autocomplete, inline error markers and hover docs. Type and the output updates live.',
+    tip: 'Press ⌘↵ to run, or leave Auto-run on for a live preview.' },
+  { sel: 'run-controls', side: 'bottom', kicker: 'Run', title: 'Run the transform',
+    desc: 'Executes your script against the input using the bundled DataWeave 2.11 runtime — fully local. The timing chip by the output shows how long it took.' },
+  { sel: 'output', side: 'left', kicker: 'Output', title: 'See it instantly',
+    desc: 'Results render here as formatted JSON, XML or text — copy or export in one click. Errors show the exact line, a source snippet and a collapsible stack trace.' },
+  { sel: 'rail-ref', side: 'right', kicker: 'Function reference', title: '309 DataWeave functions',
+    desc: 'Browse and search the full DataWeave standard library with signatures and examples — the same docs that power the editor’s autocomplete and hover cards.' },
+  { sel: 'rail-flow', side: 'right', kicker: 'Message flows', title: 'Chain transforms into a pipeline',
+    desc: 'The visual Message Flow designer links several transforms end-to-end — model a real integration where one step’s output feeds the next.' },
+  { sel: 'rail-java', side: 'right', kicker: 'Java tester', title: 'Run your own Java',
+    desc: 'Compile the src/main/java classes a Mule app calls and exercise them against a payload — manage the JAR dependencies right here.' },
+  { sel: 'rail-mcp', side: 'right', kicker: 'MCP Server', tag: 'NEW', title: 'Serve your engine to AI agents',
+    desc: 'Turn Studio’s runtime into a tool for Claude, Cursor and Copilot. An agent writes a script, runs it here to get the real error, fixes it, and hands you tested code.',
+    tip: 'Safe mode is on by default — agents can transform data but can’t touch Java or the filesystem.' },
+  { sel: 'sidebar', side: 'right', kicker: 'Toolbox', title: 'It all lives in the rail',
+    desc: 'Function reference, flows, the Java tester, secure properties and compare all dock from the left rail. ⌘B toggles it; ⌘K opens any of them by name.',
+    tip: 'You’re ready — close this and start transforming.' },
 ];
 
-const PADDING = 8;
-const TOOLTIP_GAP = 12;
-const TOOLTIP_WIDTH = 360;
+const PAD = 7;
+const CALLOUT_W = 332;
+const GAP = 18;
+const MARGIN = 16;
 
-interface Rect {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-}
-
-function getTargetRect(target: string): Rect | null {
-  const el = document.querySelector(`[data-tour="${target}"]`);
+interface Rect { top: number; left: number; width: number; height: number; }
+const rectOf = (sel: string): Rect | null => {
+  const el = document.querySelector(`[data-tour="${sel}"]`);
   if (!el) return null;
   const r = el.getBoundingClientRect();
-  return {
-    top: r.top - PADDING,
-    left: r.left - PADDING,
-    width: r.width + PADDING * 2,
-    height: r.height + PADDING * 2,
-  };
-}
-
-type ResolvedPlacement = 'top' | 'bottom' | 'left' | 'right';
-
-function resolveTooltipPlacement(
-  rect: Rect,
-  preferred: TourStep['placement']
-): ResolvedPlacement {
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-
-  if (preferred && preferred !== 'auto') {
-    // Check if preferred placement has enough space
-    if (preferred === 'right' && rect.left + rect.width + TOOLTIP_GAP + TOOLTIP_WIDTH < vw) return 'right';
-    if (preferred === 'left' && rect.left - TOOLTIP_GAP - TOOLTIP_WIDTH > 0) return 'left';
-    if (preferred === 'bottom' && rect.top + rect.height + TOOLTIP_GAP + 200 < vh) return 'bottom';
-    if (preferred === 'top' && rect.top - TOOLTIP_GAP - 200 > 0) return 'top';
-  }
-
-  // Auto: pick the side with most space
-  const spaceRight = vw - (rect.left + rect.width);
-  const spaceLeft = rect.left;
-  const spaceBottom = vh - (rect.top + rect.height);
-  const spaceTop = rect.top;
-
-  const max = Math.max(spaceRight, spaceLeft, spaceBottom, spaceTop);
-  if (max === spaceRight && spaceRight > TOOLTIP_WIDTH + TOOLTIP_GAP) return 'right';
-  if (max === spaceLeft && spaceLeft > TOOLTIP_WIDTH + TOOLTIP_GAP) return 'left';
-  if (max === spaceBottom) return 'bottom';
-  return 'top';
-}
-
-function getTooltipStyle(rect: Rect, placement: ResolvedPlacement): React.CSSProperties {
-  const style: React.CSSProperties = {
-    position: 'fixed',
-    width: TOOLTIP_WIDTH,
-    zIndex: 52,
-  };
-
-  switch (placement) {
-    case 'right':
-      style.left = rect.left + rect.width + TOOLTIP_GAP;
-      style.top = rect.top + rect.height / 2;
-      style.transform = 'translateY(-50%)';
-      break;
-    case 'left':
-      style.left = rect.left - TOOLTIP_GAP - TOOLTIP_WIDTH;
-      style.top = rect.top + rect.height / 2;
-      style.transform = 'translateY(-50%)';
-      break;
-    case 'bottom':
-      style.left = rect.left + rect.width / 2 - TOOLTIP_WIDTH / 2;
-      style.top = rect.top + rect.height + TOOLTIP_GAP;
-      break;
-    case 'top':
-      style.left = rect.left + rect.width / 2 - TOOLTIP_WIDTH / 2;
-      style.top = rect.top - TOOLTIP_GAP;
-      style.transform = 'translateY(-100%)';
-      break;
-  }
-
-  // Clamp horizontal position
-  const left = typeof style.left === 'number' ? style.left : 0;
-  if (left < 12) style.left = 12;
-  if (left + TOOLTIP_WIDTH > window.innerWidth - 12) {
-    style.left = window.innerWidth - TOOLTIP_WIDTH - 12;
-  }
-
-  return style;
-}
-
-function getArrowStyle(placement: ResolvedPlacement): React.CSSProperties & { borderSide: string } {
-  const size = 8;
-  const style: React.CSSProperties & { borderSide: string } = {
-    position: 'absolute',
-    width: 0,
-    height: 0,
-    borderSide: '',
-  };
-
-  switch (placement) {
-    case 'right':
-      style.left = -size;
-      style.top = '50%';
-      style.transform = 'translateY(-50%)';
-      style.borderTop = `${size}px solid transparent`;
-      style.borderBottom = `${size}px solid transparent`;
-      style.borderRight = `${size}px solid color-mix(in oklch, var(--accent) 35%, transparent)`;
-      style.borderSide = 'right';
-      break;
-    case 'left':
-      style.right = -size;
-      style.top = '50%';
-      style.transform = 'translateY(-50%)';
-      style.borderTop = `${size}px solid transparent`;
-      style.borderBottom = `${size}px solid transparent`;
-      style.borderLeft = `${size}px solid color-mix(in oklch, var(--accent) 35%, transparent)`;
-      style.borderSide = 'left';
-      break;
-    case 'bottom':
-      style.top = -size;
-      style.left = '50%';
-      style.transform = 'translateX(-50%)';
-      style.borderLeft = `${size}px solid transparent`;
-      style.borderRight = `${size}px solid transparent`;
-      style.borderBottom = `${size}px solid color-mix(in oklch, var(--accent) 35%, transparent)`;
-      style.borderSide = 'bottom';
-      break;
-    case 'top':
-      style.bottom = -size;
-      style.left = '50%';
-      style.transform = 'translateX(-50%)';
-      style.borderLeft = `${size}px solid transparent`;
-      style.borderRight = `${size}px solid transparent`;
-      style.borderTop = `${size}px solid color-mix(in oklch, var(--accent) 35%, transparent)`;
-      style.borderSide = 'top';
-      break;
-  }
-
-  return style;
-}
+  if (r.width === 0 && r.height === 0) return null;
+  return { top: r.top, left: r.left, width: r.width, height: r.height };
+};
 
 export function WelcomeTour({ onComplete }: WelcomeTourProps) {
-  const [step, setStep] = useState(0);
-  const [targetRect, setTargetRect] = useState<Rect | null>(null);
-  const rafRef = useRef(0);
-  const current = STEPS[step];
-  const isLast = step === STEPS.length - 1;
-  const isFirst = step === 0;
+  // Only steps whose anchor is actually on screen.
+  const steps = useMemo(() => STEPS.filter((s) => rectOf(s.sel) !== null), []);
+  const [i, setI] = useState(0);
+  const [rect, setRect] = useState<Rect | null>(null);
+  const [vp, setVp] = useState({ w: window.innerWidth, h: window.innerHeight });
 
-  // Measure target element position — tracks layout changes
-  const measureTarget = useCallback(() => {
-    if (!current.target) {
-      setTargetRect(null);
-      return;
-    }
-    const rect = getTargetRect(current.target);
-    setTargetRect(rect);
-  }, [current.target]);
+  const step = steps[i];
+
+  const measure = useCallback(() => {
+    if (!step) return;
+    setRect(rectOf(step.sel));
+  }, [step]);
 
   useEffect(() => {
-    measureTarget();
+    measure();
+    const id = requestAnimationFrame(measure); // after layout settles
+    return () => cancelAnimationFrame(id);
+  }, [measure]);
 
-    const onResize = () => measureTarget();
+  useEffect(() => {
+    const onResize = () => { setVp({ w: window.innerWidth, h: window.innerHeight }); measure(); };
     window.addEventListener('resize', onResize);
+    window.addEventListener('scroll', measure, true);
+    return () => { window.removeEventListener('resize', onResize); window.removeEventListener('scroll', measure, true); };
+  }, [measure]);
 
-    // Re-measure on animation frame for smooth tracking
-    let running = true;
-    const tick = () => {
-      if (!running) return;
-      measureTarget();
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    // Only poll for a short time after step change to catch layout shifts
-    rafRef.current = requestAnimationFrame(tick);
-    const timeout = setTimeout(() => { running = false; }, 500);
+  const next = useCallback(() => { if (i < steps.length - 1) setI(i + 1); else onComplete(); }, [i, steps.length, onComplete]);
+  const back = useCallback(() => { if (i > 0) setI(i - 1); }, [i]);
 
-    return () => {
-      window.removeEventListener('resize', onResize);
-      cancelAnimationFrame(rafRef.current);
-      clearTimeout(timeout);
-      running = false;
-    };
-  }, [measureTarget, step]);
-
-  // Keyboard nav
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onComplete();
-      if (e.key === 'ArrowRight' || e.key === 'Enter') {
-        if (isLast) onComplete();
-        else setStep((s) => s + 1);
-      }
-      if (e.key === 'ArrowLeft' && !isFirst) setStep((s) => s - 1);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); onComplete(); }
+      else if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); next(); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); back(); }
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [isLast, isFirst, onComplete]);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [next, back, onComplete]);
 
-  const isCentered = !current.target || !targetRect;
-  const placement = targetRect ? resolveTooltipPlacement(targetRect, current.placement) : 'bottom';
+  if (!step || !rect) {
+    // Nothing to anchor to — don't trap the user behind a blank scrim.
+    return null;
+  }
 
-  // SVG overlay with cutout
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
+  // ── ring (cutout) ──
+  const rt = rect.top - PAD, rl = rect.left - PAD, rw = rect.width + PAD * 2, rh = rect.height + PAD * 2;
+
+  // ── callout position ──
+  const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+  let left = 0, top = 0, tx = '0', ty = '0';
+  let side = step.side;
+  if (side === 'right') { left = rect.left + rect.width + GAP; top = cy; ty = '-50%'; if (left + CALLOUT_W > vp.w - MARGIN) { left = rect.left - GAP; tx = '-100%'; } }
+  else if (side === 'left') { left = rect.left - GAP; top = cy; tx = '-100%'; ty = '-50%'; if (left - CALLOUT_W < MARGIN) { left = rect.left + rect.width + GAP; tx = '0'; } }
+  else if (side === 'bottom') { left = cx; top = rect.top + rect.height + GAP; tx = '-50%'; }
+  else { left = cx; top = rect.top - GAP; tx = '-50%'; ty = '-100%'; }
+  if (side === 'bottom' || side === 'top') left = Math.max(MARGIN + CALLOUT_W / 2, Math.min(left, vp.w - MARGIN - CALLOUT_W / 2));
+  else top = Math.max(MARGIN + 90, Math.min(top, vp.h - MARGIN - 90));
+
+  const accent = 'var(--accent)';
+  const isLast = i === steps.length - 1;
 
   return (
-    <div className="fixed inset-0 z-50" onClick={onComplete}>
-      {/* Dark overlay with cutout hole */}
-      <svg
-        className="fixed inset-0 w-full h-full"
-        style={{ zIndex: 51 }}
-        onClick={(e) => e.stopPropagation()}
-        pointerEvents="none"
-      >
-        <defs>
-          <mask id="tour-mask">
-            <rect width="100%" height="100%" fill="white" />
-            {targetRect && (
-              <rect
-                x={targetRect.left}
-                y={targetRect.top}
-                width={targetRect.width}
-                height={targetRect.height}
-                rx={8}
-                fill="black"
-                className="transition-all duration-300 ease-in-out"
-              />
-            )}
-          </mask>
-        </defs>
-        <rect
-          width={vw}
-          height={vh}
-          fill="rgba(0, 0, 0, 0.75)"
-          mask="url(#tour-mask)"
-        />
-        {/* Spotlight glow border */}
-        {targetRect && (
-          <rect
-            x={targetRect.left}
-            y={targetRect.top}
-            width={targetRect.width}
-            height={targetRect.height}
-            rx={8}
-            fill="none"
-            stroke="color-mix(in oklch, var(--accent) 45%, transparent)"
-            strokeWidth={2}
-            className="transition-all duration-300 ease-in-out"
-          />
-        )}
-      </svg>
+    <div className="fixed inset-0 z-[130]" style={{ fontSize: 13 }}>
+      <style>{`@keyframes spPop { from { opacity:0; transform: translate(var(--tx,0), calc(var(--ty,0) + 9px)) } to { opacity:1; transform: translate(var(--tx,0), var(--ty,0)) } }`}</style>
 
-      {/* Tooltip — either centered or positioned near target */}
-      {isCentered ? (
-        /* Centered welcome card */
-        <div
-          className="fixed inset-0 flex items-center justify-center"
-          style={{ zIndex: 52 }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="bg-surface border border-line rounded-2xl shadow-2xl w-[520px] max-w-[90vw] overflow-hidden">
-            {/* Window chrome */}
-            <div className="h-9 shrink-0 flex items-center px-3.5 bg-rail border-b border-line">
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-full" style={{ background: '#ff5f57' }} />
-                <span className="w-3 h-3 rounded-full" style={{ background: '#febc2e' }} />
-                <span className="w-3 h-3 rounded-full" style={{ background: '#28c840' }} />
-              </div>
-              <span className="flex-1" />
-              <span className="font-mono text-[10.5px] text-content-faint">DataWeave Studio · Tour</span>
-              <span className="flex-1" />
+      {/* backdrop — swallow clicks so the app underneath isn't touched mid-tour */}
+      <div className="absolute inset-0" onClick={(e) => e.stopPropagation()} />
+
+      {/* cutout ring */}
+      <div style={{
+        position: 'fixed', top: rt, left: rl, width: rw, height: rh, borderRadius: 12, pointerEvents: 'none', zIndex: 1,
+        boxShadow: '0 0 0 9999px color-mix(in oklch, var(--bg) 80%, transparent)',
+        outline: '2px solid var(--accent)', outlineOffset: 0,
+      }} />
+
+      {/* callout */}
+      <div key={i} style={{ position: 'fixed', left, top, width: CALLOUT_W, zIndex: 2, ['--tx' as string]: tx, ['--ty' as string]: ty, transform: `translate(${tx}, ${ty})`, animation: 'spPop .3s cubic-bezier(.2,.9,.3,1) both' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '15px 16px 14px', boxShadow: '0 26px 70px rgba(0,0,0,.55)' }}>
+          {/* header */}
+          <div className="flex items-center" style={{ gap: 9, marginBottom: 11 }}>
+            <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 10.5, fontWeight: 700, color: accent }}>{String(i + 1).padStart(2, '0')} / {String(steps.length).padStart(2, '0')}</span>
+            <span style={{ height: 13, width: 1, background: 'var(--line)' }} />
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.7, textTransform: 'uppercase', color: 'var(--content-faint)' }}>{step.kicker}</span>
+            {step.tag && <span style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: 0.6, padding: '2px 6px', borderRadius: 5, color: 'var(--accent-ink)', background: accent }}>{step.tag}</span>}
+            <div className="flex-1" />
+            <button onClick={onComplete} className="grid place-items-center cursor-pointer hover:text-content" style={{ width: 24, height: 24, border: 'none', background: 'transparent', borderRadius: 6, color: 'var(--content-faint)' }} title="Skip tour (Esc)">
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+            </button>
+          </div>
+          <div style={{ fontSize: 17.5, fontWeight: 700, letterSpacing: -0.3, lineHeight: 1.18 }}>{step.title}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--content-secondary)', lineHeight: 1.6, marginTop: 8 }}>{step.desc}</div>
+          {step.tip && (
+            <div className="flex" style={{ marginTop: 12, gap: 9, padding: '9px 11px', borderRadius: 9, background: 'var(--accent-dim)', border: '1px solid var(--accent-border)' }}>
+              <span style={{ color: accent, flexShrink: 0, marginTop: 1 }}><svg width={13} height={13} viewBox="0 0 24 24" fill="currentColor"><path d="M9 21h6v-1H9v1zm3-19a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z" /></svg></span>
+              <span style={{ fontSize: 11, color: accent, lineHeight: 1.55 }}>{step.tip}</span>
             </div>
-            <div className="px-8 py-7">
-              {/* Brand lockup */}
-              <div className="flex items-center gap-4 mb-5">
-                <img
-                  src={logoUrl}
-                  alt="DataWeave Studio"
-                  width="48"
-                  height="48"
-                  className="shrink-0"
-                  style={{ filter: 'drop-shadow(0 8px 24px color-mix(in oklch, var(--accent) 25%, transparent))' }}
-                />
-                <div>
-                  <h2 className="text-[20px] font-semibold text-content tracking-tight leading-tight">{current.title}</h2>
-                  <div className="text-[10.5px] text-content-faint mt-1 uppercase tracking-[0.6px] font-semibold">
-                    Step {step + 1} of {STEPS.length}
-                  </div>
-                </div>
-              </div>
-              <p className="text-[13px] text-content-secondary leading-relaxed mb-5">{current.description}</p>
-              <TourNav
-                step={step}
-                total={STEPS.length}
-                isFirst={isFirst}
-                isLast={isLast}
-                onPrev={() => setStep(step - 1)}
-                onNext={() => (isLast ? onComplete() : setStep(step + 1))}
-                onSkip={onComplete}
-                onDotClick={setStep}
-              />
+          )}
+          {/* footer */}
+          <div className="flex items-center" style={{ marginTop: 16 }}>
+            <div className="flex" style={{ gap: 5 }}>
+              {steps.map((_, n) => (
+                <button key={n} onClick={() => setI(n)} className="cursor-pointer" style={{ height: 6, width: n === i ? 18 : 6, borderRadius: 999, border: 'none', padding: 0, transition: 'width .25s', background: n === i ? accent : (n < i ? 'var(--accent-border)' : 'var(--line)') }} />
+              ))}
+            </div>
+            <div className="flex-1" />
+            <div className="flex items-center" style={{ gap: 8 }}>
+              {i > 0 && <button onClick={back} className="cursor-pointer hover:text-content" style={{ height: 32, padding: '0 13px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--content-secondary)', fontSize: 12, fontWeight: 600 }}>Back</button>}
+              <button onClick={next} className="cursor-pointer" style={{ height: 32, padding: '0 17px', borderRadius: 8, border: '1px solid var(--accent)', background: accent, color: 'var(--accent-ink)', fontSize: 12, fontWeight: 600, boxShadow: '0 6px 18px color-mix(in oklch, var(--accent) 30%, transparent)' }}>{isLast ? 'Done' : 'Next'}</button>
             </div>
           </div>
         </div>
-      ) : (
-        /* Positioned tooltip near spotlight */
-        <div
-          style={getTooltipStyle(targetRect!, placement)}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Arrow */}
-          <div style={getArrowStyle(placement)} />
-
-          <div className="bg-surface border border-line rounded-xl shadow-2xl overflow-hidden">
-            {/* Progress bar */}
-            <div className="h-1 bg-surface-2">
-              <div
-                className="h-full bg-gradient-to-r from-[var(--accent)] to-[var(--cyan)] transition-all duration-300"
-                style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
-              />
-            </div>
-
-            <div className="px-5 py-4">
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="text-sm font-bold text-content">{current.title}</h3>
-                <span className="text-[9px] text-content-ghost shrink-0 ml-2">
-                  {step + 1}/{STEPS.length}
-                </span>
-              </div>
-              <p className="text-xs text-content-secondary leading-relaxed mb-3">
-                {current.description}
-              </p>
-              {current.tip && (
-                <div className="bg-accent-dim border border-accent-border rounded-lg px-3 py-2 mb-3 flex items-start gap-2">
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="var(--accent)" className="mt-0.5 shrink-0">
-                    <path d="M8 1a7 7 0 110 14A7 7 0 018 1zm0 3a.75.75 0 00-.75.75v4.5a.75.75 0 001.5 0v-4.5A.75.75 0 008 4zm0 8a1 1 0 100-2 1 1 0 000 2z"/>
-                  </svg>
-                  <span className="text-[11px] text-accent leading-relaxed">{current.tip}</span>
-                </div>
-              )}
-              <TourNav
-                step={step}
-                total={STEPS.length}
-                isFirst={isFirst}
-                isLast={isLast}
-                onPrev={() => setStep(step - 1)}
-                onNext={() => (isLast ? onComplete() : setStep(step + 1))}
-                onSkip={onComplete}
-                onDotClick={setStep}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Shared navigation controls for both centered and positioned tooltips */
-function TourNav({
-  step,
-  total,
-  isFirst,
-  isLast,
-  onPrev,
-  onNext,
-  onSkip,
-  onDotClick,
-}: {
-  step: number;
-  total: number;
-  isFirst: boolean;
-  isLast: boolean;
-  onPrev: () => void;
-  onNext: () => void;
-  onSkip: () => void;
-  onDotClick: (i: number) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      {/* Dots */}
-      <div className="flex gap-1.5">
-        {Array.from({ length: total }).map((_, i) => (
-          <button
-            key={i}
-            onClick={() => onDotClick(i)}
-            className={`h-2 rounded-full transition-all duration-200 cursor-pointer ${
-              i === step
-                ? 'bg-accent w-5'
-                : i < step
-                  ? 'bg-accent/40 w-2'
-                  : 'bg-line w-2'
-            }`}
-          />
-        ))}
-      </div>
-
-      {/* Buttons */}
-      <div className="flex gap-2 items-center">
-        <button
-          onClick={onSkip}
-          className="text-[10px] text-content-ghost hover:text-content-muted transition-colors cursor-pointer mr-1"
-        >
-          Skip
-        </button>
-        {!isFirst && (
-          <button
-            onClick={onPrev}
-            className="px-2.5 py-1 rounded text-[11px] text-content-muted hover:text-content border border-line hover:border-line-secondary transition-colors cursor-pointer"
-          >
-            Back
-          </button>
-        )}
-        <button
-          onClick={onNext}
-          className="px-3 py-1 rounded text-[11px] font-medium bg-accent hover:bg-accent-hover text-accent-ink transition-colors cursor-pointer shadow-sm"
-        >
-          {isLast ? 'Get Started' : 'Next'}
-        </button>
       </div>
     </div>
   );
-}
-
-/** Check if the tour has been seen before */
-export function shouldShowTour(): boolean {
-  try {
-    return localStorage.getItem(TOUR_SEEN_KEY) !== 'true';
-  } catch {
-    return false;
-  }
-}
-
-/** Mark the tour as seen */
-export function markTourSeen(): void {
-  try {
-    localStorage.setItem(TOUR_SEEN_KEY, 'true');
-  } catch {
-    // localStorage not available
-  }
 }

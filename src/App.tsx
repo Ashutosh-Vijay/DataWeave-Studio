@@ -1508,7 +1508,14 @@ function App() {
           <WelcomeScreen
             appVersion={appVersion}
             onOpenPlayground={() => { markFirstRunSeen(); setShowFirstRun(false); }}
-            onTakeTour={() => { markFirstRunSeen(); setShowFirstRun(false); setShowTour(true); }}
+            onTakeTour={() => {
+              markFirstRunSeen();
+              setShowFirstRun(false);
+              // Land in a real workbench first so every pane/rail anchor the
+              // spotlight points at is actually mounted (else the tour is thin).
+              handleNewScript();
+              setTimeout(() => setShowTour(true), 400);
+            }}
           />
         </Suspense>
       )}
