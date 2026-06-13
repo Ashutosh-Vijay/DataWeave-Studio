@@ -45,7 +45,7 @@ const CompareTool = lazy(() => import('./components/CompareTool').then((m) => ({
 const WelcomeTour = lazy(() => import('./components/WelcomeTour').then((m) => ({ default: m.WelcomeTour })));
 const ShortcutsDialog = lazy(() => import('./components/ShortcutsDialog').then((m) => ({ default: m.ShortcutsDialog })));
 const SettingsScreen = lazy(() => import('./components/SettingsScreen').then((m) => ({ default: m.SettingsScreen })));
-const FirstRunPicker = lazy(() => import('./components/FirstRunPicker').then((m) => ({ default: m.FirstRunPicker })));
+const WelcomeScreen = lazy(() => import('./components/WelcomeScreen').then((m) => ({ default: m.WelcomeScreen })));
 import { SplashScreen } from './components/SplashScreen';
 import { CommandPalette, Command } from './components/CommandPalette';
 import { CompactLayout } from './components/CompactLayout';
@@ -189,7 +189,7 @@ function StatusBar({
 function App() {
   const workspace = useWorkspace();
   const runner = useDWRunner();
-  const { toggle, isDark, setTheme } = useTheme();
+  const { toggle, isDark } = useTheme();
   const [outputFormat, setOutputFormat] = useState<'json' | 'xml' | 'raw'>('json');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [autoRun, setAutoRun] = useState(false);
@@ -1502,18 +1502,13 @@ function App() {
         </Suspense>
       )}
 
-      {/* First-run picker */}
+      {/* First-run welcome — brand hero + live demo + feature bento. */}
       {showFirstRun && (
         <Suspense fallback={null}>
-          <FirstRunPicker
-            initialTheme={isDark ? 'dark' : 'light'}
-            initialLayout={layout}
-            onComplete={({ theme, layout: chosen }) => {
-              setTheme(theme);
-              setLayout(chosen);
-              markFirstRunSeen();
-              setShowFirstRun(false);
-            }}
+          <WelcomeScreen
+            appVersion={appVersion}
+            onOpenPlayground={() => { markFirstRunSeen(); setShowFirstRun(false); }}
+            onTakeTour={() => { markFirstRunSeen(); setShowFirstRun(false); setShowTour(true); }}
           />
         </Suspense>
       )}
