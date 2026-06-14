@@ -263,6 +263,31 @@ fn stop_inner(state: &McpState) {
     }
 }
 
+/// rmcp's Streamable-HTTP transport hard-rejects (HTTP 406) any request whose
+/// `Accept` header doesn't list BOTH `application/json` and `text/event-stream`.
+/// Compliant MCP clients send that, but several real clients send only
+/// `application/json` (or nothing) and would fail to connect for no good reason.
+/// This middleware normalizes the header before rmcp sees it, so every client
+/// connects regardless of how picky its HTTP layer is.
+async fn normalize_accept(
+    mut req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let ok = req
+        .headers()
+        .get(axum::http::header::ACCEPT)
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.contains("application/json") && s.contains("text/event-stream"))
+        .unwrap_or(false);
+    if !ok {
+        req.headers_mut().insert(
+            axum::http::header::ACCEPT,
+            axum::http::HeaderValue::from_static("application/json, text/event-stream"),
+        );
+    }
+    next.run(req).await
+}
+
 #[tauri::command]
 pub async fn mcp_start(
     app: AppHandle,
@@ -290,7 +315,9 @@ pub async fn mcp_start(
         StreamableHttpServerConfig::default(),
     );
 
-    let router = axum::Router::new().nest_service("/mcp", service);
+    let router = axum::Router::new()
+        .nest_service("/mcp", service)
+        .layer(axum::middleware::from_fn(normalize_accept));
     let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
     let listener = tokio::net::TcpListener::bind(addr)
         .await
