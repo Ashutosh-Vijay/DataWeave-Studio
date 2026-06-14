@@ -92,6 +92,26 @@ fn default_mime() -> String {
     "application/json".to_string()
 }
 
+/// Input for the `secure_properties` tool (MuleSoft encrypt/decrypt).
+#[derive(Deserialize, schemars::JsonSchema)]
+struct SecurePropsInput {
+    /// "encrypt" (plaintext → `![base64]`) or "decrypt" (`![...]`/base64 → plaintext).
+    operation: String,
+    /// The value: plaintext to encrypt, or the ciphertext (inner base64 or full `![...]`) to decrypt.
+    value: String,
+    /// The MuleSoft secure-properties key (e.g. a 16/24/32-char AES key).
+    key: String,
+    /// Cipher: AES (default) | Blowfish | DES | DESede | RC2.
+    #[serde(default)]
+    algorithm: Option<String>,
+    /// Mode: CBC (default) | CFB | ECB | OFB.
+    #[serde(default)]
+    mode: Option<String>,
+    /// Whether a random IV was/should be used (MuleSoft `--use-random-iv`). Default false.
+    #[serde(default)]
+    use_random_iv: Option<bool>,
+}
+
 /// One extra named input as supplied by an MCP agent (parsed from `named_inputs`).
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -468,6 +488,55 @@ impl DwTools {
             ))]))
         } else {
             Ok(CallToolResult::success(vec![Content::text(result.output)]))
+        }
+    }
+
+    #[tool(
+        description = "Encrypt or decrypt a MuleSoft secure-properties value, byte-compatible with the Mule runtime (uses the official secure-properties-tool). Use `operation:\"encrypt\"` to turn a plaintext secret into the `![base64]` form you put in a secure config; use `operation:\"decrypt\"` to read one (accepts the inner base64 OR the full `![...]`). Default cipher is AES/CBC. This is pure local crypto — allowed in Safe mode."
+    )]
+    async fn secure_properties(
+        &self,
+        Parameters(input): Parameters<SecurePropsInput>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        let op = input.operation.trim().to_lowercase();
+        if op != "encrypt" && op != "decrypt" {
+            return Ok(CallToolResult::error(vec![Content::text(
+                "`operation` must be \"encrypt\" or \"decrypt\".".to_string(),
+            )]));
+        }
+        // Be forgiving: for decrypt, accept the full `![...]` wrapper too.
+        let value = if op == "decrypt" {
+            let t = input.value.trim();
+            if t.starts_with("![") && t.ends_with(']') {
+                t[2..t.len() - 1].to_string()
+            } else {
+                input.value.clone()
+            }
+        } else {
+            input.value.clone()
+        };
+        let algorithm = input.algorithm.unwrap_or_else(|| "AES".to_string());
+        let mode = input.mode.unwrap_or_else(|| "CBC".to_string());
+        let use_random_iv = input.use_random_iv.unwrap_or(false);
+        self.requests.fetch_add(1, Ordering::Relaxed);
+        match crate::secure_properties::secure_properties_invoke(
+            self.app.clone(),
+            op.clone(),
+            algorithm,
+            mode,
+            input.key,
+            value,
+            use_random_iv,
+        ) {
+            // encrypt → wrap in ![...] so the agent can paste it straight into a config.
+            Ok(out) => {
+                let text = if op == "encrypt" { format!("![{}]", out) } else { out };
+                Ok(CallToolResult::success(vec![Content::text(text)]))
+            }
+            Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
+                "secure-properties {} failed (check key / algorithm / mode): {}",
+                op, e
+            ))])),
         }
     }
 }
