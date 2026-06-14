@@ -154,6 +154,24 @@ fn apply_map(mut text: String, map: &std::collections::HashMap<String, String>, 
     text
 }
 
+/// In Safe mode a script must be a PURE transform — no Java interop and no file /
+/// network I/O. DataWeave's own `readUrl` reads `file://` (any local file) and
+/// reaches the network, and `dw::io::*` modules do I/O — none of these go through
+/// `java!`, so they must be blocked too or "no file/network access" is a lie.
+/// `read(...)` (which only parses an in-memory string) is fine and NOT matched.
+/// Returns the human-readable reason when the script must be rejected.
+fn safe_mode_block_reason(script: &str) -> Option<&'static str> {
+    if script.contains("java!") {
+        Some("Java interop (`import java!…`)")
+    } else if script.contains("readUrl") {
+        Some("`readUrl` — it can read local files via file:// and reach the network")
+    } else if script.contains("dw::io") {
+        Some("the `dw::io` modules (file / network I/O)")
+    } else {
+        None
+    }
+}
+
 /// Replace ${key} / ${secure::key} placeholders using the given YAML configs.
 fn substitute_props(mut text: String, config_yaml: Option<&str>, secure_yaml: Option<&str>) -> String {
     for (yaml_opt, secure) in [(config_yaml, false), (secure_yaml, true)] {
@@ -292,13 +310,18 @@ impl DwTools {
         let script = apply_map(apply_map(input.script, &cfg_map, false), &sec_map, true);
         let payload = apply_map(apply_map(input.payload, &cfg_map, false), &sec_map, true);
 
-        // Safe-mode gate (Phase 0): refuse Java interop unless Advanced is on.
-        if !self.advanced.load(Ordering::Relaxed) && script.contains("java!") {
-            return Ok(CallToolResult::error(vec![Content::text(
-                "Safe mode: Java interop (`import java!…`) is disabled, so this script was NOT run. \
-                 Rewrite it without Java, or ask the user to enable Advanced mode in DataWeave Studio's MCP panel."
-                    .to_string(),
-            )]));
+        // Safe-mode gate (Phase 0): refuse Java interop AND file/network I/O unless
+        // Advanced is on. Checked on the SUBSTITUTED script so an injected config
+        // value can't smuggle a readUrl past the gate.
+        if !self.advanced.load(Ordering::Relaxed) {
+            if let Some(reason) = safe_mode_block_reason(&script) {
+                return Ok(CallToolResult::error(vec![Content::text(format!(
+                    "Safe mode: {} is disabled — this is a pure-transform sandbox with no file or network \
+                     access, so the script was NOT run. Rewrite it without that, or ask the user to enable \
+                     Advanced mode in DataWeave Studio's MCP panel.",
+                    reason
+                ))]));
+            }
         }
 
         // Build multipart parts (binary-safe) when provided. base64/value parts run
@@ -403,11 +426,13 @@ impl ServerHandler for DwTools {
         // The Java line is DYNAMIC on the live Safe/Advanced flag so the docs
         // never lie about whether `import java!` will be accepted.
         let java_line = if self.advanced.load(Ordering::Relaxed) {
-            "- Java interop is ENABLED (Advanced mode): you MAY use `import java!java::lang::…` etc. \
-             Still no filesystem / network / process access."
+            "- Advanced mode is ON: scripts have FULL local access — `import java!…` works, and `readUrl` / \
+             `dw::io` can read local files (file://) and reach the network. Treat results like code you ran \
+             locally."
         } else {
-            "- Java interop (`import java!…`) is BLOCKED in Safe mode (the default) — such scripts are \
-             rejected before running. `dw::core::Java` is not available either."
+            "- Safe mode (the default) is a PURE-TRANSFORM SANDBOX: `import java!…`, `readUrl`, and `dw::io` \
+             are rejected before running — no file or network access. A script sees only the payload/inputs you \
+             pass. (`dw::core::Java` is not bundled either.)"
         };
         // Built by concatenation (not format!) — the text contains literal
         // ${key} braces that format! would try to parse as placeholders.
@@ -450,8 +475,7 @@ impl ServerHandler for DwTools {
                 java_line,
                 "\n- `payload` is TEXT: json, xml, csv, yaml, x-www-form-urlencoded all work via `input_mime_type`. \
                  For multipart/form-data use the `multipart` param (read parts as `payload.parts.<name>.content`); \
-                 pass binary files as `contentBase64` (any mode) — never as raw text in `payload`, which corrupts bytes.\
-                 \n- No file or network access; this is a pure transform sandbox.",
+                 pass binary files as `contentBase64` (any mode) — never as raw text in `payload`, which corrupts bytes.",
             ]
             .concat(),
         );
@@ -646,7 +670,16 @@ pub fn mcp_status(state: tauri::State<'_, McpState>) -> McpStatus {
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_map, flatten_yaml_to_map, is_encrypted_value, substitute_props};
+    use super::{apply_map, flatten_yaml_to_map, is_encrypted_value, safe_mode_block_reason, substitute_props};
+
+    #[test]
+    fn safe_mode_blocks_io_and_java_but_allows_pure_transforms() {
+        assert!(safe_mode_block_reason("payload map (x) -> x * 2").is_none());
+        assert!(safe_mode_block_reason("read(payload, \"application/json\")").is_none()); // string parse, not I/O
+        assert!(safe_mode_block_reason("import java!java::lang::System").is_some());
+        assert!(safe_mode_block_reason("readUrl(\"file:///etc/passwd\", \"text/plain\")").is_some());
+        assert!(safe_mode_block_reason("import http from dw::io::http::Client").is_some());
+    }
 
     #[test]
     fn substitutes_config_and_secure_placeholders() {
