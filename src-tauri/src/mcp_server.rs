@@ -92,6 +92,13 @@ fn default_mime() -> String {
     "application/json".to_string()
 }
 
+/// Input for the `migrate_dw_1_to_2` tool.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct MigrateInput {
+    /// A DataWeave 1.0 script to migrate to 2.0 syntax.
+    script: String,
+}
+
 /// Input for the `secure_properties` tool (MuleSoft encrypt/decrypt).
 #[derive(Deserialize, schemars::JsonSchema)]
 struct SecurePropsInput {
@@ -538,6 +545,18 @@ impl DwTools {
                 op, e
             ))])),
         }
+    }
+
+    #[tool(
+        description = "Best-effort migrate a DataWeave 1.0 script to 2.0 syntax (header, %output/%var/%function/%input directives, flowVars→vars, inboundProperties→attributes, :string→String, etc.). Returns the migrated script with `// ⚠` comments flagging constructs that need manual work (%namespace, outboundProperties, lookup, p()). This is HEURISTIC — ALWAYS run the result through validate_and_run_dataweave before presenting it."
+    )]
+    async fn migrate_dw_1_to_2(
+        &self,
+        Parameters(input): Parameters<MigrateInput>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        self.requests.fetch_add(1, Ordering::Relaxed);
+        let r = crate::dw_migrate::migrate_dw1_to_2(&input.script);
+        Ok(CallToolResult::success(vec![Content::text(r.output)]))
     }
 }
 

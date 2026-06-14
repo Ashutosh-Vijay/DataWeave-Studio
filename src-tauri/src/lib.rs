@@ -1,3 +1,4 @@
+mod dw_migrate;
 mod dw_runner;
 mod dw_server;
 mod jars;
