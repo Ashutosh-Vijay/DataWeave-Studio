@@ -164,9 +164,9 @@ fn safe_mode_block_reason(script: &str) -> Option<&'static str> {
     if script.contains("java!") {
         Some("Java interop (`import java!…`)")
     } else if script.contains("readUrl") {
-        Some("`readUrl` — it can read local files via file:// and reach the network")
+        Some("`readUrl` (it reads local files via file:// and reaches the network)")
     } else if script.contains("dw::io") {
-        Some("the `dw::io` modules (file / network I/O)")
+        Some("the `dw::io` module (file / network I/O)")
     } else {
         None
     }
@@ -316,9 +316,9 @@ impl DwTools {
         if !self.advanced.load(Ordering::Relaxed) {
             if let Some(reason) = safe_mode_block_reason(&script) {
                 return Ok(CallToolResult::error(vec![Content::text(format!(
-                    "Safe mode: {} is disabled — this is a pure-transform sandbox with no file or network \
-                     access, so the script was NOT run. Rewrite it without that, or ask the user to enable \
-                     Advanced mode in DataWeave Studio's MCP panel.",
+                    "Safe mode rejected this script: {} is not allowed here — this is a pure-transform sandbox \
+                     with no file or network access, so it was NOT run. Rewrite it without that, or ask the user \
+                     to enable Advanced mode in DataWeave Studio's MCP panel.",
                     reason
                 ))]));
             }
@@ -458,7 +458,12 @@ impl ServerHandler for DwTools {
                  2. FIX-AND-RETRY — on error, read the line/column + message, correct the script, and call \
                  the tool again. Repeat until `isError` is false. Do NOT web-search DataWeave syntax — the \
                  tool's error is the ground truth, and guessing just burns tokens.\n\
-                 3. Present only verified scripts; ideally show the sample input and the output you confirmed.\n\n\
+                 3. Present only verified scripts; ideally show the sample input and the output you confirmed.\n\
+                 4. RUN ≠ CORRECT — `isError:false` means the script COMPILED and produced output, not that every \
+                 input field was captured. DataWeave's plain selectors return only the FIRST match for a repeated \
+                 name, so a script can silently drop data with no error. When the input has repeated element/key \
+                 names (common in XML/SOAP), compare `payload…*name` (all matches, as an array) against \
+                 `payload…name` (first only) and confirm the count is what you expect.\n\n\
                  ## Writing the `script`\n\
                  - A bare body works: `payload map (x) -> x * 2` runs as `%dw 2.0` with `output application/json`.\n\
                  - For any non-JSON output you MUST write the header yourself: `%dw 2.0` / `output application/xml` / `---` / body.\n\
