@@ -99,6 +99,31 @@ struct MigrateInput {
     script: String,
 }
 
+/// Input for the `dw_function_reference` tool.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct FnRefInput {
+    /// Exact function name for the full doc (e.g. "map", "++", "groupBy", "filter").
+    #[serde(default)]
+    name: Option<String>,
+    /// Keyword to search names/signatures/descriptions; returns a compact match list.
+    #[serde(default)]
+    search: Option<String>,
+}
+
+/// Input for the `dw_cookbook` tool.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct CookbookInput {
+    /// Recipe id for the full recipe (sample input, script, expected output).
+    #[serde(default)]
+    id: Option<String>,
+    /// Keyword to search recipe name/description/script.
+    #[serde(default)]
+    search: Option<String>,
+    /// Filter by category, e.g. "Array Manipulation", "XML Handling".
+    #[serde(default)]
+    category: Option<String>,
+}
+
 /// Input for the `secure_properties` tool (MuleSoft encrypt/decrypt).
 #[derive(Deserialize, schemars::JsonSchema)]
 struct SecurePropsInput {
@@ -238,6 +263,47 @@ fn substitute_props(mut text: String, config_yaml: Option<&str>, secure_yaml: Op
         }
     }
     text
+}
+
+/// Load a bundled MCP JSON resource (function reference / cookbook).
+fn load_mcp_json(app: &AppHandle, file: &str) -> Result<serde_json::Value, String> {
+    let path = app
+        .path()
+        .resolve(format!("resources/mcp/{}", file), tauri::path::BaseDirectory::Resource)
+        .map_err(|e| format!("Couldn't resolve {}: {}", file, e))?;
+    let text = std::fs::read_to_string(&path).map_err(|e| format!("Couldn't read {}: {}", file, e))?;
+    serde_json::from_str(&text).map_err(|e| format!("Couldn't parse {}: {}", file, e))
+}
+
+/// Render one function's full reference entry (all overloads + examples).
+fn format_fn_doc(name: &str, doc: &serde_json::Value) -> String {
+    let mut s = format!("# {}\n", name);
+    if let Some(ovs) = doc.get("overloads").and_then(|v| v.as_array()) {
+        for ov in ovs {
+            let module = ov.get("module").and_then(|v| v.as_str()).unwrap_or("core");
+            let sig = ov.get("signature").and_then(|v| v.as_str()).unwrap_or("");
+            let desc = ov.get("description").and_then(|v| v.as_str()).unwrap_or("");
+            s.push_str(&format!("\n## [{}] {}\n{}\n", module, sig, desc));
+            if let Some(exs) = ov.get("examples").and_then(|v| v.as_array()) {
+                for ex in exs {
+                    let src = ex.get("source").and_then(|v| v.as_str()).unwrap_or("");
+                    let out = ex.get("output").and_then(|v| v.as_str()).unwrap_or("");
+                    s.push_str(&format!("\nExample:\n{}\n=>\n{}\n", src, out));
+                }
+            }
+        }
+    }
+    s
+}
+
+/// Render one cookbook recipe in full (input + script + expected output).
+fn format_recipe(r: &serde_json::Value) -> String {
+    let g = |k: &str| r.get(k).and_then(|v| v.as_str()).unwrap_or("");
+    format!(
+        "# {} ({} · {})\n{}\n\n## Input ({})\n{}\n\n## Script\n{}\n\n## Output ({})\n{}",
+        g("name"), g("category"), g("difficulty"), g("description"),
+        g("inputMime"), g("input"), g("script"), g("outputMime"), g("output"),
+    )
 }
 
 /// Panel-set decryption settings for `![...]` secure values. Session-only — held
@@ -557,6 +623,108 @@ impl DwTools {
         self.requests.fetch_add(1, Ordering::Relaxed);
         let r = crate::dw_migrate::migrate_dw1_to_2(&input.script);
         Ok(CallToolResult::success(vec![Content::text(r.output)]))
+    }
+
+    #[tool(
+        description = "OFFLINE DataWeave 2.11 standard-library reference — 309 functions with exact signatures, descriptions, and runnable examples. Pass `name` for one function's full doc, `search` for a keyword match list, or no args to list every function name. Use THIS instead of recalling/ web-searching DW syntax — it's the authoritative signature source."
+    )]
+    async fn dw_function_reference(
+        &self,
+        Parameters(input): Parameters<FnRefInput>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        self.requests.fetch_add(1, Ordering::Relaxed);
+        let data = match load_mcp_json(&self.app, "dw_functions.json") {
+            Ok(v) => v,
+            Err(e) => return Ok(CallToolResult::error(vec![Content::text(e)])),
+        };
+        let obj = match data.as_object() {
+            Some(o) => o,
+            None => return Ok(CallToolResult::error(vec![Content::text("Function reference is malformed.".to_string())])),
+        };
+        if let Some(name) = input.name.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            if let Some(k) = obj.keys().find(|k| k.eq_ignore_ascii_case(name)) {
+                return Ok(CallToolResult::success(vec![Content::text(format_fn_doc(k, &obj[k]))]));
+            }
+            let nl = name.to_lowercase();
+            let near: Vec<&str> = obj.keys().filter(|k| k.to_lowercase().contains(&nl)).map(|s| s.as_str()).take(40).collect();
+            let msg = if near.is_empty() {
+                format!("No DataWeave function named '{}'. Use `search`, or omit args to list all 309.", name)
+            } else {
+                format!("No exact match for '{}'. Closest names: {}", name, near.join(", "))
+            };
+            return Ok(CallToolResult::error(vec![Content::text(msg)]));
+        }
+        if let Some(q) = input.search.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            let ql = q.to_lowercase();
+            let mut lines: Vec<String> = Vec::new();
+            for (k, v) in obj {
+                if format!("{} {}", k, v).to_lowercase().contains(&ql) {
+                    let sig = v.get("overloads").and_then(|o| o.as_array()).and_then(|a| a.first())
+                        .and_then(|o| o.get("signature")).and_then(|s| s.as_str()).unwrap_or("");
+                    lines.push(format!("{} — {}", k, sig));
+                }
+            }
+            lines.sort();
+            let body = if lines.is_empty() {
+                format!("No functions match '{}'.", q)
+            } else {
+                format!("{} match(es) for '{}':\n{}", lines.len(), q, lines.join("\n"))
+            };
+            return Ok(CallToolResult::success(vec![Content::text(body)]));
+        }
+        let mut names: Vec<&str> = obj.keys().map(|s| s.as_str()).collect();
+        names.sort();
+        Ok(CallToolResult::success(vec![Content::text(format!(
+            "{} DataWeave functions (pass `name` for full docs, `search` to filter):\n{}",
+            names.len(),
+            names.join(", ")
+        ))]))
+    }
+
+    #[tool(
+        description = "OFFLINE DataWeave cookbook — 83 validated recipes (each runs cleanly on this engine) for common MuleSoft tasks: array/object/string transforms, XML/CSV, dates, error handling. Pass `id` for a full recipe (input + script + output), `search`/`category` to filter, or no args to list all. Great for grabbing a verified starting pattern before writing a complex transform."
+    )]
+    async fn dw_cookbook(
+        &self,
+        Parameters(input): Parameters<CookbookInput>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        self.requests.fetch_add(1, Ordering::Relaxed);
+        let data = match load_mcp_json(&self.app, "dw_cookbook.json") {
+            Ok(v) => v,
+            Err(e) => return Ok(CallToolResult::error(vec![Content::text(e)])),
+        };
+        let arr = match data.as_array() {
+            Some(a) => a,
+            None => return Ok(CallToolResult::error(vec![Content::text("Cookbook is malformed.".to_string())])),
+        };
+        let g = |r: &serde_json::Value, k: &str| r.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+        if let Some(id) = input.id.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            if let Some(r) = arr.iter().find(|r| g(r, "id").eq_ignore_ascii_case(id)) {
+                return Ok(CallToolResult::success(vec![Content::text(format_recipe(r))]));
+            }
+            return Ok(CallToolResult::error(vec![Content::text(format!(
+                "No recipe with id '{}'. Omit `id` to list all.", id
+            ))]));
+        }
+        let search = input.search.as_deref().map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty());
+        let category = input.category.as_deref().map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty());
+        let mut lines: Vec<String> = Vec::new();
+        for r in arr {
+            if let Some(ref c) = category {
+                if !g(r, "category").to_lowercase().contains(c) { continue; }
+            }
+            if let Some(ref q) = search {
+                let hay = format!("{} {} {}", g(r, "name"), g(r, "description"), g(r, "script")).to_lowercase();
+                if !hay.contains(q) { continue; }
+            }
+            lines.push(format!("{} — {} [{} · {}]", g(r, "id"), g(r, "name"), g(r, "category"), g(r, "difficulty")));
+        }
+        let body = if lines.is_empty() {
+            "No recipes match. Omit args to list all.".to_string()
+        } else {
+            format!("{} recipe(s) (pass `id` for the full recipe):\n{}", lines.len(), lines.join("\n"))
+        };
+        Ok(CallToolResult::success(vec![Content::text(body)]))
     }
 }
 

@@ -44,6 +44,7 @@
     "resources": [
       "resources/dw-server/**/*",
       "resources/secure-properties/**/*",
+      "resources/mcp/**/*",
       "resources/jre/**/*",
       "../licenses/*"
     ],
