@@ -26,6 +26,9 @@ const RecipeBrowser = lazy(() =>
 const JavaTester = lazy(() =>
   import('./components/JavaTester').then((m) => ({ default: m.JavaTester }))
 );
+const MCPServerPanel = lazy(() =>
+  import('./components/MCPServerPanel').then((m) => ({ default: m.MCPServerPanel }))
+);
 const FlowDesigner = lazy(() =>
   import('./components/FlowDesigner').then((m) => ({ default: m.FlowDesigner }))
 );
@@ -209,6 +212,8 @@ function App() {
   const [recipesOpen, setRecipesOpen] = useState(false);
   const [flowDesignerOpen, setFlowDesignerOpen] = useState(false);
   const [javaTesterOpen, setJavaTesterOpen] = useState(false);
+  const [mcpOpen, setMcpOpen] = useState(false);
+  const [mcpRunning, setMcpRunning] = useState(false);
   const [showFirstRun, setShowFirstRun] = useState(() => shouldShowFirstRun());
   /** One-time prompt for the very first workspace. Surfaced only after the
    *  theme/layout FirstRunPicker is dismissed (or skipped — for returning
@@ -750,6 +755,19 @@ function App() {
     return () => window.removeEventListener('keydown', handler);
   }, [handleSave, workspace.duplicateWorkspace, toggle, runner.isRunning, runner.cancel, handleNewScript, handleOpenImport, handleOpenSnippets]);
 
+  // Poll MCP server status so the rail button shows a live running dot even
+  // when the panel is closed. Cheap; the command no-ops on the extension host.
+  useEffect(() => {
+    let alive = true;
+    const poll = async () => {
+      try { const s = await invoke<{ running: boolean }>('mcp_status'); if (alive) setMcpRunning(s.running); }
+      catch { /* command unavailable */ }
+    };
+    poll();
+    const iv = setInterval(poll, 4000);
+    return () => { alive = false; clearInterval(iv); };
+  }, []);
+
   // Auto-run with 1.5s debounce — only fires when inputs change
   useEffect(() => {
     if (!autoRun) return;
@@ -810,6 +828,7 @@ function App() {
     { id: 'recipes', label: 'Open DataWeave cookbook', group: 'Tools', run: () => setRecipesOpen(true) },
     { id: 'flow', label: 'Open Message Flow designer', group: 'Tools', run: () => setFlowDesignerOpen(true) },
     { id: 'java', label: 'Open Java tester', group: 'Tools', run: () => setJavaTesterOpen(true) },
+    { id: 'mcp', label: 'Open MCP Server', group: 'Tools', run: () => setMcpOpen(true) },
     { id: 'secure', label: 'Open Secure Properties tool', shortcut: '⌘⇧E', group: 'Tools', run: () => setSecureToolOpen(true) },
     { id: 'compare', label: 'Open Compare tool', group: 'Tools', run: () => setCompareToolOpen(true) },
     { id: 'import-curl', label: 'Import cURL', shortcut: '⌘⇧I', group: 'Tools', run: handleOpenImport },
@@ -930,6 +949,7 @@ function App() {
                     ['DataWeave cookbook', () => setRecipesOpen(true)],
                     ['Message Flow designer', () => setFlowDesignerOpen(true)],
                     ['Java tester', () => setJavaTesterOpen(true)],
+                    ['MCP Server', () => setMcpOpen(true)],
                     ['Secure Properties tool', () => setSecureToolOpen(true)],
                     ['Compare tool', () => setCompareToolOpen(true)],
                     ['Import cURL', handleOpenImport],
@@ -1149,6 +1169,8 @@ function App() {
           onOpenCompare={() => setCompareToolOpen(true)}
           onOpenFlowDesigner={() => setFlowDesignerOpen(true)}
           onOpenJavaTester={() => setJavaTesterOpen(true)}
+          onOpenMcp={() => setMcpOpen(true)}
+          mcpRunning={mcpRunning}
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenReference={() => setReferenceOpen(true)}
           onOpenRecipes={() => setRecipesOpen(true)}
@@ -1568,6 +1590,12 @@ function App() {
       {javaTesterOpen && (
         <Suspense fallback={null}>
           <JavaTester open={javaTesterOpen} onClose={() => setJavaTesterOpen(false)} />
+        </Suspense>
+      )}
+
+      {mcpOpen && (
+        <Suspense fallback={null}>
+          <MCPServerPanel open={mcpOpen} onClose={() => setMcpOpen(false)} onRunningChange={setMcpRunning} />
         </Suspense>
       )}
 

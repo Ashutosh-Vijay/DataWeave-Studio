@@ -50,6 +50,8 @@ interface SidebarProps {
   onOpenCompare: () => void;
   onOpenFlowDesigner: () => void;
   onOpenJavaTester: () => void;
+  onOpenMcp: () => void;
+  mcpRunning: boolean;
   onOpenSettings: () => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
@@ -143,7 +145,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const {
     projectName, onProjectNameChange, currentFile, isDirty, currentMethod,
     onNew, onSave, onLoad, onDelete, listWorkspaces,
-    onCurlImport, onInsertSnippet, onOpenSecure, onOpenCompare, onOpenFlowDesigner, onOpenJavaTester, onOpenSettings,
+    onCurlImport, onInsertSnippet, onOpenSecure, onOpenCompare, onOpenFlowDesigner, onOpenJavaTester, onOpenMcp, mcpRunning, onOpenSettings,
     onOpenReference, onOpenRecipes,
     collapsed, onToggleCollapse,
     requests, activeRequestId, onSelectRequest, onAddRequest, onRenameRequest, onRemoveRequest, onDuplicateRequest,
@@ -248,6 +250,18 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
         >
           <Icons.Terminal size={18} />
+        </button>
+        <button
+          data-tour="rail-mcp"
+          onClick={onOpenMcp}
+          title="MCP Server — serve the engine to AI agents"
+          aria-label="MCP Server"
+          className={`relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors ${mcpRunning ? 'text-accent' : 'text-content-faint hover:text-content-secondary'}`}
+        >
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2v4" /><path d="M5.5 5.5 8 8" /><path d="M18.5 5.5 16 8" /><rect x="6" y="8" width="12" height="8" rx="3" /><path d="M9 16v3a3 3 0 0 0 6 0v-3" />
+          </svg>
+          {mcpRunning && <span className="absolute right-1.5 top-1.5 w-1.5 h-1.5 rounded-full bg-accent" style={{ boxShadow: '0 0 0 2px var(--rail)' }} />}
         </button>
         <button
           onClick={onOpenCompare}

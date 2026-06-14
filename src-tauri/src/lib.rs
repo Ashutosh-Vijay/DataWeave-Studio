@@ -1,6 +1,7 @@
 mod dw_runner;
 mod dw_server;
 mod jars;
+mod mcp_server;
 mod platform;
 mod secure_properties;
 mod workspace;
@@ -35,6 +36,7 @@ pub fn run() {
             cancelled: Mutex::new(false),
         })
         .manage(DwServerState::new())
+        .manage(mcp_server::McpState::default())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 use tauri_plugin_log::{Target, TargetKind};
@@ -99,6 +101,10 @@ pub fn run() {
             jars::remove_managed_jar,
             jars::download_maven_jar,
             jars::compile_java,
+            mcp_server::mcp_start,
+            mcp_server::mcp_stop,
+            mcp_server::mcp_set_advanced,
+            mcp_server::mcp_status,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
