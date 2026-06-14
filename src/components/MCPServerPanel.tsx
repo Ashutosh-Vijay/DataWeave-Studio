@@ -305,7 +305,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
                 { name: 'migrate_dw_1_to_2', desc: 'Best-effort DataWeave 1.0 → 2.0 migration; flags manual-fixup spots. Validate the result with the run tool.', badge: 'Live', live: true },
                 { name: 'dw_function_reference', desc: 'Offline DataWeave 2.11 stdlib reference — 309 functions with signatures, docs & examples (by name, search, or list).', badge: 'Live', live: true },
                 { name: 'dw_cookbook', desc: 'Offline cookbook — 83 validated recipes for common transforms (by id, search, or category).', badge: 'Live', live: true },
-                { name: 'format_dataweave', desc: 'Pretty-print a DataWeave script (needs a dw-server engine build).', badge: 'Planned', live: false },
+                { name: 'format_dataweave', desc: 'Pretty-print / reformat a script via the engine’s own IDE formatter.', badge: 'Live', live: true },
               ].map((t) => (
                 <div key={t.name} className="flex items-center" style={{ gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--line-subtle)', opacity: t.live ? 1 : 0.6 }}>
                   <div className="flex-1 min-w-0">

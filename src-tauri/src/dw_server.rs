@@ -344,6 +344,39 @@ fn run_once(app: &AppHandle, args: &DwRunArgs) -> Result<DwResponse, RunErr> {
         .map_err(|e| RunErr::Other(format!("Bad server response: {} (line: {})", e, resp_line.trim())))
 }
 
+/// Format (pretty-print) a DataWeave script via the engine's IDE formatter
+/// (`op=format`). Shares the live server connection; returns the formatted source.
+pub fn format(app: &AppHandle, script: &str) -> Result<String, String> {
+    let state = app.state::<DwServerState>();
+    let id = state.next_id.fetch_add(1, Ordering::Relaxed);
+    let req = serde_json::json!({ "id": id, "op": "format", "script": script }).to_string();
+
+    let mut guard = state.inner.lock().unwrap_or_else(|e| e.into_inner());
+    let inner = guard
+        .as_mut()
+        .ok_or_else(|| "DataWeave server not running".to_string())?;
+    inner.stdin.write_all(req.as_bytes()).map_err(|e| format!("Failed to write to server: {}", e))?;
+    inner.stdin.write_all(b"\n").map_err(|e| format!("Failed to write to server: {}", e))?;
+    inner.stdin.flush().map_err(|e| format!("Failed to flush stdin: {}", e))?;
+
+    let mut resp_bytes: Vec<u8> = Vec::new();
+    inner
+        .stdout
+        .read_until(b'\n', &mut resp_bytes)
+        .map_err(|e| format!("Failed to read from server: {}", e))?;
+    if resp_bytes.is_empty() {
+        return Err("DataWeave server closed unexpectedly.".into());
+    }
+    let resp_line = String::from_utf8_lossy(&resp_bytes);
+    let v: serde_json::Value = serde_json::from_str(&resp_line)
+        .map_err(|e| format!("Bad server response: {} (line: {})", e, resp_line.trim()))?;
+    if v.get("ok").and_then(|b| b.as_bool()).unwrap_or(false) {
+        Ok(v.get("output").and_then(|s| s.as_str()).unwrap_or("").to_string())
+    } else {
+        Err(v.get("error").and_then(|s| s.as_str()).unwrap_or("format failed").to_string())
+    }
+}
+
 /// Kill the server process. Used on shutdown or restart.
 pub fn stop(app: &AppHandle) {
     let state = app.state::<DwServerState>();

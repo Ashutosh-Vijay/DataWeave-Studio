@@ -10,6 +10,8 @@ import org.mule.weave.v2.model.service.{
 import org.mule.weave.v2.parser.ast.variables.NameIdentifier
 import org.mule.weave.v2.runtime._
 import org.mule.weave.v2.sdk.ClassLoaderWeaveResourceResolver
+import org.mule.weave.v2.editor.{WeaveToolingService, SimpleVirtualFileSystem, SpecificModuleResourceResolver}
+import org.mule.weave.v2.completion.{DataFormatDescriptorProvider, DataFormatDescriptor}
 
 import java.io.{ByteArrayOutputStream, File}
 import java.net.{URL, URLClassLoader}
@@ -120,6 +122,12 @@ object DwServer {
     try {
       val rawScript = req.getString("script", "")
       val outputMime = req.getString("outputMime", "application/json")
+
+      // op=format: pretty-print the script via the DataWeave tooling formatter
+      // (same engine the IDE uses) and return it. No evaluation.
+      if (req.getString("op", "run") == "format") {
+        return successResponse(id, formatScript(rawScript), started)
+      }
       // compileOnly: pre-warm the cache without actually evaluating. Used by
       // the debounced editor pre-warmer so the user's first Run is already
       // cached and runs at ~10ms instead of paying ~800ms compile cost.
@@ -226,6 +234,19 @@ object DwServer {
     } catch {
       case t: Throwable =>
         errorResponse(id, t.getClass.getSimpleName + ": " + Option(t.getMessage).getOrElse(""), started)
+    }
+  }
+
+  /** Pretty-print a DataWeave script using the IDE tooling formatter. Returns the
+   *  source unchanged if the formatter reports no reformat is needed. */
+  private def formatScript(source: String): String = {
+    val vfs = SimpleVirtualFileSystem(scala.collection.immutable.Map("/main.dwl" -> source))
+    val provider = DataFormatDescriptorProvider(Array.empty[DataFormatDescriptor])
+    val service = WeaveToolingService(vfs, provider, Array.empty[SpecificModuleResourceResolver])
+    val doc = service.open("/main.dwl")
+    doc.formatting() match {
+      case Some(r) => r.newFormat
+      case None    => source
     }
   }
 

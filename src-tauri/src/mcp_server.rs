@@ -99,6 +99,13 @@ struct MigrateInput {
     script: String,
 }
 
+/// Input for the `format_dataweave` tool.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct FormatInput {
+    /// A DataWeave script to pretty-print / reformat.
+    script: String,
+}
+
 /// Input for the `dw_function_reference` tool.
 #[derive(Deserialize, schemars::JsonSchema)]
 struct FnRefInput {
@@ -623,6 +630,20 @@ impl DwTools {
         self.requests.fetch_add(1, Ordering::Relaxed);
         let r = crate::dw_migrate::migrate_dw1_to_2(&input.script);
         Ok(CallToolResult::success(vec![Content::text(r.output)]))
+    }
+
+    #[tool(
+        description = "Pretty-print / reformat a DataWeave script using the engine's own IDE formatter (canonical indentation & spacing — the same one DataWeave editors use). Returns the formatted script."
+    )]
+    async fn format_dataweave(
+        &self,
+        Parameters(input): Parameters<FormatInput>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        self.requests.fetch_add(1, Ordering::Relaxed);
+        match crate::dw_server::format(&self.app, &input.script) {
+            Ok(out) => Ok(CallToolResult::success(vec![Content::text(out)])),
+            Err(e) => Ok(CallToolResult::error(vec![Content::text(format!("Format failed: {}", e))])),
+        }
     }
 
     #[tool(
