@@ -12,6 +12,7 @@ import { exportFlowToMuleXml, exportFlowsToMuleXml, importMuleXml } from '../mul
 import { parseMaybe, forceJsonOutput, displayVal } from '../flowRunHelpers';
 import { substituteQueryParams } from '../queryRender';
 import { substitutePropertiesAsync } from '../propertySubstitution';
+import { DEFAULT_ENCRYPTION_SETTINGS, type EncryptionSettings } from '../cryptoUtils';
 import { convertAllPropertyCalls, findPropertyCalls } from '../dataweavePropertyConverter';
 const openFile = tauriOpen;
 
@@ -260,6 +261,8 @@ let flowStateCache: { nodes: FlowNode[]; flowName: string; flowCurrentFile: stri
  *  (same stance as the single-script app). Module-level so it survives the
  *  designer unmounting and remounting when you switch tools. */
 let flowEncryptionKeyCache = '';
+/** Cipher settings for ![…] decryption — session-only, same stance as the key. */
+let flowEncSettingsCache: EncryptionSettings = { ...DEFAULT_ENCRYPTION_SETTINGS };
 
 const NODE_W = 220;
 
@@ -438,12 +441,13 @@ function JsonKeyValueRows({ value, onChange, keyPlaceholder = 'Key', valuePlaceh
  *  renders the SOQL/SQL template with the resulting `:param` values — so you can
  *  see how the query actually forms (same idea as single-script Query mode).
  *  Debounced; the Input fixture is the sample data source. */
-function FlowQueryPreview({ template, bindParams, isDbMode, flowInput, encryptionKey, classpath }: {
+function FlowQueryPreview({ template, bindParams, isDbMode, flowInput, encryptionKey, encryptionSettings, classpath }: {
   template: string;
   bindParams: string;
   isDbMode: boolean;
   flowInput: FlowInput;
   encryptionKey: string;
+  encryptionSettings: EncryptionSettings;
   classpath: string[];
 }) {
   const [state, setState] = useState<{ query: string; unbound: string[]; unused: string[] } | null>(null);
@@ -459,7 +463,7 @@ function FlowQueryPreview({ template, bindParams, isDbMode, flowInput, encryptio
           let attrs = '{}';
           try { attrs = JSON.stringify(JSON.parse(flowInput.attributesJson || '{}')); } catch {}
           const r = await invoke<RunResult>('run_dataweave', {
-            script: await substitutePropertiesAsync(convertAllPropertyCalls(`%dw 2.0\noutput application/json\n---\n${expr}`).text, flowInput.configYaml, flowInput.secureConfigYaml, encryptionKey),
+            script: await substitutePropertiesAsync(convertAllPropertyCalls(`%dw 2.0\noutput application/json\n---\n${expr}`).text, flowInput.configYaml, flowInput.secureConfigYaml, encryptionKey, encryptionSettings),
             payload: flowInput.payload,
             payloadMimeType: flowInput.mime || 'application/json',
             attributesJson: attrs,
@@ -475,7 +479,7 @@ function FlowQueryPreview({ template, bindParams, isDbMode, flowInput, encryptio
           paramsJson = r.output;
         } catch (e) { if (!cancelled) { setErr(String(e)); setState(null); } return; }
       }
-      const resolvedTemplate = await substitutePropertiesAsync(template, flowInput.configYaml, flowInput.secureConfigYaml, encryptionKey);
+      const resolvedTemplate = await substitutePropertiesAsync(template, flowInput.configYaml, flowInput.secureConfigYaml, encryptionKey, encryptionSettings);
       const sub = substituteQueryParams(resolvedTemplate, paramsJson, isDbMode);
       if (cancelled) return;
       setErr(null);
@@ -484,7 +488,7 @@ function FlowQueryPreview({ template, bindParams, isDbMode, flowInput, encryptio
         : { query: resolvedTemplate, unbound: [], unused: [] });
     }, 350);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [template, bindParams, isDbMode, flowInput.payload, flowInput.mime, flowInput.attributesJson, flowInput.configYaml, flowInput.secureConfigYaml, encryptionKey, classpath]);
+  }, [template, bindParams, isDbMode, flowInput.payload, flowInput.mime, flowInput.attributesJson, flowInput.configYaml, flowInput.secureConfigYaml, encryptionKey, encryptionSettings, classpath]);
 
   if (!template.trim()) return null;
   return (
@@ -555,6 +559,11 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   const flowEncKeyRef = useRef(flowEncryptionKey);
   flowEncKeyRef.current = flowEncryptionKey;
   useEffect(() => { flowEncryptionKeyCache = flowEncryptionKey; }, [flowEncryptionKey]);
+  // Cipher settings for ![…] decryption (algorithm/mode/random-IV) — session-only.
+  const [flowEncSettings, setFlowEncSettings] = useState<EncryptionSettings>(() => flowEncSettingsCache);
+  const flowEncSettingsRef = useRef(flowEncSettings);
+  flowEncSettingsRef.current = flowEncSettings;
+  useEffect(() => { flowEncSettingsCache = flowEncSettings; }, [flowEncSettings]);
   // Managed JARs (from the Java Interop tester) — put on every node's classpath
   // so `import java!` / dw::core::Java works in flows too. Ref for the run
   // closure; empty if the backend doesn't expose the command (e.g. extension host).
@@ -1159,7 +1168,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           let stored: unknown;
           if (scriptToRun !== null) {
             const result = await invoke<RunResult>('run_dataweave', {
-              script: await substitutePropertiesAsync(convertAllPropertyCalls(scriptToRun).text, flowInput.configYaml, flowInput.secureConfigYaml, flowEncKeyRef.current),
+              script: await substitutePropertiesAsync(convertAllPropertyCalls(scriptToRun).text, flowInput.configYaml, flowInput.secureConfigYaml, flowEncKeyRef.current, flowEncSettingsRef.current),
               payload: ctx.payload,
               payloadMimeType: ctx.mime,
               attributesJson: ctx.attributes,
@@ -1186,7 +1195,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         if (node.type === 'transform') {
           const result = await invoke<RunResult>('run_dataweave', {
             // A transform bound to a variable must yield structured JSON.
-            script: await substitutePropertiesAsync(convertAllPropertyCalls(node.config.saveToVariable ? forceJsonOutput(node.config.script || DEFAULT_SCRIPT) : (node.config.script || DEFAULT_SCRIPT)).text, flowInput.configYaml, flowInput.secureConfigYaml, flowEncKeyRef.current),
+            script: await substitutePropertiesAsync(convertAllPropertyCalls(node.config.saveToVariable ? forceJsonOutput(node.config.script || DEFAULT_SCRIPT) : (node.config.script || DEFAULT_SCRIPT)).text, flowInput.configYaml, flowInput.secureConfigYaml, flowEncKeyRef.current, flowEncSettingsRef.current),
             payload: ctx.payload,
             payloadMimeType: ctx.mime,
             attributesJson: ctx.attributes,
@@ -1300,7 +1309,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     /** Evaluate a DataWeave expression against the given context.
      *  Returns the parsed JSON value on success, or an error string. */
     const evalExpression = async (expr: string, ctx: ExecCtx): Promise<{ ok: true; value: unknown; raw: string } | { ok: false; error: string }> => {
-      const script = await substitutePropertiesAsync(convertAllPropertyCalls(`%dw 2.0\noutput application/json\n---\n${expr}`).text, flowInput.configYaml, flowInput.secureConfigYaml, flowEncKeyRef.current);
+      const script = await substitutePropertiesAsync(convertAllPropertyCalls(`%dw 2.0\noutput application/json\n---\n${expr}`).text, flowInput.configYaml, flowInput.secureConfigYaml, flowEncKeyRef.current, flowEncSettingsRef.current);
       try {
         const result = await invoke<RunResult>('run_dataweave', {
           script,
@@ -3342,6 +3351,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                         isDbMode={selected.type === 'database'}
                         flowInput={flowInput}
                         encryptionKey={flowEncryptionKey}
+                        encryptionSettings={flowEncSettings}
                         classpath={managedJars}
                       />
                     </div>
@@ -4381,8 +4391,35 @@ output application/json
                     autoComplete="off"
                     className="w-full px-3 py-1.5 text-[11.5px] font-mono bg-surface-2 border border-line rounded-md outline-none text-content placeholder:text-content-ghost focus:border-accent"
                   />
+                  <div className="flex items-center gap-2 mt-2">
+                    <select
+                      value={flowEncSettings.algorithm}
+                      onChange={(e) => setFlowEncSettings((s) => ({ ...s, algorithm: e.target.value }))}
+                      className="flex-1 h-7 px-2 text-[11px] bg-surface-2 border border-line rounded-md outline-none text-content focus:border-accent"
+                      title="Cipher algorithm"
+                    >
+                      {(['AES', 'Blowfish', 'DES', 'DESede', 'RC2'] as const).map((a) => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                    <select
+                      value={flowEncSettings.mode}
+                      onChange={(e) => setFlowEncSettings((s) => ({ ...s, mode: e.target.value }))}
+                      className="flex-1 h-7 px-2 text-[11px] bg-surface-2 border border-line rounded-md outline-none text-content focus:border-accent"
+                      title="Cipher mode"
+                    >
+                      {(['CBC', 'CFB', 'ECB', 'OFB'] as const).map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                    <label className="flex items-center gap-1.5 text-[11px] text-content-faint cursor-pointer select-none whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={flowEncSettings.useRandomIVs}
+                        onChange={(e) => setFlowEncSettings((s) => ({ ...s, useRandomIVs: e.target.checked }))}
+                        className="cursor-pointer"
+                      />
+                      Random IV
+                    </label>
+                  </div>
                   <div className="text-[10px] text-content-ghost mt-1">
-                    Session only — never written to the flow file. Same Blowfish/AES key you'd pass to <span className="font-mono">secure-properties-tool.jar</span>.
+                    Session only — never written to the flow file. Match the algorithm/mode you'd pass to <span className="font-mono">secure-properties-tool.jar</span> (default AES/CBC).
                   </div>
                 </div>
               </div>
