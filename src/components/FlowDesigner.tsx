@@ -3526,6 +3526,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                   <div>
                     <ConfigLabel label="Target variable (optional)" />
                     <input
+                      data-no-drag
                       value={selected.config.saveToVariable || ''}
                       onChange={(e) => updateConfig(selected.id, { saveToVariable: e.target.value })}
                       placeholder="empty → replaces payload"
@@ -3536,6 +3537,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                   <div>
                     <ConfigLabel label="Mock response (optional)" />
                     <textarea
+                      data-no-drag
                       value={selected.config.mockResponse || ''}
                       onChange={(e) => updateConfig(selected.id, { mockResponse: e.target.value })}
                       placeholder={'{ "result": "ok" }'}
