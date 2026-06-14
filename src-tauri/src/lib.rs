@@ -104,6 +104,7 @@ pub fn run() {
             mcp_server::mcp_start,
             mcp_server::mcp_stop,
             mcp_server::mcp_set_advanced,
+            mcp_server::mcp_set_decrypt,
             mcp_server::mcp_status,
         ])
         .build(tauri::generate_context!())

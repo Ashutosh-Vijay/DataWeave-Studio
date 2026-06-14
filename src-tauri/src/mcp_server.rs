@@ -65,6 +65,21 @@ struct RunInput {
     /// input is multipart/form-data and the `payload` field is ignored.
     #[serde(default)]
     multipart: Option<String>,
+    /// Decryption key for encrypted `![...]` values in `config`/`secure_config`
+    /// (MuleSoft secure properties). Overrides any key set in the MCP panel. If a
+    /// config contains `![...]` and no key is available (here or in the panel), the
+    /// run is REJECTED with an error rather than passing ciphertext to the script.
+    #[serde(default)]
+    secure_key: Option<String>,
+    /// Cipher for decryption: AES (default) | Blowfish | DES | DESede | RC2.
+    #[serde(default)]
+    secure_algorithm: Option<String>,
+    /// Cipher mode for decryption: CBC (default) | CFB | ECB | OFB.
+    #[serde(default)]
+    secure_mode: Option<String>,
+    /// Whether the encrypted values used a random IV (MuleSoft `--use-random-iv`). Default false.
+    #[serde(default)]
+    secure_random_iv: Option<bool>,
 }
 fn default_mime() -> String {
     "application/json".to_string()
@@ -105,6 +120,40 @@ fn flatten_yaml(value: &serde_json::Value, prefix: &str, out: &mut std::collecti
     }
 }
 
+/// A MuleSoft secure value looks like `![base64]`. We decrypt those before they
+/// reach the script — passing the ciphertext through would silently produce wrong
+/// data (no error, just the encrypted blob).
+fn is_encrypted_value(v: &str) -> bool {
+    let t = v.trim();
+    t.len() > 3 && t.starts_with("![") && t.ends_with(']')
+}
+
+/// Parse a YAML config into a flat dot-key map (lenient — bad YAML → empty map,
+/// matching `substitute_props`).
+fn flatten_yaml_to_map(yaml: Option<&str>) -> std::collections::HashMap<String, String> {
+    let mut flat = std::collections::HashMap::new();
+    if let Some(y) = yaml {
+        if !y.trim().is_empty() {
+            if let Ok(v) = serde_yaml::from_str::<serde_json::Value>(y) {
+                flatten_yaml(&v, "", &mut flat);
+            }
+        }
+    }
+    flat
+}
+
+/// Substitute `${key}` / `${secure::key}` from a flat map into `text`. `secure`
+/// also matches the `${secure::key}` form.
+fn apply_map(mut text: String, map: &std::collections::HashMap<String, String>, secure: bool) -> String {
+    for (k, val) in map {
+        if secure {
+            text = text.replace(&format!("${{secure::{}}}", k), val);
+        }
+        text = text.replace(&format!("${{{}}}", k), val);
+    }
+    text
+}
+
 /// Replace ${key} / ${secure::key} placeholders using the given YAML configs.
 fn substitute_props(mut text: String, config_yaml: Option<&str>, secure_yaml: Option<&str>) -> String {
     for (yaml_opt, secure) in [(config_yaml, false), (secure_yaml, true)] {
@@ -126,6 +175,28 @@ fn substitute_props(mut text: String, config_yaml: Option<&str>, secure_yaml: Op
     text
 }
 
+/// Panel-set decryption settings for `![...]` secure values. Session-only — held
+/// in memory, never persisted to disk and never sent over MCP. The agent can
+/// override `key` per call via `secure_key`.
+#[derive(Clone)]
+pub struct DecryptSettings {
+    key: Option<String>,
+    algorithm: String,
+    mode: String,
+    use_random_iv: bool,
+}
+
+impl Default for DecryptSettings {
+    fn default() -> Self {
+        Self {
+            key: None,
+            algorithm: "AES".to_string(),
+            mode: "CBC".to_string(),
+            use_random_iv: false,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct DwTools {
     app: AppHandle,
@@ -133,16 +204,24 @@ pub struct DwTools {
     advanced: Arc<AtomicBool>,
     /// Tool calls served — surfaced as the "requests" stat.
     requests: Arc<AtomicU64>,
+    /// Panel-set decryption key/cipher for `![...]` secure values (session-only).
+    decrypt: Arc<Mutex<DecryptSettings>>,
     tool_router: ToolRouter<DwTools>,
 }
 
 #[tool_router]
 impl DwTools {
-    pub fn new(app: AppHandle, advanced: Arc<AtomicBool>, requests: Arc<AtomicU64>) -> Self {
+    pub fn new(
+        app: AppHandle,
+        advanced: Arc<AtomicBool>,
+        requests: Arc<AtomicU64>,
+        decrypt: Arc<Mutex<DecryptSettings>>,
+    ) -> Self {
         Self {
             app,
             advanced,
             requests,
+            decrypt,
             tool_router: Self::tool_router(),
         }
     }
@@ -154,9 +233,64 @@ impl DwTools {
         &self,
         Parameters(input): Parameters<RunInput>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
-        // Resolve ${key} / ${secure::key} placeholders from the supplied configs.
-        let script = substitute_props(input.script, input.config.as_deref(), input.secure_config.as_deref());
-        let payload = substitute_props(input.payload, input.config.as_deref(), input.secure_config.as_deref());
+        // Resolve ${key} / ${secure::key} placeholders. Encrypted `![...]` values
+        // are decrypted FIRST — passing ciphertext through would silently corrupt
+        // the run. Effective decrypt settings: agent-supplied overrides the panel.
+        let panel = self.decrypt.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        let eff_key = input
+            .secure_key
+            .clone()
+            .filter(|k| !k.is_empty())
+            .or(panel.key.clone());
+        let eff_algo = input.secure_algorithm.clone().unwrap_or(panel.algorithm.clone());
+        let eff_mode = input.secure_mode.clone().unwrap_or(panel.mode.clone());
+        let eff_riv = input.secure_random_iv.unwrap_or(panel.use_random_iv);
+
+        let mut cfg_map = flatten_yaml_to_map(input.config.as_deref());
+        let mut sec_map = flatten_yaml_to_map(input.secure_config.as_deref());
+
+        // Decrypt any ![...] values; refuse loudly if encrypted but no key.
+        for map in [&mut cfg_map, &mut sec_map] {
+            for val in map.values_mut() {
+                if !is_encrypted_value(val) {
+                    continue;
+                }
+                let key = match eff_key.as_deref() {
+                    Some(k) => k,
+                    None => {
+                        return Ok(CallToolResult::error(vec![Content::text(
+                            "This config contains encrypted secure values (`![…]`) but no decryption key is \
+                             available. The server will NOT pass ciphertext to the script. Either set the key in \
+                             DataWeave Studio's MCP Server panel, or pass `secure_key` (plus `secure_algorithm` / \
+                             `secure_mode` if not the AES/CBC default) with this call."
+                                .to_string(),
+                        )]));
+                    }
+                };
+                let t = val.trim();
+                let inner = t[2..t.len() - 1].to_string();
+                match crate::secure_properties::secure_properties_invoke(
+                    self.app.clone(),
+                    "decrypt".to_string(),
+                    eff_algo.clone(),
+                    eff_mode.clone(),
+                    key.to_string(),
+                    inner,
+                    eff_riv,
+                ) {
+                    Ok(plain) => *val = plain,
+                    Err(e) => {
+                        return Ok(CallToolResult::error(vec![Content::text(format!(
+                            "Failed to decrypt a secure value (check the key/algorithm/mode): {}",
+                            e
+                        ))]))
+                    }
+                }
+            }
+        }
+
+        let script = apply_map(apply_map(input.script, &cfg_map, false), &sec_map, true);
+        let payload = apply_map(apply_map(input.payload, &cfg_map, false), &sec_map, true);
 
         // Safe-mode gate (Phase 0): refuse Java interop unless Advanced is on.
         if !self.advanced.load(Ordering::Relaxed) && script.contains("java!") {
@@ -309,7 +443,9 @@ impl ServerHandler for DwTools {
                  `attributes.queryParams.*`, `attributes.uriParams.*`.\n\
                  - `vars` (JSON object): flow variables, read as `vars.name`.\n\
                  - `config` / `secure_config` (YAML): values for ${key} / ${secure::key} placeholders, \
-                 substituted before the run.\n\n\
+                 substituted before the run. Encrypted MuleSoft values (`![...]`) ARE decrypted first if a key \
+                 is available (set in the panel, or pass `secure_key` + optional `secure_algorithm`/`secure_mode`); \
+                 if a `![...]` value appears with no key, the run is rejected (never run with ciphertext).\n\n\
                  ## Limits\n",
                 java_line,
                 "\n- `payload` is TEXT: json, xml, csv, yaml, x-www-form-urlencoded all work via `input_mime_type`. \
@@ -336,6 +472,9 @@ struct Running {
 #[derive(Default)]
 pub struct McpState {
     running: Mutex<Option<Running>>,
+    /// Session-only decryption settings for `![...]` secure values. Lives on the
+    /// state (not Running) so it survives start/stop and can be set before start.
+    decrypt: Arc<Mutex<DecryptSettings>>,
 }
 
 #[derive(Serialize)]
@@ -346,6 +485,8 @@ pub struct McpStatus {
     pub advanced: bool,
     pub uptime_secs: u64,
     pub requests: u64,
+    /// Whether a panel decryption key is currently set (never the key itself).
+    pub decrypt_key_set: bool,
 }
 
 fn stop_inner(state: &McpState) {
@@ -393,6 +534,7 @@ pub async fn mcp_start(
     let app_for_factory = app.clone();
     let flag_for_factory = advanced_flag.clone();
     let req_for_factory = requests.clone();
+    let decrypt_for_factory = state.decrypt.clone();
 
     let service = StreamableHttpService::new(
         move || {
@@ -400,6 +542,7 @@ pub async fn mcp_start(
                 app_for_factory.clone(),
                 flag_for_factory.clone(),
                 req_for_factory.clone(),
+                decrypt_for_factory.clone(),
             ))
         },
         Arc::new(LocalSessionManager::default()),
@@ -448,8 +591,38 @@ pub fn mcp_set_advanced(state: tauri::State<'_, McpState>, advanced: bool) -> Re
     Ok(())
 }
 
+/// Set (or clear) the session-only decryption key + cipher for `![...]` secure
+/// values. Pass an empty/None key to clear. Never persisted; never sent over MCP.
+#[tauri::command]
+pub fn mcp_set_decrypt(
+    state: tauri::State<'_, McpState>,
+    key: Option<String>,
+    algorithm: Option<String>,
+    mode: Option<String>,
+    use_random_iv: Option<bool>,
+) -> Result<(), String> {
+    let mut d = state.decrypt.lock().unwrap_or_else(|e| e.into_inner());
+    d.key = key.filter(|k| !k.is_empty());
+    if let Some(a) = algorithm {
+        d.algorithm = a;
+    }
+    if let Some(m) = mode {
+        d.mode = m;
+    }
+    if let Some(r) = use_random_iv {
+        d.use_random_iv = r;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn mcp_status(state: tauri::State<'_, McpState>) -> McpStatus {
+    let decrypt_key_set = state
+        .decrypt
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .key
+        .is_some();
     let g = state.running.lock().unwrap_or_else(|e| e.into_inner());
     match &*g {
         Some(r) => McpStatus {
@@ -458,6 +631,7 @@ pub fn mcp_status(state: tauri::State<'_, McpState>) -> McpStatus {
             advanced: r.advanced.load(Ordering::Relaxed),
             uptime_secs: r.started.elapsed().as_secs(),
             requests: r.requests.load(Ordering::Relaxed),
+            decrypt_key_set,
         },
         None => McpStatus {
             running: false,
@@ -465,13 +639,14 @@ pub fn mcp_status(state: tauri::State<'_, McpState>) -> McpStatus {
             advanced: false,
             uptime_secs: 0,
             requests: 0,
+            decrypt_key_set,
         },
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::substitute_props;
+    use super::{apply_map, flatten_yaml_to_map, is_encrypted_value, substitute_props};
 
     #[test]
     fn substitutes_config_and_secure_placeholders() {
@@ -487,5 +662,33 @@ mod tests {
         let s = "payload map (x) -> x".to_string();
         assert_eq!(substitute_props(s.clone(), None, None), s);
         assert_eq!(substitute_props(s.clone(), Some("   "), None), s);
+    }
+
+    #[test]
+    fn detects_encrypted_values() {
+        assert!(is_encrypted_value("![r45dsfYG2T8x9KQ==]"));
+        assert!(is_encrypted_value("  ![abc]  "));
+        assert!(!is_encrypted_value("plaintext"));
+        assert!(!is_encrypted_value("![]")); // empty inner — not a real secure value
+        assert!(!is_encrypted_value("prefix ![x] suffix"));
+    }
+
+    #[test]
+    fn flatten_then_apply_roundtrip_matches_substitute_props() {
+        // The decrypting path builds maps then applies them; result must equal the
+        // original substitute_props for plaintext configs.
+        let cfg = flatten_yaml_to_map(Some("db:\n  host: localhost"));
+        let sec = flatten_yaml_to_map(Some("db:\n  pw: s3cr3t"));
+        let script = "{ h: \"${db.host}\", p: \"${secure::db.pw}\" }".to_string();
+        let out = apply_map(apply_map(script, &cfg, false), &sec, true);
+        assert_eq!(out, "{ h: \"localhost\", p: \"s3cr3t\" }");
+    }
+
+    #[test]
+    fn encrypted_value_survives_flatten_for_decrypt_detection() {
+        // Encrypted values land in the map verbatim so the run path can detect &
+        // decrypt them (or reject when no key).
+        let m = flatten_yaml_to_map(Some("db:\n  pw: \"![r45dsfYG2T8x9KQ==]\""));
+        assert!(is_encrypted_value(m.get("db.pw").unwrap()));
     }
 }

@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '../bridge';
 import { toast } from './Toast';
 
-interface McpStatus { running: boolean; port: number | null; advanced: boolean; uptimeSecs: number; requests: number; }
+interface McpStatus { running: boolean; port: number | null; advanced: boolean; uptimeSecs: number; requests: number; decryptKeySet: boolean; }
 type LogLine = { t: string; m: string; kind: 'ok' | 'warn' | 'err' | 'muted' };
 
 const PORT_KEY = 'dw.mcp.port';
@@ -34,7 +34,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
   onClose: () => void;
   onRunningChange?: (running: boolean) => void;
 }) {
-  const [status, setStatus] = useState<McpStatus>({ running: false, port: null, advanced: false, uptimeSecs: 0, requests: 0 });
+  const [status, setStatus] = useState<McpStatus>({ running: false, port: null, advanced: false, uptimeSecs: 0, requests: 0, decryptKeySet: false });
   // Advanced is a persisted user setting, NOT read from the poll — the backend
   // only holds the flag while running, so polling it would snap the toggle back
   // to Safe the moment the server is stopped.
@@ -103,6 +103,25 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
     // Live-toggle if running; otherwise it's applied at the next Start.
     try { if (status.running) await invoke('mcp_set_advanced', { advanced: next }); }
     catch (e) { toast(String(e), 'error'); }
+  };
+
+  // Secure-properties decryption key — session-only, kept in memory (never
+  // localStorage; it's a secret). Applied to the server so it decrypts ![...]
+  // values in config/secure_config before a run.
+  const [decryptKey, setDecryptKey] = useState('');
+  const [decryptAlgo, setDecryptAlgo] = useState('AES');
+  const [decryptMode, setDecryptMode] = useState('CBC');
+  const applyDecrypt = async (clear = false) => {
+    try {
+      await invoke('mcp_set_decrypt', {
+        key: clear ? null : (decryptKey || null),
+        algorithm: decryptAlgo,
+        mode: decryptMode,
+        useRandomIv: false,
+      });
+      if (clear) setDecryptKey('');
+      addLog(clear ? 'Decryption key cleared' : `Decryption key set (${decryptAlgo}/${decryptMode}) — session only`, 'ok');
+    } catch (e) { toast(String(e), 'error'); }
   };
 
   const copy = (key: string, text: string) => {
@@ -241,6 +260,39 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
                     </div>
                   </div>
                 )}
+              </div>
+            </section>
+
+            {/* Secure properties decryption key */}
+            <section style={card}>
+              <div className="flex items-center" style={{ gap: 9, padding: '13px 16px 11px', borderBottom: '1px solid var(--line-subtle)' }}>
+                <span style={{ color: accent }}><svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></span>
+                <div className="flex-1">
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>Secure-properties key</div>
+                  <div style={{ fontSize: 11, color: 'var(--content-muted)', marginTop: 1 }}>Decrypts <code style={{ fontFamily: MONO, fontSize: 10.5 }}>![…]</code> values in config before a run. Session-only — never saved or sent over MCP.</div>
+                </div>
+                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', padding: '2px 6px', borderRadius: 5, color: status.decryptKeySet ? accent : 'var(--content-muted)', background: `color-mix(in oklch, ${status.decryptKeySet ? 'var(--accent)' : 'var(--content-muted)'} 13%, transparent)`, border: `1px solid color-mix(in oklch, ${status.decryptKeySet ? 'var(--accent)' : 'var(--content-muted)'} 28%, transparent)` }}>{status.decryptKeySet ? 'Key set' : 'No key'}</span>
+              </div>
+              <div style={{ padding: 14 }}>
+                <input
+                  type="password"
+                  value={decryptKey}
+                  onChange={(e) => setDecryptKey(e.target.value)}
+                  placeholder="Decryption key (e.g. 16/24/32-char AES key)"
+                  autoComplete="off"
+                  style={{ width: '100%', height: 34, padding: '0 11px', borderRadius: 9, background: 'var(--surface-2)', border: '1.5px solid var(--line)', outline: 'none', color: 'var(--content)', fontFamily: MONO, fontSize: 12.5 }}
+                />
+                <div className="flex items-center" style={{ gap: 8, marginTop: 10 }}>
+                  <select value={decryptAlgo} onChange={(e) => setDecryptAlgo(e.target.value)} style={{ flex: 1, height: 30, padding: '0 8px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--content)', fontSize: 12 }}>
+                    {['AES', 'Blowfish', 'DES', 'DESede', 'RC2'].map((a) => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                  <select value={decryptMode} onChange={(e) => setDecryptMode(e.target.value)} style={{ flex: 1, height: 30, padding: '0 8px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--content)', fontSize: 12 }}>
+                    {['CBC', 'CFB', 'ECB', 'OFB'].map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                  <button onClick={() => applyDecrypt(false)} disabled={!decryptKey} className="cursor-pointer" style={{ height: 30, padding: '0 14px', borderRadius: 8, background: accent, color: 'var(--accent-contrast, #fff)', border: 'none', fontSize: 12, fontWeight: 600, opacity: decryptKey ? 1 : 0.5 }}>Set</button>
+                  {status.decryptKeySet && <button onClick={() => applyDecrypt(true)} className="cursor-pointer" style={{ height: 30, padding: '0 12px', borderRadius: 8, background: 'var(--surface-2)', color: 'var(--content-secondary)', border: '1px solid var(--line)', fontSize: 12 }}>Clear</button>}
+                </div>
+                <div style={{ fontSize: 10.5, color: 'var(--content-muted)', marginTop: 10, lineHeight: 1.5 }}>An agent can also pass <code style={{ fontFamily: MONO, fontSize: 10 }}>secure_key</code> per call, which overrides this. If a <code style={{ fontFamily: MONO, fontSize: 10 }}>![…]</code> value appears with no key set, the run is rejected — ciphertext is never sent to the engine.</div>
               </div>
             </section>
 
