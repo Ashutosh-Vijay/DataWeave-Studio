@@ -13,7 +13,7 @@ use std::time::Instant;
 
 use rmcp::handler::server::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
-use rmcp::model::{CallToolResult, Content, ServerInfo};
+use rmcp::model::{CallToolResult, Content, ServerCapabilities, ServerInfo};
 use rmcp::schemars;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService};
@@ -278,6 +278,15 @@ impl ServerHandler for DwTools {
         // Built by concatenation (not format!) — the text contains literal
         // ${key} braces that format! would try to parse as placeholders.
         let mut info = ServerInfo::default();
+        // CRITICAL: advertise the `tools` capability. We override get_info (for
+        // dynamic instructions), which means we DON'T inherit the tools capability
+        // the #[tool_handler] macro would normally set — and ServerInfo::default()
+        // has empty capabilities. Spec-compliant clients (Claude Code, Claude
+        // Desktop, Cursor) read this during initialize; with no `tools` capability
+        // they skip tools/list entirely and the agent sees ZERO tools (only the
+        // instructions). curl/loose clients that call tools/list blindly still work,
+        // which is why this hid for so long.
+        info.capabilities = ServerCapabilities::builder().enable_tools().build();
         info.instructions = Some(
             [
                 "# DataWeave Studio — local DataWeave 2.0 engine\n\
