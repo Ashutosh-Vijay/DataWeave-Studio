@@ -39,9 +39,63 @@ struct RunInput {
     /// application/csv, application/yaml, etc.
     #[serde(default = "default_mime")]
     input_mime_type: String,
+    /// Optional inbound attributes as a JSON object — accessed as `attributes.*`
+    /// in the script. Shape: `{"method":"GET","headers":{...},"queryParams":{...},"uriParams":{...}}`.
+    #[serde(default)]
+    attributes: Option<String>,
+    /// Optional flow variables as a JSON object `{"name": value}` — accessed as `vars.*`.
+    #[serde(default)]
+    vars: Option<String>,
+    /// Optional Config YAML. `${key}` placeholders in the script/payload are
+    /// replaced before running, e.g. `db:\n  host: localhost` lets the script use `${db.host}`.
+    #[serde(default)]
+    config: Option<String>,
+    /// Optional Secure Config YAML (plaintext — encrypted ![…] values aren't
+    /// decrypted here). Replaces `${secure::key}` (and `${key}`) placeholders.
+    #[serde(default)]
+    secure_config: Option<String>,
 }
 fn default_mime() -> String {
     "application/json".to_string()
+}
+
+/// Flatten a YAML/JSON object into dot-notation keys (mirrors the single-script app).
+fn flatten_yaml(value: &serde_json::Value, prefix: &str, out: &mut std::collections::HashMap<String, String>) {
+    if let Some(map) = value.as_object() {
+        for (k, v) in map {
+            let key = if prefix.is_empty() { k.clone() } else { format!("{}.{}", prefix, k) };
+            if v.is_object() {
+                flatten_yaml(v, &key, out);
+            } else if let Some(s) = v.as_str() {
+                out.insert(key, s.to_string());
+            } else if v.is_null() {
+                out.insert(key, String::new());
+            } else {
+                out.insert(key, v.to_string());
+            }
+        }
+    }
+}
+
+/// Replace ${key} / ${secure::key} placeholders using the given YAML configs.
+fn substitute_props(mut text: String, config_yaml: Option<&str>, secure_yaml: Option<&str>) -> String {
+    for (yaml_opt, secure) in [(config_yaml, false), (secure_yaml, true)] {
+        let y = match yaml_opt {
+            Some(y) if !y.trim().is_empty() => y,
+            _ => continue,
+        };
+        if let Ok(v) = serde_yaml::from_str::<serde_json::Value>(y) {
+            let mut flat = std::collections::HashMap::new();
+            flatten_yaml(&v, "", &mut flat);
+            for (k, val) in &flat {
+                if secure {
+                    text = text.replace(&format!("${{secure::{}}}", k), val);
+                }
+                text = text.replace(&format!("${{{}}}", k), val);
+            }
+        }
+    }
+    text
 }
 
 #[derive(Clone)]
@@ -72,8 +126,12 @@ impl DwTools {
         &self,
         Parameters(input): Parameters<RunInput>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
+        // Resolve ${key} / ${secure::key} placeholders from the supplied configs.
+        let script = substitute_props(input.script, input.config.as_deref(), input.secure_config.as_deref());
+        let payload = substitute_props(input.payload, input.config.as_deref(), input.secure_config.as_deref());
+
         // Safe-mode gate (Phase 0): refuse Java interop unless Advanced is on.
-        if !self.advanced.load(Ordering::Relaxed) && input.script.contains("java!") {
+        if !self.advanced.load(Ordering::Relaxed) && script.contains("java!") {
             return Ok(CallToolResult::error(vec![Content::text(
                 "Safe mode: Java interop (`import java!…`) is disabled, so this script was NOT run. \
                  Rewrite it without Java, or ask the user to enable Advanced mode in DataWeave Studio's MCP panel."
@@ -86,11 +144,11 @@ impl DwTools {
         let result = crate::dw_runner::run_dataweave(
             self.app.clone(),
             state,
-            input.script,
-            input.payload,
+            script,
+            payload,
             input.input_mime_type,
-            "{}".to_string(),  // attributes
-            "{}".to_string(),  // vars
+            input.attributes.unwrap_or_else(|| "{}".to_string()),
+            input.vars.unwrap_or_else(|| "{}".to_string()),
             "[]".to_string(),  // named inputs
             None,              // payload file
             None,              // classpath — never hand an agent a classpath
@@ -129,27 +187,46 @@ impl ServerHandler for DwTools {
         // `instructions` is injected into the agent's system prompt by good MCP
         // clients, so this is where we make a cold agent verify-before-presenting
         // and know the exact input shape (no web-search, no trial-and-error).
+        // The Java line is DYNAMIC on the live Safe/Advanced flag so the docs
+        // never lie about whether `import java!` will be accepted.
+        let java_line = if self.advanced.load(Ordering::Relaxed) {
+            "- Java interop is ENABLED (Advanced mode): you MAY use `import java!java::lang::…` etc. \
+             Still no filesystem / network / process access."
+        } else {
+            "- Java interop (`import java!…`) is BLOCKED in Safe mode (the default) — such scripts are \
+             rejected before running. `dw::core::Java` is not available either."
+        };
+        // Built by concatenation (not format!) — the text contains literal
+        // ${key} braces that format! would try to parse as placeholders.
         let mut info = ServerInfo::default();
         info.instructions = Some(
-            "# DataWeave Studio — local DataWeave 2.0 engine\n\
-             You can run REAL DataWeave 2.0 against a payload on the user's machine via the \
-             `validate_and_run_dataweave` tool. This is the genuine DataWeave 2.11 runtime, so its \
-             output and errors are authoritative.\n\n\
-             ## Rules (always follow)\n\
-             1. VALIDATE BEFORE PRESENTING — never show the user a DataWeave script you have not run \
-             successfully with `validate_and_run_dataweave`. Don't reason about whether it compiles; run it.\n\
-             2. FIX-AND-RETRY — on error, read the line/column + message, correct the script, and call \
-             the tool again. Repeat until `isError` is false. Do NOT web-search DataWeave syntax — the \
-             tool's error is the ground truth, and guessing just burns tokens.\n\
-             3. Present only verified scripts; ideally show the sample input and the output you confirmed.\n\n\
-             ## Writing the `script`\n\
-             - A bare body works: `payload map (x) -> x * 2` runs as `%dw 2.0` with `output application/json`.\n\
-             - For any non-JSON output you MUST write the header yourself: `%dw 2.0` / `output application/xml` / `---` / body.\n\
-             - `payload` refers to the input you pass; its format follows `input_mime_type`.\n\n\
-             ## Limits (these error — don't use them)\n\
-             - Java interop (`import java!…`) is blocked in Safe mode (the default). `dw::core::Java` is not available.\n\
-             - No file or network access; this is a pure transform sandbox."
-                .to_string(),
+            [
+                "# DataWeave Studio — local DataWeave 2.0 engine\n\
+                 You can run REAL DataWeave 2.0 against a payload on the user's machine via the \
+                 `validate_and_run_dataweave` tool. This is the genuine DataWeave 2.11 runtime, so its \
+                 output and errors are authoritative.\n\n\
+                 ## Rules (always follow)\n\
+                 1. VALIDATE BEFORE PRESENTING — never show the user a DataWeave script you have not run \
+                 successfully with `validate_and_run_dataweave`. Don't reason about whether it compiles; run it.\n\
+                 2. FIX-AND-RETRY — on error, read the line/column + message, correct the script, and call \
+                 the tool again. Repeat until `isError` is false. Do NOT web-search DataWeave syntax — the \
+                 tool's error is the ground truth, and guessing just burns tokens.\n\
+                 3. Present only verified scripts; ideally show the sample input and the output you confirmed.\n\n\
+                 ## Writing the `script`\n\
+                 - A bare body works: `payload map (x) -> x * 2` runs as `%dw 2.0` with `output application/json`.\n\
+                 - For any non-JSON output you MUST write the header yourself: `%dw 2.0` / `output application/xml` / `---` / body.\n\
+                 - `payload` refers to the input you pass; its format follows `input_mime_type`.\n\n\
+                 ## Optional inputs (pass only when the script uses them)\n\
+                 - `attributes` (JSON object): inbound HTTP attributes — `attributes.method`, `attributes.headers.*`, \
+                 `attributes.queryParams.*`, `attributes.uriParams.*`.\n\
+                 - `vars` (JSON object): flow variables, read as `vars.name`.\n\
+                 - `config` / `secure_config` (YAML): values for ${key} / ${secure::key} placeholders, \
+                 substituted before the run.\n\n\
+                 ## Limits\n",
+                java_line,
+                "\n- No file or network access; this is a pure transform sandbox.",
+            ]
+            .concat(),
         );
         info
     }
@@ -271,5 +348,26 @@ pub fn mcp_status(state: tauri::State<'_, McpState>) -> McpStatus {
             uptime_secs: 0,
             requests: 0,
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::substitute_props;
+
+    #[test]
+    fn substitutes_config_and_secure_placeholders() {
+        let script = "{ host: \"${db.host}\", pw: \"${secure::db.pw}\", port: ${db.port} }".to_string();
+        let config = "db:\n  host: localhost\n  port: 5432";
+        let secure = "db:\n  pw: s3cr3t";
+        let out = substitute_props(script, Some(config), Some(secure));
+        assert_eq!(out, "{ host: \"localhost\", pw: \"s3cr3t\", port: 5432 }");
+    }
+
+    #[test]
+    fn no_config_is_a_noop() {
+        let s = "payload map (x) -> x".to_string();
+        assert_eq!(substitute_props(s.clone(), None, None), s);
+        assert_eq!(substitute_props(s.clone(), Some("   "), None), s);
     }
 }

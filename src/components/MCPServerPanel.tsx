@@ -35,6 +35,10 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
   onRunningChange?: (running: boolean) => void;
 }) {
   const [status, setStatus] = useState<McpStatus>({ running: false, port: null, advanced: false, uptimeSecs: 0, requests: 0 });
+  // Advanced is a persisted user setting, NOT read from the poll — the backend
+  // only holds the flag while running, so polling it would snap the toggle back
+  // to Safe the moment the server is stopped.
+  const [advanced, setAdvancedState] = useState(() => { try { return localStorage.getItem('dw.mcp.advanced') === 'true'; } catch { return false; } });
   const [port, setPort] = useState(() => { try { return localStorage.getItem(PORT_KEY) || '4675'; } catch { return '4675'; } });
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<'claude' | 'cursor' | 'vscode'>('claude');
@@ -80,7 +84,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
         const p = parseInt(port, 10);
         if (!Number.isInteger(p) || p < 1 || p > 65535) { toast('Enter a valid port (1–65535)', 'error'); setBusy(false); return; }
         try { localStorage.setItem(PORT_KEY, String(p)); } catch { /* ignore */ }
-        await invoke('mcp_start', { port: p, advanced: status.advanced });
+        await invoke('mcp_start', { port: p, advanced });
         addLog(`Listening on http://127.0.0.1:${p}/mcp`, 'ok');
       }
       await refresh();
@@ -92,13 +96,13 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
     }
   };
 
-  const setAdvanced = async (advanced: boolean) => {
-    try {
-      // Live-toggle if running; otherwise it's applied at next Start.
-      if (status.running) await invoke('mcp_set_advanced', { advanced });
-      setStatus((s) => ({ ...s, advanced }));
-      addLog(advanced ? 'Advanced mode ON — Java interop allowed (RCE risk)' : 'Safe mode ON — Java interop blocked', advanced ? 'warn' : 'ok');
-    } catch (e) { toast(String(e), 'error'); }
+  const setAdvanced = async (next: boolean) => {
+    setAdvancedState(next);
+    try { localStorage.setItem('dw.mcp.advanced', String(next)); } catch { /* ignore */ }
+    addLog(next ? 'Advanced mode ON — Java interop allowed (RCE risk)' : 'Safe mode ON — Java interop blocked', next ? 'warn' : 'ok');
+    // Live-toggle if running; otherwise it's applied at the next Start.
+    try { if (status.running) await invoke('mcp_set_advanced', { advanced: next }); }
+    catch (e) { toast(String(e), 'error'); }
   };
 
   const copy = (key: string, text: string) => {
@@ -204,9 +208,9 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
             </section>
 
             {/* Security */}
-            <section style={{ ...card, borderColor: status.advanced ? 'color-mix(in oklch, var(--err) 40%, transparent)' : 'var(--line)' }}>
+            <section style={{ ...card, borderColor: advanced ? 'color-mix(in oklch, var(--err) 40%, transparent)' : 'var(--line)' }}>
               <div className="flex items-center" style={{ gap: 9, padding: '13px 16px 11px', borderBottom: '1px solid var(--line-subtle)' }}>
-                <span style={{ color: status.advanced ? 'var(--err)' : accent }}><svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg></span>
+                <span style={{ color: advanced ? 'var(--err)' : accent }}><svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg></span>
                 <div className="flex-1">
                   <div style={{ fontSize: 13, fontWeight: 600 }}>Execution security</div>
                   <div style={{ fontSize: 11, color: 'var(--content-muted)', marginTop: 1 }}>Controls what generated scripts are allowed to touch.</div>
@@ -218,7 +222,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
                     [false, 'Safe mode', 'No java! imports, no JAR loading — a pure transform reads your payload and nothing else. Recommended.'],
                     [true, 'Advanced mode', 'Allows import java! so scripts can use Java libs — but a generated script could run arbitrary code.'],
                   ] as const).map(([adv, title, desc]) => {
-                    const on = status.advanced === adv;
+                    const on = advanced === adv;
                     const tone = adv ? 'var(--err)' : accent;
                     return (
                       <button key={String(adv)} onClick={() => setAdvanced(adv)} className="flex-1 text-left cursor-pointer" style={{ padding: '11px 13px', borderRadius: 10, background: on ? `color-mix(in oklch, ${tone} 11%, transparent)` : 'var(--surface-2)', border: `1.5px solid ${on ? tone : 'var(--line)'}`, color: 'var(--content)' }}>
@@ -228,7 +232,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
                     );
                   })}
                 </div>
-                {status.advanced && (
+                {advanced && (
                   <div className="flex" style={{ marginTop: 12, gap: 10, padding: '11px 13px', borderRadius: 10, background: 'color-mix(in oklch, var(--err) 11%, transparent)', border: '1px solid color-mix(in oklch, var(--err) 38%, transparent)' }}>
                     <span style={{ color: 'var(--err)', flexShrink: 0, marginTop: 1 }}><svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg></span>
                     <div>

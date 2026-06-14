@@ -36,3 +36,5 @@ chrono = { version = "0.4", features = ["serde"] }
 # agents. axum 0.8 matches rmcp's own axum so the tower service nests cleanly.
 rmcp = { version = "1.7", features = ["server", "macros", "transport-streamable-http-server"] }
 axum = "0.8"
+# Parse Config / Secure Config YAML for ${key} substitution in the MCP tool.
+serde_yaml = "0.9"
