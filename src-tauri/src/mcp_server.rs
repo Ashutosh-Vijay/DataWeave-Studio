@@ -80,9 +80,29 @@ struct RunInput {
     /// Whether the encrypted values used a random IV (MuleSoft `--use-random-iv`). Default false.
     #[serde(default)]
     secure_random_iv: Option<bool>,
+    /// Extra named inputs beyond payload/attributes/vars, as a JSON array. Each:
+    /// `{"name":"account","mimeType":"application/json", <ONE OF> }` where content is
+    /// `"content":"{...}"` (inline data) or `"filePath":"C:/abs/path"` (server reads
+    /// it — ADVANCED mode only). Read in the script by name, e.g. `account.id`. The
+    /// engine adds `input <name> <mime>` for each automatically.
+    #[serde(default)]
+    named_inputs: Option<String>,
 }
 fn default_mime() -> String {
     "application/json".to_string()
+}
+
+/// One extra named input as supplied by an MCP agent (parsed from `named_inputs`).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct McpNamedInput {
+    name: String,
+    #[serde(default)]
+    content: Option<String>,
+    #[serde(default)]
+    mime_type: Option<String>,
+    #[serde(default)]
+    file_path: Option<String>,
 }
 
 /// One multipart part as supplied by an MCP agent (parsed from the `multipart` JSON).
@@ -375,6 +395,42 @@ impl DwTools {
             _ => None,
         };
 
+        // Extra named inputs (e.g. `input account application/json`) — read in the
+        // script as `account`, `lookup`, etc. `content` parts run in any mode;
+        // `filePath` parts read the user's disk → Advanced mode only.
+        let named_inputs_json = match input.named_inputs.as_deref() {
+            Some(s) if !s.trim().is_empty() => {
+                let inputs: Vec<McpNamedInput> = match serde_json::from_str(s) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        return Ok(CallToolResult::error(vec![Content::text(format!(
+                            "Invalid `named_inputs` JSON: {}. Expected an array of {{name, mimeType, and one of content|filePath}}.",
+                            e
+                        ))]))
+                    }
+                };
+                let advanced = self.advanced.load(Ordering::Relaxed);
+                let mut normalized = Vec::with_capacity(inputs.len());
+                for ni in inputs {
+                    if ni.file_path.is_some() && !advanced {
+                        return Ok(CallToolResult::error(vec![Content::text(format!(
+                            "Named input '{}' uses `filePath`, which reads the user's disk and is only allowed in \
+                             Advanced mode. In Safe mode, pass the data inline as `content` instead.",
+                            ni.name
+                        ))]));
+                    }
+                    normalized.push(serde_json::json!({
+                        "name": ni.name,
+                        "content": ni.content.unwrap_or_default(),
+                        "mimeType": ni.mime_type.unwrap_or_else(|| "application/json".to_string()),
+                        "filePath": ni.file_path,
+                    }));
+                }
+                serde_json::Value::Array(normalized).to_string()
+            }
+            _ => "[]".to_string(),
+        };
+
         self.requests.fetch_add(1, Ordering::Relaxed);
         let state = self.app.state::<crate::dw_runner::RunState>();
         let result = crate::dw_runner::run_dataweave(
@@ -385,7 +441,7 @@ impl DwTools {
             input.input_mime_type,
             input.attributes.unwrap_or_else(|| "{}".to_string()),
             input.vars.unwrap_or_else(|| "{}".to_string()),
-            "[]".to_string(),  // named inputs
+            named_inputs_json, // extra named inputs
             None,              // payload file
             None,              // classpath — never hand an agent a classpath
             None,              // timeout (default)
@@ -472,6 +528,9 @@ impl ServerHandler for DwTools {
                  - `attributes` (JSON object): inbound HTTP attributes — `attributes.method`, `attributes.headers.*`, \
                  `attributes.queryParams.*`, `attributes.uriParams.*`.\n\
                  - `vars` (JSON object): flow variables, read as `vars.name`.\n\
+                 - `named_inputs` (JSON array): extra inputs beyond payload, e.g. `[{\"name\":\"account\",\
+                 \"mimeType\":\"application/json\",\"content\":\"{...}\"}]` — read in the script as `account`. \
+                 The engine declares `input <name> <mime>` for each.\n\
                  - `config` / `secure_config` (YAML): values for ${key} / ${secure::key} placeholders, \
                  substituted before the run. Encrypted MuleSoft values (`![...]`) ARE decrypted first if a key \
                  is available (set in the panel, or pass `secure_key` + optional `secure_algorithm`/`secure_mode`); \
