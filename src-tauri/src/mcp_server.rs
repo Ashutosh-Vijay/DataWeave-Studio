@@ -25,12 +25,18 @@ use tauri::{AppHandle, Manager};
 
 #[derive(Deserialize, schemars::JsonSchema)]
 struct RunInput {
-    /// The complete DataWeave 2.0 script. May include its own %dw / output / ---
-    /// header; missing parts are inferred.
+    /// A DataWeave 2.0 script. A bare body works — `payload map (x) -> x * 2` runs
+    /// as `%dw 2.0` with `output application/json`. For any other output format you
+    /// MUST supply the full header, e.g.:
+    /// `%dw 2.0\noutput application/xml\n---\n{ root: payload }`. `payload` refers
+    /// to the input below.
     script: String,
-    /// The input payload as a string (JSON, XML, CSV, YAML, …).
+    /// Sample input payload as a string, matching `input_mime_type`. JSON example:
+    /// `[1, 2, 3]`. XML example: `<items><item>1</item></items>`. Pass `{}` if the
+    /// script doesn't read the payload.
     payload: String,
-    /// MIME type of the payload, e.g. application/json, application/xml.
+    /// MIME type of `payload`: application/json (default), application/xml,
+    /// application/csv, application/yaml, etc.
     #[serde(default = "default_mime")]
     input_mime_type: String,
 }
@@ -60,7 +66,7 @@ impl DwTools {
     }
 
     #[tool(
-        description = "Execute a DataWeave 2.0 script against an input payload using the local engine and return the rendered output, or the exact error with line/column. You MUST call this to validate EVERY DataWeave script you generate BEFORE presenting it to the user; if it returns an error, fix the script and re-run until it succeeds. Never output an untested DataWeave script."
+        description = "Run and validate a DataWeave 2.0 script against a sample payload on the local, real DataWeave 2.11 engine; returns the rendered output, or the exact compile/runtime error with line & column. MANDATORY: call this on EVERY DataWeave script you write BEFORE showing it to the user — never present unverified DataWeave. On error, fix the script using the reported line/column and re-run until it succeeds (don't web-search syntax — this tool's result is the ground truth). A bare body runs as `%dw 2.0` / `output application/json`; include your own `output <mime>` + `---` for any other output format."
     )]
     async fn validate_and_run_dataweave(
         &self,
@@ -120,11 +126,29 @@ impl DwTools {
 impl ServerHandler for DwTools {
     fn get_info(&self) -> ServerInfo {
         // ServerInfo is #[non_exhaustive] — build from default, then set fields.
+        // `instructions` is injected into the agent's system prompt by good MCP
+        // clients, so this is where we make a cold agent verify-before-presenting
+        // and know the exact input shape (no web-search, no trial-and-error).
         let mut info = ServerInfo::default();
         info.instructions = Some(
-            "DataWeave Studio — run and validate DataWeave 2.0 scripts against a payload on the \
-             local engine. Always call validate_and_run_dataweave to test a script before \
-             presenting it; if it errors, fix it and re-run."
+            "# DataWeave Studio — local DataWeave 2.0 engine\n\
+             You can run REAL DataWeave 2.0 against a payload on the user's machine via the \
+             `validate_and_run_dataweave` tool. This is the genuine DataWeave 2.11 runtime, so its \
+             output and errors are authoritative.\n\n\
+             ## Rules (always follow)\n\
+             1. VALIDATE BEFORE PRESENTING — never show the user a DataWeave script you have not run \
+             successfully with `validate_and_run_dataweave`. Don't reason about whether it compiles; run it.\n\
+             2. FIX-AND-RETRY — on error, read the line/column + message, correct the script, and call \
+             the tool again. Repeat until `isError` is false. Do NOT web-search DataWeave syntax — the \
+             tool's error is the ground truth, and guessing just burns tokens.\n\
+             3. Present only verified scripts; ideally show the sample input and the output you confirmed.\n\n\
+             ## Writing the `script`\n\
+             - A bare body works: `payload map (x) -> x * 2` runs as `%dw 2.0` with `output application/json`.\n\
+             - For any non-JSON output you MUST write the header yourself: `%dw 2.0` / `output application/xml` / `---` / body.\n\
+             - `payload` refers to the input you pass; its format follows `input_mime_type`.\n\n\
+             ## Limits (these error — don't use them)\n\
+             - Java interop (`import java!…`) is blocked in Safe mode (the default). `dw::core::Java` is not available.\n\
+             - No file or network access; this is a pure transform sandbox."
                 .to_string(),
         );
         info
