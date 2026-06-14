@@ -54,9 +54,37 @@ struct RunInput {
     /// decrypted here). Replaces `${secure::key}` (and `${key}`) placeholders.
     #[serde(default)]
     secure_config: Option<String>,
+    /// Optional multipart/form-data parts, as a JSON array. Use this instead of
+    /// `payload` to build a real multipart body (binary-safe). Each part:
+    /// `{"name":"f","filename":"a.pdf","contentType":"application/pdf", <ONE OF> }`
+    /// where the content is exactly one of:
+    ///   `"value":"text..."` (text part),
+    ///   `"contentBase64":"<base64>"` (binary file — works in any mode),
+    ///   `"filePath":"C:/abs/path"` (server reads the file off disk — ADVANCED mode only).
+    /// In the script read parts via `payload.parts.<name>.content`. When set, the
+    /// input is multipart/form-data and the `payload` field is ignored.
+    #[serde(default)]
+    multipart: Option<String>,
 }
 fn default_mime() -> String {
     "application/json".to_string()
+}
+
+/// One multipart part as supplied by an MCP agent (parsed from the `multipart` JSON).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct McpPart {
+    name: String,
+    #[serde(default)]
+    value: Option<String>,
+    #[serde(default)]
+    content_base64: Option<String>,
+    #[serde(default)]
+    file_path: Option<String>,
+    #[serde(default)]
+    content_type: Option<String>,
+    #[serde(default)]
+    filename: Option<String>,
 }
 
 /// Flatten a YAML/JSON object into dot-notation keys (mirrors the single-script app).
@@ -139,6 +167,57 @@ impl DwTools {
             )]));
         }
 
+        // Build multipart parts (binary-safe) when provided. base64/value parts run
+        // in any mode; filePath parts read the user's disk → Advanced mode only.
+        let multipart_json = match input.multipart.as_deref() {
+            Some(s) if !s.trim().is_empty() => {
+                let parts: Vec<McpPart> = match serde_json::from_str(s) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        return Ok(CallToolResult::error(vec![Content::text(format!(
+                            "Invalid `multipart` JSON: {}. Expected an array of {{name, contentType, filename, and one of value|contentBase64|filePath}}.",
+                            e
+                        ))]))
+                    }
+                };
+                let advanced = self.advanced.load(Ordering::Relaxed);
+                let mut normalized = Vec::with_capacity(parts.len());
+                for p in parts {
+                    if p.file_path.is_some() && !advanced {
+                        return Ok(CallToolResult::error(vec![Content::text(format!(
+                            "Part '{}' uses `filePath`, which reads the user's disk and is only allowed in Advanced mode. \
+                             In Safe mode, pass the bytes yourself as `contentBase64` instead.",
+                            p.name
+                        ))]));
+                    }
+                    if let Some(ref b64) = p.content_base64 {
+                        use base64::Engine;
+                        if base64::engine::general_purpose::STANDARD.decode(b64.trim()).is_err() {
+                            return Ok(CallToolResult::error(vec![Content::text(format!(
+                                "Part '{}' has invalid base64 in `contentBase64`.",
+                                p.name
+                            ))]));
+                        }
+                    }
+                    let is_file = p.file_path.is_some();
+                    let content_type = p.content_type.unwrap_or_else(|| {
+                        if p.value.is_some() { "text/plain".to_string() } else { "application/octet-stream".to_string() }
+                    });
+                    normalized.push(serde_json::json!({
+                        "name": p.name,
+                        "value": p.value.unwrap_or_default(),
+                        "contentType": content_type,
+                        "isFile": is_file,
+                        "filePath": p.file_path,
+                        "filename": p.filename,
+                        "contentBase64": p.content_base64,
+                    }));
+                }
+                Some(serde_json::Value::Array(normalized).to_string())
+            }
+            _ => None,
+        };
+
         self.requests.fetch_add(1, Ordering::Relaxed);
         let state = self.app.state::<crate::dw_runner::RunState>();
         let result = crate::dw_runner::run_dataweave(
@@ -153,7 +232,7 @@ impl DwTools {
             None,              // payload file
             None,              // classpath — never hand an agent a classpath
             None,              // timeout (default)
-            None,              // multipart
+            multipart_json,    // multipart parts (binary-safe)
         )
         .await
         .map_err(|e| rmcp::ErrorData::internal_error(e, None))?;
@@ -224,7 +303,10 @@ impl ServerHandler for DwTools {
                  substituted before the run.\n\n\
                  ## Limits\n",
                 java_line,
-                "\n- No file or network access; this is a pure transform sandbox.",
+                "\n- `payload` is TEXT: json, xml, csv, yaml, x-www-form-urlencoded all work via `input_mime_type`. \
+                 For multipart/form-data use the `multipart` param (read parts as `payload.parts.<name>.content`); \
+                 pass binary files as `contentBase64` (any mode) — never as raw text in `payload`, which corrupts bytes.\
+                 \n- No file or network access; this is a pure transform sandbox.",
             ]
             .concat(),
         );

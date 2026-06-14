@@ -113,6 +113,10 @@ struct MultipartPartData {
     is_file: bool,
     file_path: Option<String>,
     filename: Option<String>,
+    /// Base64-encoded raw bytes (binary-safe). Takes priority over `value`/`file_path`
+    /// when present — used by the MCP tool to pass binary files through a text channel.
+    #[serde(default)]
+    content_base64: Option<String>,
 }
 
 /// Build a proper multipart/form-data body and return (body_bytes, boundary)
@@ -142,7 +146,13 @@ fn build_multipart_body(parts: &[MultipartPartData]) -> (Vec<u8>, String) {
 
         body.extend_from_slice(format!("Content-Type: {}\r\n\r\n", part.content_type).as_bytes());
 
-        if part.is_file {
+        if let Some(ref b64) = part.content_base64 {
+            // Binary-safe path: decode agent-supplied bytes straight into the body.
+            use base64::Engine;
+            if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(b64.trim()) {
+                body.extend_from_slice(&bytes);
+            }
+        } else if part.is_file {
             if let Some(ref fp) = part.file_path {
                 if let Ok(file_bytes) = std::fs::read(fp) {
                     body.extend_from_slice(&file_bytes);
@@ -800,6 +810,7 @@ mod tests {
                 is_file: false,
                 file_path: None,
                 filename: None,
+                content_base64: None,
             }
         ];
         let (body, boundary) = build_multipart_body(&parts);
@@ -808,5 +819,26 @@ mod tests {
         assert!(body_str.contains("Content-Disposition: form-data; name=\"field1\""));
         assert!(body_str.contains("Content-Type: text/plain"));
         assert!(body_str.contains("hello"));
+    }
+
+    #[test]
+    fn test_multipart_base64_bytes_survive_intact() {
+        // Bytes that are NOT valid UTF-8 (0xFF, 0x00, 0xFE) — these are exactly what
+        // a text channel would corrupt. base64 must reproduce them byte-for-byte.
+        let raw: Vec<u8> = vec![0xFF, 0x00, 0xFE, 0x10, 0x80, 0xC3, 0x28];
+        use base64::Engine;
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&raw);
+        let parts = vec![MultipartPartData {
+            name: "f".to_string(),
+            value: String::new(),
+            content_type: "application/octet-stream".to_string(),
+            is_file: false,
+            file_path: None,
+            filename: Some("blob.bin".to_string()),
+            content_base64: Some(b64),
+        }];
+        let (body, _) = build_multipart_body(&parts);
+        // The exact raw byte sequence must appear in the assembled body.
+        assert!(body.windows(raw.len()).any(|w| w == raw.as_slice()));
     }
 }

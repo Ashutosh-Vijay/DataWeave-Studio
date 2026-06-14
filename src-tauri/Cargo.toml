@@ -38,3 +38,5 @@ rmcp = { version = "1.7", features = ["server", "macros", "transport-streamable-
 axum = "0.8"
 # Parse Config / Secure Config YAML for ${key} substitution in the MCP tool.
 serde_yaml = "0.9"
+# Decode base64 multipart part bytes supplied by an MCP agent (binary-safe).
+base64 = "0.22"
