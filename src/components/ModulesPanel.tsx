@@ -155,7 +155,9 @@ export function ModulesPanel({
                 <MiniEditor value={active.content} onChange={(v) => updateActive({ content: v })} language="dataweave" height="100%" />
               </div>
               <div className="shrink-0 px-3.5 py-2 border-t border-line-subtle text-[10px] text-content-ghost leading-relaxed">
-                A module is a `%dw 2.0` header plus <span className="font-mono text-content-faint">fun</span>/<span className="font-mono text-content-faint">var</span> definitions — no <span className="font-mono text-content-faint">---</span> body. Edits apply on the next run.
+                The name is the import path — <span className="font-mono text-content-faint">import fn from {active.name || 'MyModule'}</span>.
+                {!active.name.includes('::') && <> A bare name also resolves the MuleSoft way as <span className="font-mono text-content-faint">modules::{active.name || 'MyModule'}</span>, so standard imports work too.</>}
+                {' '}A module is a <span className="font-mono text-content-faint">%dw 2.0</span> header plus <span className="font-mono text-content-faint">fun</span>/<span className="font-mono text-content-faint">var</span> definitions — no <span className="font-mono text-content-faint">---</span> body. Edits apply on the next run.
               </div>
             </>
           ) : (

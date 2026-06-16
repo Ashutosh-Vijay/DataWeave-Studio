@@ -310,14 +310,37 @@ object DwServer {
     val hash = Integer.toHexString(sb.toString.hashCode)
     val engine = Option(moduleEngines.get(hash)).getOrElse {
       val dir = new File(moduleBaseDir, hash)
+      // Collect explicit names so a forgiving alias never clobbers a module the
+      // user namespaced on purpose.
+      val explicit = scala.collection.mutable.HashSet[String]()
+      var k = 0
+      while (k < arr.size()) {
+        val nm = arr.get(k).asObject().getString("name", null)
+        if (nm != null && nm.nonEmpty) explicit += nm
+        k += 1
+      }
+      def writeModule(path: String, content: String): Unit = {
+        val f = new File(dir, path.replace("::", "/") + ".dwl")
+        Option(f.getParentFile).foreach(_.mkdirs())
+        Files.write(f.toPath, content.getBytes(StandardCharsets.UTF_8))
+      }
       var j = 0
       while (j < arr.size()) {
         val m = arr.get(j).asObject()
         val name = m.getString("name", null)
         if (name != null && name.nonEmpty) {
-          val f = new File(dir, name.replace("::", "/") + ".dwl")
-          Option(f.getParentFile).foreach(_.mkdirs())
-          Files.write(f.toPath, m.getString("content", "").getBytes(StandardCharsets.UTF_8))
+          val content = m.getString("content", "")
+          writeModule(name, content)
+          // Forgiving resolution: a bare-named module (no `::`) is ALSO importable
+          // under the common MuleSoft conventions `modules::Name` / `module::Name`,
+          // so a user who follows the standard `import x from modules::MyModule`
+          // doesn't have to rename. Skipped if such a name is used explicitly.
+          if (!name.contains("::")) {
+            for (pfx <- Seq("modules", "module")) {
+              val alias = pfx + "::" + name
+              if (!explicit.contains(alias)) writeModule(alias, content)
+            }
+          }
         }
         j += 1
       }
