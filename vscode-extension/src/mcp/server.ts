@@ -26,8 +26,28 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import * as path from 'path';
+import * as fs from 'fs';
 import { DwServer, resolveJava, resolveServerJar } from '../dwHost';
 import { registerTools } from './tools';
+
+/** Liveness heartbeat: while this process is up, refresh a file the extension
+ *  watches so the in-app MCP panel can show a truthful running/stopped state
+ *  (VS Code spawns us on demand, so the panel can't otherwise know). Path comes
+ *  from the extension via DWSTUDIO_HEARTBEAT; no-op when unset (standalone run). */
+function startHeartbeat(): void {
+  const file = process.env.DWSTUDIO_HEARTBEAT;
+  if (!file) return;
+  const touch = () => { try { fs.writeFileSync(file, JSON.stringify({ pid: process.pid, ts: Date.now() })); } catch { /* ignore */ } };
+  touch();
+  // Refresh often so the panel's "Idle" transition is snappy when the process
+  // dies (on Windows the SIGTERM cleanup below won't run — staleness is the
+  // real signal; the extension treats a >12s-old file as stopped).
+  const timer = setInterval(touch, 5000);
+  timer.unref();
+  const cleanup = () => { try { fs.unlinkSync(file); } catch { /* ignore */ } process.exit(0); };
+  process.on('SIGTERM', cleanup);
+  process.on('SIGINT', cleanup);
+}
 
 const ADVANCED = process.env.DWSTUDIO_MCP_ADVANCED === '1' || process.env.DWSTUDIO_MCP_ADVANCED === 'true';
 
@@ -71,6 +91,7 @@ async function main(): Promise<void> {
 
   const dw = new DwServer(resolveJava(extensionRoot), resolveServerJar(extensionRoot));
   await dw.start(); // spawn + prime, so the first tool call is warm
+  startHeartbeat(); // signal "running" to the in-app MCP panel
 
   const mcp = new McpServer(
     { name: 'dataweave-studio', version: '0.0.6' },

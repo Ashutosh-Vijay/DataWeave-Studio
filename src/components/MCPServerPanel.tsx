@@ -45,6 +45,22 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
   const [copied, setCopied] = useState('');
   const [log, setLog] = useState<LogLine[]>([{ t: '—', m: 'Server stopped. Press Start to listen on the port.', kind: 'muted' }]);
   const lastReq = useRef(0);
+  // VS Code only: whether an MCP server process is currently alive (heartbeat).
+  // VS Code spawns it on demand, so this reflects "an agent has it running now".
+  const [vscodeRunning, setVscodeRunning] = useState(false);
+  useEffect(() => {
+    if (isTauri || !open) return;
+    let alive = true;
+    const poll = async () => {
+      try {
+        const r = await invoke<{ running: boolean }>('mcp_heartbeat');
+        if (alive) setVscodeRunning(r.running);
+      } catch { /* command missing — leave stopped */ }
+    };
+    poll();
+    const iv = setInterval(poll, 2500);
+    return () => { alive = false; clearInterval(iv); };
+  }, [open]);
 
   const addLog = useCallback((m: string, kind: LogLine['kind']) => {
     setLog((l) => [...l.slice(-40), { t: clock(), m, kind }]);
@@ -162,6 +178,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
     const btnGhost: React.CSSProperties = { height: 30, padding: '0 13px', borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: 'pointer', border: '1px solid var(--line)', background: 'var(--surface-2)', color: 'var(--content-secondary)' };
     return (
       <div className="fixed inset-0 z-[95] flex items-center justify-center" style={{ padding: 22, background: 'color-mix(in oklch, var(--bg) 64%, transparent)', backdropFilter: 'blur(3px)' }} onClick={onClose}>
+        <style>{`@keyframes mcpDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.78)}} @keyframes mcpRing{0%{transform:scale(.6);opacity:.6}100%{transform:scale(1.6);opacity:0}}`}</style>
         <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(680px, 96vw)', maxHeight: '92vh', overflow: 'auto', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, boxShadow: '0 32px 90px rgba(0,0,0,.6)' }}>
           <div className="flex items-center" style={{ height: 52, gap: 12, padding: '0 16px', borderBottom: '1px solid var(--line)', background: 'linear-gradient(180deg, var(--surface-2), var(--surface))' }}>
             <span className="grid place-items-center" style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', color: 'var(--accent)' }}>{plug(17)}</span>
@@ -170,6 +187,13 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
               <div style={{ fontSize: 10.5, color: 'var(--content-faint)' }}>Managed by VS Code — expose the DataWeave engine to Copilot agent mode</div>
             </div>
             <div className="flex-1" />
+            <span className="inline-flex items-center" title={vscodeRunning ? 'An agent is running the MCP server now' : 'No MCP server process running — VS Code starts it on demand'} style={{ gap: 7, height: 26, padding: '0 11px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, background: vscodeRunning ? 'color-mix(in oklch, #10b981 15%, transparent)' : 'color-mix(in oklch, #ef4444 11%, transparent)', border: '1px solid ' + (vscodeRunning ? 'color-mix(in oklch, #10b981 45%, transparent)' : 'color-mix(in oklch, #ef4444 36%, transparent)'), color: vscodeRunning ? '#10b981' : '#ef4444' }}>
+              <span style={{ position: 'relative', width: 8, height: 8 }}>
+                {vscodeRunning && <span style={{ position: 'absolute', inset: -3, borderRadius: '50%', border: '1.5px solid #10b981', animation: 'mcpRing 2.2s ease-out infinite' }} />}
+                <span style={{ display: 'block', width: 8, height: 8, borderRadius: '50%', background: vscodeRunning ? '#10b981' : '#ef4444', animation: vscodeRunning ? 'mcpDot 1.4s ease-in-out infinite' : 'none' }} />
+              </span>
+              {vscodeRunning ? 'Running' : 'Idle'}
+            </span>
             <button onClick={onClose} className="grid place-items-center cursor-pointer hover:bg-surface-2 hover:text-content" style={{ width: 30, height: 30, border: 'none', background: 'transparent', borderRadius: 8, color: 'var(--content-faint)' }} title="Close (Esc)">
               <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
             </button>

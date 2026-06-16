@@ -157,8 +157,25 @@ function mcpStdioEntry(extensionRoot: string): { command: string; args: string[]
   return {
     command: process.execPath,
     args: [path.join(extensionRoot, 'dist', 'mcp.js')],
-    env: { ELECTRON_RUN_AS_NODE: '1' },
+    env: { ELECTRON_RUN_AS_NODE: '1', DWSTUDIO_HEARTBEAT: heartbeatFile() },
   };
+}
+
+/** File the running MCP process refreshes so the in-app panel can show live state. */
+function heartbeatFile(): string {
+  return path.join(storageDir, 'mcp-heartbeat.json');
+}
+
+/** True if an MCP server process refreshed the heartbeat within the last 12s
+ *  (it refreshes every 5s, so this tolerates one missed tick; on Windows where
+ *  the process can die without running its cleanup, staleness is the real signal). */
+function mcpIsRunning(): boolean {
+  try {
+    const { ts } = JSON.parse(fs.readFileSync(heartbeatFile(), 'utf8'));
+    return typeof ts === 'number' && Date.now() - ts < 12000;
+  } catch {
+    return false;
+  }
 }
 
 /** Config file each client reads (all use the same `{ mcpServers: { … } }` shape). */
@@ -272,7 +289,7 @@ function registerMcpProvider(context: vscode.ExtensionContext): void {
               'DataWeave Studio',
               process.execPath,
               [mcpJs],
-              { ELECTRON_RUN_AS_NODE: '1' },
+              { ELECTRON_RUN_AS_NODE: '1', DWSTUDIO_HEARTBEAT: heartbeatFile() },
             ),
           ];
         },
@@ -347,6 +364,8 @@ async function handleInvoke(
       return null;
 
     // --- MCP client wiring (webview "Add to …" buttons) ---------------------
+    case 'mcp_heartbeat':
+      return { running: mcpIsRunning() };
     case 'mcp_stdio_config': {
       const entry = mcpStdioEntry(extensionRoot);
       return { ...entry, json: JSON.stringify({ mcpServers: { 'dataweave-studio': entry } }, null, 2) };
