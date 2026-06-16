@@ -169,6 +169,7 @@ function registerMcpProvider(context: vscode.ExtensionContext): void {
         },
       }),
     );
+    console.log('[dataweave] MCP server provider registered (run "MCP: List Servers" to start it)');
   } catch (e) {
     // Never let MCP wiring break activation — the rest of the extension is fine.
     console.error('[dataweave] MCP provider registration failed:', e);

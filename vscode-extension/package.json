@@ -36,7 +36,7 @@
   "homepage": "https://ashutosh-vijay.dev/dataweave/",
   "main": "./dist/extension.js",
   "activationEvents": [
-    "onMcpCollection:dataweaveStudio.mcpProvider"
+    "onStartupFinished"
   ],
   "contributes": {
     "commands": [
