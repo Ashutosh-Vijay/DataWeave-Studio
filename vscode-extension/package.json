@@ -43,6 +43,10 @@
       {
         "command": "dataweaveStudio.open",
         "title": "DataWeave Studio: Open Playground"
+      },
+      {
+        "command": "dataweaveStudio.connectMcp",
+        "title": "DataWeave Studio: Add MCP Server to a Client (Claude Code, Cursor, …)"
       }
     ],
     "mcpServerDefinitionProviders": [

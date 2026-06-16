@@ -151,6 +151,15 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
     const num: React.CSSProperties = { flexShrink: 0, width: 20, height: 20, borderRadius: 999, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', color: 'var(--accent)' };
     const kbd = (t: string) => <code style={{ fontFamily: MONO, fontSize: 11.5, background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 5, padding: '1px 6px' }}>{t}</code>;
     const TOOLS = ['validate_and_run_dataweave', 'secure_properties', 'migrate_dw_1_to_2', 'format_dataweave', 'dw_function_reference', 'dw_cookbook'];
+    const addToClient = async (client: string, label: string) => {
+      try {
+        const r = await invoke<{ copied?: boolean; path?: string; existed?: boolean }>('mcp_write_config', { client });
+        if (r.copied) toast('MCP config copied — paste it into your client', 'success');
+        else toast(`${r.existed ? 'Updated' : 'Added'} ${label} · ${r.path}`, 'success');
+      } catch (e) { toast(e instanceof Error ? e.message : String(e), 'error'); }
+    };
+    const btnPrimary: React.CSSProperties = { height: 30, padding: '0 13px', borderRadius: 8, fontSize: 11.5, fontWeight: 600, cursor: 'pointer', border: '1px solid var(--accent-border)', background: 'var(--accent-dim)', color: 'var(--accent)' };
+    const btnGhost: React.CSSProperties = { height: 30, padding: '0 13px', borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: 'pointer', border: '1px solid var(--line)', background: 'var(--surface-2)', color: 'var(--content-secondary)' };
     return (
       <div className="fixed inset-0 z-[95] flex items-center justify-center" style={{ padding: 22, background: 'color-mix(in oklch, var(--bg) 64%, transparent)', backdropFilter: 'blur(3px)' }} onClick={onClose}>
         <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(680px, 96vw)', maxHeight: '92vh', overflow: 'auto', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, boxShadow: '0 32px 90px rgba(0,0,0,.6)' }}>
@@ -167,11 +176,27 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
           </div>
           <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 18 }}>
             <p style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--content-muted)' }}>
-              This extension ships a Model Context Protocol server so an AI agent (GitHub Copilot agent mode,
-              Cursor, …) can run and validate DataWeave on the real local engine. In VS Code you don't start it
-              here — VS Code discovers and runs it for you.
+              This extension ships a Model Context Protocol server so an AI agent can run and validate DataWeave
+              on the real local engine. <b>GitHub Copilot agent mode discovers it automatically</b> — other clients
+              (Claude Code, Cursor, Claude Desktop) read their own config, so add it there with one click below.
             </p>
+
+            {/* One-click: write the stdio entry into a client's config. */}
+            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 10, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--content-faint)' }}>Add to a client</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                <button style={btnPrimary} onClick={() => addToClient('claude-code', 'Claude Code')} className="hover:brightness-110">＋ Claude Code (workspace)</button>
+                <button style={btnGhost} onClick={() => addToClient('cursor', 'Cursor')} className="hover:text-content">＋ Cursor</button>
+                <button style={btnGhost} onClick={() => addToClient('claude-desktop', 'Claude Desktop')} className="hover:text-content">＋ Claude Desktop</button>
+                <button style={btnGhost} onClick={() => addToClient('copy', '')} className="hover:text-content">⧉ Copy config</button>
+              </div>
+              <div style={{ fontSize: 10.5, color: 'var(--content-faint)', lineHeight: 1.5 }}>
+                Writes a <code style={{ fontFamily: MONO }}>node dist/mcp.js</code> stdio entry into the client's <code style={{ fontFamily: MONO }}>mcpServers</code> (needs Node.js on PATH). For Claude Code, run {kbd('/mcp')} afterwards to connect.
+              </div>
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--content-faint)' }}>Or with GitHub Copilot</div>
               <div style={step}><span style={num}>1</span><div style={{ fontSize: 12.5, lineHeight: 1.55 }}>Open the Command Palette ({kbd('Ctrl/Cmd+Shift+P')}) and run {kbd('MCP: List Servers')}.</div></div>
               <div style={step}><span style={num}>2</span><div style={{ fontSize: 12.5, lineHeight: 1.55 }}>Pick <b>DataWeave Studio</b> → <b>Start Server</b>.</div></div>
               <div style={step}><span style={num}>3</span><div style={{ fontSize: 12.5, lineHeight: 1.55 }}>In Copilot Chat, switch to <b>Agent</b> mode — the DataWeave tools appear under the 🔧 Tools picker.</div></div>

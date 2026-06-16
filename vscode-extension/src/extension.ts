@@ -15,6 +15,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import * as crypto from 'crypto';
 import { execFile } from 'child_process';
 import { DwServer, resolveJava, resolveServerJar, runDataweave, warmDataweave, detectJavaMajor, RunArgs, WarmArgs } from './dwHost';
@@ -137,6 +138,108 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   registerMcpProvider(context);
+
+  // One-click "add to a client" — Copilot agent mode discovers our MCP server
+  // automatically (registerMcpProvider above), but Claude Code / Cursor / Claude
+  // Desktop read their OWN config files, so they need the stdio entry written.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('dataweaveStudio.connectMcp', () => connectMcpToClient(context.extensionPath)),
+  );
+}
+
+/** The stdio server entry every external MCP client understands: run our bundled
+ *  `dist/mcp.js` with Node. Requires Node.js on PATH (Claude Code/Cursor/Claude
+ *  Desktop spawn it themselves). Copilot agent mode doesn't use this — it gets
+ *  the server from registerMcpServerDefinitionProvider. */
+function mcpStdioEntry(extensionRoot: string): { command: string; args: string[] } {
+  return { command: 'node', args: [path.join(extensionRoot, 'dist', 'mcp.js')] };
+}
+
+/** Config file each client reads (all use the same `{ mcpServers: { … } }` shape). */
+function clientConfigPath(client: string, workspaceRoot?: string): string | null {
+  const home = os.homedir();
+  switch (client) {
+    case 'claude-code':
+      return workspaceRoot ? path.join(workspaceRoot, '.mcp.json') : null;
+    case 'cursor':
+      return path.join(home, '.cursor', 'mcp.json');
+    case 'claude-desktop':
+      if (process.platform === 'win32')
+        return path.join(process.env.APPDATA || path.join(home, 'AppData', 'Roaming'), 'Claude', 'claude_desktop_config.json');
+      if (process.platform === 'darwin')
+        return path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
+      return path.join(home, '.config', 'Claude', 'claude_desktop_config.json');
+    default:
+      return null;
+  }
+}
+
+/** Merge our server into a client's config file (creating it if missing). Refuses
+ *  to clobber a file that isn't valid JSON. Returns the path + whether it existed. */
+function writeMcpClientConfig(client: string, extensionRoot: string, workspaceRoot?: string): { path: string; existed: boolean } {
+  const cfgPath = clientConfigPath(client, workspaceRoot);
+  if (!cfgPath) throw new Error('No config location for this client.');
+
+  let obj: any = {};
+  const existed = fs.existsSync(cfgPath);
+  if (existed) {
+    const raw = fs.readFileSync(cfgPath, 'utf8').trim();
+    if (raw) {
+      try { obj = JSON.parse(raw); } catch {
+        throw new Error(`${cfgPath} isn't valid JSON — add the server manually (use "Copy config").`);
+      }
+    }
+  }
+  if (typeof obj !== 'object' || obj === null) obj = {};
+  obj.mcpServers = obj.mcpServers && typeof obj.mcpServers === 'object' ? obj.mcpServers : {};
+  obj.mcpServers['dataweave-studio'] = mcpStdioEntry(extensionRoot);
+
+  fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
+  fs.writeFileSync(cfgPath, JSON.stringify(obj, null, 2) + '\n');
+  return { path: cfgPath, existed };
+}
+
+/** Command body: pick a client, write its config (or copy the snippet). */
+async function connectMcpToClient(extensionRoot: string): Promise<void> {
+  const items = [
+    { label: '$(file-code) Claude Code (this workspace)', detail: 'Writes .mcp.json in the workspace root', client: 'claude-code' },
+    { label: '$(edit) Cursor', detail: '~/.cursor/mcp.json', client: 'cursor' },
+    { label: '$(comment-discussion) Claude Desktop', detail: 'claude_desktop_config.json', client: 'claude-desktop' },
+    { label: '$(clippy) Copy config to clipboard', detail: 'Paste into any MCP client yourself', client: 'copy' },
+  ];
+  const pick = await vscode.window.showQuickPick(items, {
+    title: 'Add DataWeave Studio MCP server to…',
+    placeHolder: 'Pick an MCP client (Copilot agent mode already has it automatically)',
+  });
+  if (!pick) return;
+
+  if (pick.client === 'copy') {
+    const snippet = JSON.stringify({ mcpServers: { 'dataweave-studio': mcpStdioEntry(extensionRoot) } }, null, 2);
+    await vscode.env.clipboard.writeText(snippet);
+    vscode.window.showInformationMessage('DataWeave Studio MCP config copied — paste it into your client\'s mcpServers.');
+    return;
+  }
+
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (pick.client === 'claude-code' && !workspaceRoot) {
+    vscode.window.showErrorMessage('Open a folder/workspace first — Claude Code reads .mcp.json from the workspace root.');
+    return;
+  }
+  try {
+    const { path: p, existed } = writeMcpClientConfig(pick.client, extensionRoot, workspaceRoot);
+    const note = pick.client === 'claude-code'
+      ? 'Run "/mcp" in Claude Code (or reload) to connect.'
+      : 'Restart the client to connect.';
+    const choice = await vscode.window.showInformationMessage(
+      `DataWeave Studio MCP server ${existed ? 'added to' : 'created at'} ${p}. ${note}`,
+      'Open config',
+    );
+    if (choice === 'Open config') {
+      vscode.window.showTextDocument(await vscode.workspace.openTextDocument(vscode.Uri.file(p)));
+    }
+  } catch (e) {
+    vscode.window.showErrorMessage(e instanceof Error ? e.message : String(e));
+  }
 }
 
 /** Contribute the bundled stdio MCP server to VS Code's agent mode (Copilot,
@@ -236,6 +339,26 @@ async function handleInvoke(
     case 'save_modules':
       moduleStore.saveModules(storageDir, args.json as string);
       return null;
+
+    // --- MCP client wiring (webview "Add to …" buttons) ---------------------
+    case 'mcp_stdio_config': {
+      const entry = mcpStdioEntry(extensionRoot);
+      return { ...entry, json: JSON.stringify({ mcpServers: { 'dataweave-studio': entry } }, null, 2) };
+    }
+    case 'mcp_write_config': {
+      const client = args.client as string;
+      if (client === 'copy') {
+        const snippet = JSON.stringify({ mcpServers: { 'dataweave-studio': mcpStdioEntry(extensionRoot) } }, null, 2);
+        await vscode.env.clipboard.writeText(snippet);
+        return { copied: true };
+      }
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (client === 'claude-code' && !workspaceRoot) {
+        throw new Error('Open a folder/workspace first — Claude Code reads .mcp.json from the workspace root.');
+      }
+      const { path: p, existed } = writeMcpClientConfig(client, extensionRoot, workspaceRoot);
+      return { path: p, existed };
+    }
 
     // --- Managed JARs + Java compilation (port of jars.rs) ------------------
     case 'list_managed_jars':
