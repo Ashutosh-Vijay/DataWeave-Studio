@@ -34,6 +34,7 @@ interface UseDWRunnerReturn {
     classpath?: string[],
     timeoutMs?: number,
     multipartPartsJson?: string,
+    modulesJson?: string,
   ) => Promise<void>;
   cancel: () => Promise<void>;
   restartEngine: () => Promise<void>;
@@ -93,6 +94,7 @@ export function useDWRunner(): UseDWRunnerReturn {
       classpath?: string[],
       timeoutMs?: number,
       multipartPartsJson?: string,
+      modulesJson?: string,
     ) => {
       if (runningRef.current) return; // prevent double-clicks
       runningRef.current = true;
@@ -115,6 +117,7 @@ export function useDWRunner(): UseDWRunnerReturn {
           classpath: classpath ?? [],
           timeoutMs: timeoutMs ?? 0,
           multipartPartsJson: multipartPartsJson ?? null,
+          modulesJson: modulesJson ?? null,
         });
 
         if (result.error) {

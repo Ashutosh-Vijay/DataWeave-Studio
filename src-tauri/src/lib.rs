@@ -3,6 +3,7 @@ mod dw_runner;
 mod dw_server;
 mod jars;
 mod mcp_server;
+mod module_lib;
 mod platform;
 mod secure_properties;
 mod workspace;
@@ -96,6 +97,8 @@ pub fn run() {
             workspace::list_workspaces_meta,
             workspace::delete_workspace,
             workspace::get_workspaces_dir,
+            module_lib::load_modules,
+            module_lib::save_modules,
             jars::list_managed_jars,
             jars::get_jars_dir,
             jars::import_jar_file,

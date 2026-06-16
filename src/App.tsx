@@ -29,6 +29,10 @@ const JavaTester = lazy(() =>
 const MCPServerPanel = lazy(() =>
   import('./components/MCPServerPanel').then((m) => ({ default: m.MCPServerPanel }))
 );
+const ModulesPanel = lazy(() =>
+  import('./components/ModulesPanel').then((m) => ({ default: m.ModulesPanel }))
+);
+import type { DwModule } from './components/ModulesPanel';
 const FlowDesigner = lazy(() =>
   import('./components/FlowDesigner').then((m) => ({ default: m.FlowDesigner }))
 );
@@ -214,6 +218,10 @@ function App() {
   const [javaTesterOpen, setJavaTesterOpen] = useState(false);
   const [mcpOpen, setMcpOpen] = useState(false);
   const [mcpRunning, setMcpRunning] = useState(false);
+  const [modulesOpen, setModulesOpen] = useState(false);
+  // Global custom `.dwl` module library — saved once (app-data), sent on every
+  // run so `import x from MyModule` resolves. Loaded on mount, persisted on edit.
+  const [modules, setModules] = useState<DwModule[]>([]);
   const [showFirstRun, setShowFirstRun] = useState(() => shouldShowFirstRun());
   /** One-time prompt for the very first workspace. Surfaced only after the
    *  theme/layout FirstRunPicker is dismissed (or skipped — for returning
@@ -577,6 +585,19 @@ function App() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Load the saved module library once on mount.
+  useEffect(() => {
+    invoke<string>('load_modules')
+      .then((s) => { try { setModules(JSON.parse(s)); } catch { /* keep empty */ } })
+      .catch(() => { /* no library yet */ });
+  }, []);
+
+  // Persist the library whenever it changes (and keep it in live state for runs).
+  const handleModulesChange = useCallback((next: DwModule[]) => {
+    setModules(next);
+    void invoke('save_modules', { json: JSON.stringify(next) }).catch(() => { /* best-effort */ });
+  }, []);
+
   const handleRun = useCallback(async () => {
     const { configYaml, secureConfigYaml } = workspace.context;
 
@@ -614,6 +635,8 @@ function App() {
         ? JSON.stringify(workspace.multipartParts)
         : undefined;
 
+    const modulesJson = modules.length > 0 ? JSON.stringify(modules) : undefined;
+
     await runner.run(
       resolvedScript,
       resolvedPayload,
@@ -625,8 +648,9 @@ function App() {
       workspace.classpath,
       workspace.timeoutMs,
       multipartPartsJson,
+      modulesJson,
     );
-  }, [workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, workspace.payloadFilePath, workspace.classpath, workspace.timeoutMs, workspace.multipartParts, runner, encryptionKey]);
+  }, [workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, workspace.payloadFilePath, workspace.classpath, workspace.timeoutMs, workspace.multipartParts, modules, runner, encryptionKey]);
 
   // Keep refs in sync for auto-run (avoids stale closures and infinite loops)
   handleRunRef.current = handleRun;
@@ -828,6 +852,7 @@ function App() {
     { id: 'recipes', label: 'Open DataWeave cookbook', group: 'Tools', run: () => setRecipesOpen(true) },
     { id: 'flow', label: 'Open Message Flow designer', group: 'Tools', run: () => setFlowDesignerOpen(true) },
     { id: 'java', label: 'Open Java tester', group: 'Tools', run: () => setJavaTesterOpen(true) },
+    { id: 'modules', label: 'Open Module library', group: 'Tools', run: () => setModulesOpen(true) },
     { id: 'mcp', label: 'Open MCP Server', group: 'Tools', run: () => setMcpOpen(true) },
     { id: 'secure', label: 'Open Secure Properties tool', shortcut: '⌘⇧E', group: 'Tools', run: () => setSecureToolOpen(true) },
     { id: 'compare', label: 'Open Compare tool', group: 'Tools', run: () => setCompareToolOpen(true) },
@@ -949,6 +974,7 @@ function App() {
                     ['DataWeave cookbook', () => setRecipesOpen(true)],
                     ['Message Flow designer', () => setFlowDesignerOpen(true)],
                     ['Java tester', () => setJavaTesterOpen(true)],
+                    ['Module library', () => setModulesOpen(true)],
                     ['MCP Server', () => setMcpOpen(true)],
                     ['Secure Properties tool', () => setSecureToolOpen(true)],
                     ['Compare tool', () => setCompareToolOpen(true)],
@@ -1596,6 +1622,12 @@ function App() {
       {mcpOpen && (
         <Suspense fallback={null}>
           <MCPServerPanel open={mcpOpen} onClose={() => setMcpOpen(false)} onRunningChange={setMcpRunning} />
+        </Suspense>
+      )}
+
+      {modulesOpen && (
+        <Suspense fallback={null}>
+          <ModulesPanel open={modulesOpen} onClose={() => setModulesOpen(false)} modules={modules} onChange={handleModulesChange} />
         </Suspense>
       )}
 
