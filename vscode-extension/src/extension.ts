@@ -147,12 +147,18 @@ export function activate(context: vscode.ExtensionContext) {
   );
 }
 
-/** The stdio server entry every external MCP client understands: run our bundled
- *  `dist/mcp.js` with Node. Requires Node.js on PATH (Claude Code/Cursor/Claude
- *  Desktop spawn it themselves). Copilot agent mode doesn't use this — it gets
- *  the server from registerMcpServerDefinitionProvider. */
-function mcpStdioEntry(extensionRoot: string): { command: string; args: string[] } {
-  return { command: 'node', args: [path.join(extensionRoot, 'dist', 'mcp.js')] };
+/** The stdio server entry every external MCP client understands. Runs our bundled
+ *  `dist/mcp.js` with VS Code's OWN runtime (process.execPath = the Code/Electron
+ *  binary) via ELECTRON_RUN_AS_NODE=1 — so it works with NO standalone Node on the
+ *  user's PATH (most MuleSoft devs don't have one). Same trick Copilot's provider
+ *  uses (registerMcpServerDefinitionProvider). Copilot agent mode doesn't read
+ *  this entry — it gets the server from the provider directly. */
+function mcpStdioEntry(extensionRoot: string): { command: string; args: string[]; env: Record<string, string> } {
+  return {
+    command: process.execPath,
+    args: [path.join(extensionRoot, 'dist', 'mcp.js')],
+    env: { ELECTRON_RUN_AS_NODE: '1' },
+  };
 }
 
 /** Config file each client reads (all use the same `{ mcpServers: { … } }` shape). */

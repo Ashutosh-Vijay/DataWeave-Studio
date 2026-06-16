@@ -191,7 +191,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
                 <button style={btnGhost} onClick={() => addToClient('copy', '')} className="hover:text-content">⧉ Copy config</button>
               </div>
               <div style={{ fontSize: 10.5, color: 'var(--content-faint)', lineHeight: 1.5 }}>
-                Writes a <code style={{ fontFamily: MONO }}>node dist/mcp.js</code> stdio entry into the client's <code style={{ fontFamily: MONO }}>mcpServers</code> (needs Node.js on PATH). For Claude Code, run {kbd('/mcp')} afterwards to connect.
+                Writes a stdio entry into the client's <code style={{ fontFamily: MONO }}>mcpServers</code> that runs the bundled server with VS Code's own runtime — no separate Node.js install needed. For Claude Code, run {kbd('/mcp')} afterwards to connect.
               </div>
             </div>
 
