@@ -6,7 +6,7 @@
  * others are marked planned (honest, not faked).
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { invoke } from '../bridge';
+import { invoke, isTauri } from '../bridge';
 import { toast } from './Toast';
 
 interface McpStatus { running: boolean; port: number | null; advanced: boolean; uptimeSecs: number; requests: number; decryptKeySet: boolean; }
@@ -141,6 +141,61 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
       : 'Add to your Claude Desktop config, fully quit, and reopen. The tools appear under the ⊕ menu.';
 
   if (!open) return null;
+
+  // In VS Code the MCP server is NOT an in-app HTTP server we start/stop — VS Code
+  // owns its lifecycle (the extension registers a stdio server provider; VS Code
+  // spawns dist/mcp.js on demand). So the desktop's port/start/stop controls don't
+  // apply; show how to use it through VS Code's own MCP instead.
+  if (!isTauri) {
+    const step: React.CSSProperties = { display: 'flex', gap: 10, alignItems: 'flex-start' };
+    const num: React.CSSProperties = { flexShrink: 0, width: 20, height: 20, borderRadius: 999, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', color: 'var(--accent)' };
+    const kbd = (t: string) => <code style={{ fontFamily: MONO, fontSize: 11.5, background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 5, padding: '1px 6px' }}>{t}</code>;
+    const TOOLS = ['validate_and_run_dataweave', 'secure_properties', 'migrate_dw_1_to_2', 'format_dataweave', 'dw_function_reference', 'dw_cookbook'];
+    return (
+      <div className="fixed inset-0 z-[95] flex items-center justify-center" style={{ padding: 22, background: 'color-mix(in oklch, var(--bg) 64%, transparent)', backdropFilter: 'blur(3px)' }} onClick={onClose}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(680px, 96vw)', maxHeight: '92vh', overflow: 'auto', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, boxShadow: '0 32px 90px rgba(0,0,0,.6)' }}>
+          <div className="flex items-center" style={{ height: 52, gap: 12, padding: '0 16px', borderBottom: '1px solid var(--line)', background: 'linear-gradient(180deg, var(--surface-2), var(--surface))' }}>
+            <span className="grid place-items-center" style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', color: 'var(--accent)' }}>{plug(17)}</span>
+            <div>
+              <div style={{ fontSize: 14.5, fontWeight: 600 }}>MCP Server</div>
+              <div style={{ fontSize: 10.5, color: 'var(--content-faint)' }}>Managed by VS Code — expose the DataWeave engine to Copilot agent mode</div>
+            </div>
+            <div className="flex-1" />
+            <button onClick={onClose} className="grid place-items-center cursor-pointer hover:bg-surface-2 hover:text-content" style={{ width: 30, height: 30, border: 'none', background: 'transparent', borderRadius: 8, color: 'var(--content-faint)' }} title="Close (Esc)">
+              <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+            </button>
+          </div>
+          <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <p style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--content-muted)' }}>
+              This extension ships a Model Context Protocol server so an AI agent (GitHub Copilot agent mode,
+              Cursor, …) can run and validate DataWeave on the real local engine. In VS Code you don't start it
+              here — VS Code discovers and runs it for you.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={step}><span style={num}>1</span><div style={{ fontSize: 12.5, lineHeight: 1.55 }}>Open the Command Palette ({kbd('Ctrl/Cmd+Shift+P')}) and run {kbd('MCP: List Servers')}.</div></div>
+              <div style={step}><span style={num}>2</span><div style={{ fontSize: 12.5, lineHeight: 1.55 }}>Pick <b>DataWeave Studio</b> → <b>Start Server</b>.</div></div>
+              <div style={step}><span style={num}>3</span><div style={{ fontSize: 12.5, lineHeight: 1.55 }}>In Copilot Chat, switch to <b>Agent</b> mode — the DataWeave tools appear under the 🔧 Tools picker.</div></div>
+            </div>
+            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--content-faint)', marginBottom: 8 }}>6 tools exposed</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {TOOLS.map((t) => <code key={t} style={{ fontFamily: MONO, fontSize: 11, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 6, padding: '3px 7px', color: 'var(--content)' }}>{t}</code>)}
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 11.5, lineHeight: 1.55, color: 'var(--content-muted)' }}>
+              <div><b>Safe mode (default):</b> a pure-transform sandbox — <code style={{ fontFamily: MONO }}>java!</code> / <code style={{ fontFamily: MONO }}>readUrl</code> / <code style={{ fontFamily: MONO }}>dw::io</code> are rejected (in scripts and imported modules). To lift the gate for FULL local access, set the env var {kbd('DWSTUDIO_MCP_ADVANCED=1')} on the server entry in <code style={{ fontFamily: MONO }}>mcp.json</code>.</div>
+              <div><b>Encrypted secure config:</b> pass the key per-call as <code style={{ fontFamily: MONO }}>secureKey</code>, or set {kbd('DWSTUDIO_SECURE_KEY')} on the server. A <code style={{ fontFamily: MONO }}>{'![…]'}</code> value with no key is rejected (never run as ciphertext).</div>
+              <div><b>Custom modules:</b> pass a <code style={{ fontFamily: MONO }}>modules</code> array so <code style={{ fontFamily: MONO }}>import x from MyModule</code> resolves.</div>
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--content-faint)', lineHeight: 1.5 }}>
+              Requires VS Code 1.101+. If <b>DataWeave Studio</b> doesn't appear in <i>MCP: List Servers</i>, reload the window.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const running = status.running;
   const accent = 'var(--accent)';
   const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, overflow: 'hidden' };

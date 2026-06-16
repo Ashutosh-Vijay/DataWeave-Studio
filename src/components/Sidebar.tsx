@@ -50,6 +50,7 @@ interface SidebarProps {
   onOpenCompare: () => void;
   onOpenFlowDesigner: () => void;
   onOpenJavaTester: () => void;
+  onOpenModules: () => void;
   onOpenMcp: () => void;
   mcpRunning: boolean;
   onOpenSettings: () => void;
@@ -145,7 +146,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const {
     projectName, onProjectNameChange, currentFile, isDirty, currentMethod,
     onNew, onSave, onLoad, onDelete, listWorkspaces,
-    onCurlImport, onInsertSnippet, onOpenSecure, onOpenCompare, onOpenFlowDesigner, onOpenJavaTester, onOpenMcp, mcpRunning, onOpenSettings,
+    onCurlImport, onInsertSnippet, onOpenSecure, onOpenCompare, onOpenFlowDesigner, onOpenJavaTester, onOpenModules, onOpenMcp, mcpRunning, onOpenSettings,
     onOpenReference, onOpenRecipes,
     collapsed, onToggleCollapse,
     requests, activeRequestId, onSelectRequest, onAddRequest, onRenameRequest, onRemoveRequest, onDuplicateRequest,
@@ -250,6 +251,15 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
         >
           <Icons.Terminal size={18} />
+        </button>
+        <button
+          data-tour="rail-modules"
+          onClick={onOpenModules}
+          title="Module library — save reusable .dwl modules, import them in any script"
+          aria-label="Module library"
+          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
+        >
+          <Icons.Library size={18} />
         </button>
         <button
           data-tour="rail-mcp"

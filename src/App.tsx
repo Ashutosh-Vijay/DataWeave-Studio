@@ -1195,6 +1195,7 @@ function App() {
           onOpenCompare={() => setCompareToolOpen(true)}
           onOpenFlowDesigner={() => setFlowDesignerOpen(true)}
           onOpenJavaTester={() => setJavaTesterOpen(true)}
+          onOpenModules={() => setModulesOpen(true)}
           onOpenMcp={() => setMcpOpen(true)}
           mcpRunning={mcpRunning}
           onOpenSettings={() => setSettingsOpen(true)}
