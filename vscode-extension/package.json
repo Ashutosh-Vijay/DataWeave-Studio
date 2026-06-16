@@ -35,12 +35,20 @@
   },
   "homepage": "https://ashutosh-vijay.dev/dataweave/",
   "main": "./dist/extension.js",
-  "activationEvents": [],
+  "activationEvents": [
+    "onMcpCollection:dataweaveStudio.mcpProvider"
+  ],
   "contributes": {
     "commands": [
       {
         "command": "dataweaveStudio.open",
         "title": "DataWeave Studio: Open Playground"
+      }
+    ],
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "dataweaveStudio.mcpProvider",
+        "label": "DataWeave Studio"
       }
     ],
     "viewsContainers": {

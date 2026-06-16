@@ -88,6 +88,12 @@ interface DwRequest {
   outputMime: string;
   classpath?: string[];
   compileOnly?: boolean;
+  /** Custom `.dwl` modules so `import x from MyModule` resolves (server writes
+   *  each to a hashed classpath dir + compiles against a fresh classloader). */
+  modules?: { name: string; content: string }[];
+  /** "run" (default) or "format" — format runs the engine's IDE formatter and
+   *  returns the pretty-printed script in `output`. */
+  op?: 'run' | 'format';
 }
 
 export class DwServer {
@@ -424,6 +430,9 @@ export interface RunArgs {
   classpath?: string[];
   timeoutMs?: number;
   multipartPartsJson?: string | null;
+  /** JSON array of `{name, content}` custom modules (matches the desktop's
+   *  `modules_json`); parsed and forwarded to the engine. */
+  modulesJson?: string | null;
 }
 
 interface MultipartPartData {
@@ -433,6 +442,9 @@ interface MultipartPartData {
   isFile: boolean;
   filePath?: string;
   filename?: string;
+  /** Base64-encoded raw bytes (binary-safe). Takes priority over value/filePath —
+   *  used by the MCP tool to pass binary files through a text channel intact. */
+  contentBase64?: string;
 }
 
 /** Port of build_multipart_body — assembles a real multipart/form-data body
@@ -453,7 +465,14 @@ function buildMultipartBody(parts: MultipartPartData[]): { body: Buffer; boundar
       )
     );
     chunks.push(Buffer.from(`Content-Type: ${part.contentType}\r\n\r\n`));
-    if (part.isFile) {
+    if (part.contentBase64) {
+      // Binary-safe path: decode agent-supplied bytes straight into the body.
+      try {
+        chunks.push(Buffer.from(part.contentBase64.trim(), 'base64'));
+      } catch {
+        /* invalid base64 -> empty part */
+      }
+    } else if (part.isFile) {
       if (part.filePath) {
         try {
           chunks.push(fs.readFileSync(part.filePath));
@@ -554,6 +573,11 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
     const cpEntries = (args.classpath ?? []).filter((s) => s.length > 0);
     const timeout = args.timeoutMs ?? 30000;
 
+    const modules: { name: string; content: string }[] =
+      args.modulesJson && args.modulesJson.trim() && args.modulesJson.trim() !== '[]'
+        ? JSON.parse(args.modulesJson)
+        : [];
+
     let resp: DwResponse;
     try {
       resp = await server.run(
@@ -567,6 +591,7 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
           outputMime: 'application/json',
           classpath: cpEntries.length ? cpEntries : undefined,
           compileOnly: false,
+          modules: modules.length ? modules : undefined,
         },
         timeout
       );
@@ -613,6 +638,24 @@ function writeTemp(dir: string, name: string, content: string): string {
   const p = path.join(dir, name);
   fs.writeFileSync(p, content);
   return p;
+}
+
+/** Pretty-print a script via the engine's IDE formatter (op=format). Returns the
+ *  formatted source, or throws with the engine's error. Mirrors dw_server::format. */
+export async function formatDataweave(server: DwServer, script: string): Promise<string> {
+  const resp = await server.run(
+    {
+      op: 'format',
+      script,
+      payloadPath: '',
+      payloadMime: 'application/json',
+      namedInputs: [],
+      outputMime: 'application/json',
+    },
+    15000
+  );
+  if (!resp.ok) throw new Error(resp.error ?? 'Format failed');
+  return resp.output;
 }
 
 export interface WarmArgs {

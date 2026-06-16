@@ -20,6 +20,7 @@ import { execFile } from 'child_process';
 import { DwServer, resolveJava, resolveServerJar, runDataweave, warmDataweave, detectJavaMajor, RunArgs, WarmArgs } from './dwHost';
 import * as ws from './workspaceStore';
 import * as jarStore from './jarStore';
+import * as moduleStore from './moduleStore';
 
 let server: DwServer | null = null;
 let warmupError: string | null = null;
@@ -134,6 +135,44 @@ export function activate(context: vscode.ExtensionContext) {
       );
     })
   );
+
+  registerMcpProvider(context);
+}
+
+/** Contribute the bundled stdio MCP server to VS Code's agent mode (Copilot,
+ *  etc.) so any DataWeave script an agent writes is validated on the real local
+ *  engine. The dist/mcp.js process is spawned by VS Code with the extension's
+ *  Node (process.execPath + ELECTRON_RUN_AS_NODE), resolves the bundled jar/JRE
+ *  itself, and defaults to Safe mode (the RCE gate). The API landed in VS Code
+ *  1.101 — feature-detected so older hosts silently skip it (the webview app
+ *  and command still work; only the agent auto-wiring is unavailable). */
+function registerMcpProvider(context: vscode.ExtensionContext): void {
+  const lm = (vscode as any).lm;
+  const McpStdio = (vscode as any).McpStdioServerDefinition;
+  if (!lm || typeof lm.registerMcpServerDefinitionProvider !== 'function' || !McpStdio) return;
+
+  try {
+    context.subscriptions.push(
+      lm.registerMcpServerDefinitionProvider('dataweaveStudio.mcpProvider', {
+        provideMcpServerDefinitions: async () => {
+          const mcpJs = path.join(context.extensionPath, 'dist', 'mcp.js');
+          // process.execPath = VS Code's Electron binary; ELECTRON_RUN_AS_NODE
+          // makes it behave as a plain Node runtime for our script.
+          return [
+            new McpStdio(
+              'DataWeave Studio',
+              process.execPath,
+              [mcpJs],
+              { ELECTRON_RUN_AS_NODE: '1' },
+            ),
+          ];
+        },
+      }),
+    );
+  } catch (e) {
+    // Never let MCP wiring break activation — the rest of the extension is fine.
+    console.error('[dataweave] MCP provider registration failed:', e);
+  }
 }
 
 /** The Node reimplementation of the Tauri command surface. Milestone: just the
@@ -189,6 +228,13 @@ async function handleInvoke(
       return null;
     case 'get_workspaces_dir':
       return ws.getWorkspacesDir(storageDir);
+
+    // --- Module library (port of module_lib.rs) -----------------------------
+    case 'load_modules':
+      return moduleStore.loadModules(storageDir);
+    case 'save_modules':
+      moduleStore.saveModules(storageDir, args.json as string);
+      return null;
 
     // --- Managed JARs + Java compilation (port of jars.rs) ------------------
     case 'list_managed_jars':

@@ -15,6 +15,8 @@ const dst = join(extRoot, 'resources');
 const items = [
   ['dw-server/dwstudio-server.jar', 'dw-server/dwstudio-server.jar'],
   ['secure-properties/secure-properties-tool.jar', 'secure-properties/secure-properties-tool.jar'],
+  ['mcp/dw_functions.json', 'mcp/dw_functions.json'], // MCP function reference (offline)
+  ['mcp/dw_cookbook.json', 'mcp/dw_cookbook.json'],   // MCP cookbook recipes (offline)
   ['jre', 'jre'], // the whole platform JRE (directory)
 ];
 
