@@ -153,6 +153,7 @@ export function registerTools(
         namedInputs: z.string().optional().describe('Extra named inputs as a JSON array: [{"name":"account","mimeType":"application/json","content":"{...}"}]. Read in the script by name.'),
         multipart: z.string().optional().describe('multipart/form-data parts as a JSON array. Each: {name, contentType, filename, and one of value | contentBase64 (binary) | filePath (Advanced only)}. Read as payload.parts.<name>.content.'),
         modules: z.string().optional().describe('Custom DataWeave modules as a JSON array: [{"name":"MyModule","content":"%dw 2.0\\nfun greet(n)=..."}] so `import x from MyModule` resolves. Use :: in name for packages. Module bodies face the same Safe-mode gate.'),
+        trace: z.boolean().optional().describe('When true, captures the script\'s log(...) output and returns it below the result. Use it to INSPECT INTERMEDIATE VALUES — wrap any sub-expression in log("label", expr) (returns expr unchanged) to see a pipeline stage without restructuring the output.'),
       },
       annotations: { readOnlyHint: !advanced, idempotentHint: true, openWorldHint: advanced },
     },
@@ -284,15 +285,22 @@ export function registerTools(
         // NEVER pass classpath — agents must not hot-add JARs.
         multipartPartsJson: multipartJson ?? null,
         modulesJson: modulesJson ?? null,
+        trace: a.trace === true,
       });
+
+      // Trace logs appended below the result so the agent can inspect intermediate
+      // pipeline values without restructuring the output.
+      const traceBlock = result.logs && result.logs.length
+        ? `\n\n--- trace (log output, ${result.logs.length} line${result.logs.length === 1 ? '' : 's'}) ---\n${result.logs.join('\n')}`
+        : '';
 
       if (result.error) {
         const where = result.error_line != null
           ? ` (line ${result.error_line}${result.error_column != null ? `, col ${result.error_column}` : ''})`
           : '';
-        return err(`ERROR${where}:\n${result.error}`);
+        return err(`ERROR${where}:\n${result.error}${traceBlock}`);
       }
-      return ok(result.output);
+      return ok(result.output + traceBlock);
     },
   );
 

@@ -95,6 +95,12 @@ struct RunInput {
     /// readUrl/dw::io unless Advanced mode is on).
     #[serde(default)]
     modules: Option<String>,
+    /// Trace mode: when true, captures everything the script's `log(...)` calls emit
+    /// and returns it below the output. Use this to INSPECT INTERMEDIATE VALUES — wrap
+    /// any sub-expression in `log("label", expr)` (it returns `expr` unchanged, so it's
+    /// safe to insert anywhere) to see a pipeline stage without restructuring the output.
+    #[serde(default)]
+    trace: Option<bool>,
 }
 fn default_mime() -> String {
     "application/json".to_string()
@@ -598,9 +604,19 @@ impl DwTools {
             None,              // timeout (default)
             multipart_json,    // multipart parts (binary-safe)
             modules_json,      // custom .dwl modules (safe-mode scanned above)
+            input.trace,       // trace mode — capture log(...) output
         )
         .await
         .map_err(|e| rmcp::ErrorData::internal_error(e, None))?;
+
+        // Trace logs (captured `log(...)` output) appended below the result so an
+        // agent can inspect intermediate pipeline values without restructuring it.
+        let trace_block = match &result.logs {
+            Some(logs) if !logs.is_empty() => {
+                format!("\n\n--- trace (log output, {} line{}) ---\n{}", logs.len(), if logs.len() == 1 { "" } else { "s" }, logs.join("\n"))
+            }
+            _ => String::new(),
+        };
 
         if let Some(err) = result.error {
             let loc = match result.error_line {
@@ -615,11 +631,11 @@ impl DwTools {
                 None => String::new(),
             };
             Ok(CallToolResult::error(vec![Content::text(format!(
-                "ERROR{}:\n{}",
-                loc, err
+                "ERROR{}:\n{}{}",
+                loc, err, trace_block
             ))]))
         } else {
-            Ok(CallToolResult::success(vec![Content::text(result.output)]))
+            Ok(CallToolResult::success(vec![Content::text(format!("{}{}", result.output, trace_block))]))
         }
     }
 
@@ -848,7 +864,11 @@ impl ServerHandler for DwTools {
                  input field was captured. DataWeave's plain selectors return only the FIRST match for a repeated \
                  name, so a script can silently drop data with no error. When the input has repeated element/key \
                  names (common in XML/SOAP), compare `payload…*name` (all matches, as an array) against \
-                 `payload…name` (first only) and confirm the count is what you expect.\n\n\
+                 `payload…name` (first only) and confirm the count is what you expect.\n\
+                 5. INSPECT INTERMEDIATE VALUES — when a transform compiles but the output looks wrong, set \
+                 `trace:true` and wrap any sub-expression in `log(\"label\", expr)` (it returns `expr` unchanged, so \
+                 insert it anywhere). The logged values come back in a trace block below the result — debug a \
+                 pipeline stage without restructuring the output.\n\n\
                  ## Writing the `script`\n\
                  - A bare body works: `payload map (x) -> x * 2` runs as `%dw 2.0` with `output application/json`.\n\
                  - For any non-JSON output you MUST write the header yourself: `%dw 2.0` / `output application/xml` / `---` / body.\n\

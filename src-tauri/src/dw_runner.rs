@@ -15,6 +15,9 @@ pub struct RunResult {
     pub execution_time_ms: u64,
     pub error_line: Option<u32>,
     pub error_column: Option<u32>,
+    /// Captured `log(...)` output when trace mode is on (None otherwise).
+    #[serde(default)]
+    pub logs: Option<Vec<String>>,
 }
 
 /// Managed state to track warm-up status and any errors
@@ -317,8 +320,10 @@ pub async fn run_dataweave(
     timeout_ms: Option<u64>,
     multipart_parts_json: Option<String>,
     modules_json: Option<String>,
+    trace: Option<bool>,
 ) -> Result<RunResult, String> {
     let start_time = Instant::now();
+    let trace = trace.unwrap_or(false);
 
     // Custom `.dwl` module libraries so `import x from MyModule` resolves. The
     // server writes each to a classpath dir keyed by a content hash and compiles
@@ -480,6 +485,7 @@ pub async fn run_dataweave(
                 classpath: &cp_entries,
                 compile_only: false,
                 modules: &modules,
+                trace,
             },
         )
     });
@@ -508,6 +514,7 @@ pub async fn run_dataweave(
                     execution_time_ms: effective_timeout,
                     error_line: None,
                     error_column: None,
+                    logs: None,
                 });
             }
         }
@@ -531,6 +538,7 @@ pub async fn run_dataweave(
             execution_time_ms,
             error_line: None,
             error_column: None,
+            logs: None,
         });
     }
 
@@ -548,6 +556,7 @@ pub async fn run_dataweave(
                     execution_time_ms,
                     error_line: None,
                     error_column: None,
+                    logs: resp.logs,
                 })
             } else {
                 let raw = resp.error.unwrap_or_else(|| "(no error message)".into());
@@ -559,6 +568,7 @@ pub async fn run_dataweave(
                     execution_time_ms,
                     error_line,
                     error_column,
+                    logs: resp.logs,
                 })
             }
         }
@@ -568,6 +578,7 @@ pub async fn run_dataweave(
             execution_time_ms,
             error_line: None,
             error_column: None,
+            logs: None,
         }),
     }
 }
@@ -738,6 +749,7 @@ pub async fn warm_dataweave_script(
                 classpath: &[],
                 compile_only: true,
                 modules: &[],
+                trace: false,
             },
         ) {
             log::warn!("Warm compile failed: {}", e);

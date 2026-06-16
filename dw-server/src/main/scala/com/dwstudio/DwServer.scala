@@ -232,9 +232,17 @@ object DwServer {
       if (compileOnly) {
         successResponse(id, "", started)
       } else {
+        // Trace mode captures `log(...)` output for intermediate inspection.
+        val trace: Boolean = if (req.get("trace") != null) req.get("trace").asBoolean() else false
         val out = new ByteArrayOutputStream()
-        compiled.write(bindings, makeServiceManager(), Some(out))
-        successResponse(id, out.toString("UTF-8"), started)
+        if (trace) {
+          val logger = new CapturingLogger()
+          compiled.write(bindings, makeServiceManager(logger), Some(out))
+          successResponse(id, out.toString("UTF-8"), started, logger.messages.toList)
+        } else {
+          compiled.write(bindings, makeServiceManager(), Some(out))
+          successResponse(id, out.toString("UTF-8"), started)
+        }
       }
     } catch {
       case t: Throwable =>
@@ -322,7 +330,7 @@ object DwServer {
     (engine, " // mods:" + hash)
   }
 
-  private def makeServiceManager(): ServiceManager = {
+  private def makeServiceManager(logger: LoggingService = NullLogger): ServiceManager = {
     val charsetService = new CharsetProviderService {
       override def defaultCharset(): Charset = StandardCharsets.UTF_8
     }
@@ -331,7 +339,7 @@ object DwServer {
       classOf[UrlSourceProviderResolverService] -> urlService,
       classOf[CharsetProviderService] -> charsetService
     )
-    ServiceManager(NullLogger, customServices)
+    ServiceManager(logger, customServices)
   }
 
   private object NullLogger extends LoggingService {
@@ -341,13 +349,30 @@ object DwServer {
     override def logWarn(msg: String): Unit = ()
   }
 
-  private def successResponse(id: Int, output: String, started: Long): String = {
+  /** Trace mode: collects everything the script's `log(...)` calls emit so the
+   *  caller can inspect intermediate pipeline values. isInfoEnabled MUST be true
+   *  or the engine short-circuits `log()` and never calls us. */
+  private class CapturingLogger extends LoggingService {
+    val messages = scala.collection.mutable.ArrayBuffer[String]()
+    override def isInfoEnabled(): Boolean = true
+    private def add(msg: String): Unit = messages.synchronized { messages += msg }
+    override def logInfo(msg: String): Unit = add(msg)
+    override def logError(msg: String): Unit = add(msg)
+    override def logWarn(msg: String): Unit = add(msg)
+  }
+
+  private def successResponse(id: Int, output: String, started: Long, logs: List[String] = Nil): String = {
     val r = new JsonObject()
     r.add("id", id)
     r.add("ok", true)
     r.add("output", output)
     r.add("error", Json.NULL)
     r.add("executionTimeMs", System.currentTimeMillis() - started)
+    if (logs.nonEmpty) {
+      val arr = new com.eclipsesource.json.JsonArray()
+      logs.foreach(arr.add)
+      r.add("logs", arr)
+    }
     r.toString
   }
 

@@ -76,6 +76,9 @@ struct DwRequest<'a> {
     /// Custom `.dwl` modules so `import x from MyModule` resolves.
     #[serde(skip_serializing_if = "<[DwModule]>::is_empty")]
     modules: &'a [DwModule],
+    /// Trace mode: capture the script's `log(...)` output into the response.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    trace: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -95,6 +98,9 @@ pub struct DwResponse {
     pub error: Option<String>,
     #[allow(dead_code)]
     pub execution_time_ms: i64,
+    /// Captured `log(...)` output when the request set `trace`.
+    #[serde(default)]
+    pub logs: Option<Vec<String>>,
 }
 
 pub struct DwRunArgs<'a> {
@@ -108,6 +114,7 @@ pub struct DwRunArgs<'a> {
     pub classpath: &'a [String],
     pub compile_only: bool,
     pub modules: &'a [DwModule],
+    pub trace: bool,
 }
 
 /// Resolve the bundled dwstudio-server.jar path from Tauri resources.
@@ -314,6 +321,7 @@ fn run_once(app: &AppHandle, args: &DwRunArgs) -> Result<DwResponse, RunErr> {
         classpath: args.classpath,
         compile_only: args.compile_only,
         modules: args.modules,
+        trace: args.trace,
     };
     let line = serde_json::to_string(&req)
         .map_err(|e| RunErr::Other(format!("Failed to serialize request: {}", e)))?;

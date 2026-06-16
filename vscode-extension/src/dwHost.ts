@@ -75,6 +75,8 @@ interface DwResponse {
   output: string;
   error: string | null;
   executionTimeMs: number;
+  /** Captured `log(...)` output when the request set `trace`. */
+  logs?: string[];
 }
 
 interface DwRequest {
@@ -94,6 +96,8 @@ interface DwRequest {
   /** "run" (default) or "format" — format runs the engine's IDE formatter and
    *  returns the pretty-printed script in `output`. */
   op?: 'run' | 'format';
+  /** Trace mode: capture the script's `log(...)` output into the response. */
+  trace?: boolean;
 }
 
 export class DwServer {
@@ -417,6 +421,8 @@ export interface RunResult {
   execution_time_ms: number;
   error_line: number | null;
   error_column: number | null;
+  /** Captured `log(...)` output when trace mode is on (null otherwise). */
+  logs?: string[] | null;
 }
 
 export interface RunArgs {
@@ -433,6 +439,8 @@ export interface RunArgs {
   /** JSON array of `{name, content}` custom modules (matches the desktop's
    *  `modules_json`); parsed and forwarded to the engine. */
   modulesJson?: string | null;
+  /** Trace mode: capture the script's `log(...)` output. */
+  trace?: boolean;
 }
 
 interface MultipartPartData {
@@ -592,6 +600,7 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
           classpath: cpEntries.length ? cpEntries : undefined,
           compileOnly: false,
           modules: modules.length ? modules : undefined,
+          trace: args.trace || undefined,
         },
         timeout
       );
@@ -618,6 +627,7 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
         execution_time_ms: execMs,
         error_line: null,
         error_column: null,
+        logs: resp.logs ?? null,
       };
     }
     const shifted = shiftStderrLines(resp.error ?? '(no error message)', lineOffset);
@@ -628,6 +638,7 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
       execution_time_ms: execMs,
       error_line: line,
       error_column: col,
+      logs: resp.logs ?? null,
     };
   } finally {
     fs.rmSync(runDir, { recursive: true, force: true });
