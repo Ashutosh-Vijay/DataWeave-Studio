@@ -24,6 +24,8 @@ interface OutputPaneProps {
   isRunning: boolean;
   executionTimeMs?: number;
   errorLine?: number | null;
+  /** Captured `log(...)` output from the run — shown in a collapsible Logs panel. */
+  logs?: string[];
   outputFormat: 'json' | 'xml' | 'raw';
   onFormatChange: (format: 'json' | 'xml' | 'raw') => void;
   queryResult?: QueryResult | null;
@@ -97,6 +99,7 @@ export const OutputPane = memo(function OutputPane({
   isRunning,
   executionTimeMs,
   errorLine,
+  logs,
   outputFormat,
   onFormatChange,
   queryResult,
@@ -326,9 +329,60 @@ export const OutputPane = memo(function OutputPane({
           <OutputIdleState isQueryMode={isQueryMode} />
         )}
       </div>
+
+      {/* Logs panel — captured `log(...)` output, shown only when the script logged. */}
+      {logs && logs.length > 0 && !isRunning && <LogsPanel logs={logs} />}
     </div>
   );
 });
+
+/** Collapsible panel showing captured `log(...)` output from the run. Sits below
+ *  the output editor so you can inspect intermediate pipeline values inline. */
+function LogsPanel({ logs }: { logs: string[] }) {
+  const [open, setOpen] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(logs.join('\n')); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ }
+  };
+  return (
+    <div className="shrink-0 border-t border-line bg-surface" style={{ maxHeight: '40%', display: 'flex', flexDirection: 'column' }}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="shrink-0 flex items-center gap-2 px-3.5 h-7 text-[10.5px] uppercase tracking-[0.6px] font-semibold text-content-faint hover:text-content-secondary cursor-pointer"
+      >
+        <svg width="9" height="9" viewBox="0 0 10 10" fill="currentColor" className={`transition-transform ${open ? 'rotate-90' : ''}`}>
+          <path d="M3 1l5 4-5 4V1z" />
+        </svg>
+        Logs
+        <span className="inline-flex items-center justify-center min-w-[16px] h-[15px] px-1 rounded-full font-mono text-[9.5px] text-accent" style={{ background: 'var(--accent-dim)' }}>
+          {logs.length}
+        </span>
+        <span className="text-content-ghost normal-case tracking-normal font-normal">from log()</span>
+        <span className="flex-1" />
+        <span
+          onClick={(e) => { e.stopPropagation(); copy(); }}
+          className="inline-flex items-center gap-1 text-content-faint hover:text-content"
+          title="Copy logs"
+        >
+          {copied ? <Icons.Dot size={9} /> : <Icons.Copy size={11} />}
+        </span>
+      </button>
+      {open && (
+        <div className="overflow-auto px-3.5 pb-2.5">
+          {logs.map((line, i) => (
+            <pre
+              key={i}
+              className="text-[11.5px] font-mono whitespace-pre-wrap break-words leading-relaxed py-0.5 border-b last:border-b-0"
+              style={{ color: 'var(--content-secondary)', borderColor: 'var(--line-subtle)' }}
+            >
+              {line}
+            </pre>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function RunLoadingBanner({ onCancel }: { onCancel?: () => void }) {
   return (

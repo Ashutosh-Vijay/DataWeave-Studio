@@ -7,6 +7,7 @@ interface RunResult {
   execution_time_ms: number;
   error_line: number | null;
   error_column: number | null;
+  logs?: string[] | null;
 }
 
 interface WarmupStatus {
@@ -19,6 +20,8 @@ interface UseDWRunnerReturn {
   error: string | null;
   errorLine: number | null;
   errorColumn: number | null;
+  /** Captured `log(...)` output from the last run (empty if the script logged nothing). */
+  logs: string[];
   isRunning: boolean;
   executionTimeMs: number | undefined;
   isWarmedUp: boolean;
@@ -49,6 +52,7 @@ export function useDWRunner(): UseDWRunnerReturn {
   const [executionTimeMs, setExecutionTimeMs] = useState<number | undefined>(undefined);
   const [isWarmedUp, setIsWarmedUp] = useState(false);
   const [engineError, setEngineError] = useState<string | null>(null);
+  const [logs, setLogs] = useState<string[]>([]);
   const pollGenRef = useRef(0);
   const runningRef = useRef(false);
 
@@ -103,6 +107,7 @@ export function useDWRunner(): UseDWRunnerReturn {
       setErrorLine(null);
       setErrorColumn(null);
       setOutput('');
+      setLogs([]);
       setExecutionTimeMs(undefined);
 
       try {
@@ -118,6 +123,9 @@ export function useDWRunner(): UseDWRunnerReturn {
           timeoutMs: timeoutMs ?? 0,
           multipartPartsJson: multipartPartsJson ?? null,
           modulesJson: modulesJson ?? null,
+          // Always trace: the engine only emits when the script calls log(), so
+          // there's no cost for scripts that don't — and it powers the Logs panel.
+          trace: true,
         });
 
         if (result.error) {
@@ -126,6 +134,7 @@ export function useDWRunner(): UseDWRunnerReturn {
           setErrorColumn(result.error_column);
         }
         if (result.output) setOutput(result.output);
+        setLogs(result.logs ?? []);
         setExecutionTimeMs(result.execution_time_ms);
       } catch (e: unknown) {
         setError(String(e));
@@ -170,6 +179,7 @@ export function useDWRunner(): UseDWRunnerReturn {
     error,
     errorLine,
     errorColumn,
+    logs,
     isRunning,
     executionTimeMs,
     isWarmedUp,

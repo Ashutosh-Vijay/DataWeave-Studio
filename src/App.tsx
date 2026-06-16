@@ -1313,6 +1313,7 @@ function App() {
                   isRunning={runner.isRunning}
                   executionTimeMs={runner.executionTimeMs}
                   errorLine={runner.errorLine}
+                  logs={runner.logs}
                   outputFormat={outputFormat}
                   onFormatChange={setOutputFormat}
                   queryResult={queryResult}
@@ -1458,6 +1459,7 @@ function App() {
                 isRunning={runner.isRunning}
                 executionTimeMs={runner.executionTimeMs}
                 errorLine={runner.errorLine}
+                logs={runner.logs}
                 outputFormat={outputFormat}
                 onFormatChange={setOutputFormat}
                 queryResult={queryResult}
