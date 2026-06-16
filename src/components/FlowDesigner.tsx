@@ -1384,7 +1384,10 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       for (const b of node.branches) {
         if (b.isOtherwise) continue;
         if (!b.predicate || !b.predicate.trim()) continue;
-        const result = await evalExpression(b.predicate, ctx);
+        // Tolerate a pasted Mule `#[…]` wrapper — the predicate is a bare DW
+        // expression, so strip the outer #[ ] before evaluating it.
+        const expr = b.predicate.trim().replace(/^#\[([\s\S]*)\]$/, '$1');
+        const result = await evalExpression(expr, ctx);
         if (!result.ok) {
           return { ok: false, summary: `Predicate "${b.predicate}" failed: ${result.error}` };
         }
@@ -2310,14 +2313,23 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
               {isChoice && branch.isOtherwise ? (
                 <span className="text-[10.5px] text-content-faint italic flex-1">otherwise (no predicate matches)</span>
               ) : isChoice ? (
-                <input
-                  value={branch.predicate || ''}
-                  onChange={(e) => updateBranch(scopeNode.id, branch.id, { predicate: e.target.value })}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  placeholder="DataWeave boolean expression (e.g. payload.age > 18)"
-                  className="flex-1 min-w-0 text-[10.5px] font-mono bg-transparent border-none outline-none text-content placeholder:text-content-ghost"
-                  spellCheck={false}
-                />
+                <div className="flex items-center gap-1 flex-1 min-w-0">
+                  <span
+                    className="shrink-0 text-[9px] font-mono italic px-1 py-px rounded border border-accent-border text-accent"
+                    style={{ background: 'var(--accent-dim)' }}
+                    title="DataWeave boolean expression — evaluated against the message. No #[ ] needed (pasted #[…] is tolerated)."
+                  >
+                    fx
+                  </span>
+                  <input
+                    value={branch.predicate || ''}
+                    onChange={(e) => updateBranch(scopeNode.id, branch.id, { predicate: e.target.value })}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    placeholder="payload.age > 18"
+                    className="flex-1 min-w-0 text-[10.5px] font-mono bg-transparent border-none outline-none text-content placeholder:text-content-ghost"
+                    spellCheck={false}
+                  />
+                </div>
               ) : (
                 <span className="flex-1" />
               )}

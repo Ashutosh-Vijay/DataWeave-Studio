@@ -54,13 +54,22 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
   const { isDark } = useTheme();
   const editorFont = useEditorFont();
 
-  const [left, setLeft] = useState('');
-  const [right, setRight] = useState('');
-  const [lang, setLang] = useState<CompareLang>('plaintext');
-  const [sideBySide, setSideBySide] = useState(true);
-  const [wrap, setWrap] = useState(false);
+  // Persist content/prefs to localStorage so closing the tool (which unmounts
+  // it — the panel is conditionally rendered) doesn't wipe what you pasted.
+  const ls = (k: string, d = '') => { try { return localStorage.getItem('dw.compare.' + k) ?? d; } catch { return d; } };
+  const [left, setLeft] = useState(() => ls('left'));
+  const [right, setRight] = useState(() => ls('right'));
+  const [lang, setLang] = useState<CompareLang>(() => (ls('lang', 'plaintext') as CompareLang));
+  const [sideBySide, setSideBySide] = useState(() => ls('sideBySide', '1') !== '0');
+  const [wrap, setWrap] = useState(() => ls('wrap') === '1');
   const diffEditorRef = useRef<Monaco.editor.IStandaloneDiffEditor | null>(null);
   const [stats, setStats] = useState<{ added: number; removed: number; same: boolean } | null>(null);
+
+  useEffect(() => { try { localStorage.setItem('dw.compare.left', left); } catch { /* ignore */ } }, [left]);
+  useEffect(() => { try { localStorage.setItem('dw.compare.right', right); } catch { /* ignore */ } }, [right]);
+  useEffect(() => { try { localStorage.setItem('dw.compare.lang', lang); } catch { /* ignore */ } }, [lang]);
+  useEffect(() => { try { localStorage.setItem('dw.compare.sideBySide', sideBySide ? '1' : '0'); } catch { /* ignore */ } }, [sideBySide]);
+  useEffect(() => { try { localStorage.setItem('dw.compare.wrap', wrap ? '1' : '0'); } catch { /* ignore */ } }, [wrap]);
 
   // Esc to close
   useEffect(() => {
@@ -95,6 +104,11 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
 
     const original = editor.getOriginalEditor();
     const modified = editor.getModifiedEditor();
+
+    // Restore persisted content (the panes are uncontrolled — original="" /
+    // modified="" — so seed them here from the localStorage-backed state).
+    if (left) original.setValue(left);
+    if (right) modified.setValue(right);
 
     // Mirror typed-in text into React state. This update is purely
     // read-side — nothing writes it back into the editor.
