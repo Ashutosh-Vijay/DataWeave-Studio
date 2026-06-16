@@ -16,6 +16,7 @@ import org.mule.weave.v2.completion.{DataFormatDescriptorProvider, DataFormatDes
 import java.io.{ByteArrayOutputStream, File}
 import java.net.{URL, URLClassLoader}
 import java.nio.charset.{Charset, StandardCharsets}
+import java.nio.file.Files
 import java.util.Properties
 
 /**
@@ -128,6 +129,10 @@ object DwServer {
       if (req.getString("op", "run") == "format") {
         return successResponse(id, formatScript(rawScript), started)
       }
+
+      // Pick the engine: a module-aware one if the request carries custom `.dwl`
+      // modules (so `import x from MyModule` resolves), else the shared engine.
+      val (compileEngine, moduleCacheSuffix) = engineForRequest(req, engine)
       // compileOnly: pre-warm the cache without actually evaluating. Used by
       // the debounced editor pre-warmer so the user's first Run is already
       // cached and runs at ~10ms instead of paying ~800ms compile cost.
@@ -211,10 +216,10 @@ object DwServer {
       // keyed on mimeByName.keys, but that caused misses when the splash
       // primer compiled with [payload] only while the actual run sent
       // [payload, attributes] — even though the script texts were identical.
-      val cacheKey = script + " " + outputMime
+      val cacheKey = script + " " + outputMime + moduleCacheSuffix
       val compiled: DataWeaveScript = CompileCache.get(cacheKey).getOrElse {
-        val c = engine.compileWith(
-          engine.newConfig()
+        val c = compileEngine.compileWith(
+          compileEngine.newConfig()
             .withScript(script)
             .withInputs(inputTypes)
             .withNameIdentifier(NameIdentifier("main"))
@@ -248,6 +253,73 @@ object DwServer {
       case Some(r) => r.newFormat
       case None    => source
     }
+  }
+
+  // ── Custom DataWeave modules (`import x from MyModule`) ─────────────────────
+  // A module resolves to a `.dwl` file on the classpath. The engine's resolver
+  // captures its classloaders at CREATION (it doesn't re-read the thread CL), and
+  // a URLClassLoader caches file content — so to resolve custom modules AND pick
+  // up edits, we build a FRESH engine + classloader per distinct module set,
+  // keyed by a hash of the module contents. Same set ⇒ warm reuse (and the
+  // compile cache hits); changed set ⇒ fresh resolution, no stale content, no
+  // cross-set name collisions. Bounded LRU caps memory + temp dirs.
+  private val moduleBaseDir: File = {
+    val d = new File(System.getProperty("java.io.tmpdir"), "dwstudio-modules-" + java.util.UUID.randomUUID().toString)
+    d.mkdirs(); d
+  }
+
+  private def deleteRecursively(f: File): Unit = {
+    if (f.isDirectory) { val fs = f.listFiles(); if (fs != null) fs.foreach(deleteRecursively) }
+    f.delete()
+  }
+
+  private val MAX_MODULE_ENGINES = 8
+  private val moduleEngines =
+    new java.util.LinkedHashMap[String, DataWeaveScriptingEngine](MAX_MODULE_ENGINES, 0.75f, true) {
+      override def removeEldestEntry(e: java.util.Map.Entry[String, DataWeaveScriptingEngine]): Boolean = {
+        val over = size() > MAX_MODULE_ENGINES
+        if (over) deleteRecursively(new File(moduleBaseDir, e.getKey))
+        over
+      }
+    }
+
+  /** The engine to compile a request with: a module-aware one if the request
+   *  carries `modules` (a JSON array of {name, content}, name may be nested with
+   *  `::`), else the shared engine. Also returns a compile-cache-key suffix. */
+  private def engineForRequest(req: JsonObject, shared: DataWeaveScriptingEngine): (DataWeaveScriptingEngine, String) = {
+    val mods = req.get("modules")
+    if (mods == null || !mods.isArray || mods.asArray().size() == 0) return (shared, "")
+    val arr = mods.asArray()
+    val sb = new StringBuilder
+    var i = 0
+    while (i < arr.size()) {
+      val m = arr.get(i).asObject()
+      val name = m.getString("name", null)
+      if (name != null && name.nonEmpty) sb.append(name).append(':').append(m.getString("content", "")).append(';')
+      i += 1
+    }
+    if (sb.isEmpty) return (shared, "")
+    val hash = Integer.toHexString(sb.toString.hashCode)
+    val engine = Option(moduleEngines.get(hash)).getOrElse {
+      val dir = new File(moduleBaseDir, hash)
+      var j = 0
+      while (j < arr.size()) {
+        val m = arr.get(j).asObject()
+        val name = m.getString("name", null)
+        if (name != null && name.nonEmpty) {
+          val f = new File(dir, name.replace("::", "/") + ".dwl")
+          Option(f.getParentFile).foreach(_.mkdirs())
+          Files.write(f.toPath, m.getString("content", "").getBytes(StandardCharsets.UTF_8))
+        }
+        j += 1
+      }
+      val cl = new URLClassLoader(Array(dir.toURI.toURL), hotLoader)
+      val resolver = ClassLoaderWeaveResourceResolver.providedClassLoader(Seq(cl, hotLoader))
+      val e = new DataWeaveScriptingEngine(ModuleComponentsFactory.apply(resolver), ParserConfiguration(), new Properties())
+      moduleEngines.put(hash, e)
+      e
+    }
+    (engine, " // mods:" + hash)
   }
 
   private def makeServiceManager(): ServiceManager = {

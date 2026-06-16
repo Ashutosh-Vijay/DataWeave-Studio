@@ -87,6 +87,14 @@ struct RunInput {
     /// engine adds `input <name> <mime>` for each automatically.
     #[serde(default)]
     named_inputs: Option<String>,
+    /// Custom DataWeave module libraries, as a JSON array, so `import x from MyModule`
+    /// resolves. Each: `{"name":"MyModule","content":"%dw 2.0\nfun greet(n) = \"hi \" ++ n"}`.
+    /// `name` is the module path you import (use `::` for packages, e.g. `"org::Utils"`
+    /// → `import f from org::Utils`); `content` is the module's full `.dwl` source.
+    /// Module bodies are subject to the same Safe-mode gate as the script (no java!/
+    /// readUrl/dw::io unless Advanced mode is on).
+    #[serde(default)]
+    modules: Option<String>,
 }
 fn default_mime() -> String {
     "application/json".to_string()
@@ -162,6 +170,14 @@ struct McpNamedInput {
     mime_type: Option<String>,
     #[serde(default)]
     file_path: Option<String>,
+}
+
+/// One custom DataWeave module as supplied by an MCP agent (parsed from `modules`).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct McpModule {
+    name: String,
+    content: String,
 }
 
 /// One multipart part as supplied by an MCP agent (parsed from the `multipart` JSON).
@@ -531,6 +547,41 @@ impl DwTools {
             _ => "[]".to_string(),
         };
 
+        // Custom `.dwl` modules so `import x from MyModule` resolves. Each module
+        // body runs through the SAME safe-mode gate as the script — an agent must
+        // not be able to smuggle java!/readUrl/dw::io into an imported module.
+        let modules_json = match input.modules.as_deref() {
+            Some(s) if !s.trim().is_empty() && s.trim() != "[]" => {
+                let mods: Vec<McpModule> = match serde_json::from_str(s) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        return Ok(CallToolResult::error(vec![Content::text(format!(
+                            "Invalid `modules` JSON: {}. Expected an array of {{name, content}}.",
+                            e
+                        ))]))
+                    }
+                };
+                if !self.advanced.load(Ordering::Relaxed) {
+                    for m in &mods {
+                        if let Some(reason) = safe_mode_block_reason(&m.content) {
+                            return Ok(CallToolResult::error(vec![Content::text(format!(
+                                "Safe mode rejected module '{}': {} is not allowed here — modules run in the same \
+                                 pure-transform sandbox as the script, with no file or network access, so nothing \
+                                 was run. Rewrite the module without that, or ask the user to enable Advanced mode.",
+                                m.name, reason
+                            ))]));
+                        }
+                    }
+                }
+                let arr: Vec<serde_json::Value> = mods
+                    .into_iter()
+                    .map(|m| serde_json::json!({ "name": m.name, "content": m.content }))
+                    .collect();
+                Some(serde_json::Value::Array(arr).to_string())
+            }
+            _ => None,
+        };
+
         self.requests.fetch_add(1, Ordering::Relaxed);
         let state = self.app.state::<crate::dw_runner::RunState>();
         let result = crate::dw_runner::run_dataweave(
@@ -546,6 +597,7 @@ impl DwTools {
             None,              // classpath — never hand an agent a classpath
             None,              // timeout (default)
             multipart_json,    // multipart parts (binary-safe)
+            modules_json,      // custom .dwl modules (safe-mode scanned above)
         )
         .await
         .map_err(|e| rmcp::ErrorData::internal_error(e, None))?;

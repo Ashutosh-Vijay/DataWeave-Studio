@@ -316,8 +316,18 @@ pub async fn run_dataweave(
     classpath: Option<Vec<String>>,
     timeout_ms: Option<u64>,
     multipart_parts_json: Option<String>,
+    modules_json: Option<String>,
 ) -> Result<RunResult, String> {
     let start_time = Instant::now();
+
+    // Custom `.dwl` module libraries so `import x from MyModule` resolves. The
+    // server writes each to a classpath dir keyed by a content hash and compiles
+    // against a fresh classloader (see DwServer.scala engineForRequest).
+    let modules: Vec<crate::dw_server::DwModule> = match modules_json.as_deref() {
+        Some(s) if !s.trim().is_empty() && s.trim() != "[]" => serde_json::from_str(s)
+            .map_err(|e| format!("Failed to parse modules: {}", e))?,
+        _ => vec![],
+    };
 
     // Reset cancellation flag and any stale PID at the start of every run.
     *state.cancelled.lock().unwrap_or_else(|e| e.into_inner()) = false;
@@ -469,6 +479,7 @@ pub async fn run_dataweave(
                 output_mime: "application/json",
                 classpath: &cp_entries,
                 compile_only: false,
+                modules: &modules,
             },
         )
     });
@@ -726,6 +737,7 @@ pub async fn warm_dataweave_script(
                 output_mime: "application/json",
                 classpath: &[],
                 compile_only: true,
+                modules: &[],
             },
         ) {
             log::warn!("Warm compile failed: {}", e);
