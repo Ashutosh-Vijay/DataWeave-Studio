@@ -38,22 +38,28 @@ const svg = (paths: React.ReactNode, size = 16, sw = 1.7) => (
 const ICONS = {
   mcp: svg(<><path d="M12 2v4" /><path d="M5.5 5.5 8 8" /><path d="M18.5 5.5 16 8" /><rect x="6" y="8" width="12" height="8" rx="3" /><path d="M9 16v3a3 3 0 0 0 6 0v-3" /></>),
   ref: svg(<><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1" /><path d="M16 21h1a2 2 0 0 0 2-2v-5a2 2 0 0 1 2-2 2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" /></>),
-  format: svg(<><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14a9 3 0 0 0 18 0V5" /><path d="M3 12a9 3 0 0 0 18 0" /></>),
+  logs: svg(<><path d="M4 6h16M4 12h10M4 18h7" /></>),
   flow: svg(<><circle cx="5" cy="6" r="2" /><circle cx="19" cy="12" r="2" /><circle cx="5" cy="18" r="2" /><path d="M7 6h6a4 4 0 0 1 4 4M7 18h6a4 4 0 0 0 4-4" /></>),
+  modules: svg(<><path d="m16 6 4 14M12 6v14M8 8l-4 12" /></>),
+  java: svg(<><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></>),
+  cookbook: svg(<><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>),
   secure: svg(<><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></>),
   offline: svg(<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></>),
 };
 
 const BENTO = [
   { key: 'mcp', tag: 'NEW', title: 'MCP Server', desc: 'Expose the engine to Claude, Cursor & Copilot so an agent can run and self-correct scripts.', icon: ICONS.mcp },
+  { key: 'logs', tag: 'NEW', title: 'Logs panel', desc: 'Your script’s log() calls surface under the output — inspect intermediate values mid-transform.', icon: ICONS.logs },
+  { key: 'modules', tag: 'NEW', title: 'Module library', desc: 'Save reusable .dwl modules once, then import them from any script.', icon: ICONS.modules },
   { key: 'ref', title: '309 functions', desc: 'Autocomplete, hover docs & inline errors from the official DataWeave reference.', icon: ICONS.ref },
-  { key: 'format', title: 'Every format', desc: 'JSON, XML, CSV, YAML, NDJSON, multipart & Java Properties — parsed locally.', icon: ICONS.format },
   { key: 'flow', title: 'Message flows', desc: 'Chain transforms into a pipeline with the visual Message Flow designer.', icon: ICONS.flow },
+  { key: 'java', title: 'Java tester', desc: 'Compile the Java classes your Mule app calls and run them against a payload.', icon: ICONS.java },
+  { key: 'cookbook', title: 'Cookbook', desc: 'A searchable library of ready-to-run recipes — load one and tweak it.', icon: ICONS.cookbook },
   { key: 'secure', title: 'Secure properties', desc: 'Encrypt & decrypt ${secure::key} values with the built-in crypto tool.', icon: ICONS.secure },
   { key: 'offline', title: '100% offline', desc: 'No telemetry, no account, no network. Your payloads never leave the machine.', icon: ICONS.offline },
 ];
 
-const CHIPS = ['DataWeave 2.11 runtime', 'Bundled JVM', 'cURL import', 'Dusk / Paper themes', 'Cross-platform'];
+const CHIPS = ['DataWeave 2.11 runtime', 'Bundled JVM', 'JSON · XML · CSV · YAML', 'cURL import', 'Dusk / Paper themes', 'Cross-platform'];
 
 function useReducedMotion(): boolean {
   const [reduce, setReduce] = useState(() => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);

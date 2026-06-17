@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
-import { CurlImporter, CurlImportResult } from './CurlImporter';
 import { METHOD_COLORS } from '../types';
 import { Icons } from './Icons';
 import { ConfirmDialog, ConfirmFile } from './ConfirmDialog';
@@ -42,7 +41,7 @@ interface SidebarProps {
   onLoad: (filename: string) => Promise<void>;
   onDelete: (filename: string) => Promise<void>;
   listWorkspaces: () => Promise<{ filename: string; projectName: string }[]>;
-  onCurlImport: (result: CurlImportResult) => void;
+  onOpenCurlImport: () => void;
   onInsertSnippet?: (body: string) => void;
   onOpenReference: () => void;
   onOpenRecipes: () => void;
@@ -146,7 +145,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const {
     projectName, onProjectNameChange, currentFile, isDirty, currentMethod,
     onNew, onSave, onLoad, onDelete, listWorkspaces,
-    onCurlImport, onInsertSnippet, onOpenSecure, onOpenCompare, onOpenFlowDesigner, onOpenJavaTester, onOpenModules, onOpenMcp, mcpRunning, onOpenSettings,
+    onOpenCurlImport, onInsertSnippet, onOpenSecure, onOpenCompare, onOpenFlowDesigner, onOpenJavaTester, onOpenModules, onOpenMcp, mcpRunning, onOpenSettings,
     onOpenReference, onOpenRecipes,
     collapsed, onToggleCollapse,
     requests, activeRequestId, onSelectRequest, onAddRequest, onRenameRequest, onRemoveRequest, onDuplicateRequest,
@@ -195,6 +194,9 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   };
 
   const handleRailClick = (id: RailTab) => {
+    // cURL import is a full-screen dialog, not a sidebar panel — open it
+    // directly instead of expanding a near-empty "Import" tab.
+    if (id === 'import') { onOpenCurlImport(); return; }
     if (collapsed) {
       onToggleCollapse();
       setTab(id);
@@ -447,12 +449,6 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                     />
                   )}
                 </div>
-              </div>
-            )}
-
-            {tab === 'import' && (
-              <div className="p-3">
-                <CurlImporter onImport={onCurlImport} />
               </div>
             )}
 

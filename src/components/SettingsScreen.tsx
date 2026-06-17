@@ -7,6 +7,8 @@ import { MIME_OPTIONS, MimeType } from '../types';
 import { notifyEditorFontChanged } from '../hooks/useEditorFont';
 import { useTheme } from '../ThemeContext';
 import { MiniPreview } from './MiniPreview';
+import { resetFeatureIntros } from '../featureIntros';
+import { toast } from './Toast';
 
 type Section = 'appearance' | 'general' | 'runtime' | 'editor' | 'shortcuts' | 'advanced' | 'about';
 
@@ -450,6 +452,9 @@ function GeneralPanel({ onShowTour }: { onShowTour: () => void }) {
       <Group title="Welcome">
         <SRow label="Show guided tour" desc="Walk through script editor, payload, context, and output.">
           <OutlineBtn onClick={onShowTour}>Show tour</OutlineBtn>
+        </SRow>
+        <SRow label="Replay feature hints" desc="Show the one-time tips again the next time you open each tool.">
+          <OutlineBtn onClick={() => { resetFeatureIntros(); toast('Feature hints reset — they’ll show again as you use each tool.', 'success'); }}>Reset hints</OutlineBtn>
         </SRow>
       </Group>
     </SectionWrap>

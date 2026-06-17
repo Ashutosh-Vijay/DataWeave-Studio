@@ -53,6 +53,9 @@ const WelcomeTour = lazy(() => import('./components/WelcomeTour').then((m) => ({
 const ShortcutsDialog = lazy(() => import('./components/ShortcutsDialog').then((m) => ({ default: m.ShortcutsDialog })));
 const SettingsScreen = lazy(() => import('./components/SettingsScreen').then((m) => ({ default: m.SettingsScreen })));
 const WelcomeScreen = lazy(() => import('./components/WelcomeScreen').then((m) => ({ default: m.WelcomeScreen })));
+import { WhatsNew, hasWhatsNew } from './components/WhatsNew';
+import { FeatureIntroHost } from './components/FeatureIntroHost';
+import { introFeature } from './featureIntros';
 import { SplashScreen } from './components/SplashScreen';
 import { CommandPalette, Command } from './components/CommandPalette';
 import { CompactLayout } from './components/CompactLayout';
@@ -62,6 +65,7 @@ import { CompactLayout } from './components/CompactLayout';
 const FIRST_RUN_KEY = 'dw.firstRun.seen';
 const FIRST_WORKSPACE_KEY = 'dw.firstWorkspace.seen';
 const TOUR_SEEN_KEY = 'dwstudio_tour_seen'; // matches WelcomeTour's own key — existing users keep state
+const LAST_VERSION_KEY = 'dw.lastSeenVersion'; // drives the "what's new" dialog after an update
 function shouldShowFirstRun(): boolean { try { return localStorage.getItem(FIRST_RUN_KEY) !== 'true'; } catch { return false; } }
 function markFirstRunSeen(): void { try { localStorage.setItem(FIRST_RUN_KEY, 'true'); } catch {} }
 function markTourSeen(): void { try { localStorage.setItem(TOUR_SEEN_KEY, 'true'); } catch {} }
@@ -75,7 +79,7 @@ import { useMediaQuery } from './hooks/useMediaQuery';
 import { useTheme } from './ThemeContext';
 import { KeyValuePair, METHOD_COLORS, NODE_LABEL_COLORS, NODE_LABELS, isValidMimeType } from './types';
 import { Icons } from './components/Icons';
-import { CurlImportResult } from './components/CurlImporter';
+import { CurlImporter, CurlImportResult } from './components/CurlImporter';
 import { publishCursor, useCursor } from './cursorStore';
 import { substituteProperties, substitutePropertiesAsync } from './propertySubstitution';
 import { convertAllPropertyCalls } from './dataweavePropertyConverter';
@@ -215,6 +219,7 @@ function App() {
   const [referenceOpen, setReferenceOpen] = useState(false);
   const [recipesOpen, setRecipesOpen] = useState(false);
   const [flowDesignerOpen, setFlowDesignerOpen] = useState(false);
+  const [curlImportOpen, setCurlImportOpen] = useState(false);
   const [javaTesterOpen, setJavaTesterOpen] = useState(false);
   const [mcpOpen, setMcpOpen] = useState(false);
   const [mcpRunning, setMcpRunning] = useState(false);
@@ -223,6 +228,9 @@ function App() {
   // run so `import x from MyModule` resolves. Loaded on mount, persisted on edit.
   const [modules, setModules] = useState<DwModule[]>([]);
   const [showFirstRun, setShowFirstRun] = useState(() => shouldShowFirstRun());
+  // "What's new" after an update — gated on the version having changed since the
+  // last launch (see the version-loading effect below).
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
   /** One-time prompt for the very first workspace. Surfaced only after the
    *  theme/layout FirstRunPicker is dismissed (or skipped — for returning
    *  users on a fresh install). */
@@ -258,10 +266,9 @@ function App() {
     setTimeout(() => scriptEditorRef.current?.focus(), 50);
   }, [workspace, beginTransforming]);
   const handleOpenImport = useCallback(() => {
+    introFeature('curl');
     beginTransforming();
-    setLayout('workbench');
-    setSidebarCollapsed(false);
-    setTimeout(() => sidebarRef.current?.openTab('import'), 0);
+    setCurlImportOpen(true);
   }, [beginTransforming]);
   const handleOpenSnippets = useCallback(() => {
     beginTransforming();
@@ -555,7 +562,18 @@ function App() {
   // out (Settings → Advanced → Privacy). Disabling it makes the app fully
   // no-network, which matters for locked-down / compliance environments.
   useEffect(() => {
-    getVersion().then(setAppVersion).catch(() => {});
+    getVersion().then((v) => {
+      setAppVersion(v);
+      // Show "what's new" to returning users whose last-seen version differs from
+      // the running one (an update) — but not on a fresh install (the Welcome
+      // screen covers that) and only when this build actually has release notes.
+      // Record the version either way so it pops at most once per release.
+      try {
+        const last = localStorage.getItem(LAST_VERSION_KEY);
+        if (!shouldShowFirstRun() && last !== v && hasWhatsNew(v)) setShowWhatsNew(true);
+        localStorage.setItem(LAST_VERSION_KEY, v);
+      } catch { /* ignore */ }
+    }).catch(() => {});
     let updateCheckEnabled = true;
     try { updateCheckEnabled = localStorage.getItem('dw.updateCheck') !== '0'; } catch { /* default on */ }
     if (!updateCheckEnabled) return;
@@ -1056,7 +1074,7 @@ function App() {
           )}
 
           <button
-            onClick={() => setAutoRun(!autoRun)}
+            onClick={() => { if (!autoRun) introFeature('autorun'); setAutoRun(!autoRun); }}
             data-tour="run-controls"
             className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] font-medium border transition-colors cursor-pointer ${
               autoRun
@@ -1189,18 +1207,18 @@ function App() {
           onRenameRequest={workspace.renameRequest}
           onRemoveRequest={workspace.removeRequest}
           onDuplicateRequest={workspace.duplicateRequest}
-          onCurlImport={handleCurlImport}
+          onOpenCurlImport={handleOpenImport}
           onInsertSnippet={(body) => scriptEditorRef.current?.insertSnippet(body)}
-          onOpenSecure={() => setSecureToolOpen(true)}
-          onOpenCompare={() => setCompareToolOpen(true)}
-          onOpenFlowDesigner={() => setFlowDesignerOpen(true)}
-          onOpenJavaTester={() => setJavaTesterOpen(true)}
-          onOpenModules={() => setModulesOpen(true)}
-          onOpenMcp={() => setMcpOpen(true)}
+          onOpenSecure={() => { introFeature('secure'); setSecureToolOpen(true); }}
+          onOpenCompare={() => { introFeature('compare'); setCompareToolOpen(true); }}
+          onOpenFlowDesigner={() => { introFeature('flow'); setFlowDesignerOpen(true); }}
+          onOpenJavaTester={() => { introFeature('java'); setJavaTesterOpen(true); }}
+          onOpenModules={() => { introFeature('modules'); setModulesOpen(true); }}
+          onOpenMcp={() => { introFeature('mcp'); setMcpOpen(true); }}
           mcpRunning={mcpRunning}
           onOpenSettings={() => setSettingsOpen(true)}
-          onOpenReference={() => setReferenceOpen(true)}
-          onOpenRecipes={() => setRecipesOpen(true)}
+          onOpenReference={() => { introFeature('reference'); setReferenceOpen(true); }}
+          onOpenRecipes={() => { introFeature('cookbook'); setRecipesOpen(true); }}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />}
@@ -1570,6 +1588,19 @@ function App() {
           />
         </Suspense>
       )}
+
+      {/* What's new — once per release, for returning users after an update. */}
+      {showWhatsNew && !showFirstRun && (
+        <WhatsNew version={appVersion} onClose={() => setShowWhatsNew(false)} />
+      )}
+
+      {/* cURL import — full-screen modal, opened directly (⌘⇧I, rail icon,
+          empty state) rather than via a near-empty sidebar tab. */}
+      <CurlImporter open={curlImportOpen} onClose={() => setCurlImportOpen(false)} onImport={handleCurlImport} />
+
+      {/* One-time feature coachmarks — fired by introFeature(key) from button
+          handlers; renders at most one card at a time. */}
+      <FeatureIntroHost />
 
       {/* First-workspace prompt — one-time, lands the user inside a real
           workspace so the "what's a workspace? what's a request?" mental

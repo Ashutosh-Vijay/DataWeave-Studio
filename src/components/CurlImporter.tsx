@@ -513,10 +513,18 @@ function tokenize(input: string): string[] {
 
 interface CurlImporterProps {
   onImport: (result: CurlImportResult) => void;
+  /** Controlled open state. When provided the component is just the modal —
+   *  no inline trigger button — so callers can open it directly (App lifts it
+   *  out of the sidebar so the cURL rail icon opens the dialog, not an empty
+   *  panel). When omitted it falls back to its own inline trigger button. */
+  open?: boolean;
+  onClose?: () => void;
 }
 
-export function CurlImporter({ onImport }: CurlImporterProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function CurlImporter({ onImport, open, onClose }: CurlImporterProps) {
+  const controlled = open !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = controlled ? open : internalOpen;
   const [curlText, setCurlText] = useState('');
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<CurlImportResult | null>(null);
@@ -532,27 +540,26 @@ export function CurlImporter({ onImport }: CurlImporterProps) {
     }
   };
 
-  const handleImport = () => {
-    if (preview) {
-      onImport(preview);
-      setCurlText('');
-      setError('');
-      setPreview(null);
-      setIsOpen(false);
-    }
-  };
-
   const handleClose = () => {
-    setIsOpen(false);
+    if (controlled) onClose?.(); else setInternalOpen(false);
     setError('');
     setCurlText('');
     setPreview(null);
   };
 
+  const handleImport = () => {
+    if (preview) {
+      onImport(preview);
+      handleClose();
+    }
+  };
+
   if (!isOpen) {
+    // Controlled mode: nothing to render until the caller opens it.
+    if (controlled) return null;
     return (
       <button
-        onClick={() => setIsOpen(true)}
+        onClick={() => setInternalOpen(true)}
         className="w-full text-left rounded-md px-2.5 py-2 text-[12px] cursor-pointer transition-colors"
         style={{
           background: 'var(--surface-2)',
