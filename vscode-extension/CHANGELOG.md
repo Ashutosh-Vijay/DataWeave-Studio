@@ -2,6 +2,25 @@
 
 All notable changes to DataWeave Studio for VS Code.
 
+## 1.0.1 — 2026-06-17
+
+- Documentation: the full **1.0.0** release notes (below) are now on the Marketplace listing. No functional changes.
+
+## 1.0.0 — 2026-06-17
+
+**Serve your DataWeave engine to AI agents — and reuse your own modules.**
+
+- **MCP Server, built in.** The extension now runs a Model Context Protocol server so agents in **Claude Code, Cursor, and GitHub Copilot** can use your engine: the agent writes a script, runs it against the real DataWeave 2.11 runtime to get the *actual* error, fixes it, and hands you tested code. Six tools — run/validate, secure-properties encrypt & decrypt, 1.0→2.0 migration, the IDE formatter, the 309-function reference, and the cookbook.
+- **One-click client setup.** Add the server to Claude Code / Cursor / Claude Desktop straight from the MCP panel — no hand-editing JSON. It runs via VS Code's own Node runtime, so there's nothing extra to install.
+- **Safe by default.** Agents can transform data but can't reach Java, the filesystem, or the network unless you explicitly enable advanced mode — and module bodies are scanned too.
+- **Live server status.** The MCP panel shows a green pulse when the server is running and red when it's idle, at a glance.
+- **Custom module library.** Save reusable `.dwl` modules once and `import x from MyModule` from any script — they're sent to the engine on every run.
+- **Logs panel.** Your script's `log()` output now shows under the result, so you can inspect intermediate values mid-transform.
+- **Guided feature hints.** The first time you open a tool — cURL import, cookbook, flows, modules — a one-time tip explains what it does.
+- **cURL import opens directly** as a dialog, instead of expanding a near-empty side panel.
+- **Flow Designer Choice router** now takes a plain DataWeave predicate (with an `fx` affordance) — no hand-written `#[…]` needed.
+- **Compare** keeps your pasted text when you switch screens and come back.
+
 ## 0.0.6 — 2026-06-13
 
 **Test Java, wire up property config, and a more resilient engine.**
