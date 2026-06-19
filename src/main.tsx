@@ -59,6 +59,10 @@ if (!isTauri) {
 // re-applies it — which is annoying for users who picked sky or violet.
 (function applySavedAccent() {
   try {
+    // When adopting the VS Code theme, the accent comes from VS Code's button
+    // color via the .dw-vscode-theme CSS class — setting an inline --accent here
+    // would override it (inline beats class), so skip.
+    if (!isTauri && localStorage.getItem("dw.matchVsCode") !== "0") return;
     const id = localStorage.getItem("dw.accent");
     if (!id || id === "emerald") return; // emerald is the CSS default
     const swatches: Record<string, { hue: number; chroma: number }> = {

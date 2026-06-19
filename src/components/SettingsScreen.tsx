@@ -53,7 +53,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
     classpath, onClasspathChange,
     timeoutMs, onTimeoutMsChange,
     onShowTour, onShowAbout, onRestartEngine } = props;
-  const { isDark, pref, setPref } = useTheme();
+  const { isDark, pref, setPref, matchVsCode, setMatchVsCode, inVsCode } = useTheme();
   const [section, setSection] = useState<Section>('appearance');
   const [search, setSearch] = useState('');
 
@@ -140,7 +140,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
           {/* Content */}
           <div className="flex-1 overflow-y-auto px-10 py-7 bg-bg">
             {section === 'appearance' && (
-              <AppearancePanel isDark={isDark} pref={pref} setPref={setPref} layout={layout} onLayoutChange={onLayoutChange} />
+              <AppearancePanel isDark={isDark} pref={pref} setPref={setPref} matchVsCode={matchVsCode} setMatchVsCode={setMatchVsCode} inVsCode={inVsCode} layout={layout} onLayoutChange={onLayoutChange} />
             )}
             {section === 'general' && <GeneralPanel onShowTour={onShowTour} />}
             {section === 'runtime' && (
@@ -264,11 +264,14 @@ function OutlineBtn({ children, onClick, danger }: { children: React.ReactNode; 
 /* ---------- Panels ---------- */
 
 function AppearancePanel({
-  isDark, pref, setPref, layout, onLayoutChange,
+  isDark, pref, setPref, matchVsCode, setMatchVsCode, inVsCode, layout, onLayoutChange,
 }: {
   isDark: boolean;
   pref: 'dark' | 'light' | 'system';
   setPref: (p: 'dark' | 'light' | 'system') => void;
+  matchVsCode: boolean;
+  setMatchVsCode: (v: boolean) => void;
+  inVsCode: boolean;
   layout: 'workbench' | 'focus';
   onLayoutChange: (l: 'workbench' | 'focus') => void;
 }) {
@@ -344,35 +347,49 @@ function AppearancePanel({
       </Group>
 
       <Group title="Theme">
-        <div className="inline-flex p-[3px] rounded-[8px] bg-surface-2 border border-line gap-0.5">
-          {([
-            ['dark', 'Dusk', <Icons.Moon size={12} key="d" />],
-            ['light', 'Paper', <Icons.Sun size={12} key="l" />],
-            ['system', 'System', <Icons.Activity size={12} key="s" />],
-          ] as const).map(([id, label, icon]) => {
-            const active = pref === id;
-            return (
-              <button
-                key={id as string}
-                onClick={() => setPref(id as 'dark' | 'light' | 'system')}
-                className="inline-flex items-center gap-1.5 px-3.5 h-[26px] rounded-md text-[12.5px] font-medium cursor-pointer transition-colors"
-                style={{
-                  background: active ? 'var(--surface-3)' : 'transparent',
-                  color: active ? 'var(--content)' : 'var(--content-muted)',
-                }}
-              >
-                {icon} {label}
-              </button>
-            );
-          })}
-        </div>
-        {pref === 'system' && (
-          <div className="text-[11.5px] text-content-faint mt-2">
-            Following OS appearance — currently {isDark ? 'Dusk' : 'Paper'}.
+        {inVsCode && (
+          <SRow label="Match VS Code theme" desc="Use your active VS Code color theme — surfaces, text, and accent — instead of the app's own.">
+            <Toggle on={matchVsCode} onChange={setMatchVsCode} />
+          </SRow>
+        )}
+        {matchVsCode ? (
+          <div className="text-[11.5px] text-content-faint mt-1">
+            The app is following your VS Code color theme — currently {isDark ? 'dark' : 'light'}. Switch your theme in VS Code and it re-skins instantly.
           </div>
+        ) : (
+          <>
+            <div className="inline-flex p-[3px] rounded-[8px] bg-surface-2 border border-line gap-0.5">
+              {([
+                ['dark', 'Dusk', <Icons.Moon size={12} key="d" />],
+                ['light', 'Paper', <Icons.Sun size={12} key="l" />],
+                ['system', 'System', <Icons.Activity size={12} key="s" />],
+              ] as const).map(([id, label, icon]) => {
+                const active = pref === id;
+                return (
+                  <button
+                    key={id as string}
+                    onClick={() => setPref(id as 'dark' | 'light' | 'system')}
+                    className="inline-flex items-center gap-1.5 px-3.5 h-[26px] rounded-md text-[12.5px] font-medium cursor-pointer transition-colors"
+                    style={{
+                      background: active ? 'var(--surface-3)' : 'transparent',
+                      color: active ? 'var(--content)' : 'var(--content-muted)',
+                    }}
+                  >
+                    {icon} {label}
+                  </button>
+                );
+              })}
+            </div>
+            {pref === 'system' && (
+              <div className="text-[11.5px] text-content-faint mt-2">
+                Following {inVsCode ? 'VS Code' : 'OS'} appearance — currently {isDark ? 'Dusk' : 'Paper'}.
+              </div>
+            )}
+          </>
         )}
       </Group>
 
+      {!matchVsCode && (
       <Group title="Accent color">
         <div className="flex gap-2.5">
           {ACCENT_SWATCHES.map((s) => {
@@ -400,6 +417,7 @@ function AppearancePanel({
           })}
         </div>
       </Group>
+      )}
 
       <Group title="Density">
         <SRow label="Compact mode" desc="Reduce padding in panels and rows.">

@@ -132,6 +132,60 @@
   --hover-overlay: oklch(0% 0 0 / 0.04);
 }
 
+/* ===== VS Code theme adoption =====
+   When running in the VS Code webview with "Match VS Code theme" on, re-point
+   the design tokens at VS Code's own theme variables so the app inherits the
+   user's editor theme (surfaces, text, borders, accent). VS Code keeps these
+   `--vscode-*` vars live, so switching themes re-skins the app with no JS.
+   Higher specificity (html.dw-vscode-theme) than :root/.light, so it wins; the
+   fallbacks keep it sane if a particular var is ever absent. Per-token light/
+   dark is automatic because VS Code's own values already carry the theme. */
+html.dw-vscode-theme {
+  --accent:        var(--vscode-button-background, var(--vscode-textLink-foreground, #3794ff));
+  --accent-hover:  var(--vscode-button-hoverBackground, var(--accent));
+  --accent-ink:    var(--vscode-button-foreground, #ffffff);
+  --accent-dim:    color-mix(in srgb, var(--accent) 16%, transparent);
+  --accent-border: color-mix(in srgb, var(--accent) 38%, transparent);
+
+  --bg:               var(--vscode-editor-background, #1e1e1e);
+  --surface:          var(--vscode-sideBar-background, var(--vscode-editor-background, #1e1e1e));
+  --surface-panel:    var(--surface);
+  --surface-section:  var(--surface);
+  --surface-2:        var(--vscode-input-background, var(--vscode-editorWidget-background, #2a2a2a));
+  --surface-elevated: var(--vscode-editorWidget-background, var(--surface-2));
+  --surface-input:    var(--vscode-input-background, var(--surface-2));
+  --surface-3:        var(--vscode-list-hoverBackground, #2f2f33);
+  --surface-active:   var(--vscode-list-activeSelectionBackground, var(--surface-3));
+  --rail:             var(--vscode-activityBar-background, var(--vscode-sideBar-background, #1e1e1e));
+  --surface-sidebar:  var(--vscode-sideBar-background, var(--bg));
+
+  --header-from: var(--surface);
+  --header-to:   var(--surface);
+  --dialog-header-from: var(--surface-2);
+  --dialog-header-to:   var(--surface);
+
+  --line:           var(--vscode-panel-border, var(--vscode-editorWidget-border, #ffffff1a));
+  --line-secondary: var(--vscode-editorGroup-border, var(--line));
+  --line-subtle:    var(--vscode-widget-border, var(--line));
+
+  --content:           var(--vscode-foreground, #cccccc);
+  --content-secondary: var(--vscode-foreground, #c5c5c5);
+  --content-muted:     var(--vscode-descriptionForeground, #9d9d9d);
+  --content-faint:     var(--vscode-descriptionForeground, #8a8a8a);
+  --content-ghost:     var(--vscode-disabledForeground, #6a6a6a);
+
+  --warn: var(--vscode-editorWarning-foreground, #cca700);
+  --err:  var(--vscode-editorError-foreground, var(--vscode-errorForeground, #f48771));
+
+  --scrollbar-thumb:       var(--vscode-scrollbarSlider-background, #79797966);
+  --scrollbar-thumb-hover: var(--vscode-scrollbarSlider-hoverBackground, #64646480);
+
+  --selection-bg:   var(--vscode-editor-selectionBackground, color-mix(in srgb, var(--accent) 35%, transparent));
+  --selection-text: var(--vscode-foreground, #ffffff);
+
+  --hover-overlay: var(--vscode-list-hoverBackground, oklch(100% 0 0 / 0.05));
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;
