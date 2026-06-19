@@ -47,6 +47,7 @@ export function QueryEditor({ query, onChange, language }: QueryEditorProps) {
           onChange={onChange}
           options={{
             minimap: { enabled: false },
+            automaticLayout: true,
             ...editorFont,
             wordWrap: 'on',
             scrollBeyondLastLine: false,

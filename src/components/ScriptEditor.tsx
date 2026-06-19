@@ -415,6 +415,10 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
           onMount={handleEditorDidMount}
           options={{
             minimap: { enabled: false },
+            // Relayout when the container resizes (e.g. VS Code's bottom panel
+            // opening shrinks the editor area) so the last lines stay visible
+            // instead of being clipped below the fold.
+            automaticLayout: true,
             ...editorFont,
             // Render hover & suggest popups in a dedicated DOM node attached
             // to <body>, so they aren't clipped by any ancestor's overflow or
@@ -427,7 +431,11 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
             suggestOnTriggerCharacters: true,
             quickSuggestions: true,
             tabCompletion: 'on',
-            acceptSuggestionOnEnter: 'on',
+            // Enter inserts a newline; Tab accepts a suggestion. With 'on',
+            // pressing Enter to break a line would instead accept whatever was
+            // pre-selected in the auto-popped suggest widget (e.g. the top-sorted
+            // `%dw 2.0` snippet), injecting it mid-code.
+            acceptSuggestionOnEnter: 'off',
             snippetSuggestions: 'top',
             autoClosingBrackets: 'beforeWhitespace',
             // beforeWhitespace: only auto-close if the next char is a space,

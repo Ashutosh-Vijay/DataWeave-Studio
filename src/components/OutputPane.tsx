@@ -314,6 +314,7 @@ export const OutputPane = memo(function OutputPane({
             options={{
               readOnly: true,
               minimap: { enabled: false },
+              automaticLayout: true,
               ...editorFont,
               wordWrap: 'on',
               scrollBeyondLastLine: false,

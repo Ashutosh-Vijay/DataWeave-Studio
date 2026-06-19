@@ -139,6 +139,7 @@ export const MiniEditor = memo(function MiniEditor({
         options={{
           ...editorFont,
           minimap: { enabled: false },
+          automaticLayout: true,
           lineNumbers: 'on',
           lineNumbersMinChars: 3,
           lineDecorationsWidth: 4,

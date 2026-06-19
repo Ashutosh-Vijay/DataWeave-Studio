@@ -360,6 +360,7 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
             readOnly: false,           // both panes editable
             ...editorFont,
             minimap: { enabled: false },
+            automaticLayout: true,
             scrollBeyondLastLine: false,
             // Wrap is a user toggle. Inline mode also wraps by default (single
             // editor renders consistently); in side-by-side, diffWordWrap wraps

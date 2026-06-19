@@ -64,8 +64,11 @@ function flattenYamlToMap(src: string | undefined, secure: boolean): Record<stri
 function applyMap(text: string, map: Record<string, string>, secure: boolean): string {
   for (const [k, val] of Object.entries(map)) {
     const esc = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    if (secure) text = text.replace(new RegExp(`\\$\\{secure::${esc}\\}`, 'g'), val);
-    text = text.replace(new RegExp(`\\$\\{${esc}\\}`, 'g'), val);
+    // Function replacement so a `$` in the VALUE is literal — a string
+    // replacement treats `$$`, `$&`, `$1` etc. specially and would corrupt a
+    // secret like `Pa$$w0rd`.
+    if (secure) text = text.replace(new RegExp(`\\$\\{secure::${esc}\\}`, 'g'), () => val);
+    text = text.replace(new RegExp(`\\$\\{${esc}\\}`, 'g'), () => val);
   }
   return text;
 }

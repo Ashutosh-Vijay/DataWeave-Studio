@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useState, ReactNode } from 'react';
+import { isTauri } from './bridge';
 
 type Theme = 'dark' | 'light';
 type ThemePref = 'dark' | 'light' | 'system';
@@ -28,10 +29,25 @@ function readStoredPref(): ThemePref {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
   } catch { /* ignore */ }
-  return 'dark';
+  // In the VS Code webview, follow the editor theme by default so the app
+  // feels native instead of always booting dark. On desktop, default dark.
+  return isTauri ? 'dark' : 'system';
+}
+
+/** VS Code stamps the active theme kind onto the webview <body>. Returns the
+ *  matching app theme, or null when not in VS Code (or the class isn't set). */
+function vscodeThemeKind(): Theme | null {
+  if (isTauri || typeof document === 'undefined') return null;
+  const cl = document.body.classList;
+  if (cl.contains('vscode-light') || cl.contains('vscode-high-contrast-light')) return 'light';
+  if (cl.contains('vscode-dark') || cl.contains('vscode-high-contrast')) return 'dark';
+  return null;
 }
 
 function systemTheme(): Theme {
+  // In VS Code, "system" means "match the editor theme".
+  const vs = vscodeThemeKind();
+  if (vs) return vs;
   try {
     return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   } catch {
@@ -66,9 +82,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (pref !== 'system') return;
     const mql = window.matchMedia('(prefers-color-scheme: light)');
-    const onChange = () => setThemeState(mql.matches ? 'light' : 'dark');
+    const onChange = () => setThemeState(systemTheme());
     mql.addEventListener?.('change', onChange);
     return () => mql.removeEventListener?.('change', onChange);
+  }, [pref]);
+
+  // VS Code signals a theme switch by swapping the body's vscode-* class, not
+  // via prefers-color-scheme — watch it so the app re-themes live.
+  useEffect(() => {
+    if (isTauri || pref !== 'system' || typeof document === 'undefined') return;
+    const obs = new MutationObserver(() => setThemeState(systemTheme()));
+    obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    return () => obs.disconnect();
   }, [pref]);
 
   const toggle = () => setPrefState((p) => {

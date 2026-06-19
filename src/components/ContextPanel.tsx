@@ -185,6 +185,7 @@ export const ContextPanel = memo(function ContextPanel({ context, onChange, encr
                   onChange={(val) => onChange({ ...context, configYaml: val || '' })}
                   options={{
                     minimap: { enabled: false },
+                    automaticLayout: true,
                     fontFamily: editorFont.fontFamily,
                     fontSize: 11,
                     lineNumbers: 'off',
@@ -226,6 +227,7 @@ export const ContextPanel = memo(function ContextPanel({ context, onChange, encr
                   onChange={(val) => onChange({ ...context, secureConfigYaml: val || '' })}
                   options={{
                     minimap: { enabled: false },
+                    automaticLayout: true,
                     fontFamily: editorFont.fontFamily,
                     fontSize: 11,
                     lineNumbers: 'off',

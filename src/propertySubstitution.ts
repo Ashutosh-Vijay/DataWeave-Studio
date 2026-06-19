@@ -56,16 +56,21 @@ export function substituteFromMaps(
 ): string {
   let result = text;
 
+  // Use a function replacement (not a string) so a `$` inside the property
+  // VALUE is inserted literally. A string replacement treats `$$`, `$&`, `$1`,
+  // etc. as special — so a decrypted secret like `Pa$$w0rd` would collapse to
+  // `Pa$w0rd`, and `$&` would re-inject the placeholder, corrupting the script
+  // and throwing an engine error.
   for (const [key, value] of Object.entries(configFlat)) {
     const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    result = result.replace(new RegExp(`\\$\\{${escaped}\\}`, 'g'), value);
+    result = result.replace(new RegExp(`\\$\\{${escaped}\\}`, 'g'), () => value);
   }
 
   for (const [key, value] of Object.entries(secureFlat)) {
     const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    result = result.replace(new RegExp(`\\$\\{secure::${escaped}\\}`, 'g'), value);
+    result = result.replace(new RegExp(`\\$\\{secure::${escaped}\\}`, 'g'), () => value);
     // Also allow ${key} to reference secure props (MuleSoft behavior)
-    result = result.replace(new RegExp(`\\$\\{${escaped}\\}`, 'g'), value);
+    result = result.replace(new RegExp(`\\$\\{${escaped}\\}`, 'g'), () => value);
   }
 
   return result;

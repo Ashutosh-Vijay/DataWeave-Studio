@@ -586,6 +586,7 @@ export const PayloadTabs = memo(function PayloadTabs({
             onChange={handleEditorChange}
             options={{
               minimap: { enabled: false },
+              automaticLayout: true,
               ...editorFont,
               wordWrap: 'on',
               scrollBeyondLastLine: false,
