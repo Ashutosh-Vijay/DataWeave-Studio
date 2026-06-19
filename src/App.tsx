@@ -47,6 +47,7 @@ import { QueryEditor } from './components/QueryEditor';
 // Lazy-loaded modals — each is only mounted when the user opens it. Cuts
 // ~150-200KB off the initial bundle.
 const AboutDialog = lazy(() => import('./components/AboutDialog').then((m) => ({ default: m.AboutDialog })));
+const FeedbackDialog = lazy(() => import('./components/FeedbackDialog').then((m) => ({ default: m.FeedbackDialog })));
 const SecurePropertiesTool = lazy(() => import('./components/SecurePropertiesTool').then((m) => ({ default: m.SecurePropertiesTool })));
 const CompareTool = lazy(() => import('./components/CompareTool').then((m) => ({ default: m.CompareTool })));
 const WelcomeTour = lazy(() => import('./components/WelcomeTour').then((m) => ({ default: m.WelcomeTour })));
@@ -210,6 +211,7 @@ function App() {
    *  user's view sticks when they switch between requests. */
   const [viewMode, setViewMode] = useState<'script' | 'tests'>('script');
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [secureToolOpen, setSecureToolOpen] = useState(false);
   const [compareToolOpen, setCompareToolOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
@@ -625,7 +627,9 @@ function App() {
       toast({
         variant: 'info',
         persist: true,
-        title: `Updated to v${LATEST_VERSION}`,
+        // No version number here — desktop and the VS Code extension version
+        // independently (2.x vs 1.x), so a single number would be wrong in one.
+        title: 'DataWeave Studio updated',
         message: isTauri
           ? 'Editor and secure-properties fixes landed in this release.'
           : 'The app now follows your VS Code color theme — switch back anytime in Settings → Appearance. Plus editor and secure-properties fixes.',
@@ -911,6 +915,7 @@ function App() {
     { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: '⌘/', group: 'Tools', run: () => setShortcutsOpen(true) },
     { id: 'settings', label: 'Open Settings', shortcut: '⌘,', group: 'Tools', run: () => setSettingsOpen(true) },
     { id: 'about', label: 'About DataWeave Studio', group: 'Tools', run: () => setAboutOpen(true) },
+    { id: 'feedback', label: 'Send feedback / report a bug', group: 'Tools', run: () => setFeedbackOpen(true) },
     { id: 'tour', label: 'Show guided tour', group: 'Tools', run: () => {
       beginTransforming();
       setLayout('workbench');
@@ -1031,6 +1036,7 @@ function App() {
                     ['Import cURL', handleOpenImport],
                     ['Snippets', handleOpenSnippets],
                     ['Keyboard shortcuts', () => setShortcutsOpen(true)],
+                    ['Send feedback', () => setFeedbackOpen(true)],
                     ['About DataWeave Studio', () => setAboutOpen(true)],
                   ] as const).map(([label, run]) => (
                     <button
@@ -1536,6 +1542,13 @@ function App() {
       {aboutOpen && (
         <Suspense fallback={null}>
           <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} appVersion={appVersion} updateAvailable={updateAvailable} onUpdateInstalled={() => setUpdateAvailable(false)} />
+        </Suspense>
+      )}
+
+      {/* Feedback / bug report — composes a pre-filled GitHub issue (opens in the browser). */}
+      {feedbackOpen && (
+        <Suspense fallback={null}>
+          <FeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} appVersion={appVersion} />
         </Suspense>
       )}
 
