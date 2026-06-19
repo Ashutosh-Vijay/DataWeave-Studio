@@ -16,18 +16,31 @@ describe('substituteProperties', () => {
     expect(out).toBe('pw=hunter2 also=hunter2');
   });
 
-  // Regression: a `$` in the VALUE must be inserted literally. String.replace
-  // treats `$$`, `$&`, `$1` etc. specially in the replacement, which used to
-  // corrupt secrets and throw a downstream engine error.
-  it('keeps a literal $ in the value ($$ does not collapse)', () => {
-    expect(substituteFromMaps('"${k}"', { k: 'Pa$$w0rd' }, {})).toBe('"Pa$$w0rd"');
+  // Regression: a `$` in a value that lands INSIDE a DataWeave string must be
+  // escaped to `\$` — DataWeave interpolates `$` in strings, so a raw value
+  // like `Pa$$w0rd` or `$qwer%$#` throws "Unable to resolve reference of `$`".
+  it('escapes $ inside a double-quoted string', () => {
+    expect(substituteFromMaps('"${k}"', { k: 'Pa$$w0rd' }, {})).toBe('"Pa\\$\\$w0rd"');
   });
 
-  it('keeps $& in the value (does not re-inject the placeholder)', () => {
-    expect(substituteFromMaps('"${k}"', { k: 'a$&b' }, {})).toBe('"a$&b"');
+  it('escapes the real-world repro inside a string', () => {
+    expect(substituteFromMaps('{ hello: "${secure::password}" }', {}, { password: '$qwer%$#@!^&*()' }))
+      .toBe('{ hello: "\\$qwer%\\$#@!^&*()" }');
   });
 
-  it('keeps $1 in the value (no phantom backreference)', () => {
-    expect(substituteFromMaps('"${secure::k}"', {}, { k: 'cost$1.50' })).toBe('"cost$1.50"');
+  it('escapes $ inside a single-quoted string too (DW interpolates there as well)', () => {
+    expect(substituteFromMaps("'${k}'", { k: 'a$b' }, {})).toBe("'a\\$b'");
+  });
+
+  it('does NOT escape $ in a bare (non-string) position', () => {
+    expect(substituteFromMaps('x = ${k}', { k: 'a$b' }, {})).toBe('x = a$b');
+  });
+
+  it('escapes a quote in the value so it cannot break out of the string', () => {
+    expect(substituteFromMaps('"${k}"', { k: 'a"b' }, {})).toBe('"a\\"b"');
+  });
+
+  it('leaves real DataWeave interpolation $(...) untouched', () => {
+    expect(substituteFromMaps('"hi $(payload.name)"', {}, {})).toBe('"hi $(payload.name)"');
   });
 });

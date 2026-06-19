@@ -46,34 +46,80 @@ export function flattenYaml(obj: unknown, prefix = ''): Record<string, string> {
 }
 
 /**
+ * Escape a property value for insertion INSIDE a DataWeave string literal.
+ * DataWeave treats `$` as interpolation inside both single- and double-quoted
+ * strings (verified against the 2.11 engine), so a secret like `Pa$$w0rd` or
+ * `$qwer%$#` injected raw into `"..."` makes DataWeave try to resolve `$...`
+ * as a reference and throw a CompilationException. Escaping `$`→`\$` keeps it
+ * literal; the quote char and backslash are escaped so the value can't break
+ * out of the string, and CR/LF so a multi-line value can't terminate it.
+ */
+function escapeForDwString(value: string, quote: '"' | "'"): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(new RegExp(quote, 'g'), () => '\\' + quote)
+    .replace(/\$/g, () => '\\$')
+    .replace(/\r/g, () => '\\r')
+    .replace(/\n/g, () => '\\n');
+}
+
+/**
  * Substitute ${key} / ${secure::key} using pre-flattened maps.
  * The secure map may already have decrypted ![...] values.
+ *
+ * Single-pass scanner that tracks whether each placeholder sits inside a
+ * DataWeave string literal: values inside a string are escaped for that
+ * context (see escapeForDwString), values in a bare position are inserted
+ * verbatim. `${secure::key}` resolves from the secure map; a bare `${key}`
+ * resolves from config first, then secure (MuleSoft behavior).
  */
 export function substituteFromMaps(
   text: string,
   configFlat: Record<string, string>,
   secureFlat: Record<string, string>,
 ): string {
-  let result = text;
+  const resolve = (name: string): string | undefined => {
+    if (name.startsWith('secure::')) return secureFlat[name.slice('secure::'.length)];
+    if (name in configFlat) return configFlat[name];
+    if (name in secureFlat) return secureFlat[name];
+    return undefined;
+  };
 
-  // Use a function replacement (not a string) so a `$` inside the property
-  // VALUE is inserted literally. A string replacement treats `$$`, `$&`, `$1`,
-  // etc. as special — so a decrypted secret like `Pa$$w0rd` would collapse to
-  // `Pa$w0rd`, and `$&` would re-inject the placeholder, corrupting the script
-  // and throwing an engine error.
-  for (const [key, value] of Object.entries(configFlat)) {
-    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    result = result.replace(new RegExp(`\\$\\{${escaped}\\}`, 'g'), () => value);
+  let out = '';
+  let quote: '"' | "'" | null = null;
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+
+    // Mule property placeholder `${...}` — resolved everywhere, in or out of
+    // strings (it's our own pre-run substitution, not DataWeave syntax).
+    if (ch === '$' && text[i + 1] === '{') {
+      const end = text.indexOf('}', i + 2);
+      if (end !== -1) {
+        const val = resolve(text.slice(i + 2, end));
+        if (val !== undefined) {
+          out += quote ? escapeForDwString(val, quote) : val;
+          i = end + 1;
+          continue;
+        }
+      }
+      out += ch;
+      i += 1;
+      continue;
+    }
+
+    // Track DataWeave string state so we know the placeholder's context.
+    if (quote) {
+      if (ch === '\\') { out += ch + (text[i + 1] ?? ''); i += 2; continue; }
+      if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    }
+    out += ch;
+    i += 1;
   }
 
-  for (const [key, value] of Object.entries(secureFlat)) {
-    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    result = result.replace(new RegExp(`\\$\\{secure::${escaped}\\}`, 'g'), () => value);
-    // Also allow ${key} to reference secure props (MuleSoft behavior)
-    result = result.replace(new RegExp(`\\$\\{${escaped}\\}`, 'g'), () => value);
-  }
-
-  return result;
+  return out;
 }
 
 /**

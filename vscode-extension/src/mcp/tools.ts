@@ -60,17 +60,65 @@ function flattenYamlToMap(src: string | undefined, secure: boolean): Record<stri
   return out;
 }
 
-/** Substitute `${key}` (and, when secure, `${secure::key}`) from a flat map. */
-function applyMap(text: string, map: Record<string, string>, secure: boolean): string {
-  for (const [k, val] of Object.entries(map)) {
-    const esc = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Function replacement so a `$` in the VALUE is literal — a string
-    // replacement treats `$$`, `$&`, `$1` etc. specially and would corrupt a
-    // secret like `Pa$$w0rd`.
-    if (secure) text = text.replace(new RegExp(`\\$\\{secure::${esc}\\}`, 'g'), () => val);
-    text = text.replace(new RegExp(`\\$\\{${esc}\\}`, 'g'), () => val);
+/** Escape a value for insertion INSIDE a DataWeave string literal. DataWeave
+ *  interpolates `$` inside both single- and double-quoted strings, so a secret
+ *  like `Pa$$w0rd` or `$qwer%$#` injected raw into `"..."` throws "Unable to
+ *  resolve reference of `$`". Escape `$`→`\$`, plus the quote/backslash so the
+ *  value can't break out, and CR/LF so it can't terminate the string. */
+function escapeForDwString(value: string, quote: '"' | "'"): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(new RegExp(quote, 'g'), () => '\\' + quote)
+    .replace(/\$/g, () => '\\$')
+    .replace(/\r/g, () => '\\r')
+    .replace(/\n/g, () => '\\n');
+}
+
+/** Substitute `${key}` / `${secure::key}` placeholders from the config + secure
+ *  maps in a single pass. Values that land inside a DataWeave string literal are
+ *  escaped for that context (see escapeForDwString); bare values are verbatim.
+ *  `${secure::key}` → secure map; bare `${key}` → config first, then secure. */
+function substituteProps(
+  text: string,
+  configMap: Record<string, string>,
+  secureMap: Record<string, string>,
+): string {
+  const resolve = (name: string): string | undefined => {
+    if (name.startsWith('secure::')) return secureMap[name.slice('secure::'.length)];
+    if (name in configMap) return configMap[name];
+    if (name in secureMap) return secureMap[name];
+    return undefined;
+  };
+
+  let out = '';
+  let quote: '"' | "'" | null = null;
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === '$' && text[i + 1] === '{') {
+      const end = text.indexOf('}', i + 2);
+      if (end !== -1) {
+        const val = resolve(text.slice(i + 2, end));
+        if (val !== undefined) {
+          out += quote ? escapeForDwString(val, quote) : val;
+          i = end + 1;
+          continue;
+        }
+      }
+      out += ch;
+      i += 1;
+      continue;
+    }
+    if (quote) {
+      if (ch === '\\') { out += ch + (text[i + 1] ?? ''); i += 2; continue; }
+      if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    }
+    out += ch;
+    i += 1;
   }
-  return text;
+  return out;
 }
 
 /** In Safe mode a script (or module) must be a PURE transform — no Java interop,
@@ -191,8 +239,8 @@ export function registerTools(
         }
       }
 
-      const script = applyMap(applyMap(a.script, cfgMap, false), secMap, true);
-      const payload = applyMap(applyMap(a.payload ?? '{}', cfgMap, false), secMap, true);
+      const script = substituteProps(a.script, cfgMap, secMap);
+      const payload = substituteProps(a.payload ?? '{}', cfgMap, secMap);
 
       // Safe-mode gate (checked on the SUBSTITUTED script so an injected config
       // value can't smuggle a readUrl past the gate).
