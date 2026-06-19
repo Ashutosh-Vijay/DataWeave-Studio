@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { getVersion } from '@tauri-apps/api/app';
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
-import { invoke } from './bridge';
+import { invoke, isTauri } from './bridge';
 import { logoUrl } from './assets';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
@@ -53,7 +53,7 @@ const WelcomeTour = lazy(() => import('./components/WelcomeTour').then((m) => ({
 const ShortcutsDialog = lazy(() => import('./components/ShortcutsDialog').then((m) => ({ default: m.ShortcutsDialog })));
 const SettingsScreen = lazy(() => import('./components/SettingsScreen').then((m) => ({ default: m.SettingsScreen })));
 const WelcomeScreen = lazy(() => import('./components/WelcomeScreen').then((m) => ({ default: m.WelcomeScreen })));
-import { WhatsNew, hasWhatsNew } from './components/WhatsNew';
+import { WhatsNew, LATEST_VERSION } from './components/WhatsNew';
 import { FeatureIntroHost } from './components/FeatureIntroHost';
 import { introFeature } from './featureIntros';
 import { SplashScreen } from './components/SplashScreen';
@@ -65,7 +65,8 @@ import { CompactLayout } from './components/CompactLayout';
 const FIRST_RUN_KEY = 'dw.firstRun.seen';
 const FIRST_WORKSPACE_KEY = 'dw.firstWorkspace.seen';
 const TOUR_SEEN_KEY = 'dwstudio_tour_seen'; // matches WelcomeTour's own key — existing users keep state
-const LAST_VERSION_KEY = 'dw.lastSeenVersion'; // drives the "what's new" dialog after an update
+const LAST_VERSION_KEY = 'dw.lastSeenVersion'; // recorded after an update (legacy modal gate)
+const RELEASE_SEEN_KEY = 'dw.releaseSeen'; // last release the user was shown the announcement toast for
 function shouldShowFirstRun(): boolean { try { return localStorage.getItem(FIRST_RUN_KEY) !== 'true'; } catch { return false; } }
 function markFirstRunSeen(): void { try { localStorage.setItem(FIRST_RUN_KEY, 'true'); } catch {} }
 function markTourSeen(): void { try { localStorage.setItem(TOUR_SEEN_KEY, 'true'); } catch {} }
@@ -564,15 +565,9 @@ function App() {
   useEffect(() => {
     getVersion().then((v) => {
       setAppVersion(v);
-      // Show "what's new" to returning users whose last-seen version differs from
-      // the running one (an update) — but not on a fresh install (the Welcome
-      // screen covers that) and only when this build actually has release notes.
-      // Record the version either way so it pops at most once per release.
-      try {
-        const last = localStorage.getItem(LAST_VERSION_KEY);
-        if (!shouldShowFirstRun() && last !== v && hasWhatsNew(v)) setShowWhatsNew(true);
-        localStorage.setItem(LAST_VERSION_KEY, v);
-      } catch { /* ignore */ }
+      // Record the running version (the release announcement itself is handled by
+      // the flag-based toast below, which also works in VS Code).
+      try { localStorage.setItem(LAST_VERSION_KEY, v); } catch { /* ignore */ }
     }).catch(() => {});
     let updateCheckEnabled = true;
     try { updateCheckEnabled = localStorage.getItem('dw.updateCheck') !== '0'; } catch { /* default on */ }
@@ -601,6 +596,43 @@ function App() {
       }
     }, 5000);
     return () => clearTimeout(timer);
+  }, []);
+
+  // VS Code can't read the Tauri app version (getVersion rejects there) — pull it
+  // from the extension host so the footer shows it.
+  useEffect(() => {
+    if (isTauri) return;
+    invoke<string>('get_app_version').then(setAppVersion).catch(() => {});
+  }, []);
+
+  // One-time release announcement toast. Flag-based (not version-based) so it
+  // behaves identically in VS Code; persistent so it isn't missed. Returning
+  // users only — a fresh install gets the Welcome screen, so we just mark the
+  // current release as seen for them.
+  useEffect(() => {
+    if (!LATEST_VERSION) return;
+    if (shouldShowFirstRun()) {
+      try { localStorage.setItem(RELEASE_SEEN_KEY, LATEST_VERSION); } catch { /* ignore */ }
+      return;
+    }
+    let seen = '';
+    try { seen = localStorage.getItem(RELEASE_SEEN_KEY) ?? ''; } catch { /* ignore */ }
+    if (seen === LATEST_VERSION) return;
+    const t = setTimeout(() => {
+      // Mark seen only once it actually shows (so StrictMode's mount→cleanup→
+      // remount in dev, which clears this timer, doesn't silently consume it).
+      try { localStorage.setItem(RELEASE_SEEN_KEY, LATEST_VERSION); } catch { /* ignore */ }
+      toast({
+        variant: 'info',
+        persist: true,
+        title: `Updated to v${LATEST_VERSION}`,
+        message: isTauri
+          ? 'Editor and secure-properties fixes landed in this release.'
+          : 'The app now follows your VS Code color theme — switch back anytime in Settings → Appearance. Plus editor and secure-properties fixes.',
+        action: { label: 'What’s new', onClick: () => setShowWhatsNew(true) },
+      });
+    }, 900);
+    return () => clearTimeout(t);
   }, []);
 
   // Load the saved module library once on mount.

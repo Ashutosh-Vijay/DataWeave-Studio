@@ -8,6 +8,9 @@ type ToastEntry = {
   title?: string;
   variant: ToastVariant;
   action?: { label: string; onClick: () => void };
+  /** Don't auto-dismiss — stays until the user closes it or taps the action.
+   *  For things that must be read (e.g. the release announcement). */
+  persist?: boolean;
 };
 
 let pushFn: ((entry: Omit<ToastEntry, 'id'>) => void) | null = null;
@@ -81,7 +84,9 @@ export function ToastHost() {
   const push = useCallback((entry: Omit<ToastEntry, 'id'>) => {
     const id = ++idRef.current;
     setItems((prev) => [...prev, { ...entry, id }]);
-    // Errors stay around longer; actions get more time too
+    // Persistent toasts stay until dismissed; others auto-expire (errors and
+    // actions get a longer window).
+    if (entry.persist) return;
     const ttl = entry.action ? 6000 : entry.variant === 'error' ? 5500 : 3500;
     const timer = setTimeout(() => {
       timersRef.current.delete(id);

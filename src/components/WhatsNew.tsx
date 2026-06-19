@@ -5,13 +5,26 @@
  * stumble onto it. Returning users only; fresh installs get the WelcomeScreen.
  */
 import { useEffect } from 'react';
+import { isTauri } from '../bridge';
 
-interface Highlight { title: string; desc: string; tag?: string; }
+interface Highlight { title: string; desc: string; tag?: string; only?: 'vscode' | 'desktop'; }
 interface Release { version: string; date: string; headline: string; highlights: Highlight[]; }
 
 // Newest first. Add an entry per shipped release; the dialog shows the one whose
-// version matches the running build (see hasWhatsNew / App's version gate).
+// version matches the running build (see hasWhatsNew / App's version gate), and
+// the release toast opens the newest (LATEST_VERSION).
 const RELEASES: Release[] = [
+  {
+    version: '2.1.0',
+    date: 'June 2026',
+    headline: 'Right at home in VS Code',
+    highlights: [
+      { tag: 'NEW', only: 'vscode', title: 'Matches your VS Code theme', desc: 'The app now follows your editor’s color theme and light/dark automatically, so it stops feeling like a separate window. Prefer the original look? Settings → Appearance → turn off “Match VS Code theme”.' },
+      { only: 'vscode', title: 'Editor resizes with the panel', desc: 'Opening the bottom panel (Terminal, Output) no longer clips the last lines of your script — the editor relays out to fit.' },
+      { title: 'Enter behaves in the editor', desc: 'Pressing Enter now inserts a line break instead of accepting whatever suggestion was highlighted (the stray “%dw 2.0” mid-code). Tab still accepts a suggestion.' },
+      { title: 'Secure properties with special characters', desc: 'Decrypted secrets containing a “$” (and other special characters) now substitute and run correctly instead of throwing a compilation error.' },
+    ],
+  },
   {
     version: '2.0.0',
     date: 'June 2026',
@@ -34,13 +47,17 @@ export function getRelease(version: string): Release | null {
 export function hasWhatsNew(version: string): boolean {
   return getRelease(version) !== null;
 }
+/** Newest release version — what the release toast announces / opens. */
+export const LATEST_VERSION = RELEASES[0]?.version ?? '';
 
 const svg = (paths: React.ReactNode, size = 16) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">{paths}</svg>
 );
 
 export function WhatsNew({ version, onClose }: { version: string; onClose: () => void }) {
-  const release = getRelease(version);
+  // Exact match for the running build, else the newest release (the toast opens
+  // it without a version, and VS Code can't read the Tauri app version).
+  const release = getRelease(version) ?? RELEASES[0] ?? null;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); onClose(); } };
@@ -49,6 +66,11 @@ export function WhatsNew({ version, onClose }: { version: string; onClose: () =>
   }, [onClose]);
 
   if (!release) return null;
+
+  // Some highlights only apply to one runtime (e.g. VS Code theme adoption).
+  const highlights = release.highlights.filter(
+    (h) => !h.only || (h.only === 'vscode' ? !isTauri : isTauri),
+  );
 
   return (
     <div className="fixed inset-0 z-[126] grid place-items-center" style={{ background: 'color-mix(in oklch, var(--bg) 70%, transparent)', backdropFilter: 'blur(3px)', fontSize: 13 }} onClick={onClose}>
@@ -72,7 +94,7 @@ export function WhatsNew({ version, onClose }: { version: string; onClose: () =>
 
         {/* highlights */}
         <div style={{ padding: '8px 22px 4px', overflowY: 'auto' }}>
-          {release.highlights.map((h) => (
+          {highlights.map((h) => (
             <div key={h.title} className="flex items-start" style={{ gap: 12, padding: '13px 0', borderBottom: '1px solid var(--line-subtle)' }}>
               <span className="grid place-items-center shrink-0" style={{ width: 28, height: 28, borderRadius: 8, marginTop: 1, color: 'var(--accent)', background: 'var(--accent-dim)', border: '1px solid var(--accent-border)' }}>
                 {svg(<><polyline points="20 6 9 17 4 12" /></>, 15)}
