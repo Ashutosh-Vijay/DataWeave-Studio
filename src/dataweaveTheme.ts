@@ -17,9 +17,14 @@ function colorToHex6(ctx: CanvasRenderingContext2D, cssColor: string): string {
   return [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
 }
 
-function readVarHex(probe: HTMLElement, ctx: CanvasRenderingContext2D, varName: string): string {
-  probe.style.color = `var(${varName})`;
+function readColorHex(probe: HTMLElement, ctx: CanvasRenderingContext2D, cssColor: string): string {
+  probe.style.color = '';
+  probe.style.color = cssColor;
   return colorToHex6(ctx, getComputedStyle(probe).color);
+}
+
+function readVarHex(probe: HTMLElement, ctx: CanvasRenderingContext2D, varName: string): string {
+  return readColorHex(probe, ctx, `var(${varName})`);
 }
 
 export function defineDataWeaveTheme(monaco: typeof Monaco) {
@@ -52,12 +57,39 @@ export function defineDataWeaveTheme(monaco: typeof Monaco) {
   const cyan = readVarHex(probe, ctx, '--cyan');
   const err = readVarHex(probe, ctx, '--err');
 
-  document.body.removeChild(probe);
-
-  // String / number tokens are tuned per-mode and don't have CSS vars.
+  // App's own per-mode syntax palette — the default, and the fallback when
+  // adopting a VS Code theme that doesn't expose a given token color.
   const stringFg = isLight ? '1F6537' : '88D4A4';
   const numberFg = isLight ? '8E6224' : 'E2B36F';
   const typeFg = isLight ? '3D3B36' : 'DDD3BE';
+
+  // Syntax token colors. VS Code does NOT expose raw TextMate token colors to
+  // webviews, so when adopting the editor theme we map DataWeave tokens to the
+  // closest theme-derived colors it DOES expose (symbol-icon / debug-token /
+  // bracket colors). Each falls back to the app's palette — and if a proxy just
+  // resolves to the plain editor foreground (a theme that left it at default),
+  // we use the app color so syntax never collapses to one flat color.
+  const adopt = document.documentElement.classList.contains('dw-vscode-theme');
+  const distinct = (c: string, fallback: string) => (c === content ? fallback : c);
+  const rd = (expr: string) => readColorHex(probe, ctx, expr);
+
+  let keywordC = violet, operatorC = violet, propertyC = violet;
+  let stringC = stringFg, numberC = numberFg, typeC = typeFg, secureC = numberFg;
+  let bracket1 = violet, bracket2 = cyan, bracket3 = numberFg;
+  if (adopt) {
+    keywordC  = distinct(rd('var(--vscode-symbolIcon-keywordForeground, var(--violet))'), violet);
+    operatorC = distinct(rd('var(--vscode-symbolIcon-operatorForeground, var(--violet))'), keywordC);
+    propertyC = distinct(rd('var(--vscode-symbolIcon-propertyForeground, var(--vscode-symbolIcon-variableForeground, var(--violet)))'), keywordC);
+    stringC   = distinct(rd(`var(--vscode-debugTokenExpression-string, var(--vscode-symbolIcon-stringForeground, #${stringFg}))`), stringFg);
+    numberC   = distinct(rd(`var(--vscode-debugTokenExpression-number, var(--vscode-symbolIcon-numberForeground, #${numberFg}))`), numberFg);
+    typeC     = distinct(rd(`var(--vscode-symbolIcon-classForeground, var(--vscode-symbolIcon-interfaceForeground, #${typeFg}))`), typeFg);
+    secureC   = distinct(rd(`var(--vscode-symbolIcon-constantForeground, #${numberFg})`), numberFg);
+    bracket1  = rd('var(--vscode-editorBracketHighlight-foreground1, var(--violet))');
+    bracket2  = rd('var(--vscode-editorBracketHighlight-foreground2, var(--cyan))');
+    bracket3  = rd(`var(--vscode-editorBracketHighlight-foreground3, #${numberFg})`);
+  }
+
+  document.body.removeChild(probe);
 
   const themes: { name: string; base: 'vs' | 'vs-dark' }[] = [
     { name: DATAWEAVE_THEME_NAME, base: 'vs-dark' },
@@ -70,25 +102,25 @@ export function defineDataWeaveTheme(monaco: typeof Monaco) {
       inherit: true,
       rules: [
         { token: '',                              foreground: content },
-        { token: 'keyword',                       foreground: violet },
-        { token: 'keyword.dataweave',             foreground: violet },
-        { token: 'type',                          foreground: typeFg },
-        { token: 'type.identifier',               foreground: typeFg },
-        { token: 'string',                        foreground: stringFg },
-        { token: 'string.escape',                 foreground: stringFg, fontStyle: 'italic' },
+        { token: 'keyword',                       foreground: keywordC },
+        { token: 'keyword.dataweave',             foreground: keywordC },
+        { token: 'type',                          foreground: typeC },
+        { token: 'type.identifier',               foreground: typeC },
+        { token: 'string',                        foreground: stringC },
+        { token: 'string.escape',                 foreground: stringC, fontStyle: 'italic' },
         { token: 'string.invalid',                foreground: err },
-        { token: 'number',                        foreground: numberFg },
-        { token: 'number.float',                  foreground: numberFg },
-        { token: 'number.hex',                    foreground: numberFg },
+        { token: 'number',                        foreground: numberC },
+        { token: 'number.float',                  foreground: numberC },
+        { token: 'number.hex',                    foreground: numberC },
         { token: 'comment',                       foreground: contentFaint, fontStyle: 'italic' },
         { token: 'comment.invalid',               foreground: err },
         { token: 'identifier',                    foreground: content },
-        { token: 'operator',                      foreground: violet },
+        { token: 'operator',                      foreground: operatorC },
         { token: 'delimiter',                     foreground: contentMuted },
-        { token: 'variable.property',             foreground: violet },
-        { token: 'variable.property.dataweave',   foreground: violet },
-        { token: 'variable.secure',               foreground: numberFg },
-        { token: 'variable.secure.dataweave',     foreground: numberFg },
+        { token: 'variable.property',             foreground: propertyC },
+        { token: 'variable.property.dataweave',   foreground: propertyC },
+        { token: 'variable.secure',               foreground: secureC },
+        { token: 'variable.secure.dataweave',     foreground: secureC },
       ],
       colors: {
         'editor.background':                  '#' + surface,
@@ -105,9 +137,9 @@ export function defineDataWeaveTheme(monaco: typeof Monaco) {
         'editorWhitespace.foreground':        '#' + line,
         'editorBracketMatch.background':      '#' + accent + '33',
         'editorBracketMatch.border':          '#' + accent,
-        'editorBracketHighlight.foreground1': '#' + violet,
-        'editorBracketHighlight.foreground2': '#' + cyan,
-        'editorBracketHighlight.foreground3': '#' + numberFg,
+        'editorBracketHighlight.foreground1': '#' + bracket1,
+        'editorBracketHighlight.foreground2': '#' + bracket2,
+        'editorBracketHighlight.foreground3': '#' + bracket3,
         'editorGutter.background':            '#' + surface,
         'editorWidget.background':            '#' + surface2,
         'editorWidget.border':                '#' + line,
