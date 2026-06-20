@@ -23,6 +23,7 @@ const RELEASES: Release[] = [
       { only: 'vscode', title: 'Editor resizes with the panel', desc: 'Opening the bottom panel (Terminal, Output) no longer clips the last lines of your script — the editor relays out to fit.' },
       { title: 'Enter behaves in the editor', desc: 'Pressing Enter now inserts a line break instead of accepting whatever suggestion was highlighted (the stray “%dw 2.0” mid-code). Tab still accepts a suggestion.' },
       { title: 'Secure properties with special characters', desc: 'Decrypted secrets containing a “$” (and other special characters) now substitute and run correctly instead of throwing a compilation error.' },
+      { tag: 'NEW', title: 'Send feedback', desc: 'Tools → Send feedback (or ⌘K) composes a pre-filled GitHub issue and opens it in your browser — report a bug or request a feature. The app itself still sends nothing.' },
     ],
   },
   {

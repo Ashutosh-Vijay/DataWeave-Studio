@@ -2,6 +2,16 @@
 
 All notable changes to DataWeave Studio for VS Code.
 
+## 1.1.0 — 2026-06-20
+
+**Right at home in VS Code.**
+
+- **Matches your VS Code theme.** The app now adopts your active editor color theme — surfaces, text, and accent — and follows light/dark automatically, so it stops feeling like a separate window inside VS Code. Prefer the original look? **Settings → Appearance → turn off “Match VS Code theme.”**
+- **Editor resizes with the panel.** Opening the bottom panel (Terminal, Output) no longer clips the last lines of your script — the editor relays out to fit.
+- **Enter behaves in the editor.** Pressing Enter now inserts a line break instead of accepting whatever suggestion was highlighted (the stray `%dw 2.0` mid-code). Tab still accepts a suggestion.
+- **Secure properties with special characters.** Decrypted secrets containing a `$` (and other special characters) now substitute and run correctly instead of throwing a compilation error — both in the editor and via the MCP tools.
+- **Send feedback.** A new **Tools → Send feedback** (also in the command palette) composes a pre-filled GitHub issue and opens it in your browser — report a bug or request a feature. The app still sends nothing itself.
+
 ## 1.0.1 — 2026-06-17
 
 - Documentation: the full **1.0.0** release notes (below) are now on the Marketplace listing. No functional changes.
