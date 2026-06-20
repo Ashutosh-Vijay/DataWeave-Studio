@@ -2,6 +2,10 @@
 
 All notable changes to DataWeave Studio for VS Code.
 
+## [Unreleased]
+
+- **Editor syntax colors follow your VS Code theme.** With “Match VS Code theme” on, the DataWeave editor’s token colors (keywords, strings, numbers, types, brackets) now map to your theme’s colors too — previously only the surfaces and text adopted the theme, while syntax stayed on the app’s palette.
+
 ## 1.1.0 — 2026-06-20
 
 **Right at home in VS Code.**
