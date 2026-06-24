@@ -74,5 +74,5 @@ If you need assurance beyond "trust me":
 
 ## Reporting a vulnerability
 
-Found something? Please email **randomx626@gmail.com** with details rather than
+Found something? Please email **issues@ashutosh-vijay.dev** with details rather than
 opening a public issue, and allow reasonable time to fix before disclosure.

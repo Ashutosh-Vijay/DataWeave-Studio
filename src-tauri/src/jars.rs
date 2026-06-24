@@ -251,6 +251,11 @@ pub fn compile_java(
 
     let javac = resolve_javac(&app);
     let mut cmd = Command::new(&javac);
+    // Target the engine's Java 17 runtime (class-file major 61). In dev the
+    // system javac may be newer (e.g. JDK 21 → class 65), which the bundled
+    // JRE refuses to load with UnsupportedClassVersionError. -Xlint:-options
+    // silences the harmless "bootstrap class path not set" note.
+    cmd.arg("-source").arg("17").arg("-target").arg("17").arg("-Xlint:-options");
     cmd.arg("-d").arg(&classes_dir);
     if !classpath.is_empty() {
         let sep = if cfg!(target_os = "windows") { ";" } else { ":" };

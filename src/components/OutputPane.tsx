@@ -207,8 +207,9 @@ export const OutputPane = memo(function OutputPane({
       {/* Run-loading banner */}
       {isRunning && <RunLoadingBanner onCancel={onCancel} />}
 
-      {/* Content area */}
-      <div className="flex-1 relative">
+      {/* Content area — min-h-0 lets the inner overflow-auto actually scroll a
+          tall error/output instead of growing past the pane and getting clipped. */}
+      <div className="flex-1 relative min-h-0">
         {isRunning && !output && !error ? (
           <SkeletonRows />
         ) : error ? (

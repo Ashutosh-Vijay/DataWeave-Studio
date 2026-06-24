@@ -15,9 +15,10 @@
  * Caveat: the engine's classloader caches classes it has already loaded, so a
  * *changed* class needs an engine restart (button in the header) to take effect.
  */
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { invoke } from '../bridge';
 import { Icons } from './Icons';
+import { WindowControls } from './WindowControls';
 import { MiniEditor } from './MiniEditor';
 import { toast } from './Toast';
 import { open as tauriOpen } from '@tauri-apps/plugin-dialog';
@@ -119,13 +120,15 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
   }, []);
   useEffect(() => { if (open) loadJars(); }, [open, loadJars]);
 
-  const runClasspath = useCallback(
-    () => [...jars.map((j) => j.path), ...(classesDir ? [classesDir] : [])],
-    [jars, classesDir],
-  );
+  // Signature of the classes the engine currently has loaded. The engine's
+  // classloader caches a class once loaded, so a *changed* class needs an engine
+  // restart to take effect — we track this to restart only when it's needed.
+  const loadedRef = useRef('');
+  const sourceSig = () => JSON.stringify(sources.map((s) => ({ n: classOf(s.content) || s.name, c: s.content })));
 
-  const compile = async () => {
-    if (compiling) return;
+  // Compile to a fresh dir. Returns the classes dir, or null on failure.
+  const doCompile = async (): Promise<string | null> => {
+    if (compiling) return null;
     setCompiling(true);
     try {
       const res = await invoke<CompileResult>('compile_java', {
@@ -134,25 +137,25 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
       });
       setCompileOk(res.ok);
       setCompileDiag(res.diagnostics);
-      if (res.ok) { setClassesDir(res.classesDir); toast('Compiled ✓', 'success'); }
-      else toast('Compile failed — see errors', 'error');
+      if (res.ok) { setClassesDir(res.classesDir); return res.classesDir; }
+      return null;
     } catch (e) {
       setCompileOk(false);
       setCompileDiag(String(e));
-      toast(String(e), 'error');
+      return null;
     } finally {
       setCompiling(false);
     }
   };
 
-  const run = async () => {
-    if (running) return;
+  const doRun = async (cpDir: string | null) => {
     setRunning(true); setError(null); setOutput(''); setExecMs(null);
     try {
+      const cp = [...jars.map((j) => j.path), ...(cpDir ? [cpDir] : [])];
       const res = await invoke<RunResult>('run_dataweave', {
         script, payload: payload || '{}', payloadMimeType: payloadMime,
         attributesJson: '{}', varsJson: '{}', namedInputsJson: '[]',
-        payloadFilePath: null, classpath: runClasspath(), timeoutMs: 0, multipartPartsJson: null,
+        payloadFilePath: null, classpath: cp, timeoutMs: 0, multipartPartsJson: null,
       });
       if (res.error) setError(res.error); else setOutput(res.output);
       setExecMs(res.execution_time_ms);
@@ -163,8 +166,28 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
     }
   };
 
+  // The one button: compile → restart the engine *only if* the code changed
+  // since it last loaded these classes → run. No more juggling three buttons.
+  const compileAndRun = async () => {
+    if (compiling || running) return;
+    const dir = await doCompile();
+    if (!dir) { toast('Compile failed — see errors', 'error'); return; }
+    const sig = sourceSig();
+    if (loadedRef.current && loadedRef.current !== sig) {
+      try { await invoke('restart_engine'); } catch (e) { toast(String(e), 'error'); }
+    }
+    await doRun(dir);
+    loadedRef.current = sig;
+  };
+
+  // Quick compile-only check (⌘B) — doesn't run.
+  const compileOnly = async () => {
+    const dir = await doCompile();
+    toast(dir ? 'Compiled ✓' : 'Compile failed — see errors', dir ? 'success' : 'error');
+  };
+
   const restartEngine = async () => {
-    try { await invoke('restart_engine'); toast('Engine restarted — recompile to load changed classes', 'success'); }
+    try { await invoke('restart_engine'); loadedRef.current = ''; toast('Engine restarted', 'success'); }
     catch (e) { toast(String(e), 'error'); }
   };
 
@@ -172,8 +195,8 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void run(); }
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) { e.preventDefault(); void compile(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void compileAndRun(); }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) { e.preventDefault(); void compileOnly(); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -241,35 +264,38 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
   return (
     <div className="fixed inset-0 z-[90] flex flex-col bg-bg">
       {/* Header */}
-      <div className="h-11 shrink-0 flex items-center gap-2 px-3.5 border-b border-line">
-        <Icons.Braces size={15} />
+      <header data-tauri-drag-region className="h-11 shrink-0 flex items-center gap-2 pl-4 pr-3 border-b border-line bg-surface">
+        <button
+          onClick={onClose}
+          className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer transition-colors"
+          title="Back to workspace (Esc)"
+        >
+          <Icons.ChevronRight size={12} className="rotate-180" />
+          Back
+        </button>
+        <div className="w-px h-4 bg-line" />
+        <Icons.Coffee size={15} />
         <span className="text-[13px] font-semibold text-content">Java tester</span>
         <span className="text-[11px] text-content-ghost">— compile your Java, run it on a payload</span>
         <span className="flex-1" />
         <button
-          onClick={compile}
-          disabled={compiling}
-          className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] font-medium cursor-pointer border border-accent-border text-accent hover:bg-accent-dim disabled:opacity-50 transition-colors"
-          title="Compile sources (⌘B)"
+          onClick={compileAndRun}
+          disabled={compiling || running}
+          className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] font-semibold cursor-pointer transition-colors disabled:opacity-50"
+          style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+          title="Compile and run (⌘↵) — restarts the engine automatically when your code changed. ⌘B compiles only."
         >
-          {compiling ? 'Compiling…' : <>Compile <kbd className="text-[9.5px] font-mono opacity-70">⌘B</kbd></>}
+          {compiling ? 'Compiling…' : running ? 'Running…' : <>▶ Compile &amp; Run <kbd className="text-[9.5px] font-mono opacity-80">⌘↵</kbd></>}
         </button>
         <button
-          onClick={run}
-          disabled={running}
-          className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] font-medium cursor-pointer transition-colors disabled:opacity-50"
-          style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
-          title="Run (⌘↵)"
+          onClick={restartEngine}
+          className="text-[11px] text-content-faint hover:text-content border border-line rounded-md h-7 px-2.5 cursor-pointer hover:bg-surface-2"
+          title="Force-restart the engine — rarely needed; Compile & Run does this for you when your code changes"
         >
-          {running ? 'Running…' : <>▶ Run <kbd className="text-[9.5px] font-mono opacity-80">⌘↵</kbd></>}
-        </button>
-        <button onClick={restartEngine} className="text-[11px] text-content-faint hover:text-content border border-line rounded-md h-7 px-2.5 cursor-pointer hover:bg-surface-2" title="Restart the engine — needed to pick up a changed class">
           Restart engine
         </button>
-        <button onClick={onClose} className="text-content-faint hover:text-content cursor-pointer p-1.5 rounded hover:bg-surface-2" title="Close (Esc)">
-          <Icons.X size={14} />
-        </button>
-      </div>
+        <WindowControls />
+      </header>
 
       <div className="flex-1 flex min-h-0">
         {/* JAR sidebar */}

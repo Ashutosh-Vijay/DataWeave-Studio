@@ -2,9 +2,14 @@
 
 All notable changes to DataWeave Studio for VS Code.
 
-## [Unreleased]
+## 1.2.0 — 2026-06-24
 
-- **Editor syntax colors follow your VS Code theme.** With “Match VS Code theme” on, the DataWeave editor’s token colors (keywords, strings, numbers, types, brackets) now map to your theme’s colors too — previously only the surfaces and text adopted the theme, while syntax stayed on the app’s palette.
+**Read OpenAPI & Swagger specs.**
+
+- **OpenAPI / Swagger reader.** Open or paste an OpenAPI 3.x or Swagger 2.0 spec (JSON or YAML) and browse its operations and reusable types. Pick any request, response, or named example — every scenario, not just the first — and drop a ready-to-edit sample payload plus a DataWeave skeleton straight into your workspace. It resolves `$ref`s, enums, and `allOf`/`oneOf`/`anyOf`, and surfaces auth, servers, webhooks, and callbacks. Open it from the left rail or the Tools menu. Fully offline — nothing leaves your machine.
+- **Spec library.** Save the specs you use often and reopen them from the reader’s sidebar in one click; rename or remove them anytime.
+- **Editor syntax follows your theme.** With “Match VS Code theme” on, the DataWeave editor’s token colors (keywords, strings, numbers, types, brackets) now map to your theme too — previously only the surfaces and text adopted it.
+- **Clearer full-screen tools.** The Java tester and Module library now have a Back button to return to your workspace, so navigation is consistent across every tool.
 
 ## 1.1.0 — 2026-06-20
 

@@ -82,6 +82,7 @@ import { useTheme } from './ThemeContext';
 import { KeyValuePair, METHOD_COLORS, NODE_LABEL_COLORS, NODE_LABELS, isValidMimeType } from './types';
 import { Icons } from './components/Icons';
 import { CurlImporter, CurlImportResult } from './components/CurlImporter';
+import { OpenApiReader, OpenApiImportResult } from './components/OpenApiReader';
 import { publishCursor, useCursor } from './cursorStore';
 import { substituteProperties, substitutePropertiesAsync } from './propertySubstitution';
 import { convertAllPropertyCalls } from './dataweavePropertyConverter';
@@ -223,6 +224,7 @@ function App() {
   const [recipesOpen, setRecipesOpen] = useState(false);
   const [flowDesignerOpen, setFlowDesignerOpen] = useState(false);
   const [curlImportOpen, setCurlImportOpen] = useState(false);
+  const [openApiOpen, setOpenApiOpen] = useState(false);
   const [javaTesterOpen, setJavaTesterOpen] = useState(false);
   const [mcpOpen, setMcpOpen] = useState(false);
   const [mcpRunning, setMcpRunning] = useState(false);
@@ -762,6 +764,12 @@ function App() {
     });
   }, [workspace]);
 
+  const handleOpenApiImport = useCallback((result: OpenApiImportResult) => {
+    workspace.setPayload(result.payload);
+    workspace.setPayloadMimeType(result.payloadMimeType);
+    workspace.setScript(result.generatedScript);
+  }, [workspace]);
+
   // Global Ctrl+S to save, Ctrl+K to open palette
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -911,6 +919,7 @@ function App() {
     { id: 'secure', label: 'Open Secure Properties tool', shortcut: '⌘⇧E', group: 'Tools', run: () => setSecureToolOpen(true) },
     { id: 'compare', label: 'Open Compare tool', group: 'Tools', run: () => setCompareToolOpen(true) },
     { id: 'import-curl', label: 'Import cURL', shortcut: '⌘⇧I', group: 'Tools', run: handleOpenImport },
+    { id: 'openapi', label: 'Open OpenAPI / Swagger reader', group: 'Tools', run: () => { introFeature('openapi'); setOpenApiOpen(true); } },
     { id: 'snippets', label: 'Open snippets library', shortcut: '⌘L', group: 'Tools', run: handleOpenSnippets },
     { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: '⌘/', group: 'Tools', run: () => setShortcutsOpen(true) },
     { id: 'settings', label: 'Open Settings', shortcut: '⌘,', group: 'Tools', run: () => setSettingsOpen(true) },
@@ -1034,6 +1043,7 @@ function App() {
                     ['Secure Properties tool', () => setSecureToolOpen(true)],
                     ['Compare tool', () => setCompareToolOpen(true)],
                     ['Import cURL', handleOpenImport],
+                    ['OpenAPI / Swagger reader', () => { introFeature('openapi'); setOpenApiOpen(true); }],
                     ['Snippets', handleOpenSnippets],
                     ['Keyboard shortcuts', () => setShortcutsOpen(true)],
                     ['Send feedback', () => setFeedbackOpen(true)],
@@ -1251,6 +1261,7 @@ function App() {
           onOpenCompare={() => { introFeature('compare'); setCompareToolOpen(true); }}
           onOpenFlowDesigner={() => { introFeature('flow'); setFlowDesignerOpen(true); }}
           onOpenJavaTester={() => { introFeature('java'); setJavaTesterOpen(true); }}
+          onOpenOpenApi={() => { introFeature('openapi'); setOpenApiOpen(true); }}
           onOpenModules={() => { introFeature('modules'); setModulesOpen(true); }}
           onOpenMcp={() => { introFeature('mcp'); setMcpOpen(true); }}
           mcpRunning={mcpRunning}
@@ -1642,6 +1653,8 @@ function App() {
       {/* cURL import — full-screen modal, opened directly (⌘⇧I, rail icon,
           empty state) rather than via a near-empty sidebar tab. */}
       <CurlImporter open={curlImportOpen} onClose={() => setCurlImportOpen(false)} onImport={handleCurlImport} />
+
+      <OpenApiReader open={openApiOpen} onClose={() => setOpenApiOpen(false)} onImport={handleOpenApiImport} />
 
       {/* One-time feature coachmarks — fired by introFeature(key) from button
           handlers; renders at most one card at a time. */}

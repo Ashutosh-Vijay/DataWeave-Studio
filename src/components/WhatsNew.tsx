@@ -10,37 +10,38 @@ import { isTauri } from '../bridge';
 interface Highlight { title: string; desc: string; tag?: string; only?: 'vscode' | 'desktop'; }
 interface Release { version: string; date: string; headline: string; highlights: Highlight[]; }
 
-// Newest first. Add an entry per shipped release; the dialog shows the one whose
-// version matches the running build (see hasWhatsNew / App's version gate), and
-// the release toast opens the newest (LATEST_VERSION).
-const RELEASES: Release[] = [
+// Two independent tracks, because the desktop app (2.x) and the VS Code
+// extension (1.x) ship on their own version numbers and cadence — keeping them
+// separate means a release that only touches one runtime never shows stale notes
+// in the other. Each list is newest-first; the dialog/toast pick by runtime.
+const DESKTOP_RELEASES: Release[] = [
   {
-    version: '2.1.0',
+    version: '2.2.0',
     date: 'June 2026',
-    headline: 'Right at home in VS Code',
+    headline: 'Read OpenAPI & Swagger specs',
     highlights: [
-      { tag: 'NEW', only: 'vscode', title: 'Matches your VS Code theme', desc: 'The app now follows your editor’s color theme and light/dark automatically, so it stops feeling like a separate window. Prefer the original look? Settings → Appearance → turn off “Match VS Code theme”.' },
-      { only: 'vscode', title: 'Editor resizes with the panel', desc: 'Opening the bottom panel (Terminal, Output) no longer clips the last lines of your script — the editor relays out to fit.' },
-      { title: 'Enter behaves in the editor', desc: 'Pressing Enter now inserts a line break instead of accepting whatever suggestion was highlighted (the stray “%dw 2.0” mid-code). Tab still accepts a suggestion.' },
-      { title: 'Secure properties with special characters', desc: 'Decrypted secrets containing a “$” (and other special characters) now substitute and run correctly instead of throwing a compilation error.' },
-      { tag: 'NEW', title: 'Send feedback', desc: 'Tools → Send feedback (or ⌘K) composes a pre-filled GitHub issue and opens it in your browser — report a bug or request a feature. The app itself still sends nothing.' },
-    ],
-  },
-  {
-    version: '2.0.0',
-    date: 'June 2026',
-    headline: 'Serve your engine to AI agents',
-    highlights: [
-      { tag: 'NEW', title: 'MCP Server', desc: 'Serve the engine to Claude, Cursor or Copilot. An agent writes a script, runs it here against the real runtime, fixes the error, and hands you tested code — safe mode on by default.' },
-      { tag: 'NEW', title: 'Module library', desc: 'Save reusable .dwl modules once and import them from any script — shared mappers and helpers, sent to the engine on every run.' },
-      { tag: 'NEW', title: 'Logs panel', desc: 'Your script’s log() calls now show up in a Logs panel under the output, so you can inspect intermediate values mid-transform.' },
-      { tag: 'NEW', title: 'Feature hints', desc: 'One-time tips explain each tool the first time you open it — so the cURL importer, cookbook, flows and more stop hiding in plain sight.' },
-      { title: 'VS Code extension parity', desc: 'The extension now ships the full MCP server (all 6 tools), custom modules, and one-click client setup — matching the desktop app.' },
-      { title: 'Java tester', desc: 'Compile the Java classes a Mule app calls and exercise them against a payload, managing the JAR dependencies right here.' },
-      { title: 'Flow Designer Choice router', desc: 'The Choice router now takes a plain DataWeave predicate with an fx affordance — no hand-written #[…] needed.' },
+      { tag: 'NEW', title: 'OpenAPI / Swagger reader', desc: 'Open or paste an OpenAPI 3.x or Swagger 2.0 spec, browse its operations and types, and pick any request, response, or example — then drop a ready-to-edit sample payload and a DataWeave skeleton straight into your workspace. Open it from the left rail or the Tools menu.' },
+      { tag: 'NEW', title: 'A library for your specs', desc: 'Save the specs you use often and reopen them from the reader’s sidebar in one click — rename or remove them anytime. As always, nothing leaves your machine.' },
+      { title: 'Clearer full-screen tools', desc: 'The Java tester and Module library now have a Back button to return to your workspace, so navigation is consistent across every tool.' },
     ],
   },
 ];
+
+const VSCODE_RELEASES: Release[] = [
+  {
+    version: '1.2.0',
+    date: 'June 2026',
+    headline: 'Read OpenAPI & Swagger specs',
+    highlights: [
+      { tag: 'NEW', title: 'OpenAPI / Swagger reader', desc: 'Open or paste an OpenAPI 3.x or Swagger 2.0 spec, browse its operations and types, and pick any request, response, or example — then drop a ready-to-edit sample payload and a DataWeave skeleton straight into your workspace. Open it from the left rail or the Tools menu.' },
+      { tag: 'NEW', title: 'A library for your specs', desc: 'Save the specs you use often and reopen them from the reader’s sidebar in one click — rename or remove them anytime. As always, nothing leaves your machine.' },
+      { title: 'Editor syntax follows your theme', desc: 'With “Match VS Code theme” on, the DataWeave editor’s token colors (keywords, strings, numbers, types, brackets) now map to your theme too — not just the surfaces and text.' },
+    ],
+  },
+];
+
+// The running build picks its own track.
+const RELEASES: Release[] = isTauri ? DESKTOP_RELEASES : VSCODE_RELEASES;
 
 export function getRelease(version: string): Release | null {
   return RELEASES.find((r) => r.version === version) ?? null;
@@ -48,7 +49,7 @@ export function getRelease(version: string): Release | null {
 export function hasWhatsNew(version: string): boolean {
   return getRelease(version) !== null;
 }
-/** Newest release version — what the release toast announces / opens. */
+/** Newest release version for this runtime — what the release toast announces / opens. */
 export const LATEST_VERSION = RELEASES[0]?.version ?? '';
 
 const svg = (paths: React.ReactNode, size = 16) => (

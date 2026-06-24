@@ -123,7 +123,9 @@ export function compileJava(storageDir: string, extensionRoot: string, sources: 
 
   const javac = resolveJavac(extensionRoot);
   const sep = process.platform === 'win32' ? ';' : ':';
-  const args = ['-d', classesDir];
+  // Target the engine's Java 17 runtime (class-file major 61) — a newer system
+  // javac (e.g. JDK 21 → class 65) otherwise produces classes the JRE can't load.
+  const args = ['-source', '17', '-target', '17', '-Xlint:-options', '-d', classesDir];
   if (classpath && classpath.length > 0) args.push('-cp', classpath.join(sep));
   args.push(...files);
 

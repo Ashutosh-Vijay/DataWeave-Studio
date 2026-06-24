@@ -194,6 +194,13 @@ Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA
 - Multipart `-F` flag handling — parses part names, types, file paths
 - Live preview before import
 
+### OpenAPI / Swagger Reader
+- Open or paste an **OpenAPI 3.x** or **Swagger 2.0** spec (JSON or YAML) — fully offline
+- Browse operations grouped by tag, plus the reusable schema (type) catalog
+- Resolves `$ref`s, `allOf`/`oneOf`/`anyOf`, enums, formats, and surfaces auth, servers, webhooks & callbacks
+- Pick any request, response, or named **example** (every scenario, not just the first) → generates a sample payload + a DataWeave skeleton you can drop into the workspace
+- **Spec library** — save specs you use often and reopen them from the sidebar in one click; rename or remove anytime (stored locally, nothing leaves your machine)
+
 ### Workspace Management
 - **`.dwstudio` format** (v2) — JSON files with full project state
 - **Multi-request collections** — multiple transforms per workspace (Postman-style)

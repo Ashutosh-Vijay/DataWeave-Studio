@@ -15,6 +15,7 @@
  */
 import { useState, useEffect } from 'react';
 import { Icons } from './Icons';
+import { WindowControls } from './WindowControls';
 import { MiniEditor } from './MiniEditor';
 
 export interface DwModule {
@@ -84,15 +85,22 @@ export function ModulesPanel({
   return (
     <div className="fixed inset-0 z-[90] flex flex-col bg-bg">
       {/* Header */}
-      <div className="h-11 shrink-0 flex items-center gap-2 px-3.5 border-b border-line">
-        <Icons.Braces size={15} />
+      <header data-tauri-drag-region className="h-11 shrink-0 flex items-center gap-2 pl-4 pr-3 border-b border-line bg-surface">
+        <button
+          onClick={onClose}
+          className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer transition-colors"
+          title="Back to workspace (Esc)"
+        >
+          <Icons.ChevronRight size={12} className="rotate-180" />
+          Back
+        </button>
+        <div className="w-px h-4 bg-line" />
+        <Icons.Package size={15} />
         <span className="text-[13px] font-semibold text-content">Module library</span>
         <span className="text-[11px] text-content-ghost">— save reusable modules once, import them from any script</span>
         <span className="flex-1" />
-        <button onClick={onClose} className="text-content-faint hover:text-content cursor-pointer p-1.5 rounded hover:bg-surface-2" title="Close (Esc)">
-          <Icons.X size={14} />
-        </button>
-      </div>
+        <WindowControls />
+      </header>
 
       <div className="flex-1 flex min-h-0">
         {/* Module list */}

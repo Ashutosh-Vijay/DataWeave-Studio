@@ -61,6 +61,10 @@ export const FEATURE_INTROS: Record<string, FeatureIntro> = {
     title: 'Compare',
     body: 'A side-by-side diff for two payloads or outputs — paste one on each side to see exactly what changed. Your text sticks around when you switch away and come back.',
   },
+  openapi: {
+    title: 'OpenAPI / Swagger reader',
+    body: 'Open or paste an OpenAPI 3.x or Swagger 2.0 spec and browse its operations and types. Pick any request, response, or example and Studio drops a sample payload and a matching DataWeave skeleton into your workspace. Save specs to the sidebar library to reopen them later — all offline.',
+  },
 };
 
 const SEEN_PREFIX = 'dw.intro.';

@@ -49,6 +49,7 @@ interface SidebarProps {
   onOpenCompare: () => void;
   onOpenFlowDesigner: () => void;
   onOpenJavaTester: () => void;
+  onOpenOpenApi: () => void;
   onOpenModules: () => void;
   onOpenMcp: () => void;
   mcpRunning: boolean;
@@ -145,7 +146,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const {
     projectName, onProjectNameChange, currentFile, isDirty, currentMethod,
     onNew, onSave, onLoad, onDelete, listWorkspaces,
-    onOpenCurlImport, onInsertSnippet, onOpenSecure, onOpenCompare, onOpenFlowDesigner, onOpenJavaTester, onOpenModules, onOpenMcp, mcpRunning, onOpenSettings,
+    onOpenCurlImport, onInsertSnippet, onOpenSecure, onOpenCompare, onOpenFlowDesigner, onOpenJavaTester, onOpenOpenApi, onOpenModules, onOpenMcp, mcpRunning, onOpenSettings,
     onOpenReference, onOpenRecipes,
     collapsed, onToggleCollapse,
     requests, activeRequestId, onSelectRequest, onAddRequest, onRenameRequest, onRemoveRequest, onDuplicateRequest,
@@ -252,7 +253,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           aria-label="Java tester"
           className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
         >
-          <Icons.Terminal size={18} />
+          <Icons.Coffee size={18} />
         </button>
         <button
           data-tour="rail-modules"
@@ -261,7 +262,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           aria-label="Module library"
           className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
         >
-          <Icons.Library size={18} />
+          <Icons.Package size={18} />
         </button>
         <button
           data-tour="rail-mcp"
@@ -282,6 +283,14 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
         >
           <Icons.Compare size={18} />
+        </button>
+        <button
+          onClick={onOpenOpenApi}
+          title="OpenAPI / Swagger reader — sample payloads + DataWeave from a spec"
+          aria-label="OpenAPI / Swagger reader"
+          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
+        >
+          <Icons.ApiSpec size={18} />
         </button>
         <div className="mx-2 my-1.5 h-px bg-line-subtle" />
         {RAIL_ITEMS.map(({ id, title, Icon }) => {
