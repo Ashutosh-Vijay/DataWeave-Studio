@@ -9,7 +9,7 @@ import { MIME_OPTIONS } from '../types';
 import { toast } from './Toast';
 import { open as tauriOpen, save as tauriSave } from '@tauri-apps/plugin-dialog';
 import { exportFlowToMuleXml, exportFlowsToMuleXml, importMuleXml } from '../muleXmlIO';
-import { parseMaybe, forceJsonOutput, displayVal } from '../flowRunHelpers';
+import { parseMaybe, forceJsonOutput, displayVal, exprToScript, normalizeEntryAttributes } from '../flowRunHelpers';
 import { substituteQueryParams } from '../queryRender';
 import { substitutePropertiesAsync } from '../propertySubstitution';
 import { DEFAULT_ENCRYPTION_SETTINGS, type EncryptionSettings } from '../cryptoUtils';
@@ -441,11 +441,14 @@ function JsonKeyValueRows({ value, onChange, keyPlaceholder = 'Key', valuePlaceh
  *  renders the SOQL/SQL template with the resulting `:param` values — so you can
  *  see how the query actually forms (same idea as single-script Query mode).
  *  Debounced; the Input fixture is the sample data source. */
-function FlowQueryPreview({ template, bindParams, isDbMode, flowInput, encryptionKey, encryptionSettings, classpath }: {
+function FlowQueryPreview({ template, bindParams, isDbMode, flowInput, varsJson, encryptionKey, encryptionSettings, classpath }: {
   template: string;
   bindParams: string;
   isDbMode: boolean;
   flowInput: FlowInput;
+  /** Real var values from the last run, so bind params using `vars.*` (set by
+   *  upstream nodes) resolve. '{}' before any run. */
+  varsJson: string;
   encryptionKey: string;
   encryptionSettings: EncryptionSettings;
   classpath: string[];
@@ -461,13 +464,13 @@ function FlowQueryPreview({ template, bindParams, isDbMode, flowInput, encryptio
       if (expr) {
         try {
           let attrs = '{}';
-          try { attrs = JSON.stringify(JSON.parse(flowInput.attributesJson || '{}')); } catch {}
+          try { attrs = normalizeEntryAttributes(flowInput.attributesJson || '{}'); } catch {}
           const r = await invoke<RunResult>('run_dataweave', {
             script: await substitutePropertiesAsync(convertAllPropertyCalls(`%dw 2.0\noutput application/json\n---\n${expr}`).text, flowInput.configYaml, flowInput.secureConfigYaml, encryptionKey, encryptionSettings),
             payload: flowInput.payload,
             payloadMimeType: flowInput.mime || 'application/json',
             attributesJson: attrs,
-            varsJson: '{}',
+            varsJson: varsJson || '{}',
             namedInputsJson: '[]',
             payloadFilePath: null,
             classpath,
@@ -488,13 +491,21 @@ function FlowQueryPreview({ template, bindParams, isDbMode, flowInput, encryptio
         : { query: resolvedTemplate, unbound: [], unused: [] });
     }, 350);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [template, bindParams, isDbMode, flowInput.payload, flowInput.mime, flowInput.attributesJson, flowInput.configYaml, flowInput.secureConfigYaml, encryptionKey, encryptionSettings, classpath]);
+  }, [template, bindParams, isDbMode, flowInput.payload, flowInput.mime, flowInput.attributesJson, flowInput.configYaml, flowInput.secureConfigYaml, varsJson, encryptionKey, encryptionSettings, classpath]);
+
+  // A bind-params error that's only about unresolved `vars` means those vars are
+  // set by upstream nodes — guide the user to run the flow rather than alarm them.
+  const varsUnresolved = !!err && /resolve reference of:\s*`?vars/i.test(err) && (!varsJson || varsJson === '{}');
 
   if (!template.trim()) return null;
   return (
     <div className="space-y-1.5">
       <ConfigLabel label="Rendered query · from Input fixture" />
-      {err ? (
+      {varsUnresolved ? (
+        <div className="px-2.5 py-2 rounded-md text-[11px] leading-relaxed" style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--content-muted)' }}>
+          These bind params read <code className="font-mono text-content-faint">vars</code> set by earlier nodes. <span className="text-content-secondary">Run the flow once</span> (▶ Run All) and the rendered query will fill in here.
+        </div>
+      ) : err ? (
         <div className="px-2.5 py-2 rounded-md text-[11px] font-mono leading-relaxed" style={{ background: 'color-mix(in oklch, var(--err) 8%, transparent)', color: 'var(--err)' }}>
           Bind-params error: {err}
         </div>
@@ -532,6 +543,9 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   // is selected (so the flow's end state is visible even if the last node is a
   // flow-ref / connector that doesn't replace the payload).
   const [finalRun, setFinalRun] = useState<{ payload: string; mime: string; vars: [string, string][] } | null>(null);
+  // Real var values (JSON) from the last full run, so the connector's "Rendered
+  // query" preview can resolve bind params that reference `vars.*` set upstream.
+  const [lastRunVarsJson, setLastRunVarsJson] = useState('{}');
   const [stepIndex, setStepIndex] = useState<number | null>(null);
   const [stepping, setStepping] = useState(false); // true = waiting for user to click Next
   const stepResolveRef = useRef<(() => void) | null>(null);
@@ -1060,8 +1074,10 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     // Seed from the flow-entry input fixture so payload + attributes.* resolve
     // the way they would behind a real HTTP listener. Invalid attributes JSON
     // falls back to an empty object rather than aborting the run.
+    // Drop empty entry params (an unfilled seeded param means "not sent" → null,
+    // not ""), so the flow's `attributes.queryParams.x == null` checks behave.
     let seedAttrs = '{}';
-    try { seedAttrs = JSON.stringify(JSON.parse(flowInput.attributesJson || '{}')); } catch {}
+    try { seedAttrs = normalizeEntryAttributes(flowInput.attributesJson || '{}'); } catch {}
     const initialCtx: ExecCtx = {
       payload: flowInput.payload,
       mime: flowInput.mime || 'application/json',
@@ -1158,12 +1174,13 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           if (node.config.variableSource === 'script' && node.config.script) {
             scriptToRun = forceJsonOutput(node.config.script);
           } else if (node.config.variableSource === 'expression' && node.config.variableValue) {
-            // Inline DataWeave expression (fx mode) — tolerate an outer #[…] if pasted.
-            const expr = node.config.variableValue.trim().replace(/^#\[([\s\S]*)\]$/, '$1');
-            scriptToRun = `%dw 2.0\noutput application/json\n---\n${expr}`;
+            // fx mode: a bare expression gets the standard header; a full pasted
+            // script (its own %dw/--- header, e.g. `output application/java`) runs
+            // as-is. forceJsonOutput so the stored value comes back structured.
+            scriptToRun = forceJsonOutput(exprToScript(node.config.variableValue));
           } else {
             const exprMatch = (node.config.variableValue || '').match(/^#\[([\s\S]*)\]$/);
-            if (exprMatch) scriptToRun = `%dw 2.0\noutput application/json\n---\n${exprMatch[1]}`;
+            if (exprMatch) scriptToRun = forceJsonOutput(exprToScript(exprMatch[1]));
           }
           let stored: unknown;
           if (scriptToRun !== null) {
@@ -1659,6 +1676,8 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       mime: initialCtx.mime,
       vars: Object.entries(initialCtx.variables).map(([k, v]) => [k, displayVal(v)] as [string, string]),
     });
+    // Keep the real var values so the connector query preview can resolve vars.*.
+    try { setLastRunVarsJson(JSON.stringify(initialCtx.variables)); } catch { /* keep previous */ }
     if (!stepThrough) setSelectedId(null);
     setIsRunning(false);
     setStepIndex(null);
@@ -3246,7 +3265,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                       />
                       <div className="text-[10px] text-content-ghost leading-relaxed">
                         {selected.config.variableSource === 'expression' ? (
-                          <>A DataWeave expression, evaluated against the live message — <code className="text-content-faint">payload</code>, <code className="text-content-faint">vars</code>, <code className="text-content-faint">attributes</code>. e.g. <code className="text-content-faint">payload.vendorName default 'EASEBUZZ'</code>. No <code className="text-content-faint">#[ ]</code> needed.</>
+                          <>A DataWeave expression, evaluated against the live message — <code className="text-content-faint">payload</code>, <code className="text-content-faint">vars</code>, <code className="text-content-faint">attributes</code>. e.g. <code className="text-content-faint">payload.vendorName default 'EASEBUZZ'</code>. No <code className="text-content-faint">#[ ]</code> needed. A full multi-line <code className="text-content-faint">%dw 2.0 … ---</code> script works too (e.g. <code className="text-content-faint">output application/java</code> with <code className="text-content-faint">if/else</code>).</>
                         ) : (
                           <>A fixed value — text, number, or JSON. e.g. <code className="text-content-faint">42</code> · <code className="text-content-faint">"hello"</code> · <code className="text-content-faint">{'{ "id": 1 }'}</code>. Turn on <span style={{ color: 'var(--accent)' }}>fx</span> to compute it from the message.</>
                         )}
@@ -3362,6 +3381,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                         bindParams={selected.config.bindParams || ''}
                         isDbMode={selected.type === 'database'}
                         flowInput={flowInput}
+                        varsJson={lastRunVarsJson}
                         encryptionKey={flowEncryptionKey}
                         encryptionSettings={flowEncSettings}
                         classpath={managedJars}

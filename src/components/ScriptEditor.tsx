@@ -403,7 +403,10 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
         </button>
         <span className="font-mono text-[10.5px] text-content-faint">DataWeave 2.0</span>
       </div>
-      <div className="flex-1">
+      {/* min-h-0 lets this flex child shrink to the real available height so
+          Monaco scrolls to the last line instead of overflowing under the
+          lower panel (a flex-1 child defaults to min-height:auto). */}
+      <div className="flex-1 min-h-0">
         <Editor
           path={modelPath}
           height="100%"

@@ -14,30 +14,19 @@ interface Release { version: string; date: string; headline: string; highlights:
 // extension (1.x) ship on their own version numbers and cadence — keeping them
 // separate means a release that only touches one runtime never shows stale notes
 // in the other. Each list is newest-first; the dialog/toast pick by runtime.
+const FLOW_FIX_HIGHLIGHTS: Highlight[] = [
+  { title: 'Choice routes the way you wrote it', desc: 'A query param you leave blank now reads as null (not an empty string), so a Choice that branches on “is this set?” takes the right when/otherwise branch instead of silently falling through.' },
+  { title: 'Set Variable runs full DataWeave', desc: 'A variable’s fx value can now be a complete %dw 2.0 … --- script — output application/java, if/else, the lot — not just a one-liner. No more reaching for a Transform node.' },
+  { title: 'Salesforce & Database bind parameters import', desc: 'Importing a flow now brings in each connector’s :param bindings (the <salesforce:parameters> / <db:input-parameters> block) — and exports them back out, so they round-trip instead of getting dropped.' },
+  { title: 'Editor scrolls to the last line', desc: 'Opening the bottom panel no longer hides the end of your script — the editor relays out so you can scroll all the way down.' },
+];
+
 const DESKTOP_RELEASES: Release[] = [
-  {
-    version: '2.2.0',
-    date: 'June 2026',
-    headline: 'Read OpenAPI & Swagger specs',
-    highlights: [
-      { tag: 'NEW', title: 'OpenAPI / Swagger reader', desc: 'Open or paste an OpenAPI 3.x or Swagger 2.0 spec, browse its operations and types, and pick any request, response, or example — then drop a ready-to-edit sample payload and a DataWeave skeleton straight into your workspace. Open it from the left rail or the Tools menu.' },
-      { tag: 'NEW', title: 'A library for your specs', desc: 'Save the specs you use often and reopen them from the reader’s sidebar in one click — rename or remove them anytime. As always, nothing leaves your machine.' },
-      { title: 'Clearer full-screen tools', desc: 'The Java tester and Module library now have a Back button to return to your workspace, so navigation is consistent across every tool.' },
-    ],
-  },
+  { version: '2.2.1', date: 'June 2026', headline: 'Flow Designer & editor fixes', highlights: FLOW_FIX_HIGHLIGHTS },
 ];
 
 const VSCODE_RELEASES: Release[] = [
-  {
-    version: '1.2.0',
-    date: 'June 2026',
-    headline: 'Read OpenAPI & Swagger specs',
-    highlights: [
-      { tag: 'NEW', title: 'OpenAPI / Swagger reader', desc: 'Open or paste an OpenAPI 3.x or Swagger 2.0 spec, browse its operations and types, and pick any request, response, or example — then drop a ready-to-edit sample payload and a DataWeave skeleton straight into your workspace. Open it from the left rail or the Tools menu.' },
-      { tag: 'NEW', title: 'A library for your specs', desc: 'Save the specs you use often and reopen them from the reader’s sidebar in one click — rename or remove them anytime. As always, nothing leaves your machine.' },
-      { title: 'Editor syntax follows your theme', desc: 'With “Match VS Code theme” on, the DataWeave editor’s token colors (keywords, strings, numbers, types, brackets) now map to your theme too — not just the surfaces and text.' },
-    ],
-  },
+  { version: '1.2.1', date: 'June 2026', headline: 'Flow Designer & editor fixes', highlights: FLOW_FIX_HIGHLIGHTS },
 ];
 
 // The running build picks its own track.

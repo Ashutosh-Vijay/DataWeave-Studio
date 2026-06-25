@@ -36,7 +36,7 @@ export function QueryEditor({ query, onChange, language }: QueryEditorProps) {
         <span>{language} Query</span>
         <span className="text-[10px] text-content-faint">{HINTS[language] || HINTS.SQL}</span>
       </div>
-      <div className="flex-1">
+      <div className="flex-1 min-h-0">
         <Editor
           height="100%"
           language="sql"

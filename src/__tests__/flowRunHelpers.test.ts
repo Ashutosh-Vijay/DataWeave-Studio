@@ -1,5 +1,39 @@
 import { describe, it, expect } from 'vitest';
-import { parseMaybe, forceJsonOutput, displayVal } from '../flowRunHelpers';
+import { parseMaybe, forceJsonOutput, displayVal, exprToScript, normalizeEntryAttributes } from '../flowRunHelpers';
+
+describe('normalizeEntryAttributes', () => {
+  it('drops empty seeded query params so a missing one reads as null', () => {
+    const seeded = JSON.stringify({ queryParams: { startDate: '', endDate: '', loanApplicationIds: 'L1,L2' }, headers: {}, method: 'GET' });
+    const got = JSON.parse(normalizeEntryAttributes(seeded));
+    expect(got.queryParams).toEqual({ loanApplicationIds: 'L1,L2' }); // startDate/endDate dropped
+  });
+  it('also prunes uriParams and headers, leaves method', () => {
+    const got = JSON.parse(normalizeEntryAttributes(JSON.stringify({ uriParams: { a: '' }, headers: { 'X-Tenant': 'acme', empty: '' }, method: 'POST' })));
+    expect(got.uriParams).toEqual({});
+    expect(got.headers).toEqual({ 'X-Tenant': 'acme' });
+    expect(got.method).toBe('POST');
+  });
+  it('returns the input unchanged when not valid JSON', () => {
+    expect(normalizeEntryAttributes('not json')).toBe('not json');
+  });
+});
+
+describe('exprToScript', () => {
+  it('wraps a bare fx expression with the standard header', () => {
+    expect(exprToScript("payload.x default ''")).toBe("%dw 2.0\noutput application/json\n---\npayload.x default ''");
+  });
+  it('runs a full pasted %dw script as-is (no double header)', () => {
+    const full = '%dw 2.0\noutput application/java\n---\nif (vars.ids is Array) vars.ids else null';
+    expect(exprToScript(full)).toBe(full);
+  });
+  it('treats a script with its own --- separator as complete', () => {
+    const s = 'output application/json\n---\npayload';
+    expect(exprToScript(s)).toBe(s);
+  });
+  it('strips an outer #[ … ] wrapper', () => {
+    expect(exprToScript('#[vars.idList]')).toBe('%dw 2.0\noutput application/json\n---\nvars.idList');
+  });
+});
 
 // Regression coverage for the "vars stored as JSON strings" bug — where
 // `vars.savedRequest.paymentMode` threw "Value Selector (String, Name)" because

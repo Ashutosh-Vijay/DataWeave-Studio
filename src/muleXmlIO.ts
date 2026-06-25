@@ -198,10 +198,14 @@ function leafToXml(node: FlowNode): string {
         : op === 'insert' ? 'create' : op; // M4 uses `create`, not `insert`
       const targetAttr = saveTo ? ` target="${escXml(saveTo)}"` : '';
 
+      const bp = (node.config.bindParams || '').trim();
+      const paramsEl = bp ? `<salesforce:parameters>${cdata(bp.startsWith('#[') ? bp : `#[${bp}]`)}</salesforce:parameters>` : '';
+
       let line: string;
       if (isQuery) {
-        const innerEl = `<salesforce:salesforce-query>${cdata(expr)}</salesforce:salesforce-query>`;
-        line = `<salesforce:query${attr('config-ref', 'Salesforce_Config')}${targetAttr}${docAttrs(node)}>\n${indent(innerEl, 1)}\n</salesforce:query>`;
+        const inner = [`<salesforce:salesforce-query>${cdata(expr)}</salesforce:salesforce-query>`];
+        if (paramsEl) inner.push(paramsEl);
+        line = `<salesforce:query${attr('config-ref', 'Salesforce_Config')}${targetAttr}${docAttrs(node)}>\n${indent(inner.join('\n'), 1)}\n</salesforce:query>`;
       } else if (opTag === 'delete') {
         // delete takes only config-ref; the IDs to delete come from the payload.
         line = `<salesforce:delete${attr('config-ref', 'Salesforce_Config')}${targetAttr}${docAttrs(node)}/>`;
@@ -241,8 +245,11 @@ function leafToXml(node: FlowNode): string {
       const saveTo = node.config.saveToVariable;
       const targetAttr = saveTo ? ` target="${escXml(saveTo)}"` : '';
       const dbOp = op === 'query' ? 'select' : op;
+      const bp = (node.config.bindParams || '').trim();
+      const inner = [`<db:sql>${cdata(sql)}</db:sql>`];
+      if (bp) inner.push(`<db:input-parameters>${cdata(bp.startsWith('#[') ? bp : `#[${bp}]`)}</db:input-parameters>`);
       const lines: string[] = [
-        `<db:${dbOp}${attr('config-ref', 'Database_Config')}${targetAttr}${docAttrs(node)}>\n    <db:sql>${cdata(sql)}</db:sql>\n</db:${dbOp}>`,
+        `<db:${dbOp}${attr('config-ref', 'Database_Config')}${targetAttr}${docAttrs(node)}>\n${indent(inner.join('\n'), 1)}\n</db:${dbOp}>`,
       ];
       const meta = studioComment({
         type: 'database',
@@ -640,11 +647,15 @@ function elementToNode(el: Element): FlowNode {
         const request = isQuery
           ? (queryEl?.textContent?.trim() || '')
           : (recordsEl ? stripExpr(recordsEl.textContent?.trim() || '') : (recordsAttr ? stripExpr(recordsAttr) : ''));
+        // The `:param` bind values live in a <salesforce:parameters>#[{…}]</…> child.
+        const paramsEl = el.querySelector('parameters, salesforce\\:parameters');
+        const bindParams = paramsEl ? stripExpr(paramsEl.textContent?.trim() || '') : '';
         // Mule 4 renamed `insert` → `create`. Map the M4 name back to Studio's `insert`.
         const mappedOp = name === 'create' ? 'insert' : name;
         return makeNode('salesforce', label, {
           operation: (mappedOp === 'query' ? 'query' : mappedOp) as FlowNode['config']['operation'],
           request,
+          bindParams,
           mockResponse: '[]',
           mockMime: 'application/json',
           saveToVariable: target,
@@ -653,9 +664,12 @@ function elementToNode(el: Element): FlowNode {
       if (prefix === 'db') {
         const inner = el.querySelector('sql, db\\:sql');
         const sql = inner?.textContent?.trim() || '';
+        const paramsEl = el.querySelector('input-parameters, db\\:input-parameters');
+        const bindParams = paramsEl ? stripExpr(paramsEl.textContent?.trim() || '') : '';
         return makeNode('database', label, {
           operation: (name === 'query' ? 'select' : name) as FlowNode['config']['operation'],
           request: sql,
+          bindParams,
           mockResponse: '[]',
           mockMime: 'application/json',
           saveToVariable: target,
@@ -668,10 +682,13 @@ function elementToNode(el: Element): FlowNode {
       // Database connector operations.
       const inner = el.querySelector('sql, db\\:sql');
       const sql = inner?.textContent?.trim() || '';
+      const paramsEl = el.querySelector('input-parameters, db\\:input-parameters');
+      const bindParams = paramsEl ? stripExpr(paramsEl.textContent?.trim() || '') : '';
       const target = el.getAttribute('target') || '';
       return makeNode('database', label, {
         operation: name as FlowNode['config']['operation'],
         request: sql,
+        bindParams,
         mockResponse: '[]',
         mockMime: 'application/json',
         saveToVariable: target,

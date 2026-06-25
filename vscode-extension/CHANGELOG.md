@@ -2,6 +2,15 @@
 
 All notable changes to DataWeave Studio for VS Code.
 
+## 1.2.1 — 2026-06-26
+
+**Flow Designer & editor fixes.**
+
+- **Choice routes the way you wrote it.** A query param you leave blank now reads as `null` (not an empty string), so a Choice that branches on whether a param is set takes the right `when`/`otherwise` branch instead of silently falling through.
+- **Set Variable runs full DataWeave.** A variable's fx value can now be a complete `%dw 2.0 … ---` script (`output application/java`, `if/else`, and so on), not just a one-liner — no need to reach for a Transform node.
+- **Salesforce & Database bind parameters import.** Importing a flow now brings in each connector's `:param` bindings (the `<salesforce:parameters>` / `<db:input-parameters>` block) and exports them back out, so they round-trip instead of being dropped.
+- **Editor scrolls to the last line.** Opening the bottom panel no longer hides the end of your script — the editor relays out so you can scroll all the way down.
+
 ## 1.2.0 — 2026-06-24
 
 **Read OpenAPI & Swagger specs.**

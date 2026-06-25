@@ -198,6 +198,45 @@ describe('muleXmlIO', () => {
         expect(importedNode.config.request).toBe('SELECT * FROM users WHERE status = :status');
       }
     });
+
+    it('round-trips Salesforce bind parameters (<salesforce:parameters>)', () => {
+      const sfNode: FlowNode = {
+        id: 'sf', type: 'salesforce', kind: 'leaf', label: 'Q', x: 0, y: 0, status: 'idle',
+        config: { operation: 'query', request: 'SELECT Id FROM Loan__c WHERE Id IN (:idList)', bindParams: '{ idList: vars.idList }', mockResponse: '[]' },
+      };
+      const xml = exportFlowToMuleXml('F', [sfNode]);
+      expect(xml).toContain('<salesforce:parameters><![CDATA[#[{ idList: vars.idList }]]]></salesforce:parameters>');
+      const imported = importMuleXml(xml);
+      expect(imported.ok && imported.nodes[0].config.bindParams).toBe('{ idList: vars.idList }');
+    });
+
+    it('imports bind params from hand-written Mule XML (the connector "parameters" CDATA)', () => {
+      const xml = `<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce">
+        <flow name="f">
+          <salesforce:query config-ref="Salesforce_Config">
+            <salesforce:salesforce-query><![CDATA[SELECT Id FROM Loan_Application__c WHERE Loan_Application_ID__c IN (:idList)]]></salesforce:salesforce-query>
+            <salesforce:parameters><![CDATA[#[{ idList: vars.idList }]]]></salesforce:parameters>
+          </salesforce:query>
+        </flow>
+      </mule>`;
+      const imported = importMuleXml(xml);
+      expect(imported.ok).toBe(true);
+      if (imported.ok) {
+        expect(imported.nodes[0].config.request).toContain(':idList');
+        expect(imported.nodes[0].config.bindParams).toBe('{ idList: vars.idList }');
+      }
+    });
+
+    it('round-trips Database input-parameters', () => {
+      const dbNode: FlowNode = {
+        id: 'db', type: 'database', kind: 'leaf', label: 'Q', x: 0, y: 0, status: 'idle',
+        config: { operation: 'select', request: 'SELECT * FROM t WHERE id = :id', bindParams: '{ id: payload.id }', mockResponse: '[]' },
+      };
+      const xml = exportFlowToMuleXml('F', [dbNode]);
+      expect(xml).toContain('<db:input-parameters><![CDATA[#[{ id: payload.id }]]]></db:input-parameters>');
+      const imported = importMuleXml(xml);
+      expect(imported.ok && imported.nodes[0].config.bindParams).toBe('{ id: payload.id }');
+    });
   });
 
   describe('Scope Nodes & Branches', () => {
