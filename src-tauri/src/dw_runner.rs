@@ -395,7 +395,7 @@ pub async fn run_dataweave(
             multipart_mime_override = None;
             write_temp_file(&run_dir, "payload.dat", &effective_payload)?
         }
-    } else if let Some(ref fp) = payload_file_path {
+    } else if let Some(fp) = payload_file_path.as_deref().filter(|s| !s.is_empty()) {
         multipart_mime_override = None;
         std::path::PathBuf::from(fp)
     } else {
@@ -440,7 +440,9 @@ pub async fn run_dataweave(
     // Named input file paths (server expects {name, path, mime}).
     let mut ni_paths: Vec<(String, std::path::PathBuf, String)> = Vec::new();
     for (idx, ni) in named_inputs.iter().enumerate() {
-        let p = if let Some(ref fp) = ni.file_path {
+        // Empty-string paths count as "no file" — old workspaces saved a
+        // cleared file as "" and it must not shadow the typed content.
+        let p = if let Some(fp) = ni.file_path.as_deref().filter(|s| !s.is_empty()) {
             std::path::PathBuf::from(fp)
         } else {
             write_temp_file(&run_dir, &format!("input_{}.dat", idx), &ni.content)?

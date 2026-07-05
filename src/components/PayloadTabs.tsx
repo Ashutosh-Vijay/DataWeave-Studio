@@ -97,11 +97,12 @@ function contentTypeFromFilename(filename: string): string {
 }
 
 function mimeToLanguage(mime: string): string {
+  // properties/ndjson first: 'text/x-java-properties' contains 'java' and
+  // 'application/x-ndjson' contains 'json', which would get Monaco's JSON
+  // validation — red squiggles on perfectly valid input.
+  if (mime.includes('properties') || mime.includes('ndjson')) return 'plaintext';
   if (mime.includes('json') || mime.includes('java')) return 'json';
   if (mime.includes('xml') || mime.includes('multipart')) return 'xml';
-  if (mime.includes('csv') || mime.includes('yaml') || mime.includes('properties') || mime.includes('ndjson')) return 'plaintext';
-  if (mime.includes('form-urlencoded')) return 'plaintext';
-  if (mime.includes('dw')) return 'plaintext';
   return 'plaintext';
 }
 
@@ -191,14 +192,23 @@ export const PayloadTabs = memo(function PayloadTabs({
   };
 
   const clearInputFile = (index: number) => {
-    updateInput(index, 'filePath' as keyof NamedInput, '');
+    // Remove the field entirely — an empty-string path would be serialized
+    // and win over the typed content on the Rust side (Some("") is truthy).
+    onNamedInputsChange(namedInputs.map((inp, i) => {
+      if (i !== index) return inp;
+      const { filePath: _drop, ...rest } = inp;
+      return rest as NamedInput;
+    }));
   };
 
   const loadPayloadFromFile = async (onMimeChange?: (mime: MimeType) => void) => {
     const selected = await open({
       multiple: false,
       directory: false,
-      filters: [{ name: 'Data files', extensions: ['csv', 'json', 'xml', 'txt', 'dwl', 'ff', 'ffd'] }],
+      filters: [
+        { name: 'Data files', extensions: ['csv', 'json', 'xml', 'txt', 'dwl', 'yaml', 'yml', 'ndjson', 'properties', 'cpy', 'ff', 'ffd'] },
+        { name: 'All files', extensions: ['*'] },
+      ],
     });
     if (!selected) return;
     const fp = typeof selected === 'string' ? selected : selected[0];
@@ -217,7 +227,10 @@ export const PayloadTabs = memo(function PayloadTabs({
     const selected = await open({
       multiple: false,
       directory: false,
-      filters: [{ name: 'Data files', extensions: ['csv', 'json', 'xml', 'txt', 'dwl', 'ff', 'ffd'] }],
+      filters: [
+        { name: 'Data files', extensions: ['csv', 'json', 'xml', 'txt', 'dwl', 'yaml', 'yml', 'ndjson', 'properties', 'cpy', 'ff', 'ffd'] },
+        { name: 'All files', extensions: ['*'] },
+      ],
     });
     if (!selected) return;
     const fp = typeof selected === 'string' ? selected : selected[0];
@@ -585,9 +598,11 @@ export const PayloadTabs = memo(function PayloadTabs({
             value={currentContent}
             onChange={handleEditorChange}
             options={{
+              // Spread first: font/line-height prefs apply, but this pane pins
+              // its own wrap/minimap below (Settings > Editor targets the script editor).
+              ...editorFont,
               minimap: { enabled: false },
               automaticLayout: true,
-              ...editorFont,
               wordWrap: 'on',
               scrollBeyondLastLine: false,
               folding: true,

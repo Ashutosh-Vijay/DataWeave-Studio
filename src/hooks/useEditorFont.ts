@@ -1,33 +1,62 @@
 import { useEffect, useState } from 'react';
 
-const FONT_SIZE_KEY = 'dw.fontSize';
 const EVENT = 'dw:editor-font-changed';
 const DEFAULT_SIZE = 13;
 
 const FONT_FAMILY = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 
-function readSize(): number {
-  try {
-    const raw = localStorage.getItem(FONT_SIZE_KEY) || `${DEFAULT_SIZE} px`;
-    const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n > 0 ? n : DEFAULT_SIZE;
-  } catch { return DEFAULT_SIZE; }
+interface EditorPrefs {
+  fontFamily: string;
+  fontSize: number;
+  lineHeight: number;
+  wordWrap: 'on' | 'off';
+  minimap: { enabled: boolean };
+  bracketPairColorization: { enabled: boolean };
 }
 
-/** Notify all editor mounts to re-read font size from localStorage. */
+function readPrefs(): EditorPrefs {
+  let fontSize = DEFAULT_SIZE;
+  let lineHeight = 0; // 0 = Monaco computes from font size
+  let wordWrap: 'on' | 'off' = 'on';
+  let minimap = false;
+  let bracketColor = true;
+  try {
+    const rawSize = parseInt(localStorage.getItem('dw.fontSize') || '', 10);
+    if (Number.isFinite(rawSize) && rawSize > 0) fontSize = rawSize;
+    const rawLh = parseFloat(localStorage.getItem('dw.lineHeight') || '');
+    // Monaco treats values < 8 as a multiplier of font size, >= 8 as pixels.
+    if (Number.isFinite(rawLh) && rawLh > 0) lineHeight = rawLh;
+    wordWrap = localStorage.getItem('dw.wordWrap') === '0' ? 'off' : 'on';
+    minimap = localStorage.getItem('dw.minimap') === '1';
+    bracketColor = localStorage.getItem('dw.bracketColor') !== '0';
+  } catch { /* defaults */ }
+  return {
+    fontFamily: FONT_FAMILY,
+    fontSize,
+    lineHeight,
+    wordWrap,
+    minimap: { enabled: minimap },
+    bracketPairColorization: { enabled: bracketColor },
+  };
+}
+
+/** Notify all editor mounts to re-read editor preferences from localStorage. */
 export function notifyEditorFontChanged() {
   window.dispatchEvent(new Event(EVENT));
 }
 
 /**
- * Returns the editor font family + size, refreshed whenever the setting changes.
+ * Editor preferences (font, line height, wrap, minimap, bracket colors) as
+ * Monaco options, refreshed whenever Settings > Editor changes them.
  * Font family is fixed to JetBrains Mono to avoid Monaco measurement issues.
+ * Spread position decides policy: spread LAST where user prefs should win
+ * (the script editor), FIRST where the pane pins its own wrap/minimap.
  */
-export function useEditorFont(): { fontFamily: string; fontSize: number } {
-  const [size, setSize] = useState(readSize);
+export function useEditorFont(): EditorPrefs {
+  const [prefs, setPrefs] = useState(readPrefs);
 
   useEffect(() => {
-    const update = () => setSize(readSize());
+    const update = () => setPrefs(readPrefs());
     window.addEventListener(EVENT, update);
     window.addEventListener('storage', update);
     return () => {
@@ -36,5 +65,5 @@ export function useEditorFont(): { fontFamily: string; fontSize: number } {
     };
   }, []);
 
-  return { fontFamily: FONT_FAMILY, fontSize: size };
+  return prefs;
 }

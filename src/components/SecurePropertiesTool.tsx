@@ -59,6 +59,12 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
       if (mode === 'encrypt') {
         const result = await encryptValue(input, key, settings);
         setOutput(result);
+        // The button says "Encrypt & copy" — actually copy.
+        try {
+          await navigator.clipboard.writeText(result);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } catch { /* clipboard not available */ }
       } else {
         const trimmed = input.trim();
         const match = trimmed.match(/^!\[(.+)]$/);

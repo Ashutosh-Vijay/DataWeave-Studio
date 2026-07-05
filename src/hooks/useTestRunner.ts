@@ -161,6 +161,9 @@ interface UseTestRunnerReturn {
   runAll: (req: Request) => Promise<TestRunOutcome[]>;
   /** Clear all recorded outcomes (e.g. when the request changes). */
   reset: () => void;
+  /** Overwrite or clear one test's in-memory outcome (e.g. after capturing
+   *  expected output, so the pre-capture "fail" doesn't linger). */
+  setOutcome: (id: string, outcome: TestRunOutcome | undefined) => void;
 }
 
 export function useTestRunner(): UseTestRunnerReturn {
@@ -187,5 +190,14 @@ export function useTestRunner(): UseTestRunnerReturn {
 
   const reset = useCallback(() => setOutcomes({}), []);
 
-  return { outcomes, running, runOne, runAll, reset };
+  const setOutcome = useCallback((id: string, outcome: TestRunOutcome | undefined) => {
+    setOutcomes((prev) => {
+      const next = { ...prev };
+      if (outcome) next[id] = outcome;
+      else delete next[id];
+      return next;
+    });
+  }, []);
+
+  return { outcomes, running, runOne, runAll, reset, setOutcome };
 }

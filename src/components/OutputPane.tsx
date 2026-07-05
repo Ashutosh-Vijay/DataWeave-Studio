@@ -166,8 +166,10 @@ export const OutputPane = memo(function OutputPane({
         )}
         <span className="flex-1" />
 
-        {/* Segmented format switch */}
-        <div className="flex items-center p-0.5 rounded-md bg-surface-2 border border-line-secondary">
+        {/* Segmented format switch — highlighting only. It follows the
+            script's `output` directive on each run; switching it here does
+            NOT convert the output (change the directive for that). */}
+        <div className="flex items-center p-0.5 rounded-md bg-surface-2 border border-line-secondary" title="Syntax highlighting only — to convert the output, change the script's `output` directive">
           {(['json', 'xml', 'raw'] as const).map((f) => {
             const active = outputFormat === f;
             return (
@@ -313,10 +315,12 @@ export const OutputPane = memo(function OutputPane({
             onMount={configureEditor}
             value={output}
             options={{
+              // Spread first: font/line-height prefs apply; the output pane
+              // pins its own wrap/minimap below.
+              ...editorFont,
               readOnly: true,
               minimap: { enabled: false },
               automaticLayout: true,
-              ...editorFont,
               wordWrap: 'on',
               scrollBeyondLastLine: false,
               lineNumbers: 'on',

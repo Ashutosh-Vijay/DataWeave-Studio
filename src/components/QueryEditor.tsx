@@ -46,9 +46,10 @@ export function QueryEditor({ query, onChange, language }: QueryEditorProps) {
           value={query}
           onChange={onChange}
           options={{
+            // Spread first: font prefs apply; this pane pins wrap/minimap below.
+            ...editorFont,
             minimap: { enabled: false },
             automaticLayout: true,
-            ...editorFont,
             wordWrap: 'on',
             scrollBeyondLastLine: false,
             folding: true,

@@ -101,7 +101,10 @@ export function ToastHost() {
   }, [push]);
 
   return (
-    <div className="fixed bottom-5 right-5 z-[100] flex flex-col gap-2.5 pointer-events-none w-[360px] max-w-[calc(100vw-2.5rem)]">
+    // Topmost: toasts must outrank every overlay (Welcome z-120, What's-new
+    // z-126, tour z-130) — the persistent release toast fires while the
+    // returning-user Welcome screen is up and was hidden behind it.
+    <div className="fixed bottom-5 right-5 z-[140] flex flex-col gap-2.5 pointer-events-none w-[360px] max-w-[calc(100vw-2.5rem)]">
       {items.map((t) => {
         const cfg = VARIANT_CONFIG[t.variant];
         return (

@@ -22,7 +22,7 @@ interface TestsViewProps {
  * for tests that haven't been snapshotted yet.
  */
 export function TestsView({ request, onTestsChange, onScriptChange }: TestsViewProps) {
-  const { outcomes, running, runOne, runAll, reset } = useTestRunner();
+  const { outcomes, running, runOne, runAll, reset, setOutcome } = useTestRunner();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'fail' | 'untested'>('all');
 
@@ -91,7 +91,25 @@ export function TestsView({ request, onTestsChange, onScriptChange }: TestsViewP
   };
 
   const setExpected = (id: string, expected: string | undefined) => {
-    onTestsChange(request.tests.map((t) => (t.id === id ? { ...t, expectedOutput: expected } : t)));
+    // Capturing must also resolve the stale pre-capture outcome: after
+    // "Run & capture" the runner recorded a fail ("no expected output set"),
+    // and without this the row keeps showing a red FAIL right after the user
+    // saved the expected output — until they manually re-run.
+    const o = outcomes[id];
+    const justCaptured = expected !== undefined && o?.actualOutput !== undefined && expected === o.actualOutput;
+    if (justCaptured) {
+      // Saved expected is byte-identical to the last actual — that's a pass.
+      setOutcome(id, { status: 'pass', timeMs: o.timeMs });
+      onTestsChange(request.tests.map((t) => (
+        t.id === id ? { ...t, expectedOutput: expected, lastStatus: 'pass', lastTimeMs: o.timeMs } : t
+      )));
+    } else {
+      // Manual/reset capture: outcome unknown until the next run.
+      setOutcome(id, undefined);
+      onTestsChange(request.tests.map((t) => (
+        t.id === id ? { ...t, expectedOutput: expected, lastStatus: undefined, lastTimeMs: undefined } : t
+      )));
+    }
   };
 
   const setPayload = (id: string, payload: string) => {

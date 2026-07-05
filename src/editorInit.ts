@@ -21,10 +21,29 @@ export function configureEditor(editor: unknown): void {
   const ed = editor as {
     getDomNode?: () => HTMLElement | null;
     getPosition?: () => { lineNumber: number; column: number } | null;
-    getModel?: () => { getWordAtPosition: (p: { lineNumber: number; column: number }) => unknown } | null;
-    onDidChangeModelContent?: (cb: (e: { changes: { text: string; rangeLength: number }[] }) => void) => void;
+    getModel?: () => {
+      getWordAtPosition: (p: { lineNumber: number; column: number }) => unknown;
+      updateOptions?: (opts: { insertSpaces?: boolean; tabSize?: number }) => void;
+    } | null;
+    onDidChangeModelContent?: (cb: (e: { changes: { text: string; rangeLength: number }[]; isUndoing?: boolean; isRedoing?: boolean }) => void) => void;
+    onDidDispose?: (cb: () => void) => void;
     trigger?: (source: string, handlerId: string, payload: unknown) => void;
   };
+
+  // Tab size is a MODEL option, not an editor option, so it can't ride the
+  // useEditorFont spread — apply from Settings > Editor here, live.
+  const applyTabSize = () => {
+    let raw = '2 spaces';
+    try { raw = localStorage.getItem('dw.tabSize') || raw; } catch { /* default */ }
+    ed.getModel?.()?.updateOptions?.(
+      raw === 'Tab character'
+        ? { insertSpaces: false, tabSize: 4 }
+        : { insertSpaces: true, tabSize: parseInt(raw, 10) || 2 },
+    );
+  };
+  applyTabSize();
+  window.addEventListener('dw:editor-font-changed', applyTabSize);
+  ed.onDidDispose?.(() => window.removeEventListener('dw:editor-font-changed', applyTabSize));
 
   // 1. Spell-check off.
   const dom = ed.getDomNode?.();
@@ -37,6 +56,9 @@ export function configureEditor(editor: unknown): void {
 
   // 2. Re-trigger suggest on backspace within a word.
   ed.onDidChangeModelContent?.((e) => {
+    // Undo/redo produce deletion-shaped changes too — re-opening the popup
+    // on every Ctrl+Z step is just flicker.
+    if (e.isUndoing || e.isRedoing) return;
     const wasDeletion = e.changes.length > 0 && e.changes.every(
       (c) => c.text === '' && c.rangeLength > 0,
     );

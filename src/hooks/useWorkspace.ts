@@ -175,7 +175,16 @@ export function useWorkspace(): UseWorkspaceReturn {
   }, [activeRequestId, active.nodeLabel, updateActive]);
 
   const setPayload = useCallback((val: string) => updateActive((r) => ({ ...r, payload: val })), [updateActive]);
-  const setPayloadMimeType = useCallback((mime: MimeType) => updateActive((r) => ({ ...r, payloadMimeType: mime })), [updateActive]);
+  const setPayloadMimeType = useCallback((mime: MimeType) => updateActive((r) => ({
+    ...r,
+    payloadMimeType: mime,
+    // Leaving a binary format must drop the picked file — the runner prefers
+    // payloadFilePath over the editor text, so a stale file would silently
+    // override what the user sees in the payload editor.
+    payloadFilePath: ['application/octet-stream', 'application/xlsx', 'application/avro', 'application/protobuf'].includes(mime)
+      ? r.payloadFilePath
+      : undefined,
+  })), [updateActive]);
   const setPayloadFilePath = useCallback((path: string | null) => updateActive((r) => ({ ...r, payloadFilePath: path ?? undefined })), [updateActive]);
   const setMultipartParts = useCallback((parts: MultipartPart[]) => updateActive((r) => ({ ...r, multipartParts: parts })), [updateActive]);
   const setContext = useCallback((ctx: ContextState) => updateActive((r) => ({ ...r, context: ctx })), [updateActive]);

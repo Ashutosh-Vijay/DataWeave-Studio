@@ -34,7 +34,6 @@ const GROUPS: { title: string; items: Shortcut[] }[] = [
     items: [
       { keys: ['⌘', 'K'], label: 'Command palette' },
       { keys: ['⌘', '/'], label: 'Keyboard shortcuts (this dialog)' },
-      { keys: ['⌘', '.'], label: 'Toggle focus drawer / cancel run' },
     ],
   },
   {

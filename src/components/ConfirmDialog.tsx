@@ -59,7 +59,7 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-start justify-center pt-[20vh] px-4"
+      className="fixed inset-0 z-[120] flex items-start justify-center pt-[20vh] px-4"
       style={{
         background: 'color-mix(in oklch, var(--bg) 65%, transparent)',
         backdropFilter: 'blur(3px)',

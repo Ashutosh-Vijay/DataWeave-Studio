@@ -36,7 +36,20 @@ function contentTypeFromFilename(filename: string): string {
   return map[ext] || 'application/octet-stream';
 }
 
+/** Focus a dialog container on mount (unless a child grabbed focus first,
+ *  e.g. an autoFocus input) so its Escape onKeyDown works immediately —
+ *  without this, Escape is dead until the user clicks inside the dialog. */
+function focusDialogOnMount(el: HTMLDivElement | null) {
+  if (!el) return;
+  setTimeout(() => {
+    if (el.isConnected && !el.contains(document.activeElement)) el.focus();
+  }, 0);
+}
+
 function mimeToEditorLang(mime: string): 'json' | 'sql' | 'plaintext' | 'dataweave' {
+  // properties/ndjson first — they substring-match 'java'/'json' and would
+  // wrongly get Monaco's JSON validation (red squiggles on valid input).
+  if (mime.includes('properties') || mime.includes('ndjson')) return 'plaintext';
   if (mime.includes('json') || mime.includes('java')) return 'json';
   if (mime.includes('dw')) return 'dataweave';
   return 'plaintext';
@@ -722,6 +735,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
             // Persist the current flow's nodes AND its (possibly just-renamed)
             // name before jumping — otherwise an unflushed rename is lost.
             setFlows((prev) => prev.map((f, i) => i === activeFlowIdx ? { ...f, nodes, name: flowName } : f));
+            skipNextDirtyRef.current = true; // switching flows isn't an edit
             setNodes(flows[idx].nodes);
             setFlowName(flows[idx].name);
             setActiveFlowIdx(idx);
@@ -1778,8 +1792,19 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   const confirmIfDirty = (run: () => void) => { if (flowDirty) setPendingDiscard(() => run); else run(); };
   dialogOpenRef.current = showSaveDialog || showOpenDialog || muleXmlExport !== null || showMuleXmlImport || showInputEditor || pendingDiscard !== null;
 
-  // Mark dirty on any node change
-  useEffect(() => { if (nodes.length > 0) setFlowDirty(true); }, [nodes]);
+  // Mark dirty on structural node changes only. Run-state fields are stripped
+  // so running a flow (status/output updates) doesn't flag unsaved changes,
+  // and programmatic loads / flow-switches re-baseline via skipNextDirtyRef.
+  const skipNextDirtyRef = useRef(false);
+  const prevStructuralRef = useRef<string | null>(null);
+  useEffect(() => {
+    const structural = JSON.stringify(nodes, (k, v) =>
+      k === 'status' || k === 'output' || k === 'error' || k === 'executionTimeMs' ? undefined : v);
+    const prev = prevStructuralRef.current;
+    prevStructuralRef.current = structural;
+    if (skipNextDirtyRef.current) { skipNextDirtyRef.current = false; return; }
+    if (prev !== null && prev !== structural && nodes.length > 0) setFlowDirty(true);
+  }, [nodes]);
 
   // Persist across unmount (switch tools and return) via a module-level cache.
   useEffect(() => { flowStateCache = { nodes, flowName, flowCurrentFile, flowInput, flows, activeFlowIdx }; }, [nodes, flowName, flowCurrentFile, flowInput, flows, activeFlowIdx]);
@@ -1891,6 +1916,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       // A lone plain <flow> stays in the `flows: []` convention (no switcher /
       // toggle chrome); anything else — multiple flows, or a single sub-flow —
       // keeps the explicit collection so its kind + selection survive.
+      skipNextDirtyRef.current = true; // loading isn't an edit
       if (collection.length === 1 && !collection[0].isSubFlow) {
         setFlows([]);
         setActiveFlowIdx(0);
@@ -1917,6 +1943,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
 
   // ── Clear flow ──────────────────────────────────────────────────
   const clearFlow = useCallback(() => {
+    skipNextDirtyRef.current = true;
     setNodes([]);
     setSelectedId(null);
     setDismissedValidations(new Set());
@@ -1933,6 +1960,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     const target = flows[idx];
     if (!target) return;
     setFlows((prev) => prev.map((f, i) => i === activeFlowIdx ? { ...f, nodes } : f));
+    skipNextDirtyRef.current = true; // switching flows isn't an edit
     setNodes(target.nodes);
     setFlowName(target.name);
     setActiveFlowIdx(idx);
@@ -2505,7 +2533,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
             <button
               onClick={deleteFlow}
               disabled={isRunning || stepping}
-              className="h-6 px-1.5 rounded-md border border-line text-content-faint hover:text-red-400 hover:border-red-400/40 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="h-6 px-1.5 rounded-md border border-line text-content-faint hover:text-err hover:border-err-border cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               title="Delete the active flow from this document"
             >
               <Icons.Trash size={11} />
@@ -2574,6 +2602,15 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
             >
               Step Through
             </button>
+            {isRunning && (
+              <button
+                onClick={() => { abortRef.current = true; }}
+                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] font-medium cursor-pointer transition-colors border border-err-border text-err hover:bg-err-tint"
+                title="Stop the run after the current node finishes"
+              >
+                Stop
+              </button>
+            )}
           </>
         )}
         <button
@@ -2701,7 +2738,10 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           }}
           onClick={(e) => {
             if (contextMenu) { setContextMenu(null); return; }
-            if (e.target === canvasRef.current) setSelectedId(null);
+            // Empty-canvas clicks land on the zoom wrapper / nodes layer, not
+            // the scroll container itself — treat all three as background.
+            const t = e.target as HTMLElement;
+            if (t === canvasRef.current || t.hasAttribute?.('data-canvas-bg')) setSelectedId(null);
           }}
           onContextMenu={(e) => e.preventDefault()}
         >
@@ -2716,7 +2756,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           )}
 
           {/* Zoomable content wrapper */}
-          <div style={{ transform: `scale(${zoom})`, transformOrigin: '0 0', minWidth: 3000 / zoom, minHeight: 2000 / zoom }}>
+          <div data-canvas-bg style={{ transform: `scale(${zoom})`, transformOrigin: '0 0', minWidth: 3000 / zoom, minHeight: 2000 / zoom }}>
           {/* SVG connections layer */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ minWidth: 3000, minHeight: 2000 }}>
             <defs>
@@ -2750,11 +2790,15 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           </svg>
 
           {/* Nodes */}
-          <div className="relative" style={{ minWidth: 3000, minHeight: 2000 }}>
+          <div data-canvas-bg className="relative" style={{ minWidth: 3000, minHeight: 2000 }}>
             {nodes.map((node) => {
               const meta = NODE_META[node.type];
               const isSelected = node.id === selectedId;
-              const isStepTarget = stepIndex !== null && executionOrder[stepIndex]?.id === node.id;
+              // The paused node may be nested inside a scope — highlight the
+              // top-level node whose subtree contains it. (stepIndex counts
+              // nested pauses too, so indexing executionOrder with it points
+              // at the wrong card once you step into a scope.)
+              const isStepTarget = currentStepNodeId !== null && !!findNodeById([node], currentStepNodeId);
               return (
                 <div
                   key={node.id}
@@ -3993,10 +4037,16 @@ output application/json
           onClick={() => setShowSaveDialog(false)}
         >
           <div
-            className="w-full max-w-sm bg-surface border border-line rounded-xl shadow-2xl overflow-hidden"
+            className="w-full max-w-sm bg-surface border border-line rounded-xl shadow-2xl overflow-hidden outline-none"
+            tabIndex={-1}
+            ref={focusDialogOnMount}
             onClick={e => e.stopPropagation()}
             onKeyDown={e => {
-              if (e.key === 'Escape') setShowSaveDialog(false);
+              // stopPropagation: the dialog-close state flushes synchronously
+              // (discrete event), so by the time this same keydown bubbles to
+              // the window handler the dialog reads as closed and Escape would
+              // fall through and close the whole designer.
+              if (e.key === 'Escape') { e.stopPropagation(); setShowSaveDialog(false); }
               if (e.key === 'Enter' && saveDialogName.trim()) {
                 setShowSaveDialog(false);
                 doSaveFlow(saveDialogName.trim());
@@ -4043,10 +4093,12 @@ output application/json
             onClick={() => setShowOpenDialog(false)}
           >
             <div
-              className="w-full max-w-xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden"
+              className="w-full max-w-xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden outline-none"
+              tabIndex={-1}
+              ref={focusDialogOnMount}
               onClick={e => e.stopPropagation()}
               onKeyDown={e => {
-                if (e.key === 'Escape') { setShowOpenDialog(false); return; }
+                if (e.key === 'Escape') { e.stopPropagation(); setShowOpenDialog(false); return; }
                 if (e.key === 'ArrowDown') { e.preventDefault(); setOpenDialogActive(i => Math.min(filtered.length - 1, i + 1)); }
                 else if (e.key === 'ArrowUp') { e.preventDefault(); setOpenDialogActive(i => Math.max(0, i - 1)); }
                 else if (e.key === 'Enter') {
@@ -4120,9 +4172,11 @@ output application/json
           onClick={() => setMuleXmlExport(null)}
         >
           <div
-            className="w-full max-w-3xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[84vh]"
+            className="w-full max-w-3xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[84vh] outline-none"
+            tabIndex={-1}
+            ref={focusDialogOnMount}
             onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => { if (e.key === 'Escape') setMuleXmlExport(null); }}
+            onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setMuleXmlExport(null); } }}
           >
             <div className="px-4 py-3 border-b border-line flex items-center gap-2">
               <span className="font-mono text-[12px]" style={{ color: 'var(--accent)' }}>&lt;/&gt;</span>
@@ -4198,9 +4252,11 @@ output application/json
           onClick={() => setShowMuleXmlImport(false)}
         >
           <div
-            className="w-full max-w-3xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[84vh]"
+            className="w-full max-w-3xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[84vh] outline-none"
+            tabIndex={-1}
+            ref={focusDialogOnMount}
             onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => { if (e.key === 'Escape') setShowMuleXmlImport(false); }}
+            onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setShowMuleXmlImport(false); } }}
           >
             <div className="px-4 py-3 border-b border-line flex items-center gap-2">
               <span className="font-mono text-[12px]" style={{ color: 'var(--accent)' }}>&lt;/&gt;</span>
@@ -4278,7 +4334,7 @@ output application/json
                 Preview
               </button>
               <button
-                onClick={confirmMuleXmlImport}
+                onClick={() => confirmIfDirty(confirmMuleXmlImport)}
                 disabled={!muleXmlImportText.trim() || (muleXmlImportResult?.kind === 'error')}
                 className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] font-medium cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
@@ -4297,9 +4353,11 @@ output application/json
           onClick={() => setShowInputEditor(false)}
         >
           <div
-            className="w-full max-w-2xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[84vh]"
+            className="w-full max-w-2xl bg-surface border border-line rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[84vh] outline-none"
+            tabIndex={-1}
+            ref={focusDialogOnMount}
             onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => { if (e.key === 'Escape') setShowInputEditor(false); }}
+            onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setShowInputEditor(false); } }}
           >
             <div className="px-4 py-3 border-b border-line flex items-center gap-2">
               <span className="font-mono text-[12px]" style={{ color: 'var(--accent)' }}>{'{ }'}</span>

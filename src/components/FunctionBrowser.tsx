@@ -43,7 +43,12 @@ export function FunctionBrowser({ open, onClose, onInsertAtCursor }: FunctionBro
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      // First Esc clears an active search (the clear button advertises
+      // "Clear (Esc)"); a second Esc closes the browser.
+      if (e.key === 'Escape' && !e.defaultPrevented) {
+        if (query) setQuery('');
+        else onClose();
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
         e.preventDefault();
         searchInputRef.current?.focus();
@@ -52,7 +57,7 @@ export function FunctionBrowser({ open, onClose, onInsertAtCursor }: FunctionBro
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open, onClose]);
+  }, [open, onClose, query]);
 
   // Auto-focus search on open
   useEffect(() => {

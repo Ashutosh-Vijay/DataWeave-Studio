@@ -8,6 +8,12 @@ node_modules
 dist
 dist-ssr
 
+# Microsoft Store / MSIX build artifacts (Package.appxmanifest + Assets/ ARE committed)
+dist-msix/
+*.msix
+*.msixbundle
+*.pfx
+
 # Tauri build output
 src-tauri/target
 
@@ -72,3 +78,6 @@ graphify-out/
 example/
 project_summary.md
 FLOW_OVERHAUL_PLAN.md
+
+# Development certificate
+devcert.pfx

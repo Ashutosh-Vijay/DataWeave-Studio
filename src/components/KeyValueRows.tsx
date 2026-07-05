@@ -64,7 +64,7 @@ export function KeyValueRows({
                 setFocusedRow(null);
               }
             }}
-            className={`rounded-md ${isExpanded ? 'bg-surface-section ring-1 ring-blue-500/25 p-1.5 -mx-1' : ''}`}
+            className={`rounded-md ${isExpanded ? 'bg-surface-section ring-1 ring-accent-border p-1.5 -mx-1' : ''}`}
           >
             <div className="flex items-center gap-1.5">
               <button
@@ -98,7 +98,7 @@ export function KeyValueRows({
                 placeholder={valuePlaceholder}
                 rows={isExpanded ? 3 : 1}
                 style={{ resize: 'none', overflow: isExpanded ? 'auto' : 'hidden' }}
-                className={`flex-1 bg-surface-elevated border rounded px-2 py-1 text-xs placeholder-content-ghost focus:outline-none ${isExpanded ? 'border-blue-500/40 focus:border-accent font-mono' : 'border-line focus:border-accent'} ${enabled ? 'text-content' : 'text-content-faint'}`}
+                className={`flex-1 bg-surface-elevated border rounded px-2 py-1 text-xs placeholder-content-ghost focus:outline-none ${isExpanded ? 'border-accent-border focus:border-accent font-mono' : 'border-line focus:border-accent'} ${enabled ? 'text-content' : 'text-content-faint'}`}
               />
               <button
                 onClick={() => removeRow(i)}

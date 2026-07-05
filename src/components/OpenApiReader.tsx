@@ -562,7 +562,10 @@ export function OpenApiReader({ open: isOpen, onClose, onImport }: OpenApiReader
   // (the page is persistent — App keeps this component mounted).
   useEffect(() => {
     if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    // Skip Escapes something else already handled (Monaco dismissing its
+    // suggest/find widget, the rename input cancelling) — otherwise that same
+    // keypress also closes the whole tool.
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !e.defaultPrevented) onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, onClose]);
@@ -697,13 +700,15 @@ export function OpenApiReader({ open: isOpen, onClose, onImport }: OpenApiReader
 
   if (!isOpen) return null;
 
-  const mimeFor = (raw?: string): MimeType => (raw?.includes('xml') ? 'application/xml' : 'application/json');
-
   const doImport = () => {
     if (!generated) return;
     onImport({
       payload: generated.payload,
-      payloadMimeType: mimeFor(generated.mime),
+      // The sample payload is ALWAYS JSON text (JSON.stringify above) — even
+      // for XML content types, where the skeleton's `output application/xml`
+      // does the conversion. Importing with an xml input mime would make the
+      // very next Run fail parsing JSON with the XML reader.
+      payloadMimeType: 'application/json',
       generatedScript: generated.script,
     });
     onClose();
@@ -791,7 +796,7 @@ export function OpenApiReader({ open: isOpen, onClose, onImport }: OpenApiReader
                         onBlur={commitRename}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') { e.preventDefault(); commitRename(); }
-                          else if (e.key === 'Escape') { e.preventDefault(); setEditingId(null); }
+                          else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setEditingId(null); }
                         }}
                         className="w-full bg-surface border border-accent-border rounded px-1.5 py-0.5 text-[12px] text-content outline-none"
                       />

@@ -194,7 +194,9 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      // defaultPrevented: Monaco already handled this Escape (dismissing its
+      // suggest/find widget) — it must not also close the whole tool.
+      if (e.key === 'Escape' && !e.defaultPrevented) onClose();
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void compileAndRun(); }
       if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) { e.preventDefault(); void compileOnly(); }
     };

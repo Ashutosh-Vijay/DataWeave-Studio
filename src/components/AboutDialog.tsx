@@ -248,7 +248,7 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
 
           {/* Footer row — status + tech stack + actions */}
           <div className="flex items-center gap-[14px] text-[11.5px] flex-wrap" style={{ color: 'var(--content-muted)' }}>
-            {isTauri ? (
+            {isTauri && import.meta.env.VITE_STORE_BUILD !== '1' ? (
               <button
                 onClick={handleCheckForUpdates}
                 disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
@@ -263,7 +263,7 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
             ) : (
               <span className="inline-flex items-center gap-[6px]" style={{ color: 'var(--accent)' }}>
                 <Icons.Dot size={8} />
-                <span>Installed via VS Code · Marketplace handles updates</span>
+                <span>{isTauri ? 'Installed via Microsoft Store · Store handles updates' : 'Installed via VS Code · Marketplace handles updates'}</span>
               </span>
             )}
             <span style={{ color: 'var(--content-faint)' }}>·</span>

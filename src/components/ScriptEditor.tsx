@@ -4,8 +4,7 @@ import { configureEditor } from '../editorInit';
 import { Icons } from './Icons';
 import { migrateDW1to2, type MigrationChange } from '../dwMigrate';
 import { dwTokensProvider } from '../dataweaveGrammar';
-import { registerDWCompletionProvider, DWCompletionContext } from '../dataweaveCompletions';
-import { registerDWHoverProvider } from '../dataweaveHover';
+import { ensureDWEditorProviders, registerDWModelContext, DWCompletionContext } from '../dataweaveCompletions';
 import { registerDWCodeActionProvider } from '../dataweaveCodeActions';
 import { convertAllPropertyCalls, findPropertyCalls } from '../dataweavePropertyConverter';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
@@ -180,8 +179,6 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
     },
   }), []);
 
-  const completionDisposableRef = useRef<any>(null);
-  const hoverDisposableRef = useRef<any>(null);
   const codeActionDisposableRef = useRef<any>(null);
   const contextRef = useRef<DWCompletionContext>({
     payload: '',
@@ -267,32 +264,28 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
     defineDataWeaveTheme(monacoInstance);
   }, []);
 
-  // Register autocomplete + hover docs + code actions once monaco is ready
+  // Register autocomplete + hover (shared, refcounted — MiniEditors use the
+  // same registration) and code actions once monaco is ready.
   useEffect(() => {
-    if (monaco) {
-      if (completionDisposableRef.current) completionDisposableRef.current.dispose();
-      if (hoverDisposableRef.current) hoverDisposableRef.current.dispose();
-      if (codeActionDisposableRef.current) codeActionDisposableRef.current.dispose();
-      completionDisposableRef.current = registerDWCompletionProvider(monaco, () => contextRef.current);
-      hoverDisposableRef.current = registerDWHoverProvider(monaco);
-      codeActionDisposableRef.current = registerDWCodeActionProvider(monaco);
-    }
-
+    if (!monaco) return;
+    const release = ensureDWEditorProviders(monaco);
+    if (codeActionDisposableRef.current) codeActionDisposableRef.current.dispose();
+    codeActionDisposableRef.current = registerDWCodeActionProvider(monaco);
     return () => {
-      if (completionDisposableRef.current) {
-        completionDisposableRef.current.dispose();
-        completionDisposableRef.current = null;
-      }
-      if (hoverDisposableRef.current) {
-        hoverDisposableRef.current.dispose();
-        hoverDisposableRef.current = null;
-      }
+      release();
       if (codeActionDisposableRef.current) {
         codeActionDisposableRef.current.dispose();
         codeActionDisposableRef.current = null;
       }
     };
   }, [monaco]);
+
+  // Route this editor's payload/vars context to its own model, so completions
+  // in a MiniEditor (flow node, Java tester) don't see the main payload.
+  useEffect(
+    () => registerDWModelContext(modelPath ?? '', () => contextRef.current),
+    [modelPath]
+  );
 
   // Switch Monaco theme when app theme changes (redefine first so colors reflect current CSS vars)
   useEffect(() => {
@@ -417,18 +410,18 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
           beforeMount={handleBeforeMount}
           onMount={handleEditorDidMount}
           options={{
-            minimap: { enabled: false },
             // Relayout when the container resizes (e.g. VS Code's bottom panel
             // opening shrinks the editor area) so the last lines stay visible
             // instead of being clipped below the fold.
             automaticLayout: true,
+            // Font, line height, word wrap, minimap, bracket colors — all from
+            // Settings > Editor (the script editor is where those prefs apply).
             ...editorFont,
             // Render hover & suggest popups in a dedicated DOM node attached
             // to <body>, so they aren't clipped by any ancestor's overflow or
             // containing block (transform/will-change/etc.).
             fixedOverflowWidgets: true,
             overflowWidgetsDomNode: getOverflowWidgetsDomNode(),
-            wordWrap: 'on',
             scrollBeyondLastLine: false,
             glyphMargin: true,
             suggestOnTriggerCharacters: true,
@@ -622,7 +615,7 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
                 style={{ borderTop: '1px solid var(--line-subtle)', background: 'var(--surface-2)' }}
               >
                 <span className="text-[11.5px]" style={{ color: 'var(--content-faint)' }}>
-                  Original kept in undo history (⌘Z)
+                  Original kept in undo history ({navigator.platform.startsWith('Mac') ? '⌘Z' : 'Ctrl+Z'})
                 </span>
                 <span className="flex-1" />
                 <button

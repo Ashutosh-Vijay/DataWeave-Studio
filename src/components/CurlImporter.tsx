@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { KeyValuePair, MimeType, MultipartPart } from '../types';
 
 export interface CurlImportResult {
@@ -528,6 +528,20 @@ export function CurlImporter({ onImport, open, onClose }: CurlImporterProps) {
   const [curlText, setCurlText] = useState('');
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<CurlImportResult | null>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const mouseDownOnBackdrop = useRef(false);
+
+  // Escape closes the dialog (state is kept — see handleClose).
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented) {
+        if (controlled) onClose?.(); else setInternalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, controlled, onClose]);
 
   const handlePreview = () => {
     if (!curlText.trim()) { setError('Paste a curl command first'); return; }
@@ -540,17 +554,19 @@ export function CurlImporter({ onImport, open, onClose }: CurlImporterProps) {
     }
   };
 
+  // Closing keeps the pasted command/preview so an accidental dismiss doesn't
+  // destroy work — state only clears after a successful import.
   const handleClose = () => {
     if (controlled) onClose?.(); else setInternalOpen(false);
-    setError('');
-    setCurlText('');
-    setPreview(null);
   };
 
   const handleImport = () => {
     if (preview) {
       onImport(preview);
       handleClose();
+      setError('');
+      setCurlText('');
+      setPreview(null);
     }
   };
 
@@ -585,12 +601,20 @@ export function CurlImporter({ onImport, open, onClose }: CurlImporterProps) {
 
   return (
     <div
+      ref={backdropRef}
       className="fixed inset-0 z-50 flex items-start justify-center pt-[6vh] px-4"
       style={{
         background: 'color-mix(in oklch, var(--bg) 60%, transparent)',
         backdropFilter: 'blur(3px)',
       }}
-      onClick={handleClose}
+      // mousedown+mouseup must BOTH land on the backdrop: a text-selection
+      // drag that starts in the textarea and ends past the dialog edge
+      // dispatches click on the backdrop and would otherwise close it.
+      onMouseDown={(e) => { mouseDownOnBackdrop.current = e.target === backdropRef.current; }}
+      onMouseUp={(e) => {
+        if (mouseDownOnBackdrop.current && e.target === backdropRef.current) handleClose();
+        mouseDownOnBackdrop.current = false;
+      }}
     >
       <div
         className="w-full max-w-[780px] rounded-xl flex flex-col overflow-hidden"

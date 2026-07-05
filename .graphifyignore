@@ -3,6 +3,10 @@
 node_modules/
 dist/
 dist-ssr/
+# Generated VS Code extension bundles (Vite/esbuild output) — these are minified
+# blobs that flooded the graph with garbage symbols and buried real source.
+vscode-extension/webview-dist/
+vscode-extension/dist/
 src-tauri/target/
 dw-server/target/
 src-tauri/resources/jre/

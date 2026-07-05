@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+  MSIX manifest for the Microsoft Store build of DataWeave Studio.
+  Built into an .msix by scripts/pack-msix.ps1 (via the winapp CLI).
+
+  NOTE on Store submission: when you reserve the app in Partner Center, the Store
+  assigns you the real Identity/Name, Publisher (CN=<GUID>) and PublisherDisplayName.
+  Replace the three values below with the ones from Partner Center before the real
+  submission. The values here are for LOCAL dev-cert testing only — the dev cert's
+  subject (CN=Ashutosh Vijay) must match Publisher, which is why cert generate reads
+  it from this file.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap2="http://schemas.microsoft.com/appx/manifest/uap/windows10/2"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap2 uap3 uap10 desktop desktop6 rescap">
+
+  <Identity
+    Name="AshutoshVijay.DataWeaveStudio"
+    Publisher="CN=Ashutosh Vijay"
+    Version="2.2.1.0" />
+
+  <Properties>
+    <DisplayName>DataWeave Studio</DisplayName>
+    <PublisherDisplayName>Ashutosh Vijay</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.18362.0" MaxVersionTested="10.0.26200.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us"/>
+  </Resources>
+
+  <Applications>
+    <Application Id="dataweaveStudio"
+      Executable="app.exe"
+      EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="DataWeave Studio"
+        Description="A fast, local workbench for DataWeave 2.0"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\MedTile.png"
+        Square44x44Logo="Assets\AppList.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\WideTile.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!-- Full-trust desktop app: runs outside AppContainer, so it can spawn the
+         bundled Java engine/javac and bind the loopback MCP server. internetClient
+         covers the Maven Central jar fetch. -->
+    <rescap:Capability Name="runFullTrust" />
+    <Capability Name="internetClient" />
+  </Capabilities>
+</Package>

@@ -3,6 +3,14 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { isTauri } from '../bridge';
 
 export function WindowControls() {
+  // A VS Code webview or plain browser is a tab, not an OS window — no
+  // min/max/close chrome. Must bail before TauriWindowControls renders:
+  // getCurrentWindow() throws outside Tauri and crashes the whole app.
+  if (!isTauri) return null;
+  return <TauriWindowControls />;
+}
+
+function TauriWindowControls() {
   const [maximized, setMaximized] = useState(false);
   const win = getCurrentWindow();
 
@@ -14,9 +22,6 @@ export function WindowControls() {
     })();
     return () => { if (unlisten) unlisten(); };
   }, [win]);
-
-  // A VS Code webview is a tab, not an OS window — no min/max/close chrome.
-  if (!isTauri) return null;
 
   return (
     <div className="flex items-center h-full -mr-3">

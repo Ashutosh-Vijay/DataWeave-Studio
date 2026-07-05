@@ -75,7 +75,8 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      // Skip Escapes Monaco already handled (suggest/find widget dismiss).
+      if (e.key === 'Escape' && !e.defaultPrevented) onClose();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);

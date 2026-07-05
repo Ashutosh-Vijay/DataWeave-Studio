@@ -54,7 +54,7 @@ const WelcomeTour = lazy(() => import('./components/WelcomeTour').then((m) => ({
 const ShortcutsDialog = lazy(() => import('./components/ShortcutsDialog').then((m) => ({ default: m.ShortcutsDialog })));
 const SettingsScreen = lazy(() => import('./components/SettingsScreen').then((m) => ({ default: m.SettingsScreen })));
 const WelcomeScreen = lazy(() => import('./components/WelcomeScreen').then((m) => ({ default: m.WelcomeScreen })));
-import { WhatsNew, LATEST_VERSION } from './components/WhatsNew';
+import { WhatsNew, LATEST_VERSION, getRelease } from './components/WhatsNew';
 import { FeatureIntroHost } from './components/FeatureIntroHost';
 import { introFeature } from './featureIntros';
 import { SplashScreen } from './components/SplashScreen';
@@ -206,7 +206,13 @@ function App() {
   const { toggle, isDark } = useTheme();
   const [outputFormat, setOutputFormat] = useState<'json' | 'xml' | 'raw'>('json');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [autoRun, setAutoRun] = useState(false);
+  // Auto-run persists across sessions (the header Auto button / ⌘⇧R toggle it).
+  const [autoRun, setAutoRun] = useState(() => {
+    try { return localStorage.getItem('dw.autoRun') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('dw.autoRun', autoRun ? '1' : '0'); } catch { /* ignore */ }
+  }, [autoRun]);
   /** Pane switch — 'script' shows the editor splits, 'tests' shows the
    *  per-request Tests panel. Per-workspace state, not per-request, so the
    *  user's view sticks when they switch between requests. */
@@ -367,6 +373,10 @@ function App() {
       const file = e.dataTransfer?.files?.[0];
       if (!file) return;
       e.preventDefault();
+      // A drop aimed at an open dialog / full-screen tool must not silently
+      // replace the payload behind it (e.g. dropping XML onto the Flow
+      // Designer's import dialog). Every overlay root uses `fixed inset-0`.
+      if ((e.target as HTMLElement)?.closest?.('.fixed.inset-0, [role="dialog"], [role="alertdialog"]')) return;
       try {
         const text = await file.text();
         const ext = (file.name.split('.').pop() || '').toLowerCase();
@@ -515,7 +525,9 @@ function App() {
   // workspaces from a previous app version (they don't need an onboarding
   // prompt for something they already understand).
   useEffect(() => {
-    if (showFirstRun || !shouldShowFirstWorkspace()) return;
+    // showTour: the prompt would mount UNDER the tour scrim, auto-focus an
+    // invisible input, and swallow keystrokes — wait until the tour finishes.
+    if (showFirstRun || showTour || !shouldShowFirstWorkspace()) return;
     (async () => {
       try {
         const metas = await workspace.listWorkspaces();
@@ -526,7 +538,7 @@ function App() {
       } catch { /* if listing fails, fall through to the prompt */ }
       setShowFirstWorkspace(true);
     })();
-  }, [showFirstRun, workspace.listWorkspaces]);
+  }, [showFirstRun, showTour, workspace.listWorkspaces]);
 
   const handleFirstWorkspaceCreate = useCallback(async (name: string) => {
     workspace.setProjectName(name);
@@ -573,6 +585,8 @@ function App() {
       // the flag-based toast below, which also works in VS Code).
       try { localStorage.setItem(LAST_VERSION_KEY, v); } catch { /* ignore */ }
     }).catch(() => {});
+    // Microsoft Store builds are updated by the Store — never self-update.
+    if (import.meta.env.VITE_STORE_BUILD === '1') return;
     let updateCheckEnabled = true;
     try { updateCheckEnabled = localStorage.getItem('dw.updateCheck') !== '0'; } catch { /* default on */ }
     if (!updateCheckEnabled) return;
@@ -631,10 +645,10 @@ function App() {
         persist: true,
         // No version number here — desktop and the VS Code extension version
         // independently (2.x vs 1.x), so a single number would be wrong in one.
+        // Message derives from the WhatsNew data (already runtime-specific),
+        // so the toast can never describe a different release than the dialog.
         title: 'DataWeave Studio updated',
-        message: isTauri
-          ? 'Editor and secure-properties fixes landed in this release.'
-          : 'The app now follows your VS Code color theme — switch back anytime in Settings → Appearance. Plus editor and secure-properties fixes.',
+        message: `${getRelease(LATEST_VERSION)?.headline ?? 'See what changed'} — details in What’s new.`,
         action: { label: 'What’s new', onClick: () => setShowWhatsNew(true) },
       });
     }, 900);
@@ -685,6 +699,14 @@ function App() {
       namedInputsJson,
       workspace.payloadFilePath,
     );
+
+    // Sync the output view to the script's `output` directive — the json/xml/
+    // raw toggle only affects syntax highlighting, so without this an XML run
+    // shows XML text highlighted as (invalid) JSON until manually switched.
+    const outDirective = resolvedScript.match(/^\s*output\s+([\w/+.-]+)/m)?.[1] ?? '';
+    if (outDirective) {
+      setOutputFormat(outDirective.includes('xml') ? 'xml' : outDirective.includes('json') ? 'json' : 'raw');
+    }
 
     const multipartPartsJson =
       workspace.payloadMimeType === 'multipart/form-data' && workspace.multipartParts.length > 0
@@ -1327,6 +1349,16 @@ function App() {
               toast('No previous session found to restore.', 'error');
             }}
           />
+        ) : viewMode === 'tests' ? (
+          // Tests wins over the compact layout — otherwise the Tests toggle
+          // silently does nothing at narrow widths.
+          <main className="flex-1 overflow-hidden bg-bg flex">
+            <TestsView
+              request={workspace.request}
+              onTestsChange={workspace.setTests}
+              onScriptChange={workspace.setScript}
+            />
+          </main>
         ) : isCompact ? (
           <main className="flex-1 overflow-hidden bg-bg">
             <CompactLayout
@@ -1390,14 +1422,6 @@ function App() {
                   onCancel={runner.cancel}
                 />
               }
-            />
-          </main>
-        ) : viewMode === 'tests' ? (
-          <main className="flex-1 overflow-hidden bg-bg flex">
-            <TestsView
-              request={workspace.request}
-              onTestsChange={workspace.setTests}
-              onScriptChange={workspace.setScript}
             />
           </main>
         ) : (
@@ -1620,7 +1644,16 @@ function App() {
             onClasspathChange={workspace.setClasspath}
             timeoutMs={workspace.timeoutMs}
             onTimeoutMsChange={workspace.setTimeoutMs}
-            onShowTour={() => { setSettingsOpen(false); setShowTour(true); }}
+            onShowTour={() => {
+              // Same prep as the palette command: the tour filters steps by
+              // which data-tour anchors are mounted, so from the empty state
+              // it would show one step (or nothing) without this.
+              setSettingsOpen(false);
+              beginTransforming();
+              setLayout('workbench');
+              setSidebarCollapsed(false);
+              setTimeout(() => setShowTour(true), 50);
+            }}
             onShowAbout={() => { setSettingsOpen(false); setAboutOpen(true); }}
             onRestartEngine={handleRestartEngine}
           />

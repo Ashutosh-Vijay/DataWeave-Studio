@@ -432,41 +432,11 @@ function AppearancePanel({
 }
 
 function GeneralPanel({ onShowTour }: { onShowTour: () => void }) {
-  const useStored = (k: string, def: boolean) => {
-    const [v, setV] = useState<boolean>(() => {
-      try { const s = localStorage.getItem(k); return s == null ? def : s === '1'; } catch { return def; }
-    });
-    return [v, (nv: boolean) => { setV(nv); try { localStorage.setItem(k, nv ? '1' : '0'); } catch {} }] as const;
-  };
-  const [openLast, setOpenLast] = useStored('dw.openLast', true);
-  const [autoUpdate, setAutoUpdate] = useStored('dw.autoUpdate', true);
-  const [tourNew, setTourNew] = useStored('dw.tourNew', false);
-  const [autosaveOnChange, setAutosaveOnChange] = useStored('dw.autosaveOnChange', true);
-  const [autoRunInput, setAutoRunInput] = useStored('dw.autoRunInput', false);
-
+  // The old Startup/Autosave toggles were placebos — nothing read their keys.
+  // Update-check lives in Advanced > Privacy (dw.updateCheck, actually wired),
+  // auto-run is the header's Auto button (persisted), drafts always save.
   return (
     <SectionWrap title="General" desc="Workspace and app behavior">
-      <Group title="Startup">
-        <SRow label="Open last workspace" desc="Restore the workspace you had open when you closed the app.">
-          <Toggle on={openLast} onChange={setOpenLast} />
-        </SRow>
-        <SRow label="Check for updates automatically">
-          <Toggle on={autoUpdate} onChange={setAutoUpdate} />
-        </SRow>
-        <SRow label="Show welcome tour for new workspaces">
-          <Toggle on={tourNew} onChange={setTourNew} />
-        </SRow>
-      </Group>
-
-      <Group title="Autosave">
-        <SRow label="Save workspace on change" desc="Writes to disk 2 seconds after the last edit.">
-          <Toggle on={autosaveOnChange} onChange={setAutosaveOnChange} />
-        </SRow>
-        <SRow label="Auto-run on input change" desc="Re-executes the transform after 1.5s of inactivity.">
-          <Toggle on={autoRunInput} onChange={setAutoRunInput} />
-        </SRow>
-      </Group>
-
       <Group title="Welcome">
         <SRow label="Show guided tour" desc="Walk through script editor, payload, context, and output.">
           <OutlineBtn onClick={onShowTour}>Show tour</OutlineBtn>
@@ -587,17 +557,21 @@ function EditorPanel() {
           <SelectInput value={fontSize} options={['11 px', '12 px', '13 px', '14 px', '15 px', '16 px']} onChange={(v) => { setFontSize(v); notifyEditorFontChanged(); }} width={100} />
         </SRow>
         <SRow label="Line height">
-          <SelectInput value={lineHeight} options={['1.4', '1.5', '1.6', '1.7', '1.8']} onChange={setLineHeight} width={80} />
+          <SelectInput value={lineHeight} options={['1.4', '1.5', '1.6', '1.7', '1.8']} onChange={(v) => { setLineHeight(v); notifyEditorFontChanged(); }} width={80} />
         </SRow>
       </Group>
 
       <Group title="Behavior">
         <SRow label="Tab size">
-          <SelectInput value={tabSize} options={['2 spaces', '4 spaces', 'Tab character']} onChange={setTabSize} width={140} />
+          <SelectInput value={tabSize} options={['2 spaces', '4 spaces', 'Tab character']} onChange={(v) => { setTabSize(v); notifyEditorFontChanged(); }} width={140} />
         </SRow>
-        <SRow label="Word wrap"><Toggle on={wordWrap} onChange={setWordWrap} /></SRow>
-        <SRow label="Bracket pair colorization"><Toggle on={bracketColor} onChange={setBracketColor} /></SRow>
-        <SRow label="Minimap"><Toggle on={minimap} onChange={setMinimap} /></SRow>
+        <SRow label="Word wrap" desc="Script editor only — data panes always wrap.">
+          <Toggle on={wordWrap} onChange={(v) => { setWordWrap(v); notifyEditorFontChanged(); }} />
+        </SRow>
+        <SRow label="Bracket pair colorization"><Toggle on={bracketColor} onChange={(v) => { setBracketColor(v); notifyEditorFontChanged(); }} /></SRow>
+        <SRow label="Minimap" desc="Script editor only.">
+          <Toggle on={minimap} onChange={(v) => { setMinimap(v); notifyEditorFontChanged(); }} />
+        </SRow>
       </Group>
     </SectionWrap>
   );
@@ -612,10 +586,14 @@ function AdvancedPanel() {
   });
   const [resetOpen, setResetOpen] = useState(false);
 
-  const isWin = navigator.userAgent.includes('Windows') || (navigator as any).userAgentData?.platform === 'Windows';
-  const dataPath = isWin
-    ? '%APPDATA%\\com.dwstudio.desktop'
-    : '~/Library/Application Support/com.dwstudio.desktop';
+  // The Rust backend uses app_local_data_dir — on Windows that's
+  // %LOCALAPPDATA% (Local, not Roaming), matching the Sidebar footer.
+  const ua = navigator.userAgent;
+  const dataPath = (ua.includes('Windows') || (navigator as any).userAgentData?.platform === 'Windows')
+    ? '%LOCALAPPDATA%\\com.dwstudio.desktop'
+    : ua.includes('Mac')
+      ? '~/Library/Application Support/com.dwstudio.desktop'
+      : '~/.local/share/com.dwstudio.desktop';
 
   const doResetSettings = () => {
     const keys = Object.keys(localStorage).filter(k => k.startsWith('dw.'));
@@ -683,10 +661,6 @@ function ShortcutsList() {
     ]},
     { title: 'Navigation', items: [
       ['Command palette', ['⌘', 'K']],
-      ['Go to script', ['⌘', '1']],
-      ['Go to payload', ['⌘', '2']],
-      ['Go to context', ['⌘', '3']],
-      ['Go to output', ['⌘', '4']],
     ]},
     { title: 'Appearance', items: [
       ['Switch to Workbench', ['⌘', '⇧', '1']],

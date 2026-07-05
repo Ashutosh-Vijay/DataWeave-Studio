@@ -8,18 +8,10 @@ import Editor, { useMonaco, BeforeMount } from '@monaco-editor/react';
 import { configureEditor } from '../editorInit';
 import { useEffect, useCallback, memo } from 'react';
 import { dwTokensProvider } from '../dataweaveGrammar';
-import { registerDWCompletionProvider } from '../dataweaveCompletions';
-import { registerDWHoverProvider } from '../dataweaveHover';
+import { ensureDWEditorProviders } from '../dataweaveCompletions';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';
-import type * as Monaco from 'monaco-editor';
-
-// Track how many MiniEditor instances want DW providers registered.
-// Only dispose when the last one unmounts.
-let dwProviderRefCount = 0;
-let sharedCompletionDisposable: Monaco.IDisposable | null = null;
-let sharedHoverDisposable: Monaco.IDisposable | null = null;
 
 let _overflowNode: HTMLDivElement | null = null;
 function getOverflowNode(): HTMLDivElement {
@@ -94,22 +86,11 @@ export const MiniEditor = memo(function MiniEditor({
     defineDataWeaveTheme(m);
   }, []);
 
-  // Register completions + hover for DW language (shared across instances)
+  // Completions + hover come from the single shared registration (refcounted
+  // with ScriptEditor — a second registration would duplicate every suggestion).
   useEffect(() => {
     if (!monaco || language !== 'dataweave') return;
-    dwProviderRefCount++;
-    if (!sharedCompletionDisposable) sharedCompletionDisposable = registerDWCompletionProvider(monaco);
-    if (!sharedHoverDisposable) sharedHoverDisposable = registerDWHoverProvider(monaco);
-    return () => {
-      dwProviderRefCount--;
-      if (dwProviderRefCount <= 0) {
-        sharedCompletionDisposable?.dispose();
-        sharedCompletionDisposable = null;
-        sharedHoverDisposable?.dispose();
-        sharedHoverDisposable = null;
-        dwProviderRefCount = 0;
-      }
-    };
+    return ensureDWEditorProviders(monaco);
   }, [monaco, language]);
 
   // Sync theme — re-bake on light/dark toggle and on accent change.
@@ -152,7 +133,9 @@ export const MiniEditor = memo(function MiniEditor({
           suggestOnTriggerCharacters: true,
           quickSuggestions: true,
           tabCompletion: 'on',
-          acceptSuggestionOnEnter: 'on',
+          // Enter inserts a newline; Tab accepts. 'on' would make Enter accept
+          // the pre-selected suggestion mid-script (same rationale as ScriptEditor).
+          acceptSuggestionOnEnter: 'off',
           snippetSuggestions: 'top',
           autoClosingBrackets: 'beforeWhitespace',
           autoClosingQuotes: 'beforeWhitespace',

@@ -17,6 +17,7 @@ import { useState, useEffect } from 'react';
 import { Icons } from './Icons';
 import { WindowControls } from './WindowControls';
 import { MiniEditor } from './MiniEditor';
+import { ConfirmDialog } from './ConfirmDialog';
 
 export interface DwModule {
   name: string;
@@ -48,7 +49,8 @@ export function ModulesPanel({
   const [selected, setSelected] = useState(0);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    // Skip Escapes Monaco already handled (suggest/find widget dismiss).
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !e.defaultPrevented) onClose(); };
     if (open) window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
@@ -71,8 +73,12 @@ export function ModulesPanel({
     setSelected(modules.length);
   };
 
+  // Deleting destroys the module's whole source with no undo, and the X sits
+  // right next to the row users click to select — always confirm first.
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const removeModule = (idx: number) => {
     onChange(modules.filter((_, i) => i !== idx));
+    if (selected >= idx && selected > 0) setSelected(selected - 1);
   };
 
   const updateActive = (patch: Partial<DwModule>) => {
@@ -125,7 +131,7 @@ export function ModulesPanel({
                   <div className={`text-[11px] font-mono truncate ${i === selected ? 'text-content' : 'text-content-secondary'}`} title={m.name}>{m.name || '(unnamed)'}</div>
                 </div>
                 <button
-                  onClick={(e) => { e.stopPropagation(); removeModule(i); }}
+                  onClick={(e) => { e.stopPropagation(); setPendingDelete(i); }}
                   className="text-content-faint hover:text-err opacity-0 group-hover:opacity-100 cursor-pointer"
                   title="Delete module"
                 >
@@ -175,6 +181,16 @@ export function ModulesPanel({
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete module?"
+        description={<>The source of <span className="font-mono">{pendingDelete !== null ? (modules[pendingDelete]?.name || '(unnamed)') : ''}</span> will be permanently deleted. Scripts importing it will stop compiling.</>}
+        tone="danger"
+        confirmLabel="Delete"
+        onConfirm={() => { if (pendingDelete !== null) removeModule(pendingDelete); }}
+        onClose={() => setPendingDelete(null)}
+      />
     </div>
   );
 }
