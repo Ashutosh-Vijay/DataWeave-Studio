@@ -81,6 +81,7 @@ import { useMediaQuery } from './hooks/useMediaQuery';
 import { useTheme } from './ThemeContext';
 import { KeyValuePair, METHOD_COLORS, NODE_LABEL_COLORS, NODE_LABELS, isValidMimeType } from './types';
 import { Icons } from './components/Icons';
+import { ConfirmDialog } from './components/ConfirmDialog';
 import { CurlImporter, CurlImportResult } from './components/CurlImporter';
 import { OpenApiReader, OpenApiImportResult } from './components/OpenApiReader';
 import { publishCursor, useCursor } from './cursorStore';
@@ -276,6 +277,28 @@ function App() {
     workspace.newWorkspace();
     setTimeout(() => scriptEditorRef.current?.focus(), 50);
   }, [workspace, beginTransforming]);
+
+  // ── Unsaved-changes guard for workspace switch / new ──────────────────
+  // Loading another workspace (sidebar row, ⌘O dialog) or starting a new one
+  // replaces the whole in-memory state — without this, a single click threw
+  // away unsaved work with no warning.
+  const [pendingSwitch, setPendingSwitch] = useState<null | { kind: 'load'; filename: string } | { kind: 'new' }>(null);
+  const performSwitch = useCallback(async (action: { kind: 'load'; filename: string } | { kind: 'new' }) => {
+    if (action.kind === 'load') {
+      beginTransforming();
+      await workspace.loadWorkspace(action.filename);
+    } else {
+      handleNewScript();
+    }
+  }, [workspace.loadWorkspace, handleNewScript, beginTransforming]);
+  const guardedLoad = useCallback(async (filename: string) => {
+    if (workspace.isDirty) { setPendingSwitch({ kind: 'load', filename }); return; }
+    await performSwitch({ kind: 'load', filename });
+  }, [workspace.isDirty, performSwitch]);
+  const guardedNew = useCallback(() => {
+    if (workspace.isDirty) { setPendingSwitch({ kind: 'new' }); return; }
+    handleNewScript();
+  }, [workspace.isDirty, handleNewScript]);
   const handleOpenImport = useCallback(() => {
     introFeature('curl');
     beginTransforming();
@@ -830,17 +853,18 @@ function App() {
         if (runner.isRunning) runner.cancel();
       } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'o' || e.key === 'O')) {
         e.preventDefault();
-        setOpenWsOpen(true);
+        setOpenWsOpen((v) => !v); // toggle — ⌘O closes the manager too
       } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault();
-        workspace.duplicateWorkspace();
+        // While the manager is open, ⌘D belongs to it (duplicate selected file).
+        if (!openWsOpen) workspace.duplicateWorkspace();
       } else if (e.altKey && e.shiftKey && (e.key === 'F' || e.key === 'f' || e.code === 'KeyF')) {
         e.preventDefault();
         scriptEditorRef.current?.format();
       } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'n' || e.key === 'N')) {
-        // ⌘N — New workspace
+        // ⌘N — New workspace (guarded: confirms if there are unsaved changes)
         e.preventDefault();
-        handleNewScript();
+        guardedNew();
       } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'b' || e.key === 'B')) {
         // ⌘B — Toggle sidebar
         e.preventDefault();
@@ -861,7 +885,7 @@ function App() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleSave, workspace.duplicateWorkspace, toggle, runner.isRunning, runner.cancel, handleNewScript, handleOpenImport, handleOpenSnippets]);
+  }, [handleSave, workspace.duplicateWorkspace, toggle, runner.isRunning, runner.cancel, guardedNew, handleOpenImport, handleOpenSnippets, openWsOpen]);
 
   // Poll MCP server status so the rail button shows a live running dot even
   // when the panel is closed. Cheap; the command no-ops on the extension host.
@@ -912,7 +936,7 @@ function App() {
     { id: 'run', label: 'Run script', shortcut: '⌘↵', group: 'Run', run: () => { if (canRun) handleRun(); } },
     { id: 'auto', label: autoRun ? 'Disable auto-run' : 'Enable auto-run', shortcut: '⌘⇧R', group: 'Run', run: () => setAutoRun(!autoRun) },
     { id: 'save', label: 'Save workspace', shortcut: '⌘S', group: 'Workspace', run: () => { beginTransforming(); handleSave(); } },
-    { id: 'new', label: 'New workspace', shortcut: '⌘N', group: 'Workspace', run: () => { beginTransforming(); workspace.newWorkspace(); } },
+    { id: 'new', label: 'New workspace', shortcut: '⌘N', group: 'Workspace', run: guardedNew },
     { id: 'open', label: 'Open workspace…', shortcut: '⌘O', group: 'Workspace', run: () => setOpenWsOpen(true) },
     { id: 'duplicate', label: 'Duplicate workspace', shortcut: '⌘D', group: 'Workspace', run: () => { beginTransforming(); workspace.duplicateWorkspace(); } },
     { id: 'import-playground', label: 'Import from Playground zip…', group: 'Workspace', run: handleImportPlayground },
@@ -979,7 +1003,7 @@ function App() {
           activeRequestName={workspace.request.name}
           isDirty={workspace.isDirty}
           onSave={() => { beginTransforming(); handleSave(); }}
-          onNew={handleNewScript}
+          onNew={guardedNew}
           onOpen={() => setOpenWsOpen(true)}
           onDuplicate={() => { beginTransforming(); workspace.duplicateWorkspace(); }}
           onImportPlayground={handleImportPlayground}
@@ -1264,10 +1288,9 @@ function App() {
           onProjectNameChange={workspace.setProjectName}
           currentFile={workspace.currentFile}
           isDirty={workspace.isDirty}
-          currentMethod={workspace.context.method}
-          onNew={() => { beginTransforming(); workspace.newWorkspace(); }}
+          onNew={guardedNew}
           onSave={workspace.saveWorkspace}
-          onLoad={workspace.loadWorkspace}
+          onLoad={guardedLoad}
           onDelete={workspace.deleteWorkspace}
           listWorkspaces={workspace.listWorkspaces}
           requests={workspace.requests}
@@ -1619,14 +1642,18 @@ function App() {
         </Suspense>
       )}
 
-      {/* Open workspace quick picker */}
+      {/* Workspace manager (⌘O) — open, rename, duplicate, delete, pin */}
       <OpenWorkspaceDialog
         open={openWsOpen}
         onClose={() => setOpenWsOpen(false)}
         listWorkspaces={workspace.listWorkspaces}
-        onOpen={(f) => workspace.loadWorkspace(f)}
-        onNew={handleNewScript}
+        onOpen={guardedLoad}
+        onNew={guardedNew}
         currentFile={workspace.currentFile}
+        isDirty={workspace.isDirty}
+        onRename={workspace.renameWorkspaceFile}
+        onDuplicate={workspace.duplicateWorkspaceFile}
+        onDelete={workspace.deleteWorkspace}
       />
 
       {/* Settings */}
@@ -1699,6 +1726,33 @@ function App() {
       <FirstWorkspacePrompt
         open={showFirstWorkspace}
         onCreate={handleFirstWorkspaceCreate}
+      />
+
+      {/* Unsaved-changes guard for workspace switch / new. */}
+      <ConfirmDialog
+        open={pendingSwitch !== null}
+        title="Unsaved changes"
+        description={
+          <>
+            <span style={{ color: 'var(--content)', fontWeight: 500 }}>{workspace.projectName || 'Untitled'}</span> has
+            unsaved changes. Save them before {pendingSwitch?.kind === 'new' ? 'starting a new workspace' : 'switching'}?
+          </>
+        }
+        tone="primary"
+        icon={<Icons.Save size={14} />}
+        confirmLabel="Save & continue"
+        secondaryLabel="Discard changes"
+        onSecondary={async () => {
+          const action = pendingSwitch;
+          if (action) await performSwitch(action);
+        }}
+        onConfirm={async () => {
+          const action = pendingSwitch;
+          if (!action) return;
+          await workspace.saveWorkspace();
+          await performSwitch(action);
+        }}
+        onClose={() => setPendingSwitch(null)}
       />
 
       {/* Splash screen — covers everything until engine is ready */}

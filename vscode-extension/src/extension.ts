@@ -353,6 +353,10 @@ async function handleInvoke(
     case 'delete_workspace':
       ws.deleteWorkspace(storageDir, args.filename as string);
       return null;
+    case 'rename_workspace':
+      return ws.renameWorkspace(storageDir, args.filename as string, args.newName as string);
+    case 'duplicate_workspace_file':
+      return ws.duplicateWorkspaceFile(storageDir, args.filename as string);
     case 'get_workspaces_dir':
       return ws.getWorkspacesDir(storageDir);
 

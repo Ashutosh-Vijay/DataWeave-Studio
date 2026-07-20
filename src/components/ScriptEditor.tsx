@@ -427,11 +427,9 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
             suggestOnTriggerCharacters: true,
             quickSuggestions: true,
             tabCompletion: 'on',
-            // Enter inserts a newline; Tab accepts a suggestion. With 'on',
-            // pressing Enter to break a line would instead accept whatever was
-            // pre-selected in the auto-popped suggest widget (e.g. the top-sorted
-            // `%dw 2.0` snippet), injecting it mid-code.
-            acceptSuggestionOnEnter: 'off',
+            // acceptSuggestionOnEnter flows in from ...editorFont above (Settings >
+            // Editor > "Enter accepts suggestion"); defaults to 'off' so Enter breaks
+            // a line instead of accepting the pre-selected suggest-widget entry.
             snippetSuggestions: 'top',
             autoClosingBrackets: 'beforeWhitespace',
             // beforeWhitespace: only auto-close if the next char is a space,

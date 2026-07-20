@@ -12,6 +12,9 @@ interface ConfirmDialogProps {
   icon?: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
+  /** Optional middle action (e.g. "Discard") between Cancel and the primary. */
+  secondaryLabel?: string;
+  onSecondary?: () => void | Promise<void>;
   onConfirm: () => void | Promise<void>;
   onClose: () => void;
 }
@@ -29,6 +32,8 @@ export function ConfirmDialog({
   icon,
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
+  secondaryLabel,
+  onSecondary,
   onConfirm,
   onClose,
 }: ConfirmDialogProps) {
@@ -114,6 +119,21 @@ export function ConfirmDialog({
           >
             {cancelLabel}
           </button>
+          {secondaryLabel && onSecondary && (
+            <button
+              onClick={async () => {
+                try { await onSecondary(); } finally { onClose(); }
+              }}
+              className="h-8 px-3.5 rounded-md text-[12.5px] font-medium cursor-pointer"
+              style={{
+                background: 'transparent',
+                border: '1px solid color-mix(in oklch, var(--err) 35%, transparent)',
+                color: 'var(--err)',
+              }}
+            >
+              {secondaryLabel}
+            </button>
+          )}
           <button
             ref={confirmRef}
             onClick={async () => {

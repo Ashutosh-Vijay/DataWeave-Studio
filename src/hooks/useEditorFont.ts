@@ -12,6 +12,12 @@ interface EditorPrefs {
   wordWrap: 'on' | 'off';
   minimap: { enabled: boolean };
   bracketPairColorization: { enabled: boolean };
+  // 'off' (default): Enter inserts a newline, Tab accepts the suggestion. With
+  // 'on', pressing Enter to break a line instead accepts whatever was pre-selected
+  // in the auto-popped suggest widget (e.g. the top-sorted `%dw 2.0` snippet),
+  // injecting it mid-code. Off by default because that surprised people; opt back
+  // in via Settings > Editor > "Enter accepts suggestion" (`dw.enterAcceptsSuggestion`).
+  acceptSuggestionOnEnter: 'on' | 'off';
 }
 
 function readPrefs(): EditorPrefs {
@@ -20,6 +26,7 @@ function readPrefs(): EditorPrefs {
   let wordWrap: 'on' | 'off' = 'on';
   let minimap = false;
   let bracketColor = true;
+  let enterAccepts = false;
   try {
     const rawSize = parseInt(localStorage.getItem('dw.fontSize') || '', 10);
     if (Number.isFinite(rawSize) && rawSize > 0) fontSize = rawSize;
@@ -29,6 +36,7 @@ function readPrefs(): EditorPrefs {
     wordWrap = localStorage.getItem('dw.wordWrap') === '0' ? 'off' : 'on';
     minimap = localStorage.getItem('dw.minimap') === '1';
     bracketColor = localStorage.getItem('dw.bracketColor') !== '0';
+    enterAccepts = localStorage.getItem('dw.enterAcceptsSuggestion') === '1';
   } catch { /* defaults */ }
   return {
     fontFamily: FONT_FAMILY,
@@ -37,6 +45,7 @@ function readPrefs(): EditorPrefs {
     wordWrap,
     minimap: { enabled: minimap },
     bracketPairColorization: { enabled: bracketColor },
+    acceptSuggestionOnEnter: enterAccepts ? 'on' : 'off',
   };
 }
 

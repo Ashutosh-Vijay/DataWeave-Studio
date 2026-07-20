@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
-import { METHOD_COLORS } from '../types';
 import { Icons } from './Icons';
 import { ConfirmDialog, ConfirmFile } from './ConfirmDialog';
+import { nodeDot } from './OpenWorkspaceDialog';
 import { toast } from './Toast';
+import { invoke, isTauri } from '../bridge';
+import { openPath } from '@tauri-apps/plugin-opener';
 
 const PINNED_KEY = 'dw.pinned';
 
@@ -18,14 +20,27 @@ function savePinned(s: Set<string>) {
   try { localStorage.setItem(PINNED_KEY, JSON.stringify([...s])); } catch { /* ignore */ }
 }
 
-function methodBadgeColor(method: string): string {
-  const m = METHOD_COLORS[method as keyof typeof METHOD_COLORS];
-  if (m?.text?.includes('accent')) return 'var(--accent)';
-  if (m?.text?.includes('cyan')) return 'var(--cyan)';
-  if (m?.text?.includes('violet')) return 'var(--violet)';
-  if (m?.text?.includes('warn')) return 'var(--warn)';
-  if (m?.text?.includes('err')) return 'var(--err)';
-  return 'var(--accent)';
+/** Saved-workspace listing entry (from list_workspaces_meta). */
+export interface WsMeta {
+  filename: string;
+  projectName: string;
+  requestCount: number;
+  updatedAt: string;
+  flowCount?: number;
+}
+
+function timeAgo(iso: string): string {
+  if (!iso) return '';
+  const ms = Date.now() - Date.parse(iso);
+  if (!Number.isFinite(ms) || ms < 0) return '';
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}d ago`;
+  try { return new Date(iso).toLocaleDateString(); } catch { return ''; }
 }
 
 export type RailTab = 'workspaces' | 'import' | 'snippets';
@@ -35,12 +50,11 @@ interface SidebarProps {
   onProjectNameChange: (name: string) => void;
   currentFile: string | null;
   isDirty: boolean;
-  currentMethod: string;
   onNew: () => void;
   onSave: () => Promise<unknown>;
   onLoad: (filename: string) => Promise<void>;
   onDelete: (filename: string) => Promise<void>;
-  listWorkspaces: () => Promise<{ filename: string; projectName: string }[]>;
+  listWorkspaces: () => Promise<WsMeta[]>;
   onOpenCurlImport: () => void;
   onInsertSnippet?: (body: string) => void;
   onOpenReference: () => void;
@@ -60,7 +74,7 @@ interface SidebarProps {
   // Active workspace's requests — drives the in-line request list at the
   // top of the Workspaces tab so users can browse + switch + add without
   // a separate tab strip elsewhere.
-  requests: { id: string; name: string }[];
+  requests: { id: string; name: string; nodeLabel?: string }[];
   activeRequestId: string;
   onSelectRequest: (id: string) => void;
   onAddRequest: () => void;
@@ -144,7 +158,7 @@ export interface SidebarHandle {
 
 export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(props, ref) {
   const {
-    projectName, onProjectNameChange, currentFile, isDirty, currentMethod,
+    projectName, onProjectNameChange, currentFile, isDirty,
     onNew, onSave, onLoad, onDelete, listWorkspaces,
     onOpenCurlImport, onInsertSnippet, onOpenSecure, onOpenCompare, onOpenFlowDesigner, onOpenJavaTester, onOpenOpenApi, onOpenModules, onOpenMcp, mcpRunning, onOpenSettings,
     onOpenReference, onOpenRecipes,
@@ -160,11 +174,11 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
       if (collapsed) onToggleCollapse();
     },
   }), [collapsed, onToggleCollapse]);
-  const [files, setFiles] = useState<string[]>([]);
+  const [files, setFiles] = useState<WsMeta[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [pinned, setPinned] = useState<Set<string>>(() => getPinned());
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<WsMeta | null>(null);
 
   const togglePin = (filename: string) => {
     setPinned((prev) => {
@@ -176,11 +190,33 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   };
 
   const refreshFiles = useCallback(() => {
-    // Sidebar shows just filenames; OpenWorkspaceDialog uses the richer meta.
-    listWorkspaces().then((metas) => setFiles(metas.map((m) => m.filename))).catch(() => setFiles([]));
+    listWorkspaces().then(setFiles).catch(() => setFiles([]));
   }, [listWorkspaces]);
 
   useEffect(() => { refreshFiles(); }, [refreshFiles]);
+
+  // Stay in sync with saves/deletes/renames made anywhere in the app (⌘S,
+  // header menu, the ⌘O dialog) — the hook dispatches this on every mutation.
+  useEffect(() => {
+    const onChanged = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { renamedFrom?: string; renamedTo?: string } | undefined;
+      if (detail?.renamedFrom && detail.renamedTo) {
+        // A rename moves the file — carry the pin over instead of losing it.
+        // Work off localStorage (shared with the ⌘O manager), then re-read.
+        const cur = getPinned();
+        if (cur.has(detail.renamedFrom)) {
+          cur.delete(detail.renamedFrom);
+          cur.add(detail.renamedTo);
+          savePinned(cur);
+        }
+      }
+      // Pins can change from the ⌘O manager too — localStorage is the truth.
+      setPinned(getPinned());
+      refreshFiles();
+    };
+    window.addEventListener('dw:workspaces-changed', onChanged);
+    return () => window.removeEventListener('dw:workspaces-changed', onChanged);
+  }, [refreshFiles]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -364,22 +400,26 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                   </div>
                   <WorkspaceNameRow
                     name={projectName}
+                    isDirty={isDirty}
                     onRename={(next) => {
                       onProjectNameChange(next);
                       toast({ title: 'Workspace renamed', message: next, variant: 'success' });
                     }}
                   />
+                  {/* Honest save button: accent only when there's something to
+                      save; a quiet confirmation state when everything's on disk. */}
                   <button
                     onClick={handleSave}
                     disabled={saving}
-                    className={`w-full py-1.5 rounded text-xs font-medium transition-all cursor-pointer ${
-                      saveFlash
-                        ? 'bg-accent text-accent-ink'
-                        : 'bg-accent hover:bg-accent-hover text-accent-ink disabled:opacity-50'
+                    className={`w-full py-1.5 rounded text-xs font-medium transition-all cursor-pointer disabled:opacity-50 ${
+                      saveFlash || (!isDirty && currentFile)
+                        ? 'bg-surface-2 border border-line text-content-faint'
+                        : 'bg-accent hover:bg-accent-hover text-accent-ink'
                     }`}
+                    title={isDirty ? 'Save workspace (⌘S)' : 'All changes saved'}
                   >
-                    {saveFlash ? 'Saved!' : saving ? 'Saving…' : 'Save'}
-                    <span className="text-[10px] opacity-60 ml-1">⌘S</span>
+                    {saveFlash ? '✓ Saved' : saving ? 'Saving…' : (!isDirty && currentFile) ? '✓ Saved' : 'Save'}
+                    {(isDirty || !currentFile) && !saveFlash && <span className="text-[10px] opacity-60 ml-1">⌘S</span>}
                   </button>
                 </div>
 
@@ -406,6 +446,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                       <RequestNode
                         key={r.id}
                         name={r.name}
+                        nodeLabel={r.nodeLabel}
                         active={r.id === activeRequestId}
                         canRemove={requests.length > 1}
                         onClick={() => onSelectRequest(r.id)}
@@ -420,40 +461,31 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                   </div>
                 </div>
 
-                {/* === Other saved workspaces === */}
+                {/* === Saved workspaces (the current one included, highlighted) === */}
                 <div className="px-1 pt-1 space-y-1">
                   <div className="flex items-center gap-2">
                     <span
                       className="text-[10px] uppercase tracking-[0.5px] font-semibold flex-1"
                       style={{ color: 'var(--content-faint)' }}
                     >
-                      Other workspaces · {files.filter(f => f !== currentFile).length}
+                      Saved workspaces · {files.length}
                     </span>
-                    <button
-                      onClick={() => { onNew(); refreshFiles(); }}
-                      title="Start a fresh blank workspace"
-                      className="w-5 h-5 rounded inline-flex items-center justify-center cursor-pointer hover:bg-surface-2"
-                      style={{ color: 'var(--content-faint)' }}
-                    >
-                      <Icons.Plus size={11} />
-                    </button>
                   </div>
-                  {files.filter(f => f !== currentFile).length === 0 ? (
+                  {files.length === 0 ? (
                     <div
                       className="text-[11px] py-2 px-1 leading-relaxed"
                       style={{ color: 'var(--content-faint)' }}
                     >
-                      No other workspaces. Hit + above to start one.
+                      Nothing saved yet — <span className="font-mono">⌘S</span> saves this workspace.
                     </div>
                   ) : (
                     <WorkspaceList
-                      files={files.filter(f => f !== currentFile)}
+                      files={files}
                       pinned={pinned}
                       currentFile={currentFile}
-                      currentMethod={currentMethod}
                       isDirty={isDirty}
                       onLoad={onLoad}
-                      onDelete={(f) => setConfirmDelete(f)}
+                      onDelete={(m) => setConfirmDelete(m)}
                       onTogglePin={togglePin}
                     />
                   )}
@@ -490,7 +522,22 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
 
           {/* Footer */}
           <div className="px-3 py-2 border-t border-line-subtle text-[9px] text-content-ghost space-y-0.5 shrink-0">
-            <div className="truncate">Saves to AppData/Local/com.dwstudio.desktop</div>
+            {isTauri ? (
+              <button
+                onClick={async () => {
+                  try {
+                    const dir = await invoke<string>('get_workspaces_dir');
+                    await openPath(dir);
+                  } catch { /* ignore */ }
+                }}
+                className="truncate block w-full text-left cursor-pointer hover:text-content-faint transition-colors"
+                title="Open the workspaces folder in Explorer"
+              >
+                Saves to AppData/Local/com.dwstudio.desktop ↗
+              </button>
+            ) : (
+              <div className="truncate">Saved inside the VS Code extension storage</div>
+            )}
             <div className="truncate" title="DataWeave runtime by MuleSoft/Salesforce, BSD-3-Clause License">
               DW runtime by MuleSoft (BSD-3-Clause)
             </div>
@@ -499,23 +546,32 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
       )}
 
       {/* Workspace delete confirmation — replaces the silent delete with a
-          small modal that names the file being removed. */}
+          small modal that names the workspace being removed. */}
       <ConfirmDialog
         open={confirmDelete !== null}
         title="Delete workspace?"
         description={
           <>
-            <ConfirmFile name={(confirmDelete || '').replace(/\.dwstudio$|\.json$/, '')} /> will be permanently removed.
+            <ConfirmFile name={confirmDelete?.projectName || (confirmDelete?.filename || '').replace(/\.dwstudio$/, '')} /> will be permanently removed
+            {confirmDelete && confirmDelete.requestCount > 1 ? <> (all {confirmDelete.requestCount} requests)</> : null}.
             This can&rsquo;t be undone.
           </>
         }
         tone="danger"
         confirmLabel="Delete"
         onConfirm={async () => {
-          const f = confirmDelete;
-          if (!f) return;
-          await onDelete(f);
-          setFiles((prev) => prev.filter((x) => x !== f));
+          const m = confirmDelete;
+          if (!m) return;
+          await onDelete(m.filename);
+          setFiles((prev) => prev.filter((x) => x.filename !== m.filename));
+          // Drop the pin too, or it lingers as an orphaned entry forever.
+          setPinned((prev) => {
+            if (!prev.has(m.filename)) return prev;
+            const next = new Set(prev);
+            next.delete(m.filename);
+            savePinned(next);
+            return next;
+          });
         }}
         onClose={() => setConfirmDelete(null)}
       />
@@ -524,56 +580,45 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
 });
 
 function WorkspaceList({
-  files, pinned, currentFile, currentMethod, isDirty, onLoad, onDelete, onTogglePin,
+  files, pinned, currentFile, isDirty, onLoad, onDelete, onTogglePin,
 }: {
-  files: string[];
+  files: WsMeta[];
   pinned: Set<string>;
   currentFile: string | null;
-  currentMethod: string;
   isDirty: boolean;
   onLoad: (f: string) => Promise<void>;
-  onDelete: (f: string) => void;
+  onDelete: (m: WsMeta) => void;
   onTogglePin: (f: string) => void;
 }) {
-  const pinnedFiles = files.filter(f => pinned.has(f));
-  const recentFiles = files.filter(f => !pinned.has(f));
+  // Pinned first; within each group the hook's ordering (last saved first).
+  const pinnedFiles = files.filter((m) => pinned.has(m.filename));
+  const recentFiles = files.filter((m) => !pinned.has(m.filename));
+
+  const row = (m: WsMeta, isPinned: boolean) => (
+    <WSRow
+      key={m.filename}
+      meta={m}
+      active={m.filename === currentFile}
+      isPinned={isPinned}
+      isDirty={isDirty && m.filename === currentFile}
+      onClick={() => { if (m.filename !== currentFile) void onLoad(m.filename); }}
+      onDelete={() => onDelete(m)}
+      onTogglePin={() => onTogglePin(m.filename)}
+    />
+  );
 
   return (
     <div className="space-y-1">
       {pinnedFiles.length > 0 && (
         <>
           <SectionLabel>Pinned</SectionLabel>
-          {pinnedFiles.map((f) => (
-            <WSRow
-              key={f}
-              filename={f}
-              active={f === currentFile}
-              method={f === currentFile ? currentMethod : 'POST'}
-              isPinned
-              isDirty={isDirty && f === currentFile}
-              onClick={() => onLoad(f)}
-              onDelete={() => onDelete(f)}
-              onTogglePin={() => onTogglePin(f)}
-            />
-          ))}
+          {pinnedFiles.map((m) => row(m, true))}
         </>
       )}
       {recentFiles.length > 0 && (
         <>
-          <SectionLabel>Recent</SectionLabel>
-          {recentFiles.map((f) => (
-            <WSRow
-              key={f}
-              filename={f}
-              active={f === currentFile}
-              method={f === currentFile ? currentMethod : 'POST'}
-              isPinned={false}
-              isDirty={isDirty && f === currentFile}
-              onClick={() => onLoad(f)}
-              onDelete={() => onDelete(f)}
-              onTogglePin={() => onTogglePin(f)}
-            />
-          ))}
+          {pinnedFiles.length > 0 && <SectionLabel>Recent</SectionLabel>}
+          {recentFiles.map((m) => row(m, false))}
         </>
       )}
     </div>
@@ -589,39 +634,38 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function WSRow({
-  filename, active, method, isPinned, isDirty, onClick, onDelete, onTogglePin,
+  meta, active, isPinned, isDirty, onClick, onDelete, onTogglePin,
 }: {
-  filename: string;
+  meta: WsMeta;
   active: boolean;
-  method: string;
   isPinned: boolean;
   isDirty: boolean;
   onClick: () => void;
   onDelete: () => void;
   onTogglePin: () => void;
 }) {
-  const name = filename.replace('.dwstudio', '').replace(/\.json$/, '');
-  const color = methodBadgeColor(method);
-  const meta = active ? (isDirty ? 'unsaved changes' : 'editing now') : 'saved';
+  const name = meta.projectName || meta.filename.replace(/\.dwstudio$/, '');
+  const reqs = `${meta.requestCount} request${meta.requestCount === 1 ? '' : 's'}`;
+  const when = timeAgo(meta.updatedAt);
+  const metaLine = active
+    ? (isDirty ? 'editing now · unsaved changes' : 'editing now')
+    : [reqs, (meta.flowCount ?? 0) > 0 ? 'flow' : null, when || null].filter(Boolean).join(' · ');
 
   return (
     <div
       onClick={onClick}
-      className="relative group flex items-center gap-2 px-2.5 py-1.5 rounded-md cursor-pointer transition-colors"
+      className={`relative group flex items-center gap-2 px-2.5 py-1.5 rounded-md transition-colors ${active ? '' : 'cursor-pointer'}`}
       style={{ background: active ? 'var(--surface-3)' : 'transparent' }}
       onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--surface-2)'; }}
       onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+      title={active ? undefined : `Open ${name}`}
     >
       {active && <span className="absolute -left-0.5 top-2 bottom-2 w-0.5 bg-accent rounded-sm" />}
-      <span
-        className="font-mono text-[9px] font-bold tracking-[0.4px] w-[34px] text-center py-0.5 rounded shrink-0"
-        style={{
-          color,
-          background: `color-mix(in oklch, ${color} 14%, transparent)`,
-        }}
-      >
-        {method}
-      </span>
+      <Icons.Braces
+        size={13}
+        className="shrink-0"
+        style={{ color: active ? 'var(--accent)' : 'var(--content-faint)' }}
+      />
       <div className="flex-1 min-w-0">
         <div
           className="text-[12.5px] truncate"
@@ -632,7 +676,9 @@ function WSRow({
         >
           {name}
         </div>
-        <div className="text-[10.5px] text-content-faint truncate">{meta}</div>
+        <div className="text-[10.5px] truncate" style={{ color: isDirty && active ? 'var(--warn)' : 'var(--content-faint)' }}>
+          {metaLine}
+        </div>
       </div>
       <button
         onClick={(e) => { e.stopPropagation(); onTogglePin(); }}
@@ -647,7 +693,7 @@ function WSRow({
         </svg>
       </button>
       <button
-        onClick={async (e) => { e.stopPropagation(); await onDelete(); }}
+        onClick={(e) => { e.stopPropagation(); onDelete(); }}
         title="Delete"
         aria-label={`Delete workspace ${name}`}
         className="text-content-faint hover:text-err opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
@@ -662,9 +708,10 @@ function WSRow({
  *  Click → switch to it. Double-click → rename in place. Right-click →
  *  rename / duplicate / delete. */
 function RequestNode({
-  name, active, canRemove, onClick, onRename, onDuplicate, onRemove,
+  name, nodeLabel, active, canRemove, onClick, onRename, onDuplicate, onRemove,
 }: {
   name: string;
+  nodeLabel?: string;
   active: boolean;
   canRemove: boolean;
   onClick: () => void;
@@ -700,7 +747,12 @@ function RequestNode({
         paddingLeft: active ? '6px' : '8px',
       }}
     >
-      <Icons.Braces size={10} style={{ color: active ? 'var(--accent)' : 'var(--content-faint)' }} className="shrink-0" />
+      {/* Node-type dot — same color language as the Flow designer & ⌘O manager. */}
+      <span
+        className="w-[7px] h-[7px] rounded-full shrink-0"
+        style={{ background: nodeDot(nodeLabel || 'Transform'), opacity: active ? 1 : 0.7 }}
+        title={nodeLabel || 'Transform'}
+      />
       {editing ? (
         <input
           ref={inputRef}
@@ -792,9 +844,10 @@ function RequestNode({
  *  is the *commit path* for rename — picking 'Rename' swaps the row
  *  into an input, Enter commits and fires the rename toast. */
 function WorkspaceNameRow({
-  name, onRename,
+  name, isDirty, onRename,
 }: {
   name: string;
+  isDirty?: boolean;
   onRename: (next: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -848,10 +901,13 @@ function WorkspaceNameRow({
           className="flex-1 truncate text-[12.5px]"
           style={{ color: 'var(--content)', fontWeight: 500 }}
           onDoubleClick={() => { setEditing(true); setDraft(name); }}
-          title={name}
+          title={`${name || 'Untitled'} — double-click to rename`}
         >
           {name || 'Untitled'}
         </span>
+      )}
+      {!editing && isDirty && (
+        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: 'var(--warn)' }} title="Unsaved changes" />
       )}
       {!editing && (
         <button

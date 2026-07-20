@@ -96,6 +96,8 @@ pub fn run() {
             workspace::list_workspaces,
             workspace::list_workspaces_meta,
             workspace::delete_workspace,
+            workspace::rename_workspace,
+            workspace::duplicate_workspace_file,
             workspace::get_workspaces_dir,
             module_lib::load_modules,
             module_lib::save_modules,

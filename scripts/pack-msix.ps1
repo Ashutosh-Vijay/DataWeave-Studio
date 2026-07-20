@@ -10,7 +10,7 @@
 # After it finishes, install for testing in an ELEVATED shell (admin needed once
 # to trust the dev cert):
 #   winapp cert install .\devcert.pfx
-#   Add-AppxPackage .\AshutoshVijay.DataWeaveStudio_2.2.1.0_x64.msix
+#   Add-AppxPackage .\AshutoshVijay.DataWeaveStudio_<version>_x64.msix
 #
 # For real submission: replace Identity/Publisher in Package.appxmanifest with the
 # Partner Center values, then upload the UNSIGNED package layout (Store signs it).

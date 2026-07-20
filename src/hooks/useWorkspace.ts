@@ -129,8 +129,13 @@ interface UseWorkspaceReturn {
   // Persistence
   saveWorkspace: () => Promise<string>;
   loadWorkspace: (filename: string) => Promise<void>;
-  listWorkspaces: () => Promise<{ filename: string; projectName: string }[]>;
+  listWorkspaces: () => Promise<{ filename: string; projectName: string; requestCount: number; updatedAt: string; createdAt: string; flowCount: number; requests: { name: string; nodeLabel: string }[] }[]>;
   deleteWorkspace: (filename: string) => Promise<void>;
+  /** Rename a saved workspace on disk (no need to open it). Keeps in-memory
+   *  name/file refs in sync when the renamed one is currently open. */
+  renameWorkspaceFile: (filename: string, newName: string) => Promise<string>;
+  /** Duplicate a saved workspace on disk ("X" → "X copy"). */
+  duplicateWorkspaceFile: (filename: string) => Promise<string>;
   newWorkspace: () => void;
   duplicateWorkspace: () => void;
   /** Restore a whole workspace state from a snapshot (used for draft
@@ -269,9 +274,20 @@ export function useWorkspace(): UseWorkspaceReturn {
     const path = await invoke<string>('save_workspace', { workspace });
     setIsDirty(false);
     const filename = path.split(/[/\\]/).pop() || '';
+    // Rename semantics: the filename derives from the project name, so a
+    // renamed workspace saves to a NEW file — remove the old one instead of
+    // leaving a stale ghost in every workspace list.
+    const previous = currentFile;
+    if (previous && previous !== filename) {
+      try { await invoke('delete_workspace', { filename: previous }); } catch { /* best-effort */ }
+    }
     setCurrentFile(filename);
+    // Let list surfaces (sidebar) refresh + migrate pinned entries on rename.
+    window.dispatchEvent(new CustomEvent('dw:workspaces-changed', {
+      detail: previous && previous !== filename ? { renamedFrom: previous, renamedTo: filename } : undefined,
+    }));
     return path;
-  }, [projectName, requests, activeRequestId, flow]);
+  }, [projectName, requests, activeRequestId, flow, currentFile]);
 
   const loadWorkspace = useCallback(async (filename: string) => {
     const ws = await invoke<WorkspaceFile>('load_workspace', { filename });
@@ -291,15 +307,48 @@ export function useWorkspace(): UseWorkspaceReturn {
   }, []);
 
   const listWorkspaces = useCallback(async () => {
-    const metas = await invoke<{ filename: string; projectName: string; mode: string }[]>('list_workspaces_meta');
+    const metas = await invoke<{ filename: string; projectName: string; mode: string; requestCount?: number; updatedAt?: string; createdAt?: string; flowCount?: number; requests?: { name: string; nodeLabel: string }[] }[]>('list_workspaces_meta');
     // "flow"-only legacy files have no requests; v2 always has at least 1.
-    return metas.filter((m) => m.mode !== 'flow').map((m) => ({ filename: m.filename, projectName: m.projectName }));
+    // Most-recently-saved first — every list surface shows true recency.
+    return metas
+      .filter((m) => m.mode !== 'flow')
+      .map((m) => ({
+        filename: m.filename,
+        projectName: m.projectName,
+        requestCount: m.requestCount ?? 1,
+        updatedAt: m.updatedAt ?? '',
+        createdAt: m.createdAt ?? '',
+        flowCount: m.flowCount ?? 0,
+        requests: m.requests ?? [],
+      }))
+      .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
   }, []);
 
   const deleteWorkspace = useCallback(async (filename: string) => {
     await invoke('delete_workspace', { filename });
     if (currentFile === filename) setCurrentFile(null);
+    window.dispatchEvent(new CustomEvent('dw:workspaces-changed'));
   }, [currentFile]);
+
+  const renameWorkspaceFile = useCallback(async (filename: string, newName: string) => {
+    const newFilename = await invoke<string>('rename_workspace', { filename, newName });
+    // Renaming the OPEN workspace: sync the in-memory name + file ref, or the
+    // next ⌘S would re-save under the old name and effectively undo the rename.
+    if (currentFile === filename) {
+      setProjectNameState(newName.trim());
+      setCurrentFile(newFilename);
+    }
+    window.dispatchEvent(new CustomEvent('dw:workspaces-changed', {
+      detail: newFilename !== filename ? { renamedFrom: filename, renamedTo: newFilename } : undefined,
+    }));
+    return newFilename;
+  }, [currentFile]);
+
+  const duplicateWorkspaceFile = useCallback(async (filename: string) => {
+    const newFilename = await invoke<string>('duplicate_workspace_file', { filename });
+    window.dispatchEvent(new CustomEvent('dw:workspaces-changed'));
+    return newFilename;
+  }, []);
 
   const duplicateWorkspace = useCallback(() => {
     const base = projectName.replace(/\s+copy(?:\s+\d+)?$/i, '');
@@ -382,6 +431,8 @@ export function useWorkspace(): UseWorkspaceReturn {
     loadWorkspace,
     listWorkspaces,
     deleteWorkspace,
+    renameWorkspaceFile,
+    duplicateWorkspaceFile,
     newWorkspace,
     duplicateWorkspace,
     restoreSnapshot,

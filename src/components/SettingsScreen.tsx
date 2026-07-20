@@ -549,6 +549,7 @@ function EditorPanel() {
   const [wordWrap, setWordWrap] = useStoredBool('dw.wordWrap', true);
   const [bracketColor, setBracketColor] = useStoredBool('dw.bracketColor', true);
   const [minimap, setMinimap] = useStoredBool('dw.minimap', false);
+  const [enterAccepts, setEnterAccepts] = useStoredBool('dw.enterAcceptsSuggestion', false);
 
   return (
     <SectionWrap title="Editor" desc="Script editor preferences">
@@ -571,6 +572,9 @@ function EditorPanel() {
         <SRow label="Bracket pair colorization"><Toggle on={bracketColor} onChange={(v) => { setBracketColor(v); notifyEditorFontChanged(); }} /></SRow>
         <SRow label="Minimap" desc="Script editor only.">
           <Toggle on={minimap} onChange={(v) => { setMinimap(v); notifyEditorFontChanged(); }} />
+        </SRow>
+        <SRow label="Enter accepts suggestion" desc="When the autocomplete popup is open, Enter inserts the highlighted suggestion instead of a line break. Tab always accepts, either way. Off by default.">
+          <Toggle on={enterAccepts} onChange={(v) => { setEnterAccepts(v); notifyEditorFontChanged(); }} />
         </SRow>
       </Group>
     </SectionWrap>

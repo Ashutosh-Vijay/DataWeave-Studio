@@ -307,14 +307,10 @@ pub fn get_workspaces_dir(app: AppHandle) -> Result<String, String> {
     Ok(dir.to_string_lossy().to_string())
 }
 
-#[tauri::command]
-pub fn save_workspace(app: AppHandle, workspace: WorkspaceFile) -> Result<String, String> {
-    let dir = get_workspaces_directory(&app)?;
-
-    // Sanitize project name for filename — collapse runs of non-alnum to a
-    // single dash and trim leading/trailing dashes to keep names clean.
-    let safe_name: String = workspace
-        .project_name
+/// Sanitize a project name into a filename stem — collapse runs of non-alnum
+/// to a single dash and trim leading/trailing dashes to keep names clean.
+fn sanitize_stem(project_name: &str) -> String {
+    let safe: String = project_name
         .chars()
         .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '-' })
         .collect::<String>()
@@ -322,12 +318,14 @@ pub fn save_workspace(app: AppHandle, workspace: WorkspaceFile) -> Result<String
         .filter(|s| !s.is_empty())
         .collect::<Vec<_>>()
         .join("-");
-    let filename = if safe_name.is_empty() {
-        "untitled".to_string()
-    } else {
-        safe_name
-    };
+    if safe.is_empty() { "untitled".to_string() } else { safe }
+}
 
+#[tauri::command]
+pub fn save_workspace(app: AppHandle, workspace: WorkspaceFile) -> Result<String, String> {
+    let dir = get_workspaces_directory(&app)?;
+
+    let filename = sanitize_stem(&workspace.project_name);
     let file_path = dir.join(format!("{}.dwstudio", filename));
 
     // Update the timestamp + ensure version is current.
@@ -416,6 +414,15 @@ pub fn list_workspaces(app: AppHandle) -> Result<Vec<String>, String> {
     Ok(files)
 }
 
+/// Tiny per-request brief for the workspace-manager preview pane — enough to
+/// show "what's inside" without loading the workspace.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestBrief {
+    pub name: String,
+    pub node_label: String,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceMeta {
@@ -431,6 +438,21 @@ pub struct WorkspaceMeta {
     /// pill if we want to surface that.
     #[serde(default)]
     pub request_count: u32,
+    /// RFC3339 timestamp of the last save (the file's own `updatedAt`, falling
+    /// back to the filesystem mtime for files that predate the field). Drives
+    /// true most-recent-first ordering in the workspace lists.
+    #[serde(default)]
+    pub updated_at: String,
+    /// RFC3339 creation timestamp ("" when the file predates the field).
+    #[serde(default)]
+    pub created_at: String,
+    /// Number of message flows in the document (0 = plain request collection).
+    #[serde(default)]
+    pub flow_count: u32,
+    /// Name + node label of each request, capped at 16 — powers the manager's
+    /// preview pane. The lister already parses each file's JSON, so this is free.
+    #[serde(default)]
+    pub requests: Vec<RequestBrief>,
 }
 
 #[tauri::command]
@@ -452,16 +474,34 @@ pub fn list_workspaces_meta(app: AppHandle) -> Result<Vec<WorkspaceMeta>, String
                 .and_then(|v| v.as_str())
                 .unwrap_or("Untitled")
                 .to_string();
-            let (mode, request_count) = if let Some(requests) = raw.get("requests").and_then(|v| v.as_array()) {
+            let (mode, request_count, briefs) = if let Some(requests) = raw.get("requests").and_then(|v| v.as_array()) {
                 let has_flow = raw.get("flow").map_or(false, |v| !v.is_null());
                 let mode = if has_flow && requests.is_empty() { "flow".to_string() } else { "collection".to_string() };
-                (mode, requests.len() as u32)
+                let briefs: Vec<RequestBrief> = requests.iter().take(16).map(|r| RequestBrief {
+                    name: r.get("name").and_then(|v| v.as_str()).unwrap_or("Request").to_string(),
+                    node_label: r.get("nodeLabel").and_then(|v| v.as_str()).unwrap_or("Transform").to_string(),
+                }).collect();
+                (mode, requests.len() as u32, briefs)
             } else {
                 // Legacy
                 let mode = raw.get("mode").and_then(|v| v.as_str()).unwrap_or("single").to_string();
-                (mode, 1)
+                (mode, 1, vec![])
             };
-            Some(WorkspaceMeta { filename: name, project_name, mode, request_count })
+            // `flows` collection when present; else a lone legacy `flow` counts as 1.
+            let flow_count = raw.get("flows").and_then(|v| v.as_array()).map(|a| a.len() as u32)
+                .unwrap_or_else(|| if raw.get("flow").map_or(false, |v| !v.is_null()) { 1 } else { 0 });
+            let updated_at = raw.get("updatedAt")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .or_else(|| {
+                    // Pre-updatedAt files: fall back to filesystem mtime.
+                    let mtime = entry.metadata().ok()?.modified().ok()?;
+                    Some(chrono::DateTime::<chrono::Utc>::from(mtime).to_rfc3339())
+                })
+                .unwrap_or_default();
+            let created_at = raw.get("createdAt").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            Some(WorkspaceMeta { filename: name, project_name, mode, request_count, updated_at, created_at, flow_count, requests: briefs })
         })
         .collect();
 
@@ -477,6 +517,69 @@ pub fn delete_workspace(app: AppHandle, filename: String) -> Result<(), String> 
 
     fs::remove_file(&file_path)
         .map_err(|e| format!("Failed to delete workspace '{}': {}", filename, e))
+}
+
+/// Rename a saved workspace *on disk* without opening it: rewrite its
+/// projectName and move it to the filename derived from the new name.
+/// Returns the new filename so the UI can migrate pins/current-file refs.
+#[tauri::command]
+pub fn rename_workspace(app: AppHandle, filename: String, new_name: String) -> Result<String, String> {
+    validate_filename(&filename)?;
+    let trimmed = new_name.trim();
+    if trimmed.is_empty() {
+        return Err("Name cannot be empty".into());
+    }
+    let dir = get_workspaces_directory(&app)?;
+    let contents = fs::read_to_string(dir.join(&filename))
+        .map_err(|e| format!("Failed to read workspace '{}': {}", filename, e))?;
+    let mut ws = parse_workspace(&contents)
+        .map_err(|e| format!("Failed to parse workspace '{}': {}", filename, e))?;
+
+    let new_filename = format!("{}.dwstudio", sanitize_stem(trimmed));
+    if new_filename != filename && dir.join(&new_filename).exists() {
+        return Err(format!("A workspace named \"{}\" already exists", trimmed));
+    }
+
+    ws.project_name = trimmed.to_string();
+    ws.updated_at = chrono::Utc::now().to_rfc3339();
+    let json = serde_json::to_string_pretty(&ws).map_err(|e| e.to_string())?;
+    fs::write(dir.join(&new_filename), json).map_err(|e| format!("Failed to save workspace: {}", e))?;
+    if new_filename != filename {
+        let _ = fs::remove_file(dir.join(&filename)); // best-effort; new file already saved
+    }
+    Ok(new_filename)
+}
+
+/// Duplicate a saved workspace on disk: "X" → "X copy" (then "X copy 2", …).
+/// Returns the new filename.
+#[tauri::command]
+pub fn duplicate_workspace_file(app: AppHandle, filename: String) -> Result<String, String> {
+    validate_filename(&filename)?;
+    let dir = get_workspaces_directory(&app)?;
+    let contents = fs::read_to_string(dir.join(&filename))
+        .map_err(|e| format!("Failed to read workspace '{}': {}", filename, e))?;
+    let mut ws = parse_workspace(&contents)
+        .map_err(|e| format!("Failed to parse workspace '{}': {}", filename, e))?;
+
+    // Find a free "<base> copy [n]" name.
+    let base = ws.project_name.trim();
+    let base = if base.is_empty() { "Untitled" } else { base };
+    let mut candidate = format!("{} copy", base);
+    let mut n = 2;
+    while dir.join(format!("{}.dwstudio", sanitize_stem(&candidate))).exists() {
+        candidate = format!("{} copy {}", base, n);
+        n += 1;
+        if n > 99 { return Err("Too many copies".into()); }
+    }
+
+    ws.project_name = candidate.clone();
+    let now = chrono::Utc::now().to_rfc3339();
+    ws.created_at = now.clone();
+    ws.updated_at = now;
+    let new_filename = format!("{}.dwstudio", sanitize_stem(&candidate));
+    let json = serde_json::to_string_pretty(&ws).map_err(|e| e.to_string())?;
+    fs::write(dir.join(&new_filename), json).map_err(|e| format!("Failed to save workspace: {}", e))?;
+    Ok(new_filename)
 }
 
 #[cfg(test)]

@@ -80,7 +80,7 @@ export function WorkspaceMenu({
           <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-content-faint font-medium">Workspace</div>
           {item('Save', '⌘S', onSave)}
           {item('New blank', '⌘N', onNew)}
-          {item('Open…', '⌘O', onOpen)}
+          {item('Open / manage…', '⌘O', onOpen)}
           {item('Duplicate', '⌘D', onDuplicate)}
           <div className="my-1 border-t" style={{ borderColor: 'var(--line)' }} />
           <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-content-faint font-medium">Playground</div>

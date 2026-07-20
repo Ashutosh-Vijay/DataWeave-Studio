@@ -67,18 +67,21 @@ function parseWorkspace(contents: string): any {
   throw new Error('Unrecognized workspace format — missing both `requests` and `singleTransform`.');
 }
 
-export function saveWorkspace(storageDir: string, workspace: any): string {
-  const dir = ensureDir(storageDir);
-
-  const safe = (workspace.projectName || '')
+/** Sanitize a project name into a filename stem (mirrors workspace.rs). */
+function sanitizeStem(projectName: string): string {
+  const safe = (projectName || '')
     .split('')
     .map((c: string) => (/[a-zA-Z0-9_]/.test(c) ? c : '-'))
     .join('')
     .split('-')
     .filter((s: string) => s.length > 0)
     .join('-');
-  const filename = safe || 'untitled';
-  const filePath = path.join(dir, `${filename}.dwstudio`);
+  return safe || 'untitled';
+}
+
+export function saveWorkspace(storageDir: string, workspace: any): string {
+  const dir = ensureDir(storageDir);
+  const filePath = path.join(dir, `${sanitizeStem(workspace.projectName)}.dwstudio`);
 
   const ws = { ...workspace };
   ws.version = '2.0';
@@ -126,33 +129,55 @@ export function listWorkspaces(storageDir: string): string[] {
     .sort();
 }
 
-export function listWorkspacesMeta(
-  storageDir: string
-): { filename: string; projectName: string; mode: string; requestCount: number }[] {
+interface WsMeta {
+  filename: string;
+  projectName: string;
+  mode: string;
+  requestCount: number;
+  updatedAt: string;
+  createdAt: string;
+  flowCount: number;
+  requests: { name: string; nodeLabel: string }[];
+}
+
+export function listWorkspacesMeta(storageDir: string): WsMeta[] {
   const dir = ensureDir(storageDir);
   const metas = fs
     .readdirSync(dir)
     .filter((n) => n.endsWith('.dwstudio'))
     .map((name) => {
       try {
-        const raw = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+        const full = path.join(dir, name);
+        const raw = JSON.parse(fs.readFileSync(full, 'utf8'));
         const projectName = raw.projectName ?? 'Untitled';
         let mode: string;
         let requestCount: number;
+        let requests: { name: string; nodeLabel: string }[] = [];
         if (Array.isArray(raw.requests)) {
           const hasFlow = raw.flow != null;
           mode = hasFlow && raw.requests.length === 0 ? 'flow' : 'collection';
           requestCount = raw.requests.length;
+          requests = raw.requests.slice(0, 16).map((r: any) => ({
+            name: r?.name || 'Request',
+            nodeLabel: r?.nodeLabel || 'Transform',
+          }));
         } else {
           mode = raw.mode ?? 'single';
           requestCount = 1;
         }
-        return { filename: name, projectName, mode, requestCount };
+        const flowCount = Array.isArray(raw.flows) ? raw.flows.length : (raw.flow != null ? 1 : 0);
+        // Pre-updatedAt files: fall back to filesystem mtime.
+        let updatedAt: string = raw.updatedAt || '';
+        if (!updatedAt) {
+          try { updatedAt = fs.statSync(full).mtime.toISOString(); } catch { /* leave empty */ }
+        }
+        const createdAt: string = raw.createdAt || '';
+        return { filename: name, projectName, mode, requestCount, updatedAt, createdAt, flowCount, requests };
       } catch {
         return null;
       }
     })
-    .filter((m): m is { filename: string; projectName: string; mode: string; requestCount: number } => m !== null);
+    .filter((m): m is WsMeta => m !== null);
   metas.sort((a, b) => a.filename.localeCompare(b.filename));
   return metas;
 }
@@ -161,6 +186,48 @@ export function deleteWorkspace(storageDir: string, filename: string): void {
   validateFilename(filename);
   const dir = ensureDir(storageDir);
   fs.rmSync(path.join(dir, filename), { force: true });
+}
+
+/** Rename a saved workspace on disk (mirrors workspace.rs rename_workspace). */
+export function renameWorkspace(storageDir: string, filename: string, newName: string): string {
+  validateFilename(filename);
+  const trimmed = (newName || '').trim();
+  if (!trimmed) throw new Error('Name cannot be empty');
+  const dir = ensureDir(storageDir);
+  const ws = parseWorkspace(fs.readFileSync(path.join(dir, filename), 'utf8'));
+  const newFilename = `${sanitizeStem(trimmed)}.dwstudio`;
+  if (newFilename !== filename && fs.existsSync(path.join(dir, newFilename))) {
+    throw new Error(`A workspace named "${trimmed}" already exists`);
+  }
+  ws.projectName = trimmed;
+  ws.updatedAt = new Date().toISOString();
+  fs.writeFileSync(path.join(dir, newFilename), JSON.stringify(ws, null, 2));
+  if (newFilename !== filename) {
+    try { fs.rmSync(path.join(dir, filename), { force: true }); } catch { /* best-effort */ }
+  }
+  return newFilename;
+}
+
+/** Duplicate a saved workspace: "X" → "X copy" (then "X copy 2", …). */
+export function duplicateWorkspaceFile(storageDir: string, filename: string): string {
+  validateFilename(filename);
+  const dir = ensureDir(storageDir);
+  const ws = parseWorkspace(fs.readFileSync(path.join(dir, filename), 'utf8'));
+  const base = (ws.projectName || '').trim() || 'Untitled';
+  let candidate = `${base} copy`;
+  let n = 2;
+  while (fs.existsSync(path.join(dir, `${sanitizeStem(candidate)}.dwstudio`))) {
+    candidate = `${base} copy ${n}`;
+    n += 1;
+    if (n > 99) throw new Error('Too many copies');
+  }
+  ws.projectName = candidate;
+  const now = new Date().toISOString();
+  ws.createdAt = now;
+  ws.updatedAt = now;
+  const newFilename = `${sanitizeStem(candidate)}.dwstudio`;
+  fs.writeFileSync(path.join(dir, newFilename), JSON.stringify(ws, null, 2));
+  return newFilename;
 }
 
 export function getWorkspacesDir(storageDir: string): string {

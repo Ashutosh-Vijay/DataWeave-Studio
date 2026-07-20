@@ -133,9 +133,8 @@ export const MiniEditor = memo(function MiniEditor({
           suggestOnTriggerCharacters: true,
           quickSuggestions: true,
           tabCompletion: 'on',
-          // Enter inserts a newline; Tab accepts. 'on' would make Enter accept
-          // the pre-selected suggestion mid-script (same rationale as ScriptEditor).
-          acceptSuggestionOnEnter: 'off',
+          // acceptSuggestionOnEnter flows in from ...editorFont (Settings > Editor);
+          // default 'off' so Enter breaks a line. Same rationale as ScriptEditor.
           snippetSuggestions: 'top',
           autoClosingBrackets: 'beforeWhitespace',
           autoClosingQuotes: 'beforeWhitespace',
