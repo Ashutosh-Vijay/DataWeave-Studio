@@ -14,19 +14,20 @@ interface Release { version: string; date: string; headline: string; highlights:
 // extension (1.x) ship on their own version numbers and cadence — keeping them
 // separate means a release that only touches one runtime never shows stale notes
 // in the other. Each list is newest-first; the dialog/toast pick by runtime.
-const FLOW_FIX_HIGHLIGHTS: Highlight[] = [
-  { title: 'Choice routes the way you wrote it', desc: 'A query param you leave blank now reads as null (not an empty string), so a Choice that branches on “is this set?” takes the right when/otherwise branch instead of silently falling through.' },
-  { title: 'Set Variable runs full DataWeave', desc: 'A variable’s fx value can now be a complete %dw 2.0 … --- script — output application/java, if/else, the lot — not just a one-liner. No more reaching for a Transform node.' },
-  { title: 'Salesforce & Database bind parameters import', desc: 'Importing a flow now brings in each connector’s :param bindings (the <salesforce:parameters> / <db:input-parameters> block) — and exports them back out, so they round-trip instead of getting dropped.' },
-  { title: 'Editor scrolls to the last line', desc: 'Opening the bottom panel no longer hides the end of your script — the editor relays out so you can scroll all the way down.' },
+const WORKSPACE_MANAGER_HIGHLIGHTS: Highlight[] = [
+  { title: 'See inside a workspace before opening it', desc: 'The ⌘O dialog is now a full Workspace Manager: hover any workspace and a preview shows its requests (color-coded by type — Transform, Salesforce, Database), flows, and when it was last saved. No more opening three workspaces to find the right one.' },
+  { title: 'Rename, duplicate, delete — without opening', desc: 'Manage saved workspaces directly from ⌘O: F2 renames in place, ⌘D duplicates, Del deletes (with confirmation), and pinning keeps your go-to workspaces at the top. All of it works from the keyboard.' },
+  { title: 'Search looks inside workspaces', desc: 'The ⌘O search now matches request names too — type “invoice” and find the workspace containing your “Invoice lookup” request, even if the workspace is named something else.' },
+  { title: 'Enter can accept suggestions again — your choice', desc: 'A new Settings → Editor toggle, “Enter accepts suggestion”: when on, Enter inserts the highlighted autocomplete instead of a line break. Off by default; Tab always accepts either way. Applies to every editor in the app.' },
+  { title: 'Switching can’t lose your work', desc: 'Opening another workspace (or starting a new one) with unsaved changes now asks first — save and switch, discard, or stay. Previously one click could silently throw away edits.' },
 ];
 
 const DESKTOP_RELEASES: Release[] = [
-  { version: '2.2.1', date: 'June 2026', headline: 'Flow Designer & editor fixes', highlights: FLOW_FIX_HIGHLIGHTS },
+  { version: '2.3.0', date: 'July 2026', headline: 'The Workspace Manager', highlights: WORKSPACE_MANAGER_HIGHLIGHTS },
 ];
 
 const VSCODE_RELEASES: Release[] = [
-  { version: '1.2.1', date: 'June 2026', headline: 'Flow Designer & editor fixes', highlights: FLOW_FIX_HIGHLIGHTS },
+  { version: '1.3.0', date: 'July 2026', headline: 'The Workspace Manager', highlights: WORKSPACE_MANAGER_HIGHLIGHTS },
 ];
 
 // The running build picks its own track.

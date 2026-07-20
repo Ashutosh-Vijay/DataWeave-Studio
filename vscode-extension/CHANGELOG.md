@@ -2,6 +2,17 @@
 
 All notable changes to DataWeave Studio for VS Code.
 
+## 1.3.0 — 2026-07-19
+
+**The Workspace Manager.**
+
+- **See inside a workspace before opening it.** The ⌘O dialog is now a full Workspace Manager: hover any workspace and a live preview shows its requests (color-coded by type — Transform, Salesforce, Database), flows, and when it was last saved. No more opening three workspaces to find the right one.
+- **Rename, duplicate, delete — without opening.** Manage saved workspaces directly from ⌘O: `F2` renames in place, `⌘D` duplicates, `Del` deletes (with confirmation), and pinning keeps your go-to workspaces at the top. Everything works from the keyboard; pins stay in sync with the sidebar.
+- **Search looks inside workspaces.** The ⌘O search matches request names too — type “invoice” and find the workspace containing your “Invoice lookup” request, even if the workspace is named something else.
+- **Enter can accept suggestions again — your choice.** A new **Settings → Editor → “Enter accepts suggestion”** toggle: when on, Enter inserts the highlighted autocomplete instead of a line break. Off by default; Tab always accepts either way. Applies to every editor in the app.
+- **Switching can’t lose your work.** Opening another workspace (or starting a new one) with unsaved changes now asks first — save and switch, discard, or stay. Previously one click could silently throw away edits.
+- **Request types at a glance.** Sidebar request rows now carry the same type colors as the Flow designer, and workspaces with flows are labeled in every list.
+
 ## 1.2.1 — 2026-06-26
 
 **Flow Designer & editor fixes.**
