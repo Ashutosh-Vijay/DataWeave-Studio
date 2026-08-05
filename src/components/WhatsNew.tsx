@@ -14,20 +14,18 @@ interface Release { version: string; date: string; headline: string; highlights:
 // extension (1.x) ship on their own version numbers and cadence — keeping them
 // separate means a release that only touches one runtime never shows stale notes
 // in the other. Each list is newest-first; the dialog/toast pick by runtime.
-const WORKSPACE_MANAGER_HIGHLIGHTS: Highlight[] = [
-  { title: 'See inside a workspace before opening it', desc: 'The ⌘O dialog is now a full Workspace Manager: hover any workspace and a preview shows its requests (color-coded by type — Transform, Salesforce, Database), flows, and when it was last saved. No more opening three workspaces to find the right one.' },
-  { title: 'Rename, duplicate, delete — without opening', desc: 'Manage saved workspaces directly from ⌘O: F2 renames in place, ⌘D duplicates, Del deletes (with confirmation), and pinning keeps your go-to workspaces at the top. All of it works from the keyboard.' },
-  { title: 'Search looks inside workspaces', desc: 'The ⌘O search now matches request names too — type “invoice” and find the workspace containing your “Invoice lookup” request, even if the workspace is named something else.' },
-  { title: 'Enter can accept suggestions again — your choice', desc: 'A new Settings → Editor toggle, “Enter accepts suggestion”: when on, Enter inserts the highlighted autocomplete instead of a line break. Off by default; Tab always accepts either way. Applies to every editor in the app.' },
-  { title: 'Switching can’t lose your work', desc: 'Opening another workspace (or starting a new one) with unsaved changes now asks first — save and switch, discard, or stay. Previously one click could silently throw away edits.' },
+const ENCODING_FIX_HIGHLIGHTS: Highlight[] = [
+  { title: 'Non-English text no longer comes back as “?”', desc: 'Hindi, Chinese, Arabic, Japanese, emoji and accented characters now survive a transform intact. Previously the engine wrote its result using your system’s default character set, silently replacing anything it couldn’t represent with “?” — with no error to warn you the data was wrong.' },
+  { title: 'Java tester reads your sources as UTF-8', desc: 'Compiling a .java file with non-English string literals or comments now works instead of failing or mangling them.' },
+  { title: 'Secure properties tells you when it can’t encrypt a value', desc: 'Windows can’t pass non-English characters through to the encryption tool. Rather than quietly encrypting “?” characters, the tool now flags it while you type so you don’t ship a wrong secret.' },
 ];
 
 const DESKTOP_RELEASES: Release[] = [
-  { version: '2.3.0', date: 'July 2026', headline: 'The Workspace Manager', highlights: WORKSPACE_MANAGER_HIGHLIGHTS },
+  { version: '2.3.1', date: 'August 2026', headline: 'Your data, in any language', highlights: ENCODING_FIX_HIGHLIGHTS },
 ];
 
 const VSCODE_RELEASES: Release[] = [
-  { version: '1.3.0', date: 'July 2026', headline: 'The Workspace Manager', highlights: WORKSPACE_MANAGER_HIGHLIGHTS },
+  { version: '1.3.1', date: 'August 2026', headline: 'Your data, in any language', highlights: ENCODING_FIX_HIGHLIGHTS },
 ];
 
 // The running build picks its own track.

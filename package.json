@@ -1,7 +1,7 @@
 {
   "name": "dataweave-studio",
   "private": true,
-  "version": "2.3.0",
+  "version": "2.3.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,8 @@
     "build:vscode": "tsc && vite build --config vite.config.vscode.ts",
     "preview": "vite preview",
     "tauri": "tauri",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:encoding": "node scripts/check-encoding.mjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

@@ -2,6 +2,14 @@
 
 All notable changes to DataWeave Studio for VS Code.
 
+## 1.3.1 — 2026-08-06
+
+**Your data, in any language.**
+
+- **Non-English text no longer comes back as “?”.** Hindi, Chinese, Arabic, Japanese, emoji and accented characters now survive a transform intact. Previously the engine wrote its result using your system’s default character set, silently replacing anything it couldn’t represent with `?` — and reported success, so there was no way to tell the data was wrong. This affected every transform, in both the editor and the MCP tools.
+- **Java tester reads your sources as UTF-8.** Compiling a `.java` file containing non-English string literals or comments now works instead of failing or mangling them.
+- **Secure properties tells you when it can’t encrypt a value.** Windows can’t pass non-English characters through to the encryption tool, so it would encrypt `?` instead of what you typed. The tool now flags this while you type rather than handing you a wrong secret.
+
 ## 1.3.0 — 2026-07-19
 
 **The Workspace Manager.**

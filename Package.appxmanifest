@@ -25,7 +25,7 @@
   <Identity
     Name="AshutoshVijay.DataWeaveStudio"
     Publisher="CN=Ashutosh Vijay"
-    Version="2.3.0.0" />
+    Version="2.3.1.0" />
 
   <Properties>
     <DisplayName>DataWeave Studio</DisplayName>
