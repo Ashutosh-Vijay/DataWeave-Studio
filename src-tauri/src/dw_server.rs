@@ -16,10 +16,15 @@
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 use crate::platform::{hide_console_window, strip_unc_prefix};
+
+/// Result of the startup encoding self-check (see `start`). Read by
+/// `get_warmup_status` so the UI can warn the user that non-ASCII output would
+/// be corrupted, instead of silently showing them wrong data.
+pub static ENCODING_OK: AtomicBool = AtomicBool::new(true);
 
 /// Held in Tauri state. Process handles + a mutex around the pipe so
 /// concurrent calls from the UI queue serially through the server.
@@ -167,6 +172,23 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     let mut cmd = Command::new(&java_bin);
     cmd.arg("-Xmx512m")
         .arg("-Xss2m")
+        // The server writes its response with println → System.out, which encodes
+        // using the JVM's default charset. On Windows that's the OS ANSI codepage,
+        // so Hindi/Chinese/€ silently become literal '?' (ok:true, no error).
+        //
+        // ALL THREE flags are required — which one works depends on the JRE, and
+        // we can run on the bundled 17 or (in VS Code) any system JRE:
+        //   Java 17  → System.out follows `file.encoding`   (stdout.encoding: n/a)
+        //   Java 19+ → System.out follows `stdout.encoding`; when the stream is
+        //              redirected (our pipe) it falls back to the NATIVE encoding
+        //              and ignores file.encoding, so JEP 400 does NOT save us.
+        // Verified matrix: file.encoding alone passes on 17 but CORRUPTS on 21;
+        // stdout.encoding alone is the reverse. Unknown properties are ignored,
+        // so setting all three is safe everywhere. (sun.stdout.encoding is the
+        // JDK 18 transitional name.)
+        .arg("-Dfile.encoding=UTF-8")
+        .arg("-Dstdout.encoding=UTF-8")
+        .arg("-Dsun.stdout.encoding=UTF-8")
         .arg("-jar")
         .arg(&jar)
         .stdin(Stdio::piped())
@@ -230,6 +252,38 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
             let mut primer_resp = String::new();
             let _ = inner.stdout.read_line(&mut primer_resp);
             log::info!("DW server primer: {}", primer_resp.trim());
+        }
+    }
+
+    // Encoding self-check — the last line of defence against silently corrupted
+    // output. If a JVM/OS combination ever slips past the -D*encoding flags above,
+    // non-Latin text comes back as '?' with ok:true and no error, and the user has
+    // no way to know their data is wrong. Prove one non-ASCII round-trip here so
+    // the UI can warn instead. Costs one eval (~10ms) on an already-warm engine.
+    // (If the response bytes aren't valid UTF-8, read_line itself errors — which
+    // is also a failed check, exactly as intended.)
+    const PROBE: &str = "नमस्ते";
+    {
+        let probe_id = state.next_id.fetch_add(1, Ordering::Relaxed);
+        let probe_req = format!(
+            r#"{{"id":{},"script":"%dw 2.0\noutput application/json\n---\n{{ p: \"{}\" }}","payloadPath":"","payloadMime":"application/json","namedInputs":[],"outputMime":"application/json"}}"#,
+            probe_id, PROBE
+        );
+        let mut guard = state.inner.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(inner) = guard.as_mut() {
+            let mut resp = String::new();
+            let ok = inner.stdin.write_all(probe_req.as_bytes()).is_ok()
+                && inner.stdin.write_all(b"\n").is_ok()
+                && inner.stdin.flush().is_ok()
+                && inner.stdout.read_line(&mut resp).is_ok()
+                && resp.contains(PROBE);
+            ENCODING_OK.store(ok, Ordering::Relaxed);
+            if !ok {
+                log::error!(
+                    "Engine encoding self-check FAILED — non-ASCII output will be corrupted. Response: {}",
+                    resp.trim()
+                );
+            }
         }
     }
 

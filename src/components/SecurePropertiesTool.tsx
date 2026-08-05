@@ -29,6 +29,18 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
   const [isProcessing, setIsProcessing] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // The secure-properties tool takes the value as a COMMAND-LINE ARGUMENT, and on
+  // Windows the JVM decodes argv with the OS ANSI codepage (cp1252) — anything
+  // outside it arrives as '?' and gets encrypted as the wrong text, silently.
+  // A -D flag can't fix it (sun.jnu.encoding is resolved before properties apply),
+  // so warn on exactly the characters that won't survive. cp1252 = Latin-1 plus
+  // the punctuation block below, which does come through intact (verified: €).
+  const CP1252_EXTRAS = '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ';
+  const hasUnsupportedChars =
+    mode === 'encrypt' &&
+    /Windows/i.test(navigator.userAgent) &&
+    [...input].some((ch) => (ch.codePointAt(0) ?? 0) > 255 && !CP1252_EXTRAS.includes(ch));
+
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -162,6 +174,23 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
               className="w-full bg-surface-2 border border-line rounded-md px-3 py-2 text-[13px] text-content placeholder-content-ghost focus:border-accent focus:outline-none font-mono resize-none"
               rows={3}
             />
+            {hasUnsupportedChars && (
+              <div
+                className="flex items-start gap-2 px-2.5 py-2 rounded-md text-[11.5px] leading-relaxed"
+                style={{
+                  background: 'color-mix(in oklch, var(--warn) 12%, var(--surface))',
+                  border: '1px solid color-mix(in oklch, var(--warn) 45%, transparent)',
+                  color: 'var(--content-secondary)',
+                }}
+              >
+                <span style={{ color: 'var(--warn)', fontWeight: 700 }}>!</span>
+                <span>
+                  This value has non-English characters that Windows can’t pass to the encryption
+                  tool — it receives them as “?”, so the encrypted result would be the wrong value.
+                  Remove them, or encrypt this value in Anypoint Studio instead.
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Encryption Key */}

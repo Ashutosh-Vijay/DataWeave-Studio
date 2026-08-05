@@ -63,6 +63,18 @@ pub fn secure_properties_invoke(
     let java_bin = if java.exists() { java } else { std::path::PathBuf::from("java") };
 
     let mut cmd = Command::new(&java_bin);
+    // Same Java-17 default-charset trap as the engine (see dw_server.rs) — this
+    // fixes the tool's *output* encoding.
+    //
+    // KNOWN LIMITATION: it does NOT fix non-ASCII *values*. We pass the value as a
+    // command-line argument, and on Windows the JVM decodes argv with the OS ANSI
+    // codepage; sun.jnu.encoding is resolved before -D properties are applied, so
+    // setting it is a no-op (verified: "गुप्त€" still round-trips as "???€").
+    // Encrypting a value with characters outside the system codepage needs a
+    // different transport (stdin/file), not a flag.
+    cmd.arg("-Dfile.encoding=UTF-8")
+        .arg("-Dstdout.encoding=UTF-8")
+        .arg("-Dsun.stdout.encoding=UTF-8");
     cmd.arg("-cp").arg(&jar);
     cmd.arg("com.mulesoft.tools.SecurePropertiesTool");
     cmd.arg("string");

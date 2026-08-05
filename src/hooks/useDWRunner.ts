@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { invoke } from '../bridge';
+import { toast } from '../components/Toast';
 
 interface RunResult {
   output: string;
@@ -13,6 +14,8 @@ interface RunResult {
 interface WarmupStatus {
   ready: boolean;
   error: string | null;
+  /** False when the engine failed its startup non-ASCII round-trip check. */
+  encodingOk?: boolean;
 }
 
 interface UseDWRunnerReturn {
@@ -55,6 +58,10 @@ export function useDWRunner(): UseDWRunnerReturn {
   const [logs, setLogs] = useState<string[]>([]);
   const pollGenRef = useRef(0);
   const runningRef = useRef(false);
+  /** Result of the engine's startup encoding self-check, and whether we've
+   *  already told the user about it (once per session is enough). */
+  const encodingOkRef = useRef(true);
+  const encodingWarnedRef = useRef(false);
 
   // Poll get_warmup_status until the engine reports ready (or errored), then
   // return its final status. Resolves null if a newer poll generation
@@ -81,6 +88,10 @@ export function useDWRunner(): UseDWRunnerReturn {
       if (status) {
         setIsWarmedUp(true);
         setEngineError(status.error ?? null);
+        // Remember it, but say nothing yet — a user who only ever transforms
+        // English data is unaffected and shouldn't be shown a scary startup
+        // error. `run` raises it only if they actually send non-ASCII text.
+        encodingOkRef.current = status.encodingOk !== false;
       }
     })();
     return () => { ++pollGenRef.current; }; // stop polling on unmount
@@ -101,6 +112,20 @@ export function useDWRunner(): UseDWRunnerReturn {
       modulesJson?: string,
     ) => {
       if (runningRef.current) return; // prevent double-clicks
+
+      // Only now — when this JVM can't round-trip non-ASCII AND the user has
+      // actually put some in — is the encoding fault worth interrupting for.
+      // Warn once per session, before they act on output we know is wrong.
+      if (!encodingOkRef.current && !encodingWarnedRef.current && /[^\x00-\x7F]/.test(script + payload)) {
+        encodingWarnedRef.current = true;
+        toast({
+          title: 'This engine can’t return non-English text',
+          message: 'Your input contains characters (Hindi, Chinese, emoji, accents…) that this Java runtime turns into “?”. The result below will be wrong for those characters. Please report it with your OS and Java version.',
+          variant: 'error',
+          persist: true,
+        });
+      }
+
       runningRef.current = true;
       setIsRunning(true);
       setError(null);

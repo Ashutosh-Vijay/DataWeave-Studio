@@ -125,7 +125,9 @@ export function compileJava(storageDir: string, extensionRoot: string, sources: 
   const sep = process.platform === 'win32' ? ';' : ':';
   // Target the engine's Java 17 runtime (class-file major 61) — a newer system
   // javac (e.g. JDK 21 → class 65) otherwise produces classes the JRE can't load.
-  const args = ['-source', '17', '-target', '17', '-Xlint:-options', '-d', classesDir];
+  // -encoding UTF-8: we write the .java files as UTF-8, but javac reads them with
+  // the platform default charset on Java ≤17, mangling non-ASCII literals/comments.
+  const args = ['-source', '17', '-target', '17', '-Xlint:-options', '-encoding', 'UTF-8', '-d', classesDir];
   if (classpath && classpath.length > 0) args.push('-cp', classpath.join(sep));
   args.push(...files);
 

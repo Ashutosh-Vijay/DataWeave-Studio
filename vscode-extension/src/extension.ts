@@ -317,7 +317,7 @@ async function handleInvoke(
     case 'is_warmed_up':
       return server?.isWarmed() ?? false;
     case 'get_warmup_status':
-      return { ready: server?.isWarmed() ?? false, error: warmupError };
+      return { ready: server?.isWarmed() ?? false, error: warmupError, encodingOk: server?.isEncodingOk() ?? true };
     case 'warm_dataweave_script': {
       const srv = await getServer(extensionRoot);
       await warmDataweave(srv, args as unknown as WarmArgs);
@@ -511,6 +511,10 @@ function securePropertiesInvoke(
   const jar = resolveSecurePropsJar(extensionRoot);
   const java = resolveJava(extensionRoot);
   const cmdArgs = [
+    // Fixes the tool's OUTPUT encoding on Java ≤17. Note it does not fix non-ASCII
+    // input values: those arrive as argv, which Windows JVMs decode with the OS
+    // codepage before -D properties apply (see secure_properties.rs for detail).
+    '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dsun.stdout.encoding=UTF-8',
     '-cp', jar,
     'com.mulesoft.tools.SecurePropertiesTool',
     'string', operation, algorithm, mode, key, value,

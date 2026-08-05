@@ -256,6 +256,10 @@ pub fn compile_java(
     // JRE refuses to load with UnsupportedClassVersionError. -Xlint:-options
     // silences the harmless "bootstrap class path not set" note.
     cmd.arg("-source").arg("17").arg("-target").arg("17").arg("-Xlint:-options");
+    // We write the .java files as UTF-8, but javac reads them with the platform
+    // default charset (Java 17, pre-JEP 400) — so a non-ASCII string literal or
+    // comment would misdecode or fail to compile.
+    cmd.arg("-encoding").arg("UTF-8");
     cmd.arg("-d").arg(&classes_dir);
     if !classpath.is_empty() {
         let sep = if cfg!(target_os = "windows") { ";" } else { ":" };

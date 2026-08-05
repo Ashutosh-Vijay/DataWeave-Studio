@@ -88,7 +88,11 @@ function parseRecipe(path) {
 
 // ---- dw-server driver (newline-delimited JSON over stdin/stdout) ----------
 function startServer() {
-  const child = spawn(JAVA, ['-jar', JAR], { stdio: ['pipe', 'pipe', 'inherit'] });
+  // Without these the server's println encodes with the platform charset, so any
+  // non-ASCII in a recipe's output gets baked into cookbookRecipes.ts as '?'.
+  // All three because the effective one differs by JRE version (see dw_server.rs).
+  const child = spawn(JAVA, ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8',
+    '-Dsun.stdout.encoding=UTF-8', '-jar', JAR], { stdio: ['pipe', 'pipe', 'inherit'] });
   const rl = readline.createInterface({ input: child.stdout });
   const queue = [];
   let readyResolve;

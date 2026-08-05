@@ -79,9 +79,14 @@ use crate::platform::strip_unc_prefix;
 use crate::platform::hide_console_window;
 
 #[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WarmupStatus {
     pub ready: bool,
     pub error: Option<String>,
+    /// False when the engine's startup encoding self-check failed — non-ASCII
+    /// output would come back corrupted, so the UI warns instead of pretending
+    /// the result is trustworthy.
+    pub encoding_ok: bool,
 }
 
 #[tauri::command]
@@ -94,6 +99,7 @@ pub fn get_warmup_status(state: tauri::State<'_, WarmupState>) -> WarmupStatus {
     WarmupStatus {
         ready: *state.ready.lock().unwrap_or_else(|e| e.into_inner()),
         error: state.error.lock().unwrap_or_else(|e| e.into_inner()).clone(),
+        encoding_ok: crate::dw_server::ENCODING_OK.load(std::sync::atomic::Ordering::Relaxed),
     }
 }
 

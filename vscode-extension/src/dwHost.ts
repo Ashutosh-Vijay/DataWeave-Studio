@@ -113,11 +113,19 @@ export class DwServer {
   /** True only once spawned + primed — i.e. the next Run will be warm. The
    *  warm-up gate (loader overlay / get_warmup_status) reads this. */
   private warmed = false;
+  /** Set by the startup encoding self-check in prime(). False means this JVM
+   *  can't return non-ASCII text, so the UI warns instead of showing corrupt
+   *  output. Matters most here: we may run on a system JRE of any version. */
+  private encodingOk = true;
 
   constructor(private javaBin: string, private jarPath: string) {}
 
   isWarmed(): boolean {
     return this.warmed;
+  }
+
+  isEncodingOk(): boolean {
+    return this.encodingOk;
   }
 
   /** Spawn the JVM, wait for `{"event":"ready"}`, then prime the compiler so
@@ -130,7 +138,15 @@ export class DwServer {
       try {
         proc = spawn(
           this.javaBin,
-          ['-Xmx512m', '-Xss2m', '-jar', this.jarPath],
+          // The server's println → System.out encodes with the JVM default charset,
+          // turning Hindi/Chinese/€ into literal '?' with no error. This matters
+          // MOST here: we may run on a system JRE of any version, and the flag that
+          // works differs by version — Java 17 follows file.encoding, Java 19+
+          // follows stdout.encoding (and ignores file.encoding for a redirected
+          // stream, so JEP 400's UTF-8 default does NOT cover us). Verified: each
+          // flag alone fixes one version and corrupts the other. See dw_server.rs.
+          ['-Xmx512m', '-Xss2m', '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8',
+           '-Dsun.stdout.encoding=UTF-8', '-jar', this.jarPath],
           { stdio: ['pipe', 'pipe', 'ignore'] }
         );
       } catch (e) {
@@ -231,6 +247,24 @@ export class DwServer {
     for (const req of warmups) {
       await this.run(req, 15000).catch(() => undefined); // best-effort
     }
+
+    // Encoding self-check: prove this JVM can hand back non-ASCII before the user
+    // can be shown silently-corrupted output. The engine writes its response with
+    // println → System.out, and which -D*encoding flag actually governs that
+    // differs by Java version — so verify rather than assume (see dw_server.rs).
+    const probeText = 'नमस्ते';
+    const probe = await this.run({
+      script: `%dw 2.0\noutput application/json\n---\n{ p: "${probeText}" }`,
+      payloadPath,
+      payloadMime: 'application/json',
+      namedInputs: [],
+      outputMime: 'application/json',
+    }, 15000).catch(() => null);
+    this.encodingOk = !!probe?.output?.includes(probeText);
+    if (!this.encodingOk) {
+      console.error('[dwstudio] encoding self-check FAILED — non-ASCII output will be corrupted:', probe?.output);
+    }
+
     fs.rmSync(dir, { recursive: true, force: true });
   }
 
