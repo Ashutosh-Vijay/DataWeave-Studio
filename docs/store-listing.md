@@ -188,15 +188,10 @@ https://ashutosh-vijay.dev/dataweave/privacy
 
 ## Submission options — restricted capability justification
 
-Paste this into the "Restricted capabilities" explanation for runFullTrust:
+Paste this into the "Restricted capabilities" explanation for runFullTrust.
+NOTE: the field caps at 500 characters, so this is the trimmed version.
 
-DataWeave Studio is a Win32 desktop application packaged as MSIX, so runFullTrust is
-required for it to run at all. Specifically, the app launches its bundled Java
-runtime as a child process to execute DataWeave transformations locally, compiles
-user-supplied Java sources with the bundled javac, and binds a loopback-only port
-(127.0.0.1) for an optional local MCP server that AI coding assistants on the same
-machine can call. No data is transmitted off the device and the app requires no
-network access to function.
+Win32 desktop app packaged as MSIX; runFullTrust is required for it to run at all. It launches its bundled Java runtime as a child process to run DataWeave transforms locally, compiles user-supplied Java sources with the bundled javac, and binds a loopback-only port (127.0.0.1) for an optional local MCP server that AI coding assistants on the same machine can call. No data leaves the device and no network access is required.
 
 ---
 
