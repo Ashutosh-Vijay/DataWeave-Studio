@@ -1194,6 +1194,15 @@ function App() {
 
         {/* Right cluster — design spec: theme + Run only beside palette */}
         <div className="flex items-center gap-1">
+          {/* Sharing had no visible affordance at all — it lived only in the
+              workspace menu, which is where it went unfound. One click copies
+              the current request; ⌘K → "share" has the whole-workspace variant. */}
+          <IconBtn
+            title="Copy a share link for this request (⌘K → “share” for more)"
+            onClick={handleCopyShareLink}
+          >
+            <Icons.Share size={15} />
+          </IconBtn>
           <IconBtn title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggle}>
             {isDark ? <Icons.Sun size={15} /> : <Icons.Moon size={15} />}
           </IconBtn>

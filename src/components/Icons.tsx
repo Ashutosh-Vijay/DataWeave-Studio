@@ -106,6 +106,14 @@ export const Icons = {
       <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
     </>,
   ),
+  /** Two link halves — reads as "share a URL" rather than the three-dot
+   *  social-share glyph, which people associate with posting to a network. */
+  Share: mk(
+    <>
+      <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+      <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+    </>,
+  ),
   Copy: mk(
     <>
       <rect x="9" y="9" width="13" height="13" rx="2" />
