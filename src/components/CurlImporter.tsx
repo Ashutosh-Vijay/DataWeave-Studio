@@ -730,6 +730,11 @@ export function CurlImporter({ onImport, open, onClose, onImportShareLink }: Cur
             <div className="text-[11px] mt-3 leading-relaxed" style={{ color: 'var(--content-faint)' }}>
               A share link carries the whole setup inside itself — the data rides in the part of
               the URL browsers never send to a server, so nothing was uploaded to create it.
+              {' '}
+              {/* Whoever opens this dialog to paste a link is the same person who'll
+                  want to send one back, and creating one was previously undiscoverable. */}
+              <b>To send one of your own:</b> press <b>⌘K</b> (Ctrl+K) and search
+              “share”, or use the workspace menu next to the workspace name.
             </div>
           </div>
         )}

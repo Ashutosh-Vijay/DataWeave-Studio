@@ -1093,6 +1093,12 @@ function App() {
     { id: 'new', label: 'New workspace', shortcut: '⌘N', group: 'Workspace', run: guardedNew },
     { id: 'open', label: 'Open workspace…', shortcut: '⌘O', group: 'Workspace', run: () => setOpenWsOpen(true) },
     { id: 'duplicate', label: 'Duplicate workspace', shortcut: '⌘D', group: 'Workspace', run: () => { beginTransforming(); workspace.duplicateWorkspace(); } },
+    // Creating a share link used to live only in the breadcrumb menu, which is
+    // where nobody found it. Sharing is a Share group of its own so ⌘K > "share"
+    // surfaces all three actions together.
+    { id: 'share-request', label: 'Copy share link — this request', hint: 'Script, payload, vars & headers in one URL', group: 'Share', run: handleCopyShareLink },
+    { id: 'share-workspace', label: 'Copy share link — whole workspace', hint: 'Every request in this workspace', group: 'Share', run: handleCopyWorkspaceShareLink },
+    { id: 'share-open', label: 'Open from share link…', shortcut: '⌘⇧I', group: 'Share', run: handleOpenShareLink },
     { id: 'import-playground', label: 'Import from Playground zip…', group: 'Workspace', run: handleImportPlayground },
     { id: 'export-playground', label: 'Export as Playground zip…', group: 'Workspace', run: handleExportPlayground },
     { id: 'format', label: 'Format script', shortcut: '⌥⇧F', group: 'Editor', run: () => scriptEditorRef.current?.format() },
