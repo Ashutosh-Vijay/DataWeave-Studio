@@ -8,10 +8,15 @@
  * parameter resolves to the element type — neither of which a text-pattern
  * guess can do correctly.
  *
- * This registers ALONGSIDE the static provider in `dataweaveCompletions.ts`,
- * which stays as the instant fallback. Monaco merges suggestions from every
- * provider, so a slow or cold engine degrades to exactly today's behaviour
- * rather than an empty popup. Every failure here is swallowed on purpose.
+ * Hover and signature help register as their own providers here. Completion
+ * does NOT — `dataweaveCompletions.ts` calls `engineFieldSuggestions()` for
+ * dotted positions instead. Registering a second completion provider made
+ * Monaco merge both answers and show every field twice, once with the engine's
+ * real type and once with the heuristic's guess.
+ *
+ * Every failure returns null on purpose: a cold engine, a restart mid-edit or
+ * an unparseable script all fall back to the static suggestions rather than
+ * emptying the popup.
  */
 import type * as Monaco from 'monaco-editor';
 import { invoke, isTauri } from './bridge';
@@ -78,53 +83,6 @@ export function registerEngineLanguageFeatures(
     return ctx.payload || '';
   };
 
-  const completion = monaco.languages.registerCompletionItemProvider('dataweave', {
-    triggerCharacters: ['.'],
-
-    async provideCompletionItems(model, position) {
-      const res = await ask<{ items?: EngineSuggestion[]; replacementStart?: number; replacementEnd?: number }>(
-        'completion',
-        model.getValue(),
-        offsetOf(model, position),
-        payloadOf(),
-      );
-      if (!res?.items?.length) return { suggestions: [] };
-      const items = res.items;
-
-      // The engine reports the range it means to replace, in offsets. Honour it
-      // so accepting `orderId` after `payload.` doesn't leave `payload..orderId`.
-      const { replacementStart, replacementEnd } = res;
-      const start =
-        typeof replacementStart === 'number' && replacementStart >= 0
-          ? model.getPositionAt(replacementStart)
-          : position;
-      const end =
-        typeof replacementEnd === 'number' && replacementEnd >= 0
-          ? model.getPositionAt(replacementEnd)
-          : position;
-      const range: Monaco.IRange = {
-        startLineNumber: start.lineNumber,
-        startColumn: start.column,
-        endLineNumber: end.lineNumber,
-        endColumn: end.column,
-      };
-
-      return {
-        suggestions: items.map((s, i) => ({
-          label: s.label,
-          kind: iconFor(monaco, s),
-          insertText: s.insertText || s.label,
-          detail: s.type,
-          documentation: s.doc,
-          range,
-          // Engine answers are type-correct, so they sort above the static
-          // catalog's guesses for the same prefix.
-          sortText: `0${String(i).padStart(4, '0')}`,
-        })),
-      };
-    },
-  });
-
   const hover = monaco.languages.registerHoverProvider('dataweave', {
     async provideHover(model, position) {
       const res = await ask<{ type?: string | null; doc?: string }>(
@@ -164,9 +122,43 @@ export function registerEngineLanguageFeatures(
 
   return {
     dispose() {
-      completion.dispose();
       hover.dispose();
       signature.dispose();
     },
   };
+}
+
+/**
+ * Field suggestions for a `foo.` position, straight from the language service.
+ *
+ * Called by the static provider in `dataweaveCompletions.ts` rather than
+ * registered as its own provider: two providers answering the same position
+ * showed every field twice, once with the engine's real type and once with the
+ * heuristic's guess. Returns null when the engine can't answer, and the caller
+ * falls through to its own logic.
+ */
+export async function engineFieldSuggestions(
+  script: string,
+  offset: number,
+  payload: string,
+  monaco: typeof Monaco,
+  range: Monaco.IRange,
+): Promise<Monaco.languages.CompletionItem[] | null> {
+  const res = await ask<{ items?: EngineSuggestion[]; replacementStart?: number; replacementEnd?: number }>(
+    'completion',
+    script,
+    offset,
+    payload,
+  );
+  if (!res?.items?.length) return null;
+
+  return res.items.map((s, i) => ({
+    label: s.label,
+    kind: iconFor(monaco, s),
+    insertText: s.insertText || s.label,
+    detail: s.type,
+    documentation: s.doc,
+    range,
+    sortText: `0${String(i).padStart(4, '0')}`,
+  }));
 }

@@ -1,5 +1,5 @@
 import type * as Monaco from 'monaco-editor';
-import { registerEngineLanguageFeatures } from './dataweaveEngineLanguage';
+import { registerEngineLanguageFeatures, engineFieldSuggestions } from './dataweaveEngineLanguage';
 import yaml from 'js-yaml';
 import { buildCompletionDoc, registerDWHoverProvider } from './dataweaveHover';
 import { getDwFunctions } from './dataweaveDocsLazy';
@@ -594,6 +594,9 @@ export function ensureDWEditorProviders(monaco: typeof Monaco): () => void {
   // static ones. Monaco merges providers, so if the engine is cold or the
   // script doesn't parse, the static suggestions above still show.
   if (!sharedEngine) {
+    // Hover + signature help only. Field completion is handled inside the
+    // provider below, so the engine and the static heuristics can't both
+    // answer the same position and show the field twice.
     sharedEngine = registerEngineLanguageFeatures(monaco, () => contextForModel(currentModel()) ?? null);
   }
   return () => {
@@ -634,6 +637,22 @@ export function registerDWCompletionProvider(
       const textBeforeWord = lineContent.substring(0, word.startColumn - 1);
 
       const ctx = getContext ? getContext() : contextForModel(model);
+
+      // Field selection after a dot: the engine's language service knows the
+      // real type, so it wins outright. Our heuristics walk the sample JSON and
+      // lose the array dimension — for `[{message: "King"}]` they report
+      // `message: String` where the truth is `Array<String>`. Only for dotted
+      // positions; everywhere else the static catalog is richer and instant.
+      if (/[A-Za-z0-9_)\]]\s*\.\s*[A-Za-z0-9_]*$/.test(textBeforeCursor)) {
+        const engineItems = await engineFieldSuggestions(
+          model.getValue(),
+          model.getOffsetAt(position),
+          ctx && /json/i.test(ctx.payloadMimeType || '') ? ctx.payload || '' : '',
+          monaco,
+          range,
+        );
+        if (engineItems) return { suggestions: engineItems };
+      }
 
       // --- Config property ${key} / ${secure::key} completions ---
       // Requires the full `${` prefix — a bare `$` is the lambda shorthand.
