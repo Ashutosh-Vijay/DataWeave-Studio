@@ -15,51 +15,140 @@ engine built in. Free, offline, no Anypoint Studio required.
 
 ## Description
 
-DataWeave Studio is a fast, local workbench for DataWeave 2.0. It runs the real
-MuleSoft DataWeave 2.11 engine on your own machine, so you get authentic output and
-authentic error messages — not an approximation — without booting Anypoint Studio or
-creating a Maven project.
+DataWeave Studio is a local workbench for DataWeave 2.0. It runs the real MuleSoft
+DataWeave 2.11 engine on your own machine, so you get authentic output and authentic
+error messages - not an approximation - without booting Anypoint Studio or creating a
+Maven project.
 
-Paste a payload, write a script, press Run. That's the whole loop.
+Paste a payload, write a script, press Run. That is the whole loop, and it takes
+milliseconds.
 
-Everything happens on your computer. There is no account, no sign-up, no telemetry,
-and no cloud. Your scripts and data never leave your machine, which means you can
-safely use it with production payloads.
+Everything happens on your computer. There is no account, no sign-up, no telemetry and
+no cloud. Your scripts and data never leave your machine, which means you can safely
+use it with production payloads.
 
-WHAT'S INSIDE
+Bundled with its own Java runtime - nothing else to install, no JAVA_HOME, no Maven,
+no PATH changes.
 
-• Instant transforms — a warm engine returns results in milliseconds, with inline
-  error line and column when something's wrong.
-• Any format — JSON, XML, CSV, YAML, NDJSON, Excel, form-urlencoded, multipart and
-  more, as both input and output.
-• Message Flow designer — chain transforms together with mock Salesforce, Database
-  and HTTP connectors, and import real Mule flow XML to test it locally.
-• Java tester — compile your own Java classes and call them from DataWeave, exactly
-  as a Mule app would.
-• OpenAPI / Swagger reader — open a spec and turn any request, response or example
-  into a ready-to-edit sample payload plus a DataWeave skeleton.
-• Built-in MCP server — let AI assistants in Claude Code, Cursor or GitHub Copilot
-  validate DataWeave against the real engine before handing you code. Free, local,
-  and off unless you start it.
-• Share a whole setup in one link — script, payload, variables and headers travel
-  inside the URL itself, so a colleague opens it and presses Run. The data rides in the
-  part of a URL browsers never send to a server, so nothing is uploaded to create one.
-• Secure properties, offline — encrypt and decrypt secure-property values locally,
-  compatible with Mule's secure-properties-tool. No website to be down or blocked by
-  your network, and your production secrets never go into someone else's web form.
-  Paste a real secure-config.yaml and run scripts against the decrypted values.
-• Compare — side-by-side diff for payloads and Mule XML, with an option to ignore
-  the generated doc:id and UUID noise.
-• Workspaces — organise related requests together, search inside them, and pick up
+
+THE EDITOR
+
+- Monaco editor with DataWeave 2.0 syntax highlighting and bracket-pair colouring.
+- Autocomplete over all 309 DataWeave functions with signature hints, grouped by module.
+- Suggestions drawn from your own data: payload fields, variables, attributes and config
+  properties, so completions match what you actually loaded.
+- Reader and writer options for all 16 formats complete as you type - including the ones
+  nobody can ever remember, like skipNullOn.
+- Errors highlighted inline with line and column, and the editor scrolls to the failure.
+- Configurable font, size, line height, tab width, word wrap and minimap.
+
+
+INPUT, IN ANY SHAPE
+
+- 14+ formats as both input and output: JSON, XML, CSV, YAML, NDJSON, plain text,
+  form-urlencoded, DataWeave, Java properties, Excel, Avro, Protocol Buffers, Flat File
+  (COBOL copybooks) and raw binary.
+- Named inputs - add extra input streams as tabs, each with its own editor and MIME type.
+- Multipart form-data builder with real MIME boundaries, mixing text and file parts.
+- Load any file from disk as the payload, with no size limit on binary.
+- Full HTTP context: method, headers, query parameters and flow variables, each row
+  individually enabled or disabled - exposed to your script exactly as attributes.
+
+
+SECURE PROPERTIES, OFFLINE
+
+- Encrypt and decrypt secure-property values locally: AES, Blowfish, DES, DESede and RC2
+  across CBC, CFB, ECB and OFB, byte-for-byte compatible with Mule's
+  secure-properties-tool.
+- Paste a real secure-config.yaml with ![encrypted] values, supply the key at runtime,
+  and run scripts against the genuinely decrypted result.
+- The key is held for the session and never written to disk.
+- No website to be down or blocked by your corporate network, and your production
+  secrets never go into someone else's web form.
+
+
+MESSAGE FLOW DESIGNER
+
+- Drag-and-drop canvas for chaining Set Payload, Transform, Set Variable, HTTP Request,
+  Salesforce, Database and Logger nodes.
+- Run the whole flow, or step through node by node and inspect the payload, variables and
+  attributes at every stage.
+- Import real Mule flow XML and run it locally; export your canvas back out as XML.
+- Variables carry through the pipeline just as they do in a Mule app.
+
+
+SALESFORCE AND DATABASE QUERIES
+
+- Write SOQL or SQL with :paramName placeholders, bind the parameters from a DataWeave
+  script, and see the final rendered query.
+- JDBC-style auto-quoting for SQL: strings quoted, numbers bare, null becomes NULL.
+
+
+SHARE A WHOLE SETUP IN ONE LINK
+
+- Copy a link carrying the script, payload, variables, headers and query parameters -
+  one request or an entire workspace.
+- Whoever opens it gets an identical setup and can press Run, instead of a snippet they
+  have to rebuild from a chat message.
+- The data rides in the part of a URL that browsers never send to a server, so nothing is
+  uploaded to create a link.
+
+
+BUILT-IN MCP SERVER
+
+- Let AI assistants in Claude Code, Cursor, VS Code or any MCP client compile and run
+  DataWeave against the real engine, so they verify their transforms instead of inventing
+  syntax that does not exist.
+- Bound to localhost, never exposed to your network, and off until you start it.
+- Safe mode blocks Java imports so a generated script can only read your payload.
+
+
+TOOLS
+
+- OpenAPI / Swagger reader - open a 3.x or 2.0 spec, browse operations and types, and turn
+  any request, response or named example into a sample payload plus a matching DataWeave
+  skeleton. Resolves $ref, enums and allOf/oneOf/anyOf.
+- cURL importer - paste a curl command from Postman or devtools; method, headers, query
+  params and body fill in automatically with a matching script scaffold.
+- Java tester - compile your own Java classes and call them from DataWeave with
+  import java!, exactly as a Mule app would.
+- Module library - write reusable .dwl modules and import them across workspaces.
+- Compare - side-by-side diff for payloads and Mule XML, with an Ignore IDs toggle that
+  blanks the generated doc:id and UUID churn so you see the change that matters.
+- DataWeave 1.0 to 2.0 migration with a one-click diff.
+- Secure-properties encrypt/decrypt dialog, snippets library and command palette.
+
+
+TESTING
+
+- Per-request test collections with pass / fail / untested badges.
+- Capture expected output by running once, then re-run as a regression suite.
+- Exact or semantic-JSON comparison, with a visual diff when something changes.
+- Execution time tracked per test.
+
+
+WORKSPACES
+
+- Postman-style collections: group related transforms in one workspace, each request with
+  its own script, payload, context, named inputs, query template and tests.
+- Search inside workspaces by request name, pin the ones you live in, and resume exactly
   where you left off.
-• Function reference and cookbook — every DataWeave function and a library of
-  worked recipes, searchable, offline.
 
-Bundled with its own Java runtime, so there is nothing else to install.
 
-Free and open source (MIT): https://github.com/Ashutosh-Vijay/DataWeave-Studio
+REFERENCE
 
----
+- Every DataWeave function, searchable and offline, with signatures and descriptions.
+- A cookbook of worked recipes including MuleSoft's official examples - each one executed
+  against the bundled engine and kept only if it actually runs.
+
+
+ALSO
+
+- Dusk and Paper themes with five accent colours, and Workbench or Playground layouts.
+- Also available as a VS Code extension, if you would rather not install a desktop app.
+
+Free and open source under the MIT licence:
+https://github.com/Ashutosh-Vijay/DataWeave-Studio
 
 ## Key features (short bullets for the listing form)
 1. Runs the real MuleSoft DataWeave 2.11 engine locally
