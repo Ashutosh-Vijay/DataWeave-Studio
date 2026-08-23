@@ -2,6 +2,7 @@ import type * as Monaco from 'monaco-editor';
 import yaml from 'js-yaml';
 import { buildCompletionDoc, registerDWHoverProvider } from './dataweaveHover';
 import { getDwFunctions } from './dataweaveDocsLazy';
+import { DW_FORMATS, type FormatProperty } from './dataweaveFormats';
 
 export interface DWCompletionContext {
   payload: string;
@@ -346,6 +347,85 @@ export function extractDotChain(text: string, extraRoots?: string[]): { root: st
 }
 
 /**
+ * Reader/writer options that may follow a MIME type on an `output`/`input`
+ * directive — `output application/json skipNullOn="everywhere"`.
+ *
+ * Data comes from DW_FORMATS, generated out of mulesoft/docs-dataweave by
+ * scripts/extract-dw-formats.mjs. It is not hand-maintained: every option name
+ * was cross-checked against the bundled engine (which lists the valid options
+ * in its InvalidOptionException) and the two agree on all 16 formats.
+ */
+
+/** Snippet body for an option, so accepting it lands the cursor on the value. */
+export function formatOptionSnippet(opt: FormatProperty): string {
+  if (opt.values && opt.values.length > 0) return `${opt.name}="\${1|${opt.values.join(',')}|}"`;
+  if (opt.type === 'Boolean') return `${opt.name}=\${1|true,false|}`;
+  if (opt.type === 'Number') return `${opt.name}=\${1:${opt.default || '0'}}`;
+  return `${opt.name}="\$1"`;
+}
+
+/** Docs descriptions run long (bullet lists, examples). Tooltips want one line. */
+export function formatOptionDetail(opt: FormatProperty): string {
+  const first = opt.description.split(/(?<=\.)\s/)[0] || opt.description;
+  const suffix = opt.default ? ` (default: ${opt.default})` : '';
+  return (first.length > 110 ? `${first.slice(0, 107)}…` : first) + suffix;
+}
+
+/**
+ * If the cursor sits on an `output <mime> …` / `input <name> <mime> …` directive
+ * where the next thing typed would be an option name, return that format's
+ * options minus the ones already on the line. `input` gets READER properties and
+ * `output` gets WRITER ones — they genuinely differ (csv `streaming` is
+ * read-only, `quoteValues` write-only).
+ */
+export function directiveOptionsAt(textBeforeWord: string): FormatProperty[] | null {
+  const m = textBeforeWord.match(
+    /^\s*(output|input\s+[A-Za-z_]\w*)\s+([A-Za-z][\w.+-]*\/[\w.+-]+)\s+(?:[A-Za-z]\w*\s*=\s*(?:"[^"]*"|'[^']*'|\S+)\s+)*$/
+  );
+  if (!m) return null;
+  const fmt = DW_FORMATS[m[2].toLowerCase()];
+  if (!fmt) return null;
+  const opts = m[1].startsWith('input') ? fmt.reader : fmt.writer;
+  if (opts.length === 0) return null;
+  const already = new Set(Array.from(textBeforeWord.matchAll(/([A-Za-z]\w*)\s*=/g), (x) => x[1]));
+  return opts.filter((opt) => !already.has(opt.name));
+}
+
+/**
+ * Bind lambda parameters to the collection they iterate, so that inside
+ * `payload.items map ((item, index) -> item.` the `item.` suggests the fields of
+ * an ELEMENT of payload.items.
+ *
+ * Returned as a name→expression map so it can be merged straight into the
+ * script-`var` map that resolveChainRoot already understands: `item` →
+ * `payload.items` resolves to root `payload`, path ['items'], and
+ * getFieldsAtPath already steps into arrays. Nested lambdas fall out for free —
+ * `order.items` as a binding resolves through `order` to the outer collection.
+ *
+ * Object-iterating functions (mapObject / pluck / filterObject) are deliberately
+ * excluded: their first parameter is a heterogeneous value, so its shape can't be
+ * inferred from the collection and we'd suggest confidently wrong fields.
+ */
+const LAMBDA_FNS = [
+  'map', 'filter', 'flatMap', 'orderBy', 'groupBy', 'distinctBy', 'find', 'partition',
+  'takeWhile', 'dropWhile', 'sumBy', 'countBy', 'maxBy', 'minBy', 'every', 'some', 'reduce', 'scan',
+].join('|');
+
+export function parseLambdaBindings(textBefore: string): Map<string, string> {
+  const bindings = new Map<string, string>();
+  const re = new RegExp(
+    `([A-Za-z_][\\w.]*)\\s+(?:${LAMBDA_FNS})\\s*\\(\\s*\\(?\\s*([A-Za-z_]\\w*)`,
+    'g'
+  );
+  for (const m of textBefore.matchAll(re)) {
+    // Later (inner) bindings overwrite outer ones with the same parameter name,
+    // which is exactly the shadowing the language itself applies.
+    bindings.set(m[2], m[1]);
+  }
+  return bindings;
+}
+
+/**
  * Parse `var name = <rhs>` and `fun name(...)` declarations out of the script
  * itself, so completions know about user-defined names. RHS capture is
  * line-based: it accumulates continuation lines until the next directive
@@ -611,14 +691,39 @@ export function registerDWCompletionProvider(
         return { suggestions: [] };
       }
 
+      // --- Output/input directive options (skipNullOn, indent, separator…) ---
+      // Offered only where an option name is what comes next, so it never
+      // competes with the MIME-type list or the function list.
+      const dirOptions = directiveOptionsAt(textBeforeWord);
+      if (dirOptions && dirOptions.length > 0) {
+        return {
+          suggestions: dirOptions.map((opt, i) => ({
+            label: opt.name,
+            kind: monaco.languages.CompletionItemKind.Property,
+            detail: formatOptionDetail(opt),
+            documentation: opt.description,
+            insertText: formatOptionSnippet(opt),
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            range,
+            sortText: String(i).padStart(4, '0'),
+          })),
+        };
+      }
+
       // --- Context-aware dot-chain suggestions ---
       const decls = parseScriptDeclarations(model.getValue());
       const namedRoots = ctx?.namedInputs?.filter((ni) => ni.name).map((ni) => ni.name) || [];
-      const extraRoots = [...namedRoots, ...decls.vars.keys()];
+      // Lambda parameters (`payload.items map ((item) -> item.`) behave like
+      // very local vars: bind them to their collection and let the same
+      // resolution walk them back to payload/vars/attributes.
+      const lambdaBindings = parseLambdaBindings(textBeforeWord);
+      const extraRoots = [...namedRoots, ...decls.vars.keys(), ...lambdaBindings.keys()];
       const rawChain = extractDotChain(textBeforeWord, extraRoots);
+      // Lambda params shadow script vars — they're the narrower scope.
+      const resolvableVars = new Map([...decls.vars, ...lambdaBindings]);
       // Script-level vars (var x = payload.template) resolve to their source
       // chain or inline literal, so `x.` suggests the same fields `payload.template.` would
-      const chain = rawChain ? resolveChainRoot(rawChain, decls.vars) : null;
+      const chain = rawChain ? resolveChainRoot(rawChain, resolvableVars) : null;
       if (chain && chain.obj !== undefined) {
         const dynamic = getFieldsAtPath(chain.obj, chain.path).map((f, i) => ({
           label: f.key,

@@ -14,6 +14,9 @@ export interface Recipe {
   outputMime: string;
   output: string;
   script: string;
+  /** Flow variables the script reads. Recipes that use `vars.x` can't run
+   *  without these, so Open in Playground seeds the Context panel from them. */
+  vars?: Record<string, unknown>;
 }
 
 export const COOKBOOK_RECIPES: Recipe[] = [

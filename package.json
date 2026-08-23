@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
-    "test:encoding": "node scripts/check-encoding.mjs"
+    "test:encoding": "node scripts/check-encoding.mjs",
+    "docs:refresh": "node scripts/refresh-dw-docs.mjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

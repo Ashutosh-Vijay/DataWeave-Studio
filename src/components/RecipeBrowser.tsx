@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { COOKBOOK_RECIPES, Recipe } from '../cookbookRecipes';
+import { OFFICIAL_RECIPES } from '../cookbookOfficialRecipes';
 import { Icons } from './Icons';
 import { WindowControls } from './WindowControls';
 
@@ -12,9 +13,12 @@ interface RecipeBrowserProps {
   onOpenInPlayground: (recipe: Recipe) => void;
 }
 
-const ALL = [...COOKBOOK_RECIPES].sort(
-  (a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name),
-);
+// Two sources: the community cookbook and MuleSoft's official docs examples.
+// Both are generated + engine-validated, so they can share one list. Dedupe by
+// id defensively in case a future generator emits an overlapping id.
+const ALL = Array.from(
+  new Map([...COOKBOOK_RECIPES, ...OFFICIAL_RECIPES].map((r) => [r.id, r])).values(),
+).sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
 const CATEGORIES = Array.from(new Set(ALL.map((r) => r.category))).sort();
 
 function matches(r: Recipe, q: string, cat: string | null): boolean {
