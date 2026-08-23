@@ -4,7 +4,7 @@ import { configureEditor } from '../editorInit';
 import { Icons } from './Icons';
 import { migrateDW1to2, type MigrationChange } from '../dwMigrate';
 import { dwTokensProvider } from '../dataweaveGrammar';
-import { ensureDWEditorProviders, registerDWModelContext, DWCompletionContext } from '../dataweaveCompletions';
+import { ensureDWEditorProviders, registerDWModelContext, setActiveDWModel, DWCompletionContext } from '../dataweaveCompletions';
 import { registerDWCodeActionProvider } from '../dataweaveCodeActions';
 import { convertAllPropertyCalls, findPropertyCalls } from '../dataweavePropertyConverter';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
@@ -344,6 +344,10 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
 
   const handleEditorDidMount = (editor: any, monacoInstance: any) => {
     editorRef.current = editor;
+    // The engine-backed providers aren't handed a model when they need the
+    // payload context, so tell them which editor is live.
+    setActiveDWModel(editor.getModel());
+    editor.onDidFocusEditorText(() => setActiveDWModel(editor.getModel()));
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter, () => {
       onRunRef.current();
     });

@@ -1,4 +1,5 @@
 import type * as Monaco from 'monaco-editor';
+import { registerEngineLanguageFeatures } from './dataweaveEngineLanguage';
 import yaml from 'js-yaml';
 import { buildCompletionDoc, registerDWHoverProvider } from './dataweaveHover';
 import { getDwFunctions } from './dataweaveDocsLazy';
@@ -555,7 +556,18 @@ export function registerDWModelContext(
   };
 }
 
+/** The model the user is currently editing — the engine provider needs a
+ *  payload context but isn't handed a model when it asks for one. */
+let activeModel: Monaco.editor.ITextModel | null = null;
+export function setActiveDWModel(model: Monaco.editor.ITextModel | null): void {
+  activeModel = model;
+}
+function currentModel(): Monaco.editor.ITextModel {
+  return activeModel as Monaco.editor.ITextModel;
+}
+
 function contextForModel(model: Monaco.editor.ITextModel): DWCompletionContext | undefined {
+  if (!model) return undefined;
   let best: (() => DWCompletionContext) | undefined;
   let bestLen = -1;
   for (const [key, get] of modelContexts) {
@@ -570,6 +582,7 @@ function contextForModel(model: Monaco.editor.ITextModel): DWCompletionContext |
 let providerRefCount = 0;
 let sharedCompletion: Monaco.IDisposable | null = null;
 let sharedHover: Monaco.IDisposable | null = null;
+let sharedEngine: Monaco.IDisposable | null = null;
 
 /** Register the DW completion + hover providers exactly once, refcounted
  *  across every editor that wants them. Returns a release function. */
@@ -577,6 +590,12 @@ export function ensureDWEditorProviders(monaco: typeof Monaco): () => void {
   providerRefCount++;
   if (!sharedCompletion) sharedCompletion = registerDWCompletionProvider(monaco);
   if (!sharedHover) sharedHover = registerDWHoverProvider(monaco);
+  // Engine-backed completion/hover/signature help, registered alongside the
+  // static ones. Monaco merges providers, so if the engine is cold or the
+  // script doesn't parse, the static suggestions above still show.
+  if (!sharedEngine) {
+    sharedEngine = registerEngineLanguageFeatures(monaco, () => contextForModel(currentModel()) ?? null);
+  }
   return () => {
     providerRefCount--;
     if (providerRefCount <= 0) {
@@ -585,6 +604,8 @@ export function ensureDWEditorProviders(monaco: typeof Monaco): () => void {
       sharedCompletion = null;
       sharedHover?.dispose();
       sharedHover = null;
+      sharedEngine?.dispose();
+      sharedEngine = null;
     }
   };
 }

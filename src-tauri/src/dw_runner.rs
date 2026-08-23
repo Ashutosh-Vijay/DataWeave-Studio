@@ -658,6 +658,28 @@ pub fn cancel_dataweave(state: tauri::State<'_, RunState>) -> Result<bool, Strin
 /// so the splash/banner reflect the restart, then stops and respawns the
 /// server on a background thread — the spawn + ready handshake takes ~1-3s and
 /// must not block the UI thread.
+/// Ask the engine's language service about a position in the script. The editor
+/// calls this for completion/hover/signature help; it falls back to the static
+/// catalog when the engine isn't warm yet, so typing never blocks on it.
+#[tauri::command]
+pub fn dw_tooling(
+    app: tauri::AppHandle,
+    kind: String,
+    script: String,
+    offset: usize,
+    payload: Option<String>,
+    classpath: Option<Vec<String>>,
+) -> Result<serde_json::Value, String> {
+    crate::dw_server::tooling(
+        &app,
+        &kind,
+        &script,
+        offset,
+        payload.as_deref().unwrap_or(""),
+        &classpath.unwrap_or_default(),
+    )
+}
+
 #[tauri::command]
 pub fn restart_engine(app: AppHandle) -> Result<(), String> {
     {

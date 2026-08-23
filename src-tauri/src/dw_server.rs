@@ -451,6 +451,53 @@ pub fn format(app: &AppHandle, script: &str) -> Result<String, String> {
     }
 }
 
+/// Query the engine's IDE language service (`op=tooling`) — completion, hover,
+/// signature help, typeOf, definition, rename, typeCheck. `kind` picks the query
+/// and `offset` is a character offset into the script. Returns the raw `result`
+/// object; the shape differs per kind and the frontend knows which it asked for.
+pub fn tooling(
+    app: &AppHandle,
+    kind: &str,
+    script: &str,
+    offset: usize,
+    payload: &str,
+    classpath: &[String],
+) -> Result<serde_json::Value, String> {
+    let state = app.state::<DwServerState>();
+    let id = state.next_id.fetch_add(1, Ordering::Relaxed);
+    let req = serde_json::json!({
+        "id": id, "op": "tooling", "kind": kind,
+        "script": script, "offset": offset, "payload": payload,
+        "classpath": classpath,
+    })
+    .to_string();
+
+    let mut guard = state.inner.lock().unwrap_or_else(|e| e.into_inner());
+    let inner = guard
+        .as_mut()
+        .ok_or_else(|| "DataWeave server not running".to_string())?;
+    inner.stdin.write_all(req.as_bytes()).map_err(|e| format!("Failed to write to server: {}", e))?;
+    inner.stdin.write_all(b"\n").map_err(|e| format!("Failed to write to server: {}", e))?;
+    inner.stdin.flush().map_err(|e| format!("Failed to flush stdin: {}", e))?;
+
+    let mut resp_bytes: Vec<u8> = Vec::new();
+    inner
+        .stdout
+        .read_until(b'\n', &mut resp_bytes)
+        .map_err(|e| format!("Failed to read from server: {}", e))?;
+    if resp_bytes.is_empty() {
+        return Err("DataWeave server closed unexpectedly.".into());
+    }
+    let resp_line = String::from_utf8_lossy(&resp_bytes);
+    let v: serde_json::Value = serde_json::from_str(&resp_line)
+        .map_err(|e| format!("Bad server response: {} (line: {})", e, resp_line.trim()))?;
+    if v.get("ok").and_then(|b| b.as_bool()).unwrap_or(false) {
+        Ok(v.get("result").cloned().unwrap_or(serde_json::Value::Null))
+    } else {
+        Err(v.get("error").and_then(|s| s.as_str()).unwrap_or("tooling failed").to_string())
+    }
+}
+
 /// Kill the server process. Used on shutdown or restart.
 pub fn stop(app: &AppHandle) {
     let state = app.state::<DwServerState>();

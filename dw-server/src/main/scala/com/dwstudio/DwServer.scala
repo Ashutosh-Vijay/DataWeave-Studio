@@ -272,6 +272,27 @@ object DwServer {
     }
   }
 
+  // ── Cached IDE tooling service ──────────────────────────────────────────────
+  // Built once and reused. Constructing a WeaveToolingService loads every
+  // DataWeave module from the classpath, which dominates the cost of a query.
+  private var toolingVfsRef: SimpleVirtualFileSystem = _
+  private var toolingServiceRef: WeaveToolingService = _
+
+  private def toolingService(): (SimpleVirtualFileSystem, WeaveToolingService) = synchronized {
+    if (toolingServiceRef == null) {
+      toolingVfsRef = SimpleVirtualFileSystem(scala.collection.immutable.Map("/main.dwl" -> ""))
+      toolingServiceRef = WeaveToolingService(
+        toolingVfsRef,
+        DataFormatDescriptorProvider(Array.empty[DataFormatDescriptor]),
+        // Same classpath resolver the runtime engine uses. Without it dw::Core
+        // is out of scope: completion drops from 97 suggestions to 2, and field
+        // selection returns nothing at all.
+        Array(SpecificModuleResourceResolver("dw", ClassLoaderWeaveResourceResolver.apply())),
+      )
+    }
+    (toolingVfsRef, toolingServiceRef)
+  }
+
   /** Sample JSON -> WeaveType, so completion/hover/typeOf know the payload's shape.
    *  Arrays take their first element as representative; unknown values become Any. */
   private def weaveTypeOfJson(v: com.eclipsesource.json.JsonValue): WeaveType = {
@@ -300,15 +321,24 @@ object DwServer {
     val offset = if (req.get("offset") == null) 0 else req.get("offset").asInt()
     val kind   = req.getString("kind", "completion")
 
-    val vfs      = SimpleVirtualFileSystem(scala.collection.immutable.Map("/main.dwl" -> source))
-    val provider = DataFormatDescriptorProvider(Array.empty[DataFormatDescriptor])
-    // The tooling service needs the same classpath resolver the runtime engine
-    // uses, or dw::Core is never in scope — completion then offers two items
-    // instead of the whole standard library, and field selection returns none.
-    val service  = WeaveToolingService(
-      vfs, provider,
-      Array(SpecificModuleResourceResolver("dw", ClassLoaderWeaveResourceResolver.apply())),
-    )
+    // Any classpath the request carries has to be on the hot loader before the
+    // service resolves names, or user classes are invisible to completion.
+    if (req.get("classpath") != null && req.get("classpath").isArray) {
+      val cp = req.get("classpath").asArray()
+      var i = 0
+      while (i < cp.size()) {
+        val entry = cp.get(i).asString()
+        if (entry != null && entry.nonEmpty) hotLoader.addJar(new File(entry))
+        i += 1
+      }
+    }
+
+    val (vfs, service) = toolingService()
+    // Mutating the cached VFS instead of rebuilding the service is the whole
+    // point: construction reloads every module (~250ms), the query itself is
+    // single-digit ms. The service caches editors per URL and invalidates them
+    // when the content or the implicit inputs change.
+    vfs.updateContent("/main.dwl", source)
 
     // Without an input type the service has nothing to offer after `payload.` —
     // it returns zero suggestions. Infer the shape from the sample payload the
