@@ -74,25 +74,31 @@ DataWeave Studio fixes all of it — one window, everything from a UI, no file m
 
 ### Things no other DataWeave tool does:
 
-**1. Visual Message Flow Designer**
+**1. Share a Whole Setup as One Link**
+Copy a link that carries the script, payload, variables, headers and query params — one request or the entire workspace. Whoever opens it gets an identical setup and can press Run. The blob rides in the URL fragment, which browsers never send to a server, so nothing is uploaded to create one. The hosted DataWeave Playground can't do this.
+
+**2. A Local MCP Server**
+Claude, Cursor or any MCP client can compile and run transforms against the real engine over loopback — so your assistant checks its DataWeave instead of confidently inventing it. No other DataWeave tool ships one.
+
+**3. Visual Message Flow Designer**
 Drag-and-drop flow canvas inspired by Anypoint Studio. Chain Set Payload, Transform, Set Variable, HTTP Request, Salesforce, Database, and Logger connectors into a pipeline. Run all at once or step through one node at a time — inspect payload, variables, and attributes at each stage.
 
-**2. cURL Importer**
+**4. cURL Importer**
 Paste any `curl` command from Postman, browser devtools, or manual copy. Method, headers, query params, and body auto-fill. Generates a matching DataWeave 2.0 script scaffold — JSON, XML, CSV, form-urlencoded, and multipart all handled. Live preview before import.
 
-**3. Secure Properties — Fully Offline**
+**5. Secure Properties — Fully Offline**
 Paste your actual `secure-config.yaml` (with `![Base64Encrypted...]` values), provide your encryption key at runtime. Scripts run with real decrypted values. Key is never saved to disk. Also includes a standalone encrypt/decrypt tool (AES, Blowfish, DES, DESede, RC2) compatible with MuleSoft's `secure-properties-tool.jar`.
 
-**4. SOQL & SQL Query Modes**
+**6. SOQL & SQL Query Modes**
 Write a SOQL or SQL template with `:paramName` placeholders, run a DW script to produce a params object, see the final substituted query. JDBC-style auto-quoting for SQL. No other DataWeave tool has this.
 
-**5. Multi-Request Workspaces**
+**7. Multi-Request Workspaces**
 Postman-style collections — group multiple transforms inside a single `.dwstudio` workspace. Each request has its own script, payload, context, named inputs, tests, and query template. Switch between them instantly.
 
-**6. DW 1.0 to 2.0 Migration**
+**8. DW 1.0 to 2.0 Migration**
 Rewrites legacy scripts in-place. Converts directives, `flowVars`, `inboundProperties`, and type syntax automatically. Diff overlay shows old vs. new with one-click replacement.
 
-**7. Bundled Runtime — Zero Config**
+**9. Bundled Runtime — Zero Config**
 Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA_HOME`, no Maven, no `PATH` changes. Download, install, run.
 
 ---
@@ -212,6 +218,38 @@ Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA
 - Resolves `$ref`s, `allOf`/`oneOf`/`anyOf`, enums, formats, and surfaces auth, servers, webhooks & callbacks
 - Pick any request, response, or named **example** (every scenario, not just the first) → generates a sample payload + a DataWeave skeleton you can drop into the workspace
 - **Spec library** — save specs you use often and reopen them from the sidebar in one click; rename or remove anytime (stored locally, nothing leaves your machine)
+
+### Share Links
+- **Copy a whole runnable setup as one link** — script, payload and MIME, variables, headers, query params, method, named inputs and in-memory multipart parts
+- Two scopes: **this request** or **the whole workspace** (every request travels, each with its own script, payload and context)
+- The blob rides in the **URL fragment**, which browsers never send to a server — a link can go over Slack or email and the payload still never touches anyone's infrastructure, including ours
+- Paste one back under **Import → From share link** (Cmd/Ctrl+Shift+I), alongside the cURL importer
+- Content that physically cannot travel (anything backed by a local file path) is **named in the copy confirmation** rather than silently dropped
+- Payloads too large to survive chat clients refuse a link and point at the Playground zip export instead
+- Opening a link on the web shows a rendered preview of every request, so a recipient without the app still sees something useful
+
+### Local MCP Server
+- Serves the **Model Context Protocol** over HTTP on loopback (`127.0.0.1`) so Claude, Cursor or any MCP client can use the real engine
+- Tools for validating and running DataWeave, so an assistant **checks** its transform instead of guessing at syntax
+- Bound to loopback and started only when you start it — from the MCP panel in the left rail
+- Safe mode rejects `java!` imports; custom modules passed by a client are scanned before use
+
+### Recipes & Cookbook
+- Searchable recipe browser with runnable examples, each opening into a workspace with its payload and variables already seeded
+- Includes **MuleSoft's official cookbook examples**, generated from `mulesoft/docs-dataweave` (BSD-3) rather than hand-written
+- Every generated recipe was **executed against the bundled engine** and kept only if it runs, with the engine's own output as the expected result
+- `npm run docs:refresh` re-pulls the reference, format options and cookbook from the upstream docs branch matching the bundled engine
+
+### Compare
+- Side-by-side diff of two payloads or two flow XMLs
+- **Ignore IDs toggle** — blanks `doc:id` and UUID values on both sides before diffing, so Anypoint Studio's id churn doesn't bury the real change
+- Masks a copy rather than the text you pasted; panes go read-only while it's on so nothing can overwrite your content
+- Normalize and swap helpers
+
+### Java Interop & Custom Modules
+- **Java tester** — paste or pick `.java` sources, compile and run them against the bundled JRE, and call them from DataWeave with `import java!`
+- Managed JARs stored in app data, added to the engine classpath
+- **Module library** — write reusable `.dwl` modules and `import x from MyModule` across workspaces; each module set gets a fresh classloader
 
 ### Workspace Management
 - **`.dwstudio` format** (v2) — JSON files with full project state
