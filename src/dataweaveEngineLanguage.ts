@@ -19,7 +19,7 @@
  * emptying the popup.
  */
 import type * as Monaco from 'monaco-editor';
-import { invoke, isTauri } from './bridge';
+import { invoke } from './bridge';
 import type { DWCompletionContext } from './dataweaveCompletions';
 
 /** One suggestion as the engine reports it. */
@@ -45,12 +45,16 @@ async function ask<T>(
   offset: number,
   payload: string,
 ): Promise<T | null> {
-  if (!isTauri || inFlight) return null;
+  // No runtime check on purpose. `invoke` bridges to whichever host is running,
+  // and an unimplemented command just rejects — which the catch turns into the
+  // static-completion fallback. Guarding on isTauri would silently skip the
+  // engine in VS Code even after its host implements dw_tooling.
+  if (inFlight) return null;
   inFlight = true;
   try {
     return await invoke<T>('dw_tooling', { kind, script, offset, payload });
   } catch {
-    return null; // engine cold, restarting, or the script doesn't parse
+    return null; // engine cold, restarting, host doesn't implement it, or the script doesn't parse
   } finally {
     inFlight = false;
   }
