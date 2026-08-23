@@ -41,6 +41,9 @@ Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor. Ships with a bu
 ![Import from a share link](docs/screenshots/import_link_dark_mode.png)
 *Share links — paste a link and the whole setup comes back: script, payload, vars and headers. The data rides in the part of the URL browsers never send, so nothing is uploaded to create one*
 
+![Local MCP server](docs/screenshots/mcp_server_paper_theme.png)
+*Local MCP server — Claude, Cursor or VS Code connect over loopback and run transforms against the real engine. Safe mode blocks `java!` imports; the server is off until you start it*
+
 ![Snippets sidebar](docs/screenshots/snippets_dark_mode.png)
 *Snippets — reusable DW templates for common patterns like map, filter, group-by, reduce*
 
