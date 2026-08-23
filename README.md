@@ -478,3 +478,10 @@ licenses/                   # Third-party licenses
 This application embeds the [DataWeave runtime](https://github.com/mulesoft/data-weave) and core modules by MuleSoft/Salesforce, licensed under the BSD 3-Clause License. See [licenses/DATAWEAVE-CLI-LICENSE.txt](licenses/DATAWEAVE-CLI-LICENSE.txt).
 
 DataWeave Studio is not affiliated with, endorsed by, or sponsored by MuleSoft or Salesforce.
+DataWeave, Mule, MuleSoft and Anypoint are trademarks of their respective owners, used here
+only to describe what this tool is compatible with.
+
+The MIT licence covers the **source code**. It does not grant rights to the **name**
+“DataWeave Studio”, its logo, or its visual identity. Fork it, sell it, build on it — the licence
+says you may, and only asks that you keep the copyright notice. Please ship it under your own
+name rather than one that suggests it came from here.

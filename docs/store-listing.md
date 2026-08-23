@@ -150,6 +150,10 @@ ALSO
 Free and open source under the MIT licence:
 https://github.com/Ashutosh-Vijay/DataWeave-Studio
 
+DataWeave Studio is an independent tool. It is not affiliated with, endorsed by or
+sponsored by MuleSoft or Salesforce. DataWeave, Mule, MuleSoft and Anypoint are
+trademarks of their respective owners.
+
 ## Key features (short bullets for the listing form)
 1. Runs the real MuleSoft DataWeave 2.11 engine locally
 2. Works fully offline — no account, no telemetry, no cloud
