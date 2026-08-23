@@ -41,6 +41,9 @@ WHAT'S INSIDE
 • Built-in MCP server — let AI assistants in Claude Code, Cursor or GitHub Copilot
   validate DataWeave against the real engine before handing you code. Free, local,
   and off unless you start it.
+• Share a whole setup in one link — script, payload, variables and headers travel
+  inside the URL itself, so a colleague opens it and presses Run. The data rides in the
+  part of a URL browsers never send to a server, so nothing is uploaded to create one.
 • Secure properties — encrypt and decrypt MuleSoft secure-property values.
 • Compare — side-by-side diff for payloads and Mule XML, with an option to ignore
   the generated doc:id and UUID noise.
@@ -65,17 +68,24 @@ Free and open source (MIT): https://github.com/Ashutosh-Vijay/DataWeave-Studio
 7. OpenAPI/Swagger reader generates sample payloads and DataWeave
 8. Java tester — call your own Java classes from DataWeave
 9. Offline function reference and cookbook
-10. Free and open source (MIT)
+10. Share a whole setup in one link — nothing is uploaded
+11. Free and open source (MIT)
 
 ## Search terms
-dataweave, mulesoft, mule, dwl, esb, integration, api, transform, anypoint,
-json to xml, playground
+(max 7 terms — avoid words already in the product name)
+mulesoft
+dataweave playground
+dwl
+mule esb
+anypoint
+json to xml
+integration
 
 ## Support contact
 issues@ashutosh-vijay.dev
 
 ## Privacy policy URL
-(publish docs/PRIVACY.md and paste that URL here)
+https://ashutosh-vijay.dev/dataweave/privacy
 
 ---
 
