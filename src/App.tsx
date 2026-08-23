@@ -37,6 +37,7 @@ const FlowDesigner = lazy(() =>
   import('./components/FlowDesigner').then((m) => ({ default: m.FlowDesigner }))
 );
 import { OpenWorkspaceDialog } from './components/OpenWorkspaceDialog';
+import { shareUrl, decodeShare, isShareTooLong, unshareableItems, type ShareRequest } from './shareLink';
 import { TestsView } from './components/TestsView';
 import { FirstWorkspacePrompt } from './components/FirstWorkspacePrompt';
 import { PayloadTabs } from './components/PayloadTabs';
@@ -310,6 +311,159 @@ function App() {
     setSidebarCollapsed(false);
     setTimeout(() => sidebarRef.current?.openTab('snippets'), 0);
   }, [beginTransforming]);
+  // ── Share links ───────────────────────────────────────────────────────
+  // Pack the whole runnable setup into one link. The blob rides in the URL
+  // fragment, so the payload never reaches a server — see src/shareLink.ts.
+  /** One request → the shareable subset of its state. */
+  const requestToShare = useCallback((r: typeof workspace.request): ShareRequest => ({
+    label: r.name,
+    script: r.script,
+    payload: r.payload,
+    payloadMime: r.payloadMimeType,
+    method: r.context.method,
+    vars: r.context.vars,
+    headers: r.context.headers,
+    queryParams: r.context.queryParams,
+    namedInputs: r.namedInputs,
+    nodeLabel: r.nodeLabel,
+    queryTemplate: r.queryTemplate,
+    // File-backed parts hold a local path that means nothing to the recipient;
+    // only in-memory parts can travel. unshareableItems() warns about the rest.
+    multipartParts: (r.multipartParts || [])
+      .filter((p) => !p.isFile)
+      .map((p) => ({ name: p.name, value: p.value, contentType: p.contentType })),
+  }), []);
+
+  const copyShare = useCallback(async (whole: boolean) => {
+    const active = workspace.request;
+    const url = shareUrl({
+      ...requestToShare(active),
+      name: workspace.projectName,
+      requests: whole ? workspace.requests.map(requestToShare) : undefined,
+    });
+    if (isShareTooLong(url)) {
+      toast({
+        title: whole ? 'Workspace is too big for one link' : 'Too big to share as a link',
+        message: whole
+          ? 'Try sharing just this request, or use Export as Playground zip for the whole workspace.'
+          : 'This payload makes a link long enough that chat apps may cut it. Use Export as Playground zip instead.',
+        variant: 'warn',
+      });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      // Say plainly what could not be packed, rather than letting the recipient
+      // discover a missing file on their own.
+      const missing = whole
+        ? workspace.requests.flatMap((r) => unshareableItems(r))
+        : unshareableItems(active);
+      toast({
+        title: whole ? `Link copied — ${workspace.requests.length} requests` : 'Share link copied',
+        message: missing.length
+          ? `Note: ${[...new Set(missing)].join(', ')} can’t travel in a link — send the file separately.`
+          : 'Script, payload, vars and headers are all inside the link — the data stays in the link, never on a server.',
+        variant: missing.length ? 'warn' : 'success',
+      });
+    } catch {
+      toast('Couldn’t write to the clipboard', 'error');
+    }
+  }, [workspace.request, workspace.requests, workspace.projectName, requestToShare]);
+
+  const handleCopyShareLink = useCallback(() => copyShare(false), [copyShare]);
+  const handleCopyWorkspaceShareLink = useCallback(() => copyShare(true), [copyShare]);
+
+  /** Apply a pasted share link (from the Import dialog or the menu action). */
+  const applyShareLink = useCallback((text: string) => {
+    try {
+      const snap = decodeShare(text);
+      beginTransforming();
+      if (snap.name) workspace.setProjectName(snap.name);
+      workspace.setScript(snap.script);
+      workspace.setPayload(snap.payload);
+      if (isValidMimeType(snap.payloadMime)) workspace.setPayloadMimeType(snap.payloadMime);
+      // A share link comes from someone else, so narrow rather than trust:
+      // an unknown valueType/MIME would otherwise land straight in the workspace.
+      workspace.setContext({
+        ...contextRef.current,
+        method: snap.method || 'GET',
+        vars: (snap.vars ?? []).map((v) => ({
+          key: v.key,
+          value: v.value,
+          valueType: v.valueType === 'json' || v.valueType === 'expression' ? v.valueType : 'string',
+        })),
+        headers: (snap.headers ?? []).map((h) => ({ key: h.key, value: h.value })),
+        queryParams: (snap.queryParams ?? []).map((q) => ({ key: q.key, value: q.value })),
+      });
+      // A whole-workspace link carries every request; rebuild them all rather
+      // than silently importing only the active one.
+      if (snap.requests && snap.requests.length > 1) {
+        const mk = (r: typeof snap.requests[number], i: number) => ({
+          id: `req-share-${Date.now().toString(16)}-${i}`,
+          name: r.label || `Request ${i + 1}`,
+          script: r.script,
+          payload: r.payload,
+          payloadMimeType: isValidMimeType(r.payloadMime) ? r.payloadMime : 'application/json',
+          nodeLabel: r.nodeLabel || 'Transform',
+          namedInputs: (r.namedInputs || []).map((n) => ({
+            name: n.name, content: n.content,
+            mimeType: isValidMimeType(n.mimeType) ? n.mimeType : 'application/json',
+          })),
+          queryTemplate: r.queryTemplate || '',
+          classpath: [],
+          multipartParts: (r.multipartParts || []).map((mp) => ({
+            name: mp.name, value: mp.value, contentType: mp.contentType, isFile: false,
+          })),
+          context: {
+            method: r.method || 'GET',
+            queryParams: (r.queryParams || []).map((q) => ({ key: q.key, value: q.value })),
+            headers: (r.headers || []).map((h) => ({ key: h.key, value: h.value })),
+            vars: (r.vars || []).map((v) => ({
+              key: v.key, value: v.value,
+              valueType: (v.valueType === 'json' || v.valueType === 'expression'
+                ? v.valueType : 'string') as 'string' | 'json' | 'expression',
+            })),
+            configYaml: '',
+            secureConfigYaml: '',
+          },
+          tests: [],
+        });
+        workspace.restoreSnapshot({
+          projectName: snap.name || 'Shared workspace',
+          requests: snap.requests.map(mk),
+        });
+        toast({
+          title: `Opened shared workspace`,
+          message: `${snap.requests.length} requests restored.`,
+          variant: 'success',
+        });
+        setTimeout(() => scriptEditorRef.current?.focus(), 50);
+        return;
+      }
+
+      if (snap.namedInputs) {
+        workspace.setNamedInputs(snap.namedInputs.map((n) => ({
+          name: n.name,
+          content: n.content,
+          mimeType: isValidMimeType(n.mimeType) ? n.mimeType : 'application/json',
+        })));
+      }
+      toast({ title: 'Opened shared workspace', message: snap.name || 'Script, payload and context restored.', variant: 'success' });
+      setTimeout(() => scriptEditorRef.current?.focus(), 50);
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
+  }, [beginTransforming, workspace]);
+
+  // Menu entry point: read the clipboard, then hand off to the same apply path.
+  const handleOpenShareLink = useCallback(async () => {
+    try {
+      applyShareLink(await navigator.clipboard.readText());
+    } catch {
+      toast('Couldn’t read the clipboard — use Import → From share link and paste it', 'error');
+    }
+  }, [applyShareLink]);
+
   const handleImportPlayground = useCallback(async () => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -1008,6 +1162,9 @@ function App() {
           onDuplicate={() => { beginTransforming(); workspace.duplicateWorkspace(); }}
           onImportPlayground={handleImportPlayground}
           onExportPlayground={handleExportPlayground}
+          onCopyShareLink={handleCopyShareLink}
+          onCopyWorkspaceShareLink={handleCopyWorkspaceShareLink}
+          onOpenShareLink={handleOpenShareLink}
         />
 
         {/* Node label chip — picks the workspace's role (Transform / Salesforce Query / DB Query / …) */}
@@ -1712,7 +1869,12 @@ function App() {
 
       {/* cURL import — full-screen modal, opened directly (⌘⇧I, rail icon,
           empty state) rather than via a near-empty sidebar tab. */}
-      <CurlImporter open={curlImportOpen} onClose={() => setCurlImportOpen(false)} onImport={handleCurlImport} />
+      <CurlImporter
+        open={curlImportOpen}
+        onClose={() => setCurlImportOpen(false)}
+        onImport={handleCurlImport}
+        onImportShareLink={applyShareLink}
+      />
 
       <OpenApiReader open={openApiOpen} onClose={() => setOpenApiOpen(false)} onImport={handleOpenApiImport} />
 
@@ -1778,6 +1940,18 @@ function App() {
               workspace.setScript(r.script);
               workspace.setPayload(r.input || '');
               workspace.setPayloadMimeType(isValidMimeType(r.inputMime) ? r.inputMime : 'application/json');
+              // A recipe that reads `vars.x` fails to compile without them, so
+              // seed the Context panel rather than opening a broken script.
+              if (r.vars && Object.keys(r.vars).length > 0) {
+                workspace.setContext({
+                  ...contextRef.current,
+                  vars: Object.entries(r.vars).map(([key, value]) => ({
+                    key,
+                    value: typeof value === 'string' ? value : JSON.stringify(value, null, 2),
+                    valueType: typeof value === 'string' ? 'string' : 'json',
+                  })),
+                });
+              }
               setRecipesOpen(false);
               // Let the new script/payload commit, then run + focus.
               setTimeout(() => { handleRunRef.current?.(); scriptEditorRef.current?.focus(); }, 120);

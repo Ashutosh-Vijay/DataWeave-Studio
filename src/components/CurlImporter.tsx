@@ -519,13 +519,20 @@ interface CurlImporterProps {
    *  panel). When omitted it falls back to its own inline trigger button. */
   open?: boolean;
   onClose?: () => void;
+  /** Import a `dws1.…` share link (or a URL containing one). The dialog only
+   *  collects the text; App decodes and applies it. */
+  onImportShareLink?: (text: string) => void;
 }
 
-export function CurlImporter({ onImport, open, onClose }: CurlImporterProps) {
+export function CurlImporter({ onImport, open, onClose, onImportShareLink }: CurlImporterProps) {
   const controlled = open !== undefined;
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = controlled ? open : internalOpen;
   const [curlText, setCurlText] = useState('');
+  // One dialog, two sources — a cURL command or a share link. Sharing was
+  // previously buried in the workspace breadcrumb menu where nobody found it.
+  const [mode, setMode] = useState<'curl' | 'link'>('curl');
+  const [linkText, setLinkText] = useState('');
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<CurlImportResult | null>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -639,9 +646,11 @@ export function CurlImporter({ onImport, open, onClose }: CurlImporterProps) {
             </svg>
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-[14.5px] font-semibold" style={{ color: 'var(--content)' }}>Import from cURL</div>
+            <div className="text-[14.5px] font-semibold" style={{ color: 'var(--content)' }}>Import</div>
             <div className="text-[12px] mt-[3px]" style={{ color: 'var(--content-muted)' }}>
-              Paste a curl command — we'll detect method, headers, params, and generate a DW transform from the payload.
+              {mode === 'curl'
+                ? "Paste a curl command — we'll detect method, headers, params, and generate a DW transform from the payload."
+                : 'Paste a share link — it restores the script, payload, vars and headers exactly as they were sent.'}
             </div>
           </div>
           <button
@@ -654,6 +663,78 @@ export function CurlImporter({ onImport, open, onClose }: CurlImporterProps) {
           </button>
         </div>
 
+        {/* Source picker — same window, swapped body. */}
+        <div className="px-4 pb-3 flex items-center gap-1.5 shrink-0">
+          {([['curl', 'From cURL'], ['link', 'From share link']] as const).map(([m, label]) => (
+            <button
+              key={m}
+              onClick={() => { setMode(m); setError(''); }}
+              className="h-7 px-3 rounded-md text-[12px] cursor-pointer transition-colors"
+              style={mode === m
+                ? { background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid var(--accent-border)' }
+                : { background: 'var(--surface-2)', color: 'var(--content-faint)', border: '1px solid var(--line)' }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {mode === 'link' && (
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.4px] mb-1.5" style={{ color: 'var(--content-faint)' }}>
+              Share link
+            </div>
+            <textarea
+              value={linkText}
+              onChange={(e) => { setLinkText(e.target.value); setError(''); }}
+              placeholder="https://ashutosh-vijay.dev/dataweave/s#dws1.…  — or paste the dws1.… code itself"
+              spellCheck={false}
+              rows={5}
+              className="w-full rounded-md px-3 py-2.5 text-[11.5px] font-mono leading-[1.55] resize-none outline-none"
+              style={{
+                background: 'var(--surface-2)',
+                border: `1px solid ${error ? 'var(--err)' : 'var(--line)'}`,
+                color: 'var(--content-secondary)',
+              }}
+              autoFocus
+            />
+            {error && <div className="text-[11px] mt-1.5" style={{ color: 'var(--err)' }}>{error}</div>}
+            <div className="flex items-center gap-2 mt-3">
+              <button
+                onClick={async () => {
+                  try { setLinkText(await navigator.clipboard.readText()); setError(''); }
+                  catch { setError('Couldn’t read the clipboard — paste the link manually.'); }
+                }}
+                className="h-8 px-3 rounded-md text-[12px] cursor-pointer hover:bg-surface-2"
+                style={{ border: '1px solid var(--line)', color: 'var(--content-secondary)' }}
+              >
+                Paste from clipboard
+              </button>
+              <div className="flex-1" />
+              <button
+                onClick={() => {
+                  if (!linkText.trim()) { setError('Paste a share link first.'); return; }
+                  try {
+                    onImportShareLink?.(linkText);
+                    setLinkText('');
+                    if (controlled) onClose?.(); else setInternalOpen(false);
+                  } catch (e) { setError((e as Error).message); }
+                }}
+                disabled={!linkText.trim()}
+                className="h-8 px-4 rounded-md text-[12px] font-medium cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+              >
+                Import
+              </button>
+            </div>
+            <div className="text-[11px] mt-3 leading-relaxed" style={{ color: 'var(--content-faint)' }}>
+              A share link carries the whole setup inside itself — the data rides in the part of
+              the URL browsers never send to a server, so nothing was uploaded to create it.
+            </div>
+          </div>
+        )}
+
+        {mode === 'curl' && (<>
         <div className="flex-1 overflow-y-auto">
           {/* Two-column: input | detected */}
           <div className="p-4 grid gap-3.5" style={{ gridTemplateColumns: '1fr 1fr' }}>
@@ -843,6 +924,7 @@ export function CurlImporter({ onImport, open, onClose }: CurlImporterProps) {
             </button>
           )}
         </div>
+        </>)}
       </div>
     </div>
   );

@@ -14,11 +14,15 @@ interface WorkspaceMenuProps {
   onDuplicate: () => void;
   onImportPlayground: () => void;
   onExportPlayground: () => void;
+  onCopyShareLink: () => void;
+  onCopyWorkspaceShareLink: () => void;
+  onOpenShareLink: () => void;
 }
 
 export function WorkspaceMenu({
   projectName, activeRequestName, isDirty,
   onSave, onNew, onOpen, onDuplicate, onImportPlayground, onExportPlayground,
+  onCopyShareLink, onCopyWorkspaceShareLink, onOpenShareLink,
 }: WorkspaceMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -86,6 +90,11 @@ export function WorkspaceMenu({
           <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-content-faint font-medium">Playground</div>
           {item('Import from Playground zip…', null, onImportPlayground)}
           {item('Export as Playground zip…', null, onExportPlayground)}
+          <div className="my-1 border-t" style={{ borderColor: 'var(--line)' }} />
+          <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-content-faint font-medium">Share</div>
+          {item('Copy link — this request', null, onCopyShareLink)}
+          {item('Copy link — whole workspace', null, onCopyWorkspaceShareLink)}
+          {item('Open from share link', null, onOpenShareLink)}
         </div>
       )}
     </div>
