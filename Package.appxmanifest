@@ -31,7 +31,7 @@
   <Identity
     Name="AshutoshVijay.DataWeaveStudio"
     Publisher="CN=C350977C-C8E1-4F02-9374-0394BA122B4A"
-    Version="2.3.1.0" />
+    Version="2.4.0.0" />
 
   <Properties>
     <DisplayName>DataWeave Studio</DisplayName>

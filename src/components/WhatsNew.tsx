@@ -14,18 +14,20 @@ interface Release { version: string; date: string; headline: string; highlights:
 // extension (1.x) ship on their own version numbers and cadence — keeping them
 // separate means a release that only touches one runtime never shows stale notes
 // in the other. Each list is newest-first; the dialog/toast pick by runtime.
-const ENCODING_FIX_HIGHLIGHTS: Highlight[] = [
-  { title: 'Non-English text no longer comes back as “?”', desc: 'Hindi, Chinese, Arabic, Japanese, emoji and accented characters now survive a transform intact. Previously the engine wrote its result using your system’s default character set, silently replacing anything it couldn’t represent with “?” — with no error to warn you the data was wrong.' },
-  { title: 'Java tester reads your sources as UTF-8', desc: 'Compiling a .java file with non-English string literals or comments now works instead of failing or mangling them.' },
-  { title: 'Secure properties tells you when it can’t encrypt a value', desc: 'Windows can’t pass non-English characters through to the encryption tool. Rather than quietly encrypting “?” characters, the tool now flags it while you type so you don’t ship a wrong secret.' },
+const SHARE_LINK_HIGHLIGHTS: Highlight[] = [
+  { title: 'Send your whole setup in one link', desc: 'Copy a link that carries the script, payload, variables, headers and query params — one request or the entire workspace. Whoever opens it gets an identical setup and can press Run, instead of a snippet they have to rebuild. The data rides in the part of the URL browsers never send to a server, so nothing is uploaded to create one. Import → From share link, or ⌘⇧I.' },
+  { title: 'Output and input options finally autocomplete', desc: 'Typing after “output application/json ” now suggests the real reader and writer options for all 16 formats — including skipNullOn, which was previously undiscoverable — correctly split between the ones that apply to input and to output.' },
+  { title: 'Lambda parameters know what they’re iterating', desc: 'In “payload.items map ((item) -> item.” the suggestions are now that element’s own fields, instead of nothing.' },
+  { title: '89 official cookbook recipes, every one verified', desc: 'MuleSoft’s cookbook examples are now in the recipe browser. Each one was executed against the bundled engine and kept only if it actually runs, with the engine’s own output as the expected result — so nothing you open is a broken snippet. Opening a recipe seeds its variables too.' },
+  { title: 'Compare: ignore doc:id and UUID noise', desc: 'Anypoint Studio stamps a fresh doc:id on every element it touches, so two identical flows diff as almost entirely different. The new Ignore IDs toggle blanks doc:id and UUID values on both sides so you see the real change. It masks a copy, never the text you pasted.' },
 ];
 
 const DESKTOP_RELEASES: Release[] = [
-  { version: '2.3.1', date: 'August 2026', headline: 'Your data, in any language', highlights: ENCODING_FIX_HIGHLIGHTS },
+  { version: '2.4.0', date: 'August 2026', headline: 'Share a whole setup in one link', highlights: SHARE_LINK_HIGHLIGHTS },
 ];
 
 const VSCODE_RELEASES: Release[] = [
-  { version: '1.3.1', date: 'August 2026', headline: 'Your data, in any language', highlights: ENCODING_FIX_HIGHLIGHTS },
+  { version: '1.4.0', date: 'August 2026', headline: 'Share a whole setup in one link', highlights: SHARE_LINK_HIGHLIGHTS },
 ];
 
 // The running build picks its own track.

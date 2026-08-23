@@ -2,6 +2,16 @@
 
 All notable changes to DataWeave Studio for VS Code.
 
+## 1.4.0 — 2026-08-23
+
+**Share a whole setup in one link.**
+
+- **Send your whole setup in one link.** Copy a link that carries the script, payload, variables, headers and query params — one request or the entire workspace. Whoever opens it gets an identical setup and can press Run, instead of a snippet they have to rebuild. The blob rides in the URL fragment, which browsers never send to a server, so nothing is uploaded to create a link. Paste one back under **Import → From share link** (`⌘⇧I`). Anything backed by a file on your disk can't travel inside a link, so the copy confirmation names it rather than dropping it silently, and a payload too large to survive chat clients points you at the Playground zip export instead.
+- **Output and input options finally autocomplete.** Typing after `output application/json ` now suggests the real reader and writer options for all 16 formats — including `skipNullOn`, which was previously undiscoverable — correctly split between the ones that apply to reading input and writing output. They're generated from MuleSoft's docs and cross-checked against the engine's own list of valid options.
+- **Lambda parameters know what they're iterating.** In `payload.items map ((item) -> item.` the suggestions are now that element's own fields, instead of nothing.
+- **89 official cookbook recipes, every one verified.** MuleSoft's cookbook examples are now in the recipe browser. Each was executed against the bundled engine and kept only if it actually runs, with the engine's real output as the expected result — so nothing you open is a broken snippet. Opening a recipe now seeds its variables too; previously some opened as scripts that couldn't compile.
+- **Compare: ignore `doc:id` and UUID noise.** Anypoint Studio stamps a fresh `doc:id` on every element it touches, so two functionally identical flows diff as almost entirely different and the real change is lost. The new **Ignore IDs** toggle blanks `doc:id` and UUID values on both sides before diffing. It masks a copy rather than the text you pasted, and the panes go read-only while it's on so nothing can overwrite your content.
+
 ## 1.3.1 — 2026-08-06
 
 **Your data, in any language.**
