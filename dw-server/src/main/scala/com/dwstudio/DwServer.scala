@@ -10,7 +10,9 @@ import org.mule.weave.v2.model.service.{
 import org.mule.weave.v2.parser.ast.variables.NameIdentifier
 import org.mule.weave.v2.runtime._
 import org.mule.weave.v2.sdk.ClassLoaderWeaveResourceResolver
-import org.mule.weave.v2.editor.{WeaveToolingService, SimpleVirtualFileSystem, SpecificModuleResourceResolver}
+import org.mule.weave.v2.editor.{WeaveToolingService, SimpleVirtualFileSystem, SpecificModuleResourceResolver, ImplicitInput}
+import org.mule.weave.v2.ts.{WeaveType, ObjectType, KeyValuePairType, NameType, ArrayType, StringType, NumberType, BooleanType, AnyType}
+import org.mule.weave.v2.parser.ast.QName
 import org.mule.weave.v2.completion.{DataFormatDescriptorProvider, DataFormatDescriptor}
 
 import java.io.{ByteArrayOutputStream, File}
@@ -128,6 +130,13 @@ object DwServer {
       // (same engine the IDE uses) and return it. No evaluation.
       if (req.getString("op", "run") == "format") {
         return successResponse(id, formatScript(rawScript), started)
+      }
+
+      // op=tooling: the engine's own IDE language service — type-aware completion,
+      // hover, signature help, type-of, go-to-definition, rename and type checking.
+      // Same WeaveToolingService the formatter uses, so nothing new is constructed.
+      if (req.getString("op", "run") == "tooling") {
+        return toolingResponse(id, req, started)
       }
 
       // Pick the engine: a module-aware one if the request carries custom `.dwl`
@@ -261,6 +270,140 @@ object DwServer {
       case Some(r) => r.newFormat
       case None    => source
     }
+  }
+
+  /** Sample JSON -> WeaveType, so completion/hover/typeOf know the payload's shape.
+   *  Arrays take their first element as representative; unknown values become Any. */
+  private def weaveTypeOfJson(v: com.eclipsesource.json.JsonValue): WeaveType = {
+    import scala.collection.JavaConverters._
+    if (v.isObject) {
+      val o = v.asObject()
+      val kvs = o.names().asScala.map { n =>
+        KeyValuePairType(NameType(Some(QName(n))), weaveTypeOfJson(o.get(n)), false, false)
+      }.toSeq
+      ObjectType(kvs, false, false)
+    } else if (v.isArray) {
+      val items = v.asArray().values().asScala
+      ArrayType(if (items.isEmpty) AnyType() else weaveTypeOfJson(items.head))
+    } else if (v.isString) StringType(scala.None)
+    else if (v.isNumber) NumberType(scala.None)
+    else if (v.isBoolean) BooleanType()
+    else AnyType()
+  }
+
+  /** The engine's IDE language service, exposed over the same stdio protocol.
+   *  `kind` picks the query; `offset` is a character offset into the script. */
+  private def toolingResponse(id: Int, req: JsonObject, started: Long): String = {
+    val source = req.getString("script", "")
+    val offset = if (req.get("offset") == null) 0 else req.get("offset").asInt()
+    val kind   = req.getString("kind", "completion")
+
+    val vfs      = SimpleVirtualFileSystem(scala.collection.immutable.Map("/main.dwl" -> source))
+    val provider = DataFormatDescriptorProvider(Array.empty[DataFormatDescriptor])
+    // The tooling service needs the same classpath resolver the runtime engine
+    // uses, or dw::Core is never in scope — completion then offers two items
+    // instead of the whole standard library, and field selection returns none.
+    val service  = WeaveToolingService(
+      vfs, provider,
+      Array(SpecificModuleResourceResolver("dw", ClassLoaderWeaveResourceResolver.apply())),
+    )
+
+    // Without an input type the service has nothing to offer after `payload.` —
+    // it returns zero suggestions. Infer the shape from the sample payload the
+    // user already has loaded and hand it over as the implicit input.
+    val inputs = new ImplicitInput()
+    val rawPayload = req.getString("payload", "")
+    if (rawPayload.trim.nonEmpty) {
+      try inputs.addInput("payload", weaveTypeOfJson(Json.parse(rawPayload)))
+      catch { case _: Throwable => () }  // not JSON: fall back to no input type
+    }
+    val doc = service.open("/main.dwl", inputs, scala.None)
+
+    val payload = new JsonObject()
+    try {
+      kind match {
+        case "completion" =>
+          val arr = new com.eclipsesource.json.JsonArray()
+          // completionItems(offset) returns nothing for field selection; the
+          // cursor has to be positioned first, and completion() carries the
+          // replacement range the editor needs anyway.
+          doc.cursorAt(offset)
+          val sr = doc.completion(offset)
+          payload.add("replacementStart", sr.replacementStart)
+          payload.add("replacementEnd", sr.replacementEnd)
+          sr.suggestions.foreach { sg =>
+            val o = new JsonObject()
+            o.add("label", sg.name)
+            o.add("insertText", sg.insertText)
+            o.add("itemType", sg.itemType)
+            sg.wtype.foreach(t => o.add("type", t.toString))
+            sg.documentation.foreach(d => o.add("doc", d))
+            arr.add(o)
+          }
+          payload.add("items", arr)
+
+        case "hover" =>
+          doc.hoverResult(offset) match {
+            case Some(h) =>
+              payload.add("type", h.resultType.toString)
+              h.documentation.foreach(d => payload.add("doc", d))
+            case None => payload.add("type", Json.NULL)
+          }
+
+        case "signature" =>
+          doc.signatureInfo(offset) match {
+            case Some(sig) =>
+              payload.add("name", sig.name)
+              payload.add("activeParameter", sig.currentArgIndex)
+              val arr = new com.eclipsesource.json.JsonArray()
+              sig.signatures.foreach(sd => arr.add(sd.toString))
+              payload.add("signatures", arr)
+            case None => payload.add("name", Json.NULL)
+          }
+
+        case "typeOf" =>
+          payload.add("type", doc.typeOf(offset).toString)
+
+        case "definition" =>
+          val arr = new com.eclipsesource.json.JsonArray()
+          doc.definitions(offset).foreach(l => arr.add(l.toString))
+          payload.add("links", arr)
+
+        case "rename" =>
+          val arr = new com.eclipsesource.json.JsonArray()
+          doc.rename(offset, req.getString("newName", "renamed")).foreach(r => arr.add(r.toString))
+          payload.add("references", arr)
+
+        case "typeCheck" =>
+          val msgs = doc.typeCheck()
+          val arr = new com.eclipsesource.json.JsonArray()
+          def addAll(items: Array[org.mule.weave.v2.editor.ValidationMessage], sev: String): Unit =
+            items.foreach { vm =>
+              val o = new JsonObject()
+              o.add("severity", sev)
+              o.add("location", vm.location.toString)
+              o.add("message", vm.message.message)
+              o.add("quickFixes", vm.quickFix.length)
+              arr.add(o)
+            }
+          addAll(msgs.errorMessage, "error")
+          addAll(msgs.warningMessage, "warning")
+          payload.add("messages", arr)
+
+        case other =>
+          return errorResponse(id, "Unknown tooling kind: " + other, started)
+      }
+    } catch {
+      case t: Throwable =>
+        return errorResponse(id, "tooling/" + kind + " failed: " + t.toString, started)
+    }
+
+    val r = new JsonObject()
+    r.add("id", id); r.add("ok", true); r.add("kind", kind)
+    r.add("result", payload)
+    r.add("error", Json.NULL)
+    r.add("executionTimeMs", System.currentTimeMillis() - started)
+    r.toString
   }
 
   // ── Custom DataWeave modules (`import x from MyModule`) ─────────────────────
