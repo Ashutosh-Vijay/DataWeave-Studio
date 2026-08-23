@@ -4,12 +4,18 @@
   MSIX manifest for the Microsoft Store build of DataWeave Studio.
   Built into an .msix by scripts/pack-msix.ps1 (via the winapp CLI).
 
-  NOTE on Store submission: when you reserve the app in Partner Center, the Store
-  assigns you the real Identity/Name, Publisher (CN=<GUID>) and PublisherDisplayName.
-  Replace the three values below with the ones from Partner Center before the real
-  submission. The values here are for LOCAL dev-cert testing only — the dev cert's
-  subject (CN=Ashutosh Vijay) must match Publisher, which is why cert generate reads
-  it from this file.
+  IDENTITY: these are the REAL values assigned by Partner Center — do not edit them.
+  Name/Publisher/PublisherDisplayName must match the Store exactly or package upload
+  is rejected. Publisher is the Store's GUID, not a human name.
+
+    Store ID   9NWD4L4J7D92
+    Listing    https://apps.microsoft.com/detail/9NWD4L4J7D92
+    PFN        AshutoshVijay.DataWeaveStudio_5e8d9xn33hk2a
+
+  The Store strips any signature and re-signs with its own certificate, so the
+  dev cert in scripts/pack-msix.ps1 is only for installing locally. That cert's
+  subject is generated from Publisher above — if you change identity, delete
+  devcert.pfx so it is regenerated, or local installs will fail to validate.
 -->
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -24,7 +30,7 @@
 
   <Identity
     Name="AshutoshVijay.DataWeaveStudio"
-    Publisher="CN=Ashutosh Vijay"
+    Publisher="CN=C350977C-C8E1-4F02-9374-0394BA122B4A"
     Version="2.3.1.0" />
 
   <Properties>
