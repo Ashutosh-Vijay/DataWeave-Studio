@@ -17,6 +17,9 @@ Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor. Ships with a bu
 ![Welcome screen — start transforming](docs/screenshots/idle_page_start_transforming_dark_mode.png)
 *Welcome screen — blank transform, open workspace, import cURL, snippets, message flow — all one click away*
 
+![Workbench — payload, script and output](docs/screenshots/script_page_dark_mode.png)
+*Workbench — payload and context on the left, script in the middle, live output on the right, with every request in the workspace one click away*
+
 ![Script editor with 309-function autocomplete](docs/screenshots/auto_suggestion_on_typing_monaco_dark_mode.png)
 *Monaco editor with DataWeave syntax highlighting, 309-function autocomplete with signature hints, and live output*
 
@@ -32,6 +35,9 @@ Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor. Ships with a bu
 ![cURL importer](docs/screenshots/import_curl_dark_mode.png)
 *cURL importer — paste any cURL command, auto-fills payload and headers, generates a matching DW transform*
 
+![Import from a share link](docs/screenshots/import_link_dark_mode.png)
+*Share links — paste a link and the whole setup comes back: script, payload, vars and headers. The data rides in the part of the URL browsers never send, so nothing is uploaded to create one*
+
 ![Snippets sidebar](docs/screenshots/snippets_dark_mode.png)
 *Snippets — reusable DW templates for common patterns like map, filter, group-by, reduce*
 
@@ -43,6 +49,9 @@ Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor. Ships with a bu
 
 ![Settings — appearance customization](docs/screenshots/settings_dark_mode.png)
 *Settings — Dusk/Paper themes, 5 accent colors, Workbench and Playground layouts*
+
+![DataWeave Studio in VS Code](docs/screenshots/vscode_extension.png)
+*The same app inside VS Code — bundled Java runtime, no Maven, no Anypoint Studio*
 
 ---
 
