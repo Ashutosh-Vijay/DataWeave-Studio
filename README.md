@@ -32,6 +32,9 @@ Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor. Ships with a bu
 ![Function Reference Browser](docs/screenshots/dataweave_function_reference_dark_mode.png)
 *Built-in function reference — searchable catalog of all 309 DataWeave functions with signatures and descriptions*
 
+![OpenAPI / Swagger reader](docs/screenshots/openapi_swagger_paper_mode.png)
+*OpenAPI / Swagger reader — open a 3.x or 2.0 spec, pick any operation, and Studio drops a sample payload and a matching DataWeave skeleton into the workspace*
+
 ![cURL importer](docs/screenshots/import_curl_dark_mode.png)
 *cURL importer — paste any cURL command, auto-fills payload and headers, generates a matching DW transform*
 
