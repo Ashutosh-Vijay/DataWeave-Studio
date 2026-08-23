@@ -11,7 +11,7 @@ import org.mule.weave.v2.parser.ast.variables.NameIdentifier
 import org.mule.weave.v2.runtime._
 import org.mule.weave.v2.sdk.ClassLoaderWeaveResourceResolver
 import org.mule.weave.v2.editor.{WeaveToolingService, SimpleVirtualFileSystem, SpecificModuleResourceResolver, ImplicitInput}
-import org.mule.weave.v2.ts.{WeaveType, ObjectType, KeyValuePairType, NameType, ArrayType, StringType, NumberType, BooleanType, AnyType}
+import org.mule.weave.v2.ts.{WeaveType, ObjectType, KeyValuePairType, KeyType, NameType, ArrayType, StringType, NumberType, BooleanType, AnyType}
 import org.mule.weave.v2.parser.ast.QName
 import org.mule.weave.v2.completion.{DataFormatDescriptorProvider, DataFormatDescriptor}
 
@@ -279,7 +279,9 @@ object DwServer {
     if (v.isObject) {
       val o = v.asObject()
       val kvs = o.names().asScala.map { n =>
-        KeyValuePairType(NameType(Some(QName(n))), weaveTypeOfJson(o.get(n)), false, false)
+        // AutoCompletionService matches on KeyType(NameType(QName(...))) — a bare
+        // NameType key silently yields zero field suggestions.
+        KeyValuePairType(KeyType(NameType(Some(QName(n)))), weaveTypeOfJson(o.get(n)), false, false)
       }.toSeq
       ObjectType(kvs, false, false)
     } else if (v.isArray) {
@@ -359,6 +361,12 @@ object DwServer {
               sig.signatures.foreach(sd => arr.add(sd.toString))
               payload.add("signatures", arr)
             case None => payload.add("name", Json.NULL)
+          }
+
+        case "typeGraph" =>
+          doc.typeGraphString() match {
+            case Some(g) => payload.add("graph", g.take(600))
+            case None    => payload.add("graph", Json.NULL)
           }
 
         case "typeOf" =>
