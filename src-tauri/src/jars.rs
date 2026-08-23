@@ -137,19 +137,36 @@ pub fn download_maven_jar(
         artifact,
         version
     );
+    // Corporate networks are the norm for this audience, and a filtered request
+    // fails in ways that look nothing like "your network blocked this" unless we
+    // say so. Importing a jar from disk always works, so point at that.
+    const BLOCKED_HINT: &str = "Your network may be blocking repo1.maven.org. \
+Download the jar on a machine that can reach Maven Central and add it with \
+\"Import JAR\" instead.";
     let resp = ureq::get(&url).call().map_err(|e| match e {
         ureq::Error::Status(404, _) => {
             format!("Not found on Maven Central: {}:{}:{}", group, artifact, version)
         }
+        // 403/407/451 come from a proxy, not from Maven Central itself.
+        ureq::Error::Status(code @ (403 | 407 | 451), _) => {
+            format!("Blocked with HTTP {}. {}", code, BLOCKED_HINT)
+        }
         ureq::Error::Status(code, _) => format!("Maven Central returned HTTP {}", code),
-        other => format!("Download failed: {}", other),
+        other => format!("Download failed: {}. {}", other, BLOCKED_HINT),
     })?;
     let mut bytes = Vec::new();
     resp.into_reader()
         .read_to_end(&mut bytes)
         .map_err(|e| format!("Read failed: {}", e))?;
-    // A jar is a zip archive — it must start with the PK magic.
+    // A jar is a zip archive — it must start with the PK magic. The common way
+    // this fails isn't a corrupt jar: a filtering proxy answers 200 with its own
+    // HTML block page, so the download "succeeds" and lands here. Reporting
+    // "not a valid JAR" would send the user hunting for the wrong problem.
     if bytes.len() < 4 || &bytes[0..2] != b"PK" {
+        let head = String::from_utf8_lossy(&bytes[..bytes.len().min(200)]).to_lowercase();
+        if head.contains("<html") || head.contains("<!doctype") {
+            return Err(format!("Got a web page instead of a jar. {}", BLOCKED_HINT));
+        }
         return Err("Downloaded file is not a valid JAR (zip) archive.".into());
     }
     let filename = format!("{}-{}.jar", artifact, version);
