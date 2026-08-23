@@ -92,6 +92,8 @@ Paste any `curl` command from Postman, browser devtools, or manual copy. Method,
 **5. Secure Properties — Fully Offline**
 Paste your actual `secure-config.yaml` (with `![Base64Encrypted...]` values), provide your encryption key at runtime. Scripts run with real decrypted values. Key is never saved to disk. Also includes a standalone encrypt/decrypt tool (AES, Blowfish, DES, DESede, RC2) compatible with MuleSoft's `secure-properties-tool.jar`.
 
+The hosted encryption tools are websites: they go down, plenty of corporate networks block them, and pasting a production secret into someone else's web form is a bad idea even when it works. This runs locally, always.
+
 **6. SOQL & SQL Query Modes**
 Write a SOQL or SQL template with `:paramName` placeholders, run a DW script to produce a params object, see the final substituted query. JDBC-style auto-quoting for SQL. No other DataWeave tool has this.
 

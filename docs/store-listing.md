@@ -44,7 +44,10 @@ WHAT'S INSIDE
 • Share a whole setup in one link — script, payload, variables and headers travel
   inside the URL itself, so a colleague opens it and presses Run. The data rides in the
   part of a URL browsers never send to a server, so nothing is uploaded to create one.
-• Secure properties — encrypt and decrypt MuleSoft secure-property values.
+• Secure properties, offline — encrypt and decrypt secure-property values locally,
+  compatible with Mule's secure-properties-tool. No website to be down or blocked by
+  your network, and your production secrets never go into someone else's web form.
+  Paste a real secure-config.yaml and run scripts against the decrypted values.
 • Compare — side-by-side diff for payloads and Mule XML, with an option to ignore
   the generated doc:id and UUID noise.
 • Workspaces — organise related requests together, search inside them, and pick up
@@ -69,7 +72,8 @@ Free and open source (MIT): https://github.com/Ashutosh-Vijay/DataWeave-Studio
 8. Java tester — call your own Java classes from DataWeave
 9. Offline function reference and cookbook
 10. Share a whole setup in one link — nothing is uploaded
-11. Free and open source (MIT)
+11. Offline secure-properties encrypt/decrypt — no website, no blocked URL
+12. Free and open source (MIT)
 
 ## Search terms
 (max 7 terms — avoid words already in the product name)
