@@ -79,4 +79,34 @@ describe('stripMulePImport', () => {
     expect(stripMulePImport('import * from dw::Mule\nx')).toBe('import * from dw::Mule\nx');
     expect(stripMulePImport('import dw::core::Strings\nx')).toBe('import dw::core::Strings\nx');
   });
+
+  it('tolerates the lowercase import people actually paste', () => {
+    // Legacy Mule projects are full of `import p from mule`. The module name is
+    // case-sensitive to the engine, but this strip is forgiving cleanup — a
+    // surviving import line fails the entire script.
+    for (const line of ['import p from mule', 'import p from Mule', 'import p from dw::mule', 'import p from dw::Mule']) {
+      const src = `%dw 2.0
+${line}
+output application/json
+---
+{ a: p('sf.power') }`;
+      const out = convertAllPropertyCalls(src);
+      expect(out.text).not.toContain('import p from');
+      expect(out.text).toContain('${sf.power}');
+    }
+  });
+
+  it('converts a lowercase Mule:: qualifier too', () => {
+    const out = convertAllPropertyCalls(`{ a: mule::p("http.port") }`);
+    expect(out.count).toBe(1);
+    expect(out.text).toContain('${http.port}');
+  });
+
+  it('leaves an unquoted key alone — p() takes a string literal', () => {
+    // `p(sf.power)` is a variable reference, not a property lookup. Silently
+    // rewriting it would change the meaning of the script.
+    const out = convertAllPropertyCalls(`{ a: p(sf.power) }`);
+    expect(out.count).toBe(0);
+    expect(out.text).toBe(`{ a: p(sf.power) }`);
+  });
 });

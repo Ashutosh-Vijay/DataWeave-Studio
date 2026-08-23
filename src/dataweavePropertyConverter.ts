@@ -25,7 +25,7 @@
  *   - The lookbehind for non-word ensures we don't match inside identifiers
  *     like `xp("key")` (no such Mule function, but defensive)
  */
-const P_CALL_REGEX = /(?<![A-Za-z0-9_])(?:Mule::)?p\(\s*(["'])([^"']+)\1\s*\)/g;
+const P_CALL_REGEX = /(?<![A-Za-z0-9_])(?:[Mm]ule::)?p\(\s*(["'])([^"']+)\1\s*\)/g;
 
 /**
  * Convert a single property-lookup match to its `${...}` form.
@@ -93,7 +93,10 @@ export function findPropertyCalls(source: string): PropertyMatch[] {
  * may pull in other functions.
  */
 export function stripMulePImport(source: string): string {
-  return source.replace(/^[ \t]*import[ \t]+p[ \t]+from[ \t]+(?:dw::)?Mule[ \t]*\r?\n?/gm, '');
+  // Case-insensitive on purpose. Legacy projects are full of
+  // `import p from mule`, and the module name being case-sensitive to the
+  // engine is exactly why a surviving import line kills the whole script.
+  return source.replace(/^[ \t]*import[ \t]+p[ \t]+from[ \t]+(?:dw::)?Mule[ \t]*\r?\n?/gim, '');
 }
 
 /**
