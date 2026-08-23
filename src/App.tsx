@@ -37,7 +37,7 @@ const FlowDesigner = lazy(() =>
   import('./components/FlowDesigner').then((m) => ({ default: m.FlowDesigner }))
 );
 import { OpenWorkspaceDialog } from './components/OpenWorkspaceDialog';
-import { shareUrl, decodeShare, isShareTooLong, unshareableItems, type ShareRequest } from './shareLink';
+import { shareUrl, encodeShare, decodeShare, isShareTooLong, unshareableItems, type ShareRequest } from './shareLink';
 import { TestsView } from './components/TestsView';
 import { FirstWorkspacePrompt } from './components/FirstWorkspacePrompt';
 import { PayloadTabs } from './components/PayloadTabs';
@@ -334,13 +334,19 @@ function App() {
       .map((p) => ({ name: p.name, value: p.value, contentType: p.contentType })),
   }), []);
 
-  const copyShare = useCallback(async (whole: boolean) => {
+  /** `codeOnly` copies the bare `dws1.…` blob instead of a URL. The data is
+   *  identical — the URL only ever pointed at a page that renders a preview —
+   *  but plenty of corporate networks block personal domains, and the recipient
+   *  would just see a blocked page with no idea the payload was in the URL.
+   *  Import accepts a bare code, so this always works. */
+  const copyShare = useCallback(async (whole: boolean, codeOnly = false) => {
     const active = workspace.request;
-    const url = shareUrl({
+    const snapshot = {
       ...requestToShare(active),
       name: workspace.projectName,
       requests: whole ? workspace.requests.map(requestToShare) : undefined,
-    });
+    };
+    const url = codeOnly ? encodeShare(snapshot) : shareUrl(snapshot);
     if (isShareTooLong(url)) {
       toast({
         title: whole ? 'Workspace is too big for one link' : 'Too big to share as a link',
@@ -358,11 +364,16 @@ function App() {
       const missing = whole
         ? workspace.requests.flatMap((r) => unshareableItems(r))
         : unshareableItems(active);
+      const what = codeOnly ? 'code' : 'link';
       toast({
-        title: whole ? `Link copied — ${workspace.requests.length} requests` : 'Share link copied',
+        title: whole
+          ? `${codeOnly ? 'Code' : 'Link'} copied — ${workspace.requests.length} requests`
+          : `Share ${what} copied`,
         message: missing.length
-          ? `Note: ${[...new Set(missing)].join(', ')} can’t travel in a link — send the file separately.`
-          : 'Script, payload, vars and headers are all inside the link — the data stays in the link, never on a server.',
+          ? `Note: ${[...new Set(missing)].join(', ')} can’t travel in a ${what} — send the file separately.`
+          : codeOnly
+            ? 'Paste it into Import → From share link. No URL, so it survives networks that block the site.'
+            : 'Script, payload, vars and headers are all inside the link — the data stays in the link, never on a server.',
         variant: missing.length ? 'warn' : 'success',
       });
     } catch {
@@ -372,6 +383,7 @@ function App() {
 
   const handleCopyShareLink = useCallback(() => copyShare(false), [copyShare]);
   const handleCopyWorkspaceShareLink = useCallback(() => copyShare(true), [copyShare]);
+  const handleCopyShareCode = useCallback(() => copyShare(false, true), [copyShare]);
 
   /** Apply a pasted share link (from the Import dialog or the menu action). */
   const applyShareLink = useCallback((text: string) => {
@@ -1098,6 +1110,7 @@ function App() {
     // surfaces all three actions together.
     { id: 'share-request', label: 'Copy share link — this request', hint: 'Script, payload, vars & headers in one URL', group: 'Share', run: handleCopyShareLink },
     { id: 'share-workspace', label: 'Copy share link — whole workspace', hint: 'Every request in this workspace', group: 'Share', run: handleCopyWorkspaceShareLink },
+    { id: 'share-code', label: 'Copy share code — no link', hint: 'For networks that block the site', group: 'Share', run: handleCopyShareCode },
     { id: 'share-open', label: 'Open from share link…', shortcut: '⌘⇧I', group: 'Share', run: handleOpenShareLink },
     { id: 'import-playground', label: 'Import from Playground zip…', group: 'Workspace', run: handleImportPlayground },
     { id: 'export-playground', label: 'Export as Playground zip…', group: 'Workspace', run: handleExportPlayground },
@@ -1170,6 +1183,7 @@ function App() {
           onExportPlayground={handleExportPlayground}
           onCopyShareLink={handleCopyShareLink}
           onCopyWorkspaceShareLink={handleCopyWorkspaceShareLink}
+          onCopyShareCode={handleCopyShareCode}
           onOpenShareLink={handleOpenShareLink}
         />
 
