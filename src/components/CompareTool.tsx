@@ -45,6 +45,23 @@ const handleBeforeMount: BeforeMount = (monaco) => {
   }
 };
 
+/** Any canonical UUID — Mule `doc:id` values, correlation ids, generated keys. */
+const UUID_RE = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/g;
+
+/**
+ * Blank out identifiers that change on every export but mean nothing.
+ * Anypoint Studio stamps a fresh `doc:id` on every element it touches, so two
+ * functionally identical flows can diff as almost entirely different — the real
+ * change gets lost among hundreds of id-only lines. Masking both sides the same
+ * way collapses those to "no change" and leaves the edits that matter.
+ */
+export function maskIds(text: string): string {
+  return text
+    // doc:id="…" / doc:docId='…' — value only, so the line's shape survives.
+    .replace(/\b(doc:id|doc:docId)\s*=\s*("[^"]*"|'[^']*')/g, '$1="…"')
+    .replace(UUID_RE, '…');
+}
+
 interface CompareToolProps {
   open: boolean;
   onClose: () => void;
@@ -62,14 +79,38 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
   const [lang, setLang] = useState<CompareLang>(() => (ls('lang', 'plaintext') as CompareLang));
   const [sideBySide, setSideBySide] = useState(() => ls('sideBySide', '1') !== '0');
   const [wrap, setWrap] = useState(() => ls('wrap') === '1');
+  const [ignoreIds, setIgnoreIds] = useState(() => ls('ignoreIds') === '1');
   const diffEditorRef = useRef<Monaco.editor.IStandaloneDiffEditor | null>(null);
   const [stats, setStats] = useState<{ added: number; removed: number; same: boolean } | null>(null);
+  /** Mirrors `ignoreIds` for the Monaco listeners, which close over the value
+   *  from mount. Also gates the content mirror below: setValue() fires
+   *  onDidChangeModelContent, so without this the masked text would overwrite
+   *  the real text in React state and the toggle could never restore it. */
+  const ignoreIdsRef = useRef(ignoreIds);
 
   useEffect(() => { try { localStorage.setItem('dw.compare.left', left); } catch { /* ignore */ } }, [left]);
   useEffect(() => { try { localStorage.setItem('dw.compare.right', right); } catch { /* ignore */ } }, [right]);
   useEffect(() => { try { localStorage.setItem('dw.compare.lang', lang); } catch { /* ignore */ } }, [lang]);
   useEffect(() => { try { localStorage.setItem('dw.compare.sideBySide', sideBySide ? '1' : '0'); } catch { /* ignore */ } }, [sideBySide]);
   useEffect(() => { try { localStorage.setItem('dw.compare.wrap', wrap ? '1' : '0'); } catch { /* ignore */ } }, [wrap]);
+  useEffect(() => { try { localStorage.setItem('dw.compare.ignoreIds', ignoreIds ? '1' : '0'); } catch { /* ignore */ } }, [ignoreIds]);
+
+  // Apply / lift the ID mask when the toggle flips. React state keeps the text
+  // the user actually pasted; the editors show the masked copy while it's on,
+  // and are read-only so an edit can't silently replace their real text.
+  // Depends on `ignoreIds` ONLY — re-running on every keystroke would fight typing.
+  useEffect(() => {
+    ignoreIdsRef.current = ignoreIds;
+    const ed = diffEditorRef.current;
+    if (!ed) return;
+    const orig = ed.getOriginalEditor();
+    const mod = ed.getModifiedEditor();
+    orig.updateOptions({ readOnly: ignoreIds });
+    mod.updateOptions({ readOnly: ignoreIds });
+    orig.setValue(ignoreIds ? maskIds(left) : left);
+    mod.setValue(ignoreIds ? maskIds(right) : right);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ignoreIds]);
 
   // Esc to close
   useEffect(() => {
@@ -107,14 +148,21 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
     const modified = editor.getModifiedEditor();
 
     // Restore persisted content (the panes are uncontrolled — original="" /
-    // modified="" — so seed them here from the localStorage-backed state).
-    if (left) original.setValue(left);
-    if (right) modified.setValue(right);
+    // modified="" — so seed them here from the localStorage-backed state),
+    // honouring a mask that was left switched on from a previous session.
+    if (ignoreIds) {
+      original.updateOptions({ readOnly: true });
+      modified.updateOptions({ readOnly: true });
+    }
+    if (left) original.setValue(ignoreIds ? maskIds(left) : left);
+    if (right) modified.setValue(ignoreIds ? maskIds(right) : right);
 
     // Mirror typed-in text into React state. This update is purely
     // read-side — nothing writes it back into the editor.
-    original.onDidChangeModelContent(() => setLeft(original.getValue()));
-    modified.onDidChangeModelContent(() => setRight(modified.getValue()));
+    // Skip while masked: the model holds the masked copy, not what the user
+    // pasted, so mirroring it would destroy the text we need to restore.
+    original.onDidChangeModelContent(() => { if (!ignoreIdsRef.current) setLeft(original.getValue()); });
+    modified.onDidChangeModelContent(() => { if (!ignoreIdsRef.current) setRight(modified.getValue()); });
 
     // Recompute add/remove line counts whenever the diff is recomputed.
     editor.onDidUpdateDiff(() => {
@@ -159,30 +207,38 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
     return text.replace(/[ \t]+$/gm, '');
   };
 
+  /** Push text into the panes, re-applying the ID mask if it's on — so Swap /
+   *  Clear / Normalize keep working while masked instead of leaking raw IDs
+   *  back into the view. */
+  const showInPanes = (l: string, r: string) => {
+    const ed = diffEditorRef.current;
+    if (!ed) return;
+    ed.getOriginalEditor().setValue(ignoreIdsRef.current ? maskIds(l) : l);
+    ed.getModifiedEditor().setValue(ignoreIdsRef.current ? maskIds(r) : r);
+  };
+
   const normalizeLeft = () => {
     const next = normalize(left);
     setLeft(next);
-    diffEditorRef.current?.getOriginalEditor().setValue(next);
+    showInPanes(next, right);
   };
   const normalizeRight = () => {
     const next = normalize(right);
     setRight(next);
-    diffEditorRef.current?.getModifiedEditor().setValue(next);
+    showInPanes(left, next);
   };
 
   const swap = () => {
     const a = left, b = right;
     setLeft(b);
     setRight(a);
-    diffEditorRef.current?.getOriginalEditor().setValue(b);
-    diffEditorRef.current?.getModifiedEditor().setValue(a);
+    showInPanes(b, a);
   };
 
   const clearBoth = () => {
     setLeft('');
     setRight('');
-    diffEditorRef.current?.getOriginalEditor().setValue('');
-    diffEditorRef.current?.getModifiedEditor().setValue('');
+    showInPanes('', '');
   };
 
   const copyLeft = async () => { try { await navigator.clipboard.writeText(left); } catch { /* ignore */ } };
@@ -264,6 +320,20 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
           title="Toggle word wrap"
         >
           Wrap
+        </button>
+
+        <button
+          onClick={() => setIgnoreIds((v) => !v)}
+          className={`px-2 h-6 text-[10.5px] rounded-md border cursor-pointer transition-colors ${
+            ignoreIds ? 'bg-accent-dim text-accent border-accent-border' : 'text-content-faint hover:text-content border-line-secondary bg-surface-2'
+          }`}
+          title={
+            ignoreIds
+              ? 'Showing the comparison with doc:id and UUID values blanked out. Panes are read-only while this is on — switch it off to edit.'
+              : 'Ignore doc:id and UUID values, so a re-exported flow doesn’t diff as entirely different'
+          }
+        >
+          Ignore IDs
         </button>
 
         <div className="w-px h-4 bg-line" />
