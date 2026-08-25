@@ -187,7 +187,8 @@ function generateCsvScript(payload: string, hints: string[]): string {
     return buildScript('application/json', hints, body);
   }
 
-  return buildScript('application/json', hints, 'payload map (row) -> row');
+  // CSV in, CSV out — mirroring the input format, same as the XML branch.
+  return buildScript('application/csv', hints, 'payload map (row) -> row');
 }
 
 // --- Form URL-Encoded ---
@@ -239,11 +240,21 @@ function generateMultipartScript(payload: string, hints: string[], partNames?: s
     return buildScript('application/json', hints, 'payload // multipart — add parts in the payload tab');
   }
 
-  const fields = names.map(name =>
-    `  ${safeKey(name)}: payload.parts.${safeDot(name)}.content`
+  // Mirror the input format, the way the XML branch already does. Writing
+  // multipart needs the `{ parts: { name: { headers, content } } }` shape — the
+  // engine rejects a plain object with "Multipart Object does not have `parts`
+  // field defined", so a naive `{ title: payload.parts.title.content }` would
+  // scaffold a script that can't run. This one round-trips, and switching the
+  // output format in the dropdown leaves a body that still reads sensibly.
+  const fields = names.map(
+    (name) =>
+      `    ${safeKey(name)}: {\n` +
+      `      headers: { "Content-Type": "text/plain" },\n` +
+      `      content: payload.parts.${safeDot(name)}.content,\n` +
+      `    }`
   );
-  const body = `{\n${fields.join(',\n')}\n}`;
-  return buildScript('application/json', hints, body);
+  const body = `{\n  parts: {\n${fields.join(',\n')}\n  }\n}`;
+  return buildScript('multipart/form-data', hints, body);
 }
 
 // ========================================================

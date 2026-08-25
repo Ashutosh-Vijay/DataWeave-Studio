@@ -271,6 +271,16 @@ code, pre, .font-mono, [class*="font-mono"] {
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+/* The corner between two scrollbars is UA-painted unless we claim it. */
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* In a VS Code webview the colours come from the theme, but `color-scheme`
+   stayed `dark` from :root — so on a LIGHT VS Code theme the browser painted
+   the scrollbar gutter dark and it showed straight through our transparent
+   track. VS Code stamps these classes on the webview body; follow them. */
+body.vscode-light { color-scheme: light; }
+body.vscode-dark,
+body.vscode-high-contrast { color-scheme: dark; }
 
 /* Text selection */
 ::selection {

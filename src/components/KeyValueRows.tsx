@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { KeyValuePair } from '../types';
+import { handleBracketKey, applyWithCaret } from '../textareaBrackets';
 
 interface KeyValueRowsProps {
   label: string;
@@ -95,6 +96,13 @@ export function KeyValueRows({
               <textarea
                 value={pair.value}
                 onChange={(e) => updateRow(i, 'value', e.target.value)}
+                // Brackets only, no quote pairing: `Bearer abc` is a normal
+                // header value and auto-inserting `""` in it would just annoy.
+                onKeyDown={(e) =>
+                  handleBracketKey(e, false, (next, caret) =>
+                    applyWithCaret(e.currentTarget, (val) => updateRow(i, 'value', val), next, caret),
+                  )
+                }
                 placeholder={valuePlaceholder}
                 rows={isExpanded ? 3 : 1}
                 style={{ resize: 'none', overflow: isExpanded ? 'auto' : 'hidden' }}

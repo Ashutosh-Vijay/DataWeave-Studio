@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { VarEntry } from '../types';
+import { handleBracketKey, applyWithCaret } from '../textareaBrackets';
 
 interface VarsPanelProps {
   vars: VarEntry[];
@@ -198,6 +199,11 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
                   onFocus={() => cancelCollapse()}
                   value={v.value}
                   onChange={(e) => updateVar(i, 'value', e.target.value)}
+                  onKeyDown={(e) =>
+                    handleBracketKey(e, v.valueType === 'json', (next, caret) =>
+                      applyWithCaret(e.currentTarget, (val) => updateVar(i, 'value', val), next, caret),
+                    )
+                  }
                   placeholder={
                     v.valueType === 'expression'
                       ? 'DataWeave expression — e.g.  payload.name  •  payload.items filter ($.active)  •  vars.count + 1'
