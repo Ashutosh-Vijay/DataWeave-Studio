@@ -234,6 +234,14 @@ Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA
 - Opening a link on the web shows a rendered preview of every request, so a recipient without the app still sees something useful
 
 ### Local MCP Server
+- **Plain HTTP too — `POST /run` on the same port**, for when you want the engine but not an MCP client:
+  ```bash
+  curl -X POST http://127.0.0.1:4675/run -H 'Content-Type: application/json'     -d '{"script":"%dw 2.0
+output application/json
+---
+{ n: sizeOf(payload) }","payload":[1,2,3]}'
+  ```
+  Send a `rows` array instead of `payload`/`vars` to run **one script over many inputs** and get one result per row — a back-test over a CSV export of production data, without standing up an API endpoint just to exercise a transform. The engine compiles once and caches, so the first row costs ~1s and the rest run in ~15ms each.
 - Serves the **Model Context Protocol** over HTTP on loopback (`127.0.0.1`) so Claude, Cursor or any MCP client can use the real engine
 - Tools for validating and running DataWeave, so an assistant **checks** its transform instead of guessing at syntax
 - Bound to loopback and started only when you start it — from the MCP panel in the left rail

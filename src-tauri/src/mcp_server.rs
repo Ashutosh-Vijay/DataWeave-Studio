@@ -986,8 +986,22 @@ pub async fn mcp_start(
         StreamableHttpServerConfig::default(),
     );
 
+    // Plain HTTP alongside /mcp. MCP is JSON-RPC and awkward to drive from a
+    // shell script or a Python driver; this is the same engine behind a POST you
+    // can curl. It exists so nobody has to stand up a Mule endpoint just to run
+    // a transform over a few thousand rows of production-shaped data.
+    let batch_app = app.clone();
+    let batch_advanced = advanced_flag.clone();
     let router = axum::Router::new()
         .nest_service("/mcp", service)
+        .route(
+            "/run",
+            axum::routing::post(move |axum::Json(req): axum::Json<BatchRunRequest>| {
+                let app = batch_app.clone();
+                let advanced = batch_advanced.clone();
+                async move { axum::Json(run_batch(app, advanced, req).await) }
+            }),
+        )
         .layer(axum::middleware::from_fn(normalize_accept));
     let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
     let listener = tokio::net::TcpListener::bind(addr)
@@ -1136,5 +1150,136 @@ mod tests {
         // decrypt them (or reject when no key).
         let m = flatten_yaml_to_map(Some("db:\n  pw: \"![r45dsfYG2T8x9KQ==]\""));
         assert!(is_encrypted_value(m.get("db.pw").unwrap()));
+    }
+}
+
+// ── Plain HTTP batch runner (POST /run) ─────────────────────────────────────
+// One script, many inputs, on the same loopback server as /mcp. MCP is JSON-RPC
+// and awkward to drive from a shell or a Python script; this is the same engine
+// behind a POST you can curl. It exists so nobody has to deploy an API endpoint
+// just to run a transform over a few thousand rows of production-shaped data.
+
+#[derive(serde::Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchRow {
+    /// Input payload. A JSON value is serialised as-is; a JSON *string* passes
+    /// through verbatim, so XML and CSV payloads aren't wrapped in quotes.
+    #[serde(default)]
+    payload: Option<serde_json::Value>,
+    /// Flow variables for this row — `vars.*` in the script.
+    #[serde(default)]
+    vars: Option<serde_json::Value>,
+    /// Inbound attributes for this row — `attributes.*`.
+    #[serde(default)]
+    attributes: Option<serde_json::Value>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchRunRequest {
+    script: String,
+    #[serde(default = "default_mime")]
+    payload_mime: String,
+    /// Fields for a single run, when `rows` is absent.
+    #[serde(flatten)]
+    single: BatchRow,
+    /// Batch mode: one result per row, in the order given.
+    #[serde(default)]
+    rows: Option<Vec<BatchRow>>,
+}
+
+#[derive(serde::Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchRunResult {
+    ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    output: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+    execution_time_ms: u128,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchRunResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    results: Option<Vec<BatchRunResult>>,
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    single: Option<BatchRunResult>,
+}
+
+fn value_to_payload(v: &Option<serde_json::Value>) -> String {
+    match v {
+        None => "{}".to_string(),
+        Some(serde_json::Value::String(s)) => s.clone(),
+        Some(other) => other.to_string(),
+    }
+}
+
+pub async fn run_batch(
+    app: AppHandle,
+    advanced: Arc<AtomicBool>,
+    req: BatchRunRequest,
+) -> BatchRunResponse {
+    // Same gate as the MCP tool. Loopback is not a trust boundary, and this
+    // endpoint would otherwise be an easier route to `java!` than MCP is.
+    if !advanced.load(Ordering::Relaxed) {
+        if let Some(reason) = safe_mode_block_reason(&req.script) {
+            let denied = BatchRunResult {
+                ok: false,
+                output: None,
+                error: Some(format!(
+                    "{} is blocked while the MCP server is in Safe mode. Switch to Advanced mode in the MCP panel if you meant to allow it.",
+                    reason
+                )),
+                execution_time_ms: 0,
+            };
+            return match req.rows {
+                Some(rows) => BatchRunResponse {
+                    results: Some(vec![denied; rows.len()]),
+                    single: None,
+                },
+                None => BatchRunResponse { results: None, single: Some(denied) },
+            };
+        }
+    }
+
+    let batch = req.rows.is_some();
+    let rows = req.rows.unwrap_or_else(|| vec![req.single]);
+    let mut out = Vec::with_capacity(rows.len());
+
+    for row in &rows {
+        let started = std::time::Instant::now();
+        let state = app.state::<crate::dw_runner::RunState>();
+        let result = crate::dw_runner::run_dataweave(
+            app.clone(),
+            state,
+            req.script.clone(),
+            value_to_payload(&row.payload),
+            req.payload_mime.clone(),
+            row.attributes.as_ref().map(|v| v.to_string()).unwrap_or_else(|| "{}".into()),
+            row.vars.as_ref().map(|v| v.to_string()).unwrap_or_else(|| "{}".into()),
+            "[]".to_string(),
+            None, None, None, None, None, None,
+        )
+        .await;
+        let execution_time_ms = started.elapsed().as_millis();
+        out.push(match result {
+            Ok(r) if r.error.is_none() => BatchRunResult {
+                ok: true, output: Some(r.output), error: None, execution_time_ms,
+            },
+            Ok(r) => BatchRunResult {
+                ok: false, output: None, error: r.error, execution_time_ms,
+            },
+            Err(e) => BatchRunResult {
+                ok: false, output: None, error: Some(e), execution_time_ms,
+            },
+        });
+    }
+
+    if batch {
+        BatchRunResponse { results: Some(out), single: None }
+    } else {
+        BatchRunResponse { results: None, single: out.into_iter().next() }
     }
 }
