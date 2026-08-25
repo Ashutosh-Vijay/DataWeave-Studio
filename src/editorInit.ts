@@ -1,7 +1,7 @@
 /**
  * Shared post-mount initialization for every Monaco editor in the app.
  *
- * Currently does three things:
+ * Currently does four things:
  *
  * 1. Disables the browser's red-squiggly spell-check on Monaco's hidden
  *    <textarea>. DataWeave keywords, JSON keys, and YAML properties aren't
@@ -12,7 +12,10 @@
  *    lose while keeping widget focus — leaving Backspace working and typed
  *    characters going nowhere.
  *
- * 3. Re-triggers the suggest widget on backspace within a word. Monaco
+ * 3. Replaces the selection itself when a printable key is typed over one, in
+ *    the webview only — where the first such keystroke was being swallowed.
+ *
+ * 4. Re-triggers the suggest widget on backspace within a word. Monaco
  *    only fires completions on character INSERT — deleting a character
  *    closes the popup. That feels broken when you backspace one char to
  *    fix a typo and have to retype to see suggestions. With this listener
@@ -21,6 +24,8 @@
  *
  * Call from every editor's `onMount={configureEditor}`.
  */
+import { isTauri } from './bridge';
+
 export function configureEditor(editor: unknown): void {
   const ed = editor as {
     getDomNode?: () => HTMLElement | null;
@@ -35,6 +40,8 @@ export function configureEditor(editor: unknown): void {
     onMouseUp?: (cb: () => void) => void;
     hasTextFocus?: () => boolean;
     focus?: () => void;
+    getSelection?: () => { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number } | null;
+    executeEdits?: (source: string, edits: { range: unknown; text: string; forceMoveMarkers?: boolean }[]) => void;
   };
 
   // Tab size is a MODEL option, not an editor option, so it can't ride the
@@ -76,7 +83,39 @@ export function configureEditor(editor: unknown): void {
     if (ed.hasTextFocus?.() === false) ed.focus?.();
   });
 
-  // 3. Re-trigger suggest on backspace within a word.
+  // ...and if that isn't enough, replace the selection ourselves.
+  //
+  // In the VS Code webview the FIRST printable key after a drag-select is
+  // swallowed: select a word, type "payload", and you get "ayload" — you have
+  // to type the "p" twice. Backspace is unaffected, so the key reaches Monaco;
+  // what's lost is the character insert, which goes through the hidden
+  // textarea's input event rather than the keydown path.
+  //
+  // Refocusing on mouse-up didn't fix it, so rather than keep guessing at the
+  // cause this handles the symptom directly: when a selection exists and a bare
+  // printable character is typed, do the edit and stop the event. Deterministic,
+  // and undo still groups it as one edit.
+  //
+  // Scoped to the webview — the desktop path isn't broken and doesn't need
+  // Monaco's own input handling intercepted.
+  if (!isTauri && ta) {
+    ta.addEventListener(
+      'keydown',
+      (e: KeyboardEvent) => {
+        if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+        if (e.key.length !== 1) return; // not a printable character
+        const sel = ed.getSelection?.();
+        if (!sel || sel.startLineNumber !== sel.endLineNumber || sel.startColumn !== sel.endColumn) {
+          if (!sel) return;
+          e.preventDefault();
+          ed.executeEdits?.('type-over-selection', [{ range: sel, text: e.key, forceMoveMarkers: true }]);
+        }
+      },
+      true, // capture: get there before Monaco's own listener
+    );
+  }
+
+  // 4. Re-trigger suggest on backspace within a word.
   ed.onDidChangeModelContent?.((e) => {
     // Undo/redo produce deletion-shaped changes too — re-opening the popup
     // on every Ctrl+Z step is just flicker.

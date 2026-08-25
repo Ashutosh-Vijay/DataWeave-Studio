@@ -235,14 +235,27 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
             </button>
           </div>
           <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 18 }}>
-            <p style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--content-muted)' }}>
+            {/* Same switch as the desktop. Without it the HTTP half sat below a
+                screenful of MCP prose, which is where nobody found it. */}
+            <div className="flex" style={{ gap: 3, padding: 3, borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
+              {([['mcp', 'AI clients (MCP)'], ['http', 'HTTP API']] as const).map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => setMode(id)}
+                  className="flex-1 cursor-pointer"
+                  style={{ height: 32, borderRadius: 8, border: 'none', fontSize: 12, fontWeight: 600, background: mode === id ? 'var(--surface-3)' : 'transparent', color: mode === id ? 'var(--content)' : 'var(--content-muted)' }}
+                >{label}</button>
+              ))}
+            </div>
+
+            {mode === 'mcp' && <p style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--content-muted)' }}>
               This extension ships a Model Context Protocol server so an AI agent can run and validate DataWeave
               on the real local engine. <b>GitHub Copilot agent mode discovers it automatically</b> — other clients
               (Claude Code, Cursor, Claude Desktop) read their own config, so add it there with one click below.
-            </p>
+            </p>}
 
             {/* One-click: write the stdio entry into a client's config. */}
-            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 10, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {mode === 'mcp' && <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 10, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--content-faint)' }}>Add to a client</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 <button style={btnPrimary} onClick={() => addToClient('claude-code', 'Claude Code')} className="hover:brightness-110">＋ Claude Code (workspace)</button>
@@ -253,20 +266,20 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
               <div style={{ fontSize: 10.5, color: 'var(--content-faint)', lineHeight: 1.5 }}>
                 Writes a stdio entry into the client's <code style={{ fontFamily: MONO }}>mcpServers</code> that runs the bundled server with VS Code's own runtime — no separate Node.js install needed. For Claude Code, run {kbd('/mcp')} afterwards to connect.
               </div>
-            </div>
+            </div>}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {mode === 'mcp' && <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--content-faint)' }}>Or with GitHub Copilot</div>
               <div style={step}><span style={num}>1</span><div style={{ fontSize: 12.5, lineHeight: 1.55 }}>Open the Command Palette ({kbd('Ctrl/Cmd+Shift+P')}) and run {kbd('MCP: List Servers')}.</div></div>
               <div style={step}><span style={num}>2</span><div style={{ fontSize: 12.5, lineHeight: 1.55 }}>Pick <b>DataWeave Studio</b> → <b>Start Server</b>.</div></div>
               <div style={step}><span style={num}>3</span><div style={{ fontSize: 12.5, lineHeight: 1.55 }}>In Copilot Chat, switch to <b>Agent</b> mode — the DataWeave tools appear under the 🔧 Tools picker.</div></div>
-            </div>
-            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px' }}>
+            </div>}
+            {mode === 'mcp' && <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px' }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--content-faint)', marginBottom: 8 }}>6 tools exposed</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {TOOLS.map((t) => <code key={t} style={{ fontFamily: MONO, fontSize: 11, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 6, padding: '3px 7px', color: 'var(--content)' }}>{t}</code>)}
               </div>
-            </div>
+            </div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 11.5, lineHeight: 1.55, color: 'var(--content-muted)' }}>
               <div><b>Safe mode (default):</b> a pure-transform sandbox — <code style={{ fontFamily: MONO }}>java!</code> / <code style={{ fontFamily: MONO }}>readUrl</code> / <code style={{ fontFamily: MONO }}>dw::io</code> are rejected (in scripts and imported modules). To lift the gate for FULL local access, set the env var {kbd('DWSTUDIO_MCP_ADVANCED=1')} on the server entry in <code style={{ fontFamily: MONO }}>mcp.json</code>.</div>
               <div><b>Encrypted secure config:</b> pass the key per-call as <code style={{ fontFamily: MONO }}>secureKey</code>, or set {kbd('DWSTUDIO_SECURE_KEY')} on the server. A <code style={{ fontFamily: MONO }}>{'![…]'}</code> value with no key is rejected (never run as ciphertext).</div>
@@ -275,7 +288,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
 
             {/* HTTP API — the one thing here VS Code does NOT manage, so it gets
                 its own start/stop rather than hiding in a paragraph. */}
-            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 10, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {mode === 'http' && <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 10, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div className="flex items-center" style={{ gap: 8 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--content-faint)', flex: 1 }}>HTTP API — run scripts from anything</div>
                 <span style={{ fontSize: 10.5, fontWeight: 600, color: httpApi.running ? '#10b981' : 'var(--content-faint)' }}>
@@ -303,7 +316,7 @@ output application/json
                   }}>⧉ Copy a curl</button>
                 )}
               </div>
-            </div>
+            </div>}
             <p style={{ fontSize: 11, color: 'var(--content-faint)', lineHeight: 1.5 }}>
               Requires VS Code 1.101+. If <b>DataWeave Studio</b> doesn't appear in <i>MCP: List Servers</i>, reload the window.
             </p>

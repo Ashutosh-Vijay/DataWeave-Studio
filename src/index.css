@@ -265,22 +265,31 @@ code, pre, .font-mono, [class*="font-mono"] {
 
 /* Custom scrollbars */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
-/* The corner between two scrollbars is UA-painted unless we claim it. */
-::-webkit-scrollbar-corner { background: transparent; }
 
 /* In a VS Code webview the colours come from the theme, but `color-scheme`
    stayed `dark` from :root — so on a LIGHT VS Code theme the browser painted
-   the scrollbar gutter dark and it showed straight through our transparent
-   track. VS Code stamps these classes on the webview body; follow them. */
-body.vscode-light { color-scheme: light; }
+   the scrollbar gutter dark and it showed through our transparent track.
+   VS Code signals its theme two ways depending on version: a class on <body>
+   and a data attribute on <html>. Match both — the class alone missed it. */
+body.vscode-light,
+html[data-vscode-theme-kind="vscode-light"] { color-scheme: light; }
 body.vscode-dark,
-body.vscode-high-contrast { color-scheme: dark; }
+body.vscode-high-contrast,
+html[data-vscode-theme-kind^="vscode-dark"],
+html[data-vscode-theme-kind^="vscode-high-contrast"] { color-scheme: dark; }
+
+/* Belt and braces: paint the track ourselves rather than leaving it
+   transparent over whatever the UA decided to draw underneath. `transparent`
+   is why a mis-detected color-scheme showed up as a black gutter at all. */
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner { background: var(--surface); }
+/* Firefox / standard property — same two colours, no UA gutter either way. */
+* { scrollbar-color: var(--scrollbar-thumb) var(--surface); }
 
 /* Text selection */
 ::selection {
