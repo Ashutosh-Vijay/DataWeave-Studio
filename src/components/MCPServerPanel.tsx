@@ -45,6 +45,27 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
   // Two different ways to reach the same engine, and nothing in the UI said
   // the HTTP one existed. MCP is for AI clients; /run is for scripts.
   const [mode, setMode] = useState<'mcp' | 'http'>('mcp');
+
+  // VS Code manages the MCP server's lifecycle, but NOT the HTTP API — that one
+  // the user starts explicitly, same as on the desktop.
+  const [httpApi, setHttpApi] = useState<{ running: boolean; port: number | null }>({ running: false, port: null });
+  useEffect(() => {
+    if (isTauri) return;
+    invoke<{ running: boolean; port: number | null }>('http_api_status')
+      .then(setHttpApi)
+      .catch(() => { /* older extension build without the endpoint */ });
+  }, []);
+  const toggleHttpApi = async () => {
+    try {
+      const next = httpApi.running
+        ? await invoke<{ running: boolean; port: number | null }>('http_api_stop')
+        : await invoke<{ running: boolean; port: number | null }>('http_api_start', { port: 4675, advanced: false });
+      setHttpApi(next);
+      toast(next.running ? `HTTP API listening on 127.0.0.1:${next.port}` : 'HTTP API stopped', 'success');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e), 'error');
+    }
+  };
   const [copied, setCopied] = useState('');
   const [log, setLog] = useState<LogLine[]>([{ t: '—', m: 'Server stopped. Press Start to listen on the port.', kind: 'muted' }]);
   const lastReq = useRef(0);
@@ -196,8 +217,8 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
           <div className="flex items-center" style={{ height: 52, gap: 12, padding: '0 16px', borderBottom: '1px solid var(--line)', background: 'linear-gradient(180deg, var(--surface-2), var(--surface))' }}>
             <span className="grid place-items-center" style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', color: 'var(--accent)' }}>{plug(17)}</span>
             <div>
-              <div style={{ fontSize: 14.5, fontWeight: 600 }}>MCP Server</div>
-              <div style={{ fontSize: 10.5, color: 'var(--content-faint)' }}>Managed by VS Code — expose the DataWeave engine to Copilot agent mode</div>
+              <div style={{ fontSize: 14.5, fontWeight: 600 }}>Local Server</div>
+              <div style={{ fontSize: 10.5, color: 'var(--content-faint)' }}>MCP is managed by VS Code · the HTTP API you start yourself</div>
             </div>
             <div className="flex-1" />
             <span className="inline-flex items-center" title={vscodeRunning ? 'An agent is running the MCP server now' : 'No MCP server process running — VS Code starts it on demand'} style={{ gap: 7, height: 26, padding: '0 11px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, background: vscodeRunning ? 'color-mix(in oklch, #10b981 15%, transparent)' : 'color-mix(in oklch, #ef4444 11%, transparent)', border: '1px solid ' + (vscodeRunning ? 'color-mix(in oklch, #10b981 45%, transparent)' : 'color-mix(in oklch, #ef4444 36%, transparent)'), color: vscodeRunning ? '#10b981' : '#ef4444' }}>
@@ -248,7 +269,37 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
               <div><b>Safe mode (default):</b> a pure-transform sandbox — <code style={{ fontFamily: MONO }}>java!</code> / <code style={{ fontFamily: MONO }}>readUrl</code> / <code style={{ fontFamily: MONO }}>dw::io</code> are rejected (in scripts and imported modules). To lift the gate for FULL local access, set the env var {kbd('DWSTUDIO_MCP_ADVANCED=1')} on the server entry in <code style={{ fontFamily: MONO }}>mcp.json</code>.</div>
               <div><b>Encrypted secure config:</b> pass the key per-call as <code style={{ fontFamily: MONO }}>secureKey</code>, or set {kbd('DWSTUDIO_SECURE_KEY')} on the server. A <code style={{ fontFamily: MONO }}>{'![…]'}</code> value with no key is rejected (never run as ciphertext).</div>
               <div><b>Custom modules:</b> pass a <code style={{ fontFamily: MONO }}>modules</code> array so <code style={{ fontFamily: MONO }}>import x from MyModule</code> resolves.</div>
-              <div><b>Plain HTTP, no MCP client needed:</b> <code style={{ fontFamily: MONO }}>POST /run</code> on the same port takes <code style={{ fontFamily: MONO }}>{'{ script, payload, vars }'}</code> and returns the output. Pass a <code style={{ fontFamily: MONO }}>rows</code> array instead to run one script over many inputs and get one result each — a batch back-test from a CSV, without deploying an API just to try a transform. Same Safe-mode gate applies.</div>
+            </div>
+
+            {/* HTTP API — the one thing here VS Code does NOT manage, so it gets
+                its own start/stop rather than hiding in a paragraph. */}
+            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 10, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div className="flex items-center" style={{ gap: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--content-faint)', flex: 1 }}>HTTP API — run scripts from anything</div>
+                <span style={{ fontSize: 10.5, fontWeight: 600, color: httpApi.running ? '#10b981' : 'var(--content-faint)' }}>
+                  {httpApi.running ? `127.0.0.1:${httpApi.port}` : 'Stopped'}
+                </span>
+              </div>
+              <div style={{ fontSize: 11.5, lineHeight: 1.55, color: 'var(--content-muted)' }}>
+                <code style={{ fontFamily: MONO }}>POST /run</code> takes <code style={{ fontFamily: MONO }}>{'{ script, payload, vars }'}</code> and
+                returns the output. Send a <code style={{ fontFamily: MONO }}>rows</code> array instead and one script runs over every row —
+                a back-test across a CSV of real traffic, without deploying an API just to try a transform.
+                Loopback only, Safe mode applies, and it stays off until you start it.
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                <button style={httpApi.running ? btnGhost : btnPrimary} onClick={toggleHttpApi} className="hover:brightness-110">
+                  {httpApi.running ? '■ Stop HTTP API' : '▶ Start HTTP API'}
+                </button>
+                {httpApi.running && (
+                  <button style={btnGhost} className="hover:text-content" onClick={() => {
+                    navigator.clipboard.writeText(`curl -X POST http://127.0.0.1:${httpApi.port}/run -H 'Content-Type: application/json' -d '{"script":"%dw 2.0
+output application/json
+---
+{ n: sizeOf(payload) }","payload":[1,2,3]}'`);
+                    toast('curl copied', 'success');
+                  }}>⧉ Copy a curl</button>
+                )}
+              </div>
             </div>
             <p style={{ fontSize: 11, color: 'var(--content-faint)', lineHeight: 1.5 }}>
               Requires VS Code 1.101+. If <b>DataWeave Studio</b> doesn't appear in <i>MCP: List Servers</i>, reload the window.
@@ -285,8 +336,8 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
         <div className="flex items-center" style={{ height: 52, gap: 12, padding: '0 16px', borderBottom: '1px solid var(--line)', background: 'linear-gradient(180deg, var(--surface-2), var(--surface))' }}>
           <span className="grid place-items-center" style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', color: accent }}>{plug(17)}</span>
           <div>
-            <div style={{ fontSize: 14.5, fontWeight: 600 }}>MCP Server</div>
-            <div style={{ fontSize: 10.5, color: 'var(--content-faint)' }}>Model Context Protocol · expose the DataWeave engine to AI agents</div>
+            <div style={{ fontSize: 14.5, fontWeight: 600 }}>Local Server</div>
+            <div style={{ fontSize: 10.5, color: 'var(--content-faint)' }}>One engine, two ways in · MCP for AI agents, HTTP for your own scripts</div>
           </div>
           <div className="flex-1" />
           <span className="inline-flex items-center" style={{ gap: 7, height: 26, padding: '0 11px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, background: running ? 'color-mix(in oklch, var(--accent) 14%, transparent)' : 'var(--surface-2)', border: '1px solid ' + (running ? 'var(--accent-border)' : 'var(--line)'), color: running ? accent : 'var(--content-muted)' }}>
@@ -306,7 +357,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
           </div>
           <div className="flex-1 min-w-0">
             <div style={{ fontSize: 21, fontWeight: 700, letterSpacing: -0.4, lineHeight: 1.1 }}>{running ? 'Server is live' : 'Server is stopped'}</div>
-            <div style={{ fontSize: 12.5, color: 'var(--content-muted)', marginTop: 3 }}>{running ? 'Agents can run & validate scripts right now' : 'Start the server, then point your AI client at the endpoint below'}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--content-muted)', marginTop: 3 }}>{running ? 'Agents can run & validate scripts right now' : 'Start it, then connect an AI client over MCP or POST to /run from a script'}</div>
             <div className="flex items-center flex-wrap" style={{ marginTop: 14, gap: 8 }}>
               <div className="inline-flex items-center" style={{ gap: 9, height: 32, padding: '0 6px 0 12px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--line)', fontFamily: MONO, fontSize: 12.5, color: 'var(--content-secondary)' }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: running ? accent : 'var(--content-faint)', animation: running ? 'mcpDot 1.4s ease-in-out infinite' : 'none' }} />
@@ -331,7 +382,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
           <div className="flex flex-col" style={{ gap: 20, minWidth: 0 }}>
             {/* Endpoint */}
             <section style={card}>
-              {cardHead('Endpoint', 'Where AI clients connect. Bound to localhost — never exposed to your network.')}
+              {cardHead('Endpoint', 'Where clients connect — AI agents and scripts alike. Bound to localhost, never exposed to your network.')}
               <div className="flex items-center" style={{ gap: 14, padding: '13px 16px' }}>
                 <div className="flex-1">
                   <div style={{ fontSize: 12.5, fontWeight: 500 }}>Port</div>
@@ -469,6 +520,11 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
                     <pre style={{ margin: 0, padding: '13px 14px', fontFamily: MONO, fontSize: 11, lineHeight: 1.6, color: 'var(--content-secondary)', whiteSpace: 'pre', overflowX: 'auto' }}>{httpSample}</pre>
                   </div>
                   <div style={{ marginTop: 10, fontSize: 10.5, color: 'var(--content-faint)', lineHeight: 1.5 }}>
+                    <b>Any format, in and out.</b> Only the request envelope is JSON — set
+                    <code style={{ fontFamily: MONO }}>payloadMime</code> to <code style={{ fontFamily: MONO }}>application/xml</code>,
+                    <code style={{ fontFamily: MONO }}>application/csv</code> or anything else, and the output is whatever your
+                    script&rsquo;s <code style={{ fontFamily: MONO }}>output</code> directive says.
+                    <br /><br />
                     The engine compiles the script once and caches it — the first row costs about a second, every row
                     after runs in milliseconds. Safe mode applies here too. A worked Python example lives in
                     <code style={{ fontFamily: MONO }}> docs/examples/dw_backtest.py</code>.

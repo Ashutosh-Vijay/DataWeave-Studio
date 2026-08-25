@@ -303,8 +303,8 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
         <button
           data-tour="rail-mcp"
           onClick={onOpenMcp}
-          title="MCP Server — serve the engine to AI agents"
-          aria-label="MCP Server"
+          title="Local Server — run DataWeave from AI agents or your own scripts"
+          aria-label="Local Server"
           className={`relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors ${mcpRunning ? 'text-accent' : 'text-content-faint hover:text-content-secondary'}`}
         >
           <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">

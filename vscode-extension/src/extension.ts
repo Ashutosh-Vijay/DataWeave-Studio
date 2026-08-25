@@ -18,6 +18,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
 import { execFile } from 'child_process';
+import * as httpApi from './httpApi';
 import { DwServer, resolveJava, resolveServerJar, runDataweave, warmDataweave, detectJavaMajor, RunArgs, WarmArgs, formatDataweave} from './dwHost';
 import * as ws from './workspaceStore';
 import * as jarStore from './jarStore';
@@ -332,8 +333,20 @@ async function handleInvoke(
       warmupError = null;
       return true;
     }
+    case 'http_api_start':
+      return httpApi.start(
+        () => getServer(extensionRoot),
+        Number(args.port ?? httpApi.DEFAULT_PORT),
+        Boolean(args.advanced),
+      );
+    case 'http_api_stop':
+      return httpApi.stop().then(() => httpApi.status());
+    case 'http_api_status':
+      return httpApi.status();
     case 'dw_format':
-      return formatDataweave(server, String(args.script ?? ''));
+      // getServer, not `server` — the latter is null until something has
+      // started the engine, and formatting can be the first thing you do.
+      return formatDataweave(await getServer(extensionRoot), String(args.script ?? ''));
     case 'restart_engine': {
       const srv = await getServer(extensionRoot);
       await srv.restart();
@@ -549,6 +562,9 @@ function resolveSecurePropsJar(extensionRoot: string): string {
 }
 
 export function deactivate() {
+  // The HTTP API must not outlive the extension — a listener left behind after
+  // a reload would keep the port and answer nobody.
+  void httpApi.stop();
   if (server) {
     server.stop();
     server = null;

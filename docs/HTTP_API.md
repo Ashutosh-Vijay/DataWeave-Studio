@@ -9,18 +9,20 @@ The usual reason to want this: **testing a transform against real data.** Doing
 that in Mule means publishing an API just to exercise the script. Here you POST
 the script and the rows and get the results back.
 
-> **Desktop app only.** The VS Code extension talks MCP over stdio and opens no
-> port, so there's no HTTP endpoint there. See [VS Code](#vs-code) below.
+Available in **both** the desktop app and the VS Code extension. In each, it is
+off until you start it.
 
 ---
 
 ## Starting the server
 
-Left rail → **MCP Server** → **Start server**. Default port **4675**, bound to
-`127.0.0.1` — it is never exposed to your network.
+**Desktop:** left rail → **Local Server** → **Start server**.
 
-The server is off until you start it, and stays off between launches unless you
-start it again.
+**VS Code:** open the DataWeave Studio panel → **Local Server** → **Start HTTP
+API**. (The MCP half is managed by VS Code itself; the HTTP half you start.)
+
+Default port **4675**, bound to `127.0.0.1` — never exposed to your network. It
+stays off between launches unless you start it again.
 
 ---
 
@@ -72,6 +74,31 @@ rows is a few minutes.
 
 ---
 
+## Any format, in and out
+
+`Content-Type: application/json` applies to the **request envelope** — the JSON
+object carrying `script`, `payload` and `rows`. It says nothing about your data.
+
+Your payload can be any format the engine reads, and the output is whatever the
+script's `output` directive produces:
+
+```jsonc
+// POST /run  —  XML in, CSV out
+{
+  "script": "%dw 2.0\noutput application/csv\n---\npayload.*item map { id: $.@id, name: $.name }",
+  "payloadMime": "application/xml",
+  "payload": "<items><item id=\"1\"><name>Ada</name></item></items>"
+}
+```
+
+XML in, CSV out. A JSON **string** payload is passed to the engine verbatim, so
+XML and CSV aren't wrapped in quotes; a JSON object or array is serialised.
+
+The envelope has to be JSON for a security reason, not a technical one — see
+[Safe mode](#safe-mode).
+
+---
+
 ## Request fields
 
 | field | type | notes |
@@ -105,9 +132,21 @@ The same gate that protects the MCP tools applies here. In Safe mode (the
 default) a script using `import java!…`, `readUrl` or `dw::io` is **rejected
 before it runs** — every row returns `ok: false` with an explanation.
 
-Loopback is not a trust boundary: anything on your machine can reach this port.
-Leave Safe mode on unless you specifically need Java interop, and turn the
-server off when you're done with it.
+Loopback is not a trust boundary. Two things can reach this port that people
+often assume can't:
+
+- **Any process on your machine.** There's no authentication.
+- **Any web page you visit.** A page's JavaScript can POST to `127.0.0.1` even
+  though it can't read the reply — and here the side effect is *running code*.
+
+That second one is why the endpoint requires `Content-Type: application/json`
+and refuses any request carrying an `Origin` header. Requiring JSON takes the
+request out of CORS's "simple request" set, so a browser must preflight it, and
+the preflight is never answered. `curl`, Python and Node don't send `Origin` at
+all, so they're unaffected.
+
+Leave Safe mode on unless you specifically need Java interop, and stop the
+server when you're done with it.
 
 ---
 
@@ -134,11 +173,15 @@ a gap in the transform.
 
 ## VS Code
 
-Not available in the extension. Its MCP server speaks JSON-RPC over **stdio**
-(`src/mcp/server.ts`), which is what VS Code's MCP client expects — there's no
-listening port to attach an HTTP route to.
+Supported, with one difference worth knowing: the extension's **MCP** server
+speaks JSON-RPC over stdio and VS Code owns its lifecycle, so there's no
+start/stop for it. The **HTTP API** is separate and you start it yourself, from
+the same panel.
 
-Adding it would mean the extension host opening a TCP port, which is a different
-security proposition from a desktop app the user explicitly starts, so it isn't
-something to enable by default. If you need batch runs today, use the desktop
-app; both run the same engine and the same script.
+This matters more than it sounds. On a locked-down corporate network the desktop
+installer is often a blocked browser download — and its updater can't reach
+GitHub either — so the extension is the only build some people can run. Shipping
+this only on the desktop would have put it out of reach of the people most
+likely to need it.
+
+Same engine, same script, same results in both.
