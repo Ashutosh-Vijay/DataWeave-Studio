@@ -42,6 +42,9 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
   const [port, setPort] = useState(() => { try { return localStorage.getItem(PORT_KEY) || '4675'; } catch { return '4675'; } });
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<'claude' | 'cursor' | 'vscode'>('claude');
+  // Two different ways to reach the same engine, and nothing in the UI said
+  // the HTTP one existed. MCP is for AI clients; /run is for scripts.
+  const [mode, setMode] = useState<'mcp' | 'http'>('mcp');
   const [copied, setCopied] = useState('');
   const [log, setLog] = useState<LogLine[]>([{ t: '—', m: 'Server stopped. Press Start to listen on the port.', kind: 'muted' }]);
   const lastReq = useRef(0);
@@ -88,6 +91,16 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
   }, [open, onClose]);
 
   const endpoint = `http://127.0.0.1:${status.running && status.port ? status.port : port}/mcp`;
+
+  // Copy-paste-able curl for the HTTP tab. Uses the live port so it works as-is.
+  const runUrl = `http://127.0.0.1:${status.running && status.port ? status.port : port}/run`;
+  const httpSample =
+    `curl -X POST ${runUrl} \\\n` +
+    `  -H 'Content-Type: application/json' \\\n` +
+    `  -d '{\n` +
+    `        "script": "%dw 2.0\\noutput application/json\\n---\\n{ n: sizeOf(payload) }",\n` +
+    `        "payload": [1, 2, 3]\n` +
+    `      }'`;
 
   const toggleServer = async () => {
     if (busy) return;
@@ -427,7 +440,42 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
 
           {/* RIGHT */}
           <div className="flex flex-col" style={{ gap: 20, minWidth: 0 }}>
-            {/* Connect */}
+            {/* Protocol switch — MCP for agents, plain HTTP for scripts. */}
+            <div className="flex" style={{ gap: 3, padding: 3, borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
+              {([['mcp', 'AI clients (MCP)'], ['http', 'HTTP API']] as const).map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => setMode(id)}
+                  className="flex-1 cursor-pointer"
+                  style={{ height: 32, borderRadius: 8, border: 'none', fontSize: 12, fontWeight: 600, background: mode === id ? 'var(--surface-3)' : 'transparent', color: mode === id ? 'var(--content)' : 'var(--content-muted)' }}
+                >{label}</button>
+              ))}
+            </div>
+
+            {mode === 'http' ? (
+              <section style={card}>
+                {cardHead('Run scripts over HTTP', 'The same engine, behind a POST any script can call — no MCP client needed.')}
+                <div style={{ padding: '12px 14px', fontSize: 11.5, lineHeight: 1.6, color: 'var(--content-muted)' }}>
+                  <div style={{ marginBottom: 10 }}>
+                    Send a script and a payload, get the output back. Send a <code style={{ fontFamily: MONO }}>rows</code> array
+                    instead and one script runs over every row — a back-test across a CSV export of real traffic,
+                    without deploying an API just to try a transform.
+                  </div>
+                  <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 9, overflow: 'hidden' }}>
+                    <div className="flex items-center" style={{ gap: 7, padding: '7px 11px', borderBottom: '1px solid var(--line-subtle)', background: 'var(--surface-2)' }}>
+                      <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--content-faint)', flex: 1 }}>POST {endpoint.replace('/mcp', '/run')}</span>
+                      <button onClick={() => copy('http', httpSample)} className="inline-flex items-center cursor-pointer hover:text-content" style={{ gap: 5, height: 22, padding: '0 9px', border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: 6, color: 'var(--content-secondary)', fontSize: 10.5, fontWeight: 600 }}>{copied === 'http' ? 'Copied' : 'Copy'}</button>
+                    </div>
+                    <pre style={{ margin: 0, padding: '13px 14px', fontFamily: MONO, fontSize: 11, lineHeight: 1.6, color: 'var(--content-secondary)', whiteSpace: 'pre', overflowX: 'auto' }}>{httpSample}</pre>
+                  </div>
+                  <div style={{ marginTop: 10, fontSize: 10.5, color: 'var(--content-faint)', lineHeight: 1.5 }}>
+                    The engine compiles the script once and caches it — the first row costs about a second, every row
+                    after runs in milliseconds. Safe mode applies here too. A worked Python example lives in
+                    <code style={{ fontFamily: MONO }}> docs/examples/dw_backtest.py</code>.
+                  </div>
+                </div>
+              </section>
+            ) : (
             <section style={card}>
               {cardHead('Connect your AI client', 'Add this once. Your client then lists the tools to the model.')}
               <div style={{ padding: '12px 14px' }}>
@@ -446,6 +494,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
                 <div style={{ marginTop: 10, fontSize: 10.5, color: 'var(--content-faint)', lineHeight: 1.5 }}>{configHint}</div>
               </div>
             </section>
+            )}
 
             {/* Activity */}
             <section style={{ ...card, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 200 }}>
