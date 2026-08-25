@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "2.4.0"
+version = "2.5.0"
 description = "A fast, local workbench for DataWeave 2.0"
 authors = ["Ashutosh Vijay"]
 license = "MIT"

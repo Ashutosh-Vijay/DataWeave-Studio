@@ -14,20 +14,20 @@ interface Release { version: string; date: string; headline: string; highlights:
 // extension (1.x) ship on their own version numbers and cadence — keeping them
 // separate means a release that only touches one runtime never shows stale notes
 // in the other. Each list is newest-first; the dialog/toast pick by runtime.
-const SHARE_LINK_HIGHLIGHTS: Highlight[] = [
-  { title: 'Send your whole setup in one link', desc: 'Copy a link that carries the script, payload, variables, headers and query params — one request or the entire workspace. Whoever opens it gets an identical setup and can press Run, instead of a snippet they have to rebuild. The data rides in the part of the URL browsers never send to a server, so nothing is uploaded to create one. Import → From share link, or ⌘⇧I.' },
-  { title: 'Output and input options finally autocomplete', desc: 'Typing after “output application/json ” now suggests the real reader and writer options for all 16 formats — including skipNullOn, which was previously undiscoverable — correctly split between the ones that apply to input and to output.' },
-  { title: 'Lambda parameters know what they’re iterating', desc: 'In “payload.items map ((item) -> item.” the suggestions are now that element’s own fields, instead of nothing.' },
-  { title: '89 official cookbook recipes, every one verified', desc: 'MuleSoft’s cookbook examples are now in the recipe browser. Each one was executed against the bundled engine and kept only if it actually runs, with the engine’s own output as the expected result — so nothing you open is a broken snippet. Opening a recipe seeds its variables too.' },
-  { title: 'Compare: ignore doc:id and UUID noise', desc: 'Anypoint Studio stamps a fresh doc:id on every element it touches, so two identical flows diff as almost entirely different. The new Ignore IDs toggle blanks doc:id and UUID values on both sides so you see the real change. It masks a copy, never the text you pasted.' },
+const V25_HIGHLIGHTS: Highlight[] = [
+  { title: 'The editor knows your data’s shape', desc: 'Typing “payload.” now lists the fields your payload actually has — and inside a map, the lambda’s parameter resolves to the element type, so “item.” suggests that element’s own fields. Hover shows inferred types and signature help shows which argument you’re on. This comes from the DataWeave language service inside the bundled engine, the same one Anypoint Studio uses, so the types are the engine’s truth rather than a guess made from your sample.' },
+  { title: 'Run scripts from anything — no endpoint to deploy', desc: 'The Local Server now answers plain HTTP as well as MCP. POST a script and a payload to /run and get the output back; send a rows array and one script runs over every row. That turns “test this transform against a month of production data” into a Python loop instead of publishing an API to exercise it. The engine compiles once and caches, so the first row costs about a second and the rest run in milliseconds.' },
+  { title: 'Format now uses the real DataWeave formatter', desc: 'Alt+Shift+F ran a generic re-indent that did nothing to a script written on one line. It now calls the engine’s own formatter — the same one Anypoint Studio uses — which restructures the whole script. Payloads get a Format button too, for JSON and XML.' },
+  { title: 'Share links survive a blocked domain', desc: 'Copy share code — no link copies just the dws1… blob, so a share still works when a corporate filter blocks the site the link points at. Sharing is also findable now: a button in the top bar and a Share group in the command palette, rather than one item in a menu nobody opened.' },
+  { title: 'Smaller things that were quietly wrong', desc: 'cURL import mirrors the input format for CSV and multipart instead of always emitting JSON. p(‘key’) tolerates the lowercase “import p from mule” that legacy projects are full of. Brackets and quotes auto-close in the vars and headers fields. A blocked jar download says your network blocked it instead of “not a valid JAR”. And in VS Code, the black scrollbars and the swallowed first keystroke after a drag-select are both fixed.' },
 ];
 
 const DESKTOP_RELEASES: Release[] = [
-  { version: '2.4.0', date: 'August 2026', headline: 'Share a whole setup in one link', highlights: SHARE_LINK_HIGHLIGHTS },
+  { version: '2.5.0', date: 'August 2026', headline: 'Type-aware, and scriptable', highlights: V25_HIGHLIGHTS },
 ];
 
 const VSCODE_RELEASES: Release[] = [
-  { version: '1.4.0', date: 'August 2026', headline: 'Share a whole setup in one link', highlights: SHARE_LINK_HIGHLIGHTS },
+  { version: '1.5.0', date: 'August 2026', headline: 'Type-aware, and scriptable', highlights: V25_HIGHLIGHTS },
 ];
 
 // The running build picks its own track.

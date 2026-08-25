@@ -2,6 +2,22 @@
 
 All notable changes to DataWeave Studio for VS Code.
 
+## 1.5.0 — 2026-08-26
+
+**Type-aware, and scriptable.**
+
+- **The editor knows your data's shape.** Typing `payload.` now lists the fields your payload actually has, and inside a `map` the lambda's parameter resolves to the element type — so `item.` suggests that element's own fields. Hover shows inferred types; signature help shows which argument you're on. These come from the DataWeave language service inside the bundled engine, the same one Anypoint Studio uses, so the types are the engine's truth rather than a guess made by reading your sample. The old suggestions remain as an instant fallback while the engine warms up.
+- **Run scripts from anything — no endpoint to deploy.** The Local Server now answers plain HTTP as well as MCP. `POST /run` takes `{ script, payload, vars, attributes }` and returns the output; send a `rows` array and one script runs over every row, one result each. That turns "test this transform against a month of production data" into a Python loop instead of publishing an API just to exercise it. The engine compiles once and caches, so the first row costs about a second and the rest run in milliseconds. Loopback only, off until you start it, and Safe mode applies. There's a full reference inside the app — **Local Server → HTTP API → How to use it** — covering vars, headers, non-JSON payloads and a worked Python driver.
+- **Format uses the real DataWeave formatter.** `Alt+Shift+F` ran a generic re-indent that did nothing to a script written on one line. It now calls the engine's own formatter, which restructures the whole script. Payloads get a **Format** button too, for JSON and XML — done locally, so attributes, comments and CDATA survive untouched.
+- **Share links survive a blocked domain.** **Copy share code — no link** copies just the `dws1.…` blob, so a share still works when a corporate filter blocks the site the link points at. Sharing is findable now too: a button in the top bar and a Share group in the command palette, instead of one item in a menu nobody opened. A shared multipart body also shows its parts and their values on the web page instead of just naming them.
+- **cURL import mirrors the input format.** CSV in now means CSV out, and multipart in means multipart out — with the `{ parts: { name: { headers, content } } }` shape the engine actually requires, so the generated script runs rather than failing on a missing `parts` field.
+- **`p('key')` tolerates the import legacy projects actually have.** `import p from mule` in lowercase was left in place and then failed on a module that doesn't exist — after every `p()` call had already been rewritten, so the error named something the script no longer needed.
+- **Brackets auto-close in the vars, headers and query-param fields.** They're plain text boxes, not editors, so typing `{` left you to close it yourself. Now pairs, steps over closers, opens an indented block on Enter, and deletes both halves on Backspace. Quotes only pair where the field holds JSON.
+- **A blocked jar download says so.** A filtering proxy answers with an HTML block page, which failed the archive check and reported "not a valid JAR" — sending you after a corrupt file instead of a blocked request.
+- **Fixed: black scrollbars** on light themes, caused by the webview's colour scheme never being told which theme was active.
+- **Fixed: the first keystroke after a drag-select** being swallowed — select a word, type "payload", get "ayload".
+- **Fixed: the OpenAPI reader's Add button**, which promised "paste or open a spec file" and did neither.
+
 ## 1.4.0 — 2026-08-23
 
 **Share a whole setup in one link.**
