@@ -73,6 +73,8 @@ interface DwResponse {
   id: number;
   ok: boolean;
   output: string;
+  /** op=tooling returns `result` rather than `output` — shape varies by kind. */
+  result?: unknown;
   error: string | null;
   executionTimeMs: number;
   /** Captured `log(...)` output when the request set `trace`. */
@@ -95,7 +97,14 @@ interface DwRequest {
   modules?: { name: string; content: string }[];
   /** "run" (default) or "format" — format runs the engine's IDE formatter and
    *  returns the pretty-printed script in `output`. */
-  op?: 'run' | 'format';
+  op?: 'run' | 'format' | 'tooling';
+  /** op=tooling: which language-service query — completion | hover | signature |
+   *  typeOf | typeCheck | definition | rename. */
+  kind?: string;
+  /** op=tooling: character offset of the cursor in `script`. */
+  offset?: number;
+  /** op=tooling: sample payload, so `payload.` can be typed against its shape. */
+  payload?: string;
   /** Trace mode: capture the script's `log(...)` output into the response. */
   trace?: boolean;
 }
@@ -701,6 +710,34 @@ export async function formatDataweave(server: DwServer, script: string): Promise
   );
   if (!resp.ok) throw new Error(resp.error ?? 'Format failed');
   return resp.output;
+}
+
+/** Query the engine's IDE language service (op=tooling) — completion, hover and
+ *  signature help. Mirrors dw_server::tooling on the desktop so the shared React
+ *  UI can call `dw_tooling` in either runtime. */
+export async function toolingQuery(
+  server: DwServer,
+  kind: string,
+  script: string,
+  offset: number,
+  payload: string,
+): Promise<unknown> {
+  const resp = await server.run(
+    {
+      op: 'tooling',
+      kind,
+      offset,
+      payload,
+      script,
+      payloadPath: '',
+      payloadMime: 'application/json',
+      namedInputs: [],
+      outputMime: 'application/json',
+    },
+    15000,
+  );
+  if (!resp.ok) throw new Error(resp.error ?? 'tooling failed');
+  return resp.result ?? null;
 }
 
 export interface WarmArgs {

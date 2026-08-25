@@ -19,7 +19,7 @@ import * as os from 'os';
 import * as crypto from 'crypto';
 import { execFile } from 'child_process';
 import * as httpApi from './httpApi';
-import { DwServer, resolveJava, resolveServerJar, runDataweave, warmDataweave, detectJavaMajor, RunArgs, WarmArgs, formatDataweave} from './dwHost';
+import { DwServer, resolveJava, resolveServerJar, runDataweave, warmDataweave, detectJavaMajor, RunArgs, WarmArgs, formatDataweave, toolingQuery} from './dwHost';
 import * as ws from './workspaceStore';
 import * as jarStore from './jarStore';
 import * as moduleStore from './moduleStore';
@@ -343,6 +343,14 @@ async function handleInvoke(
       return httpApi.stop().then(() => httpApi.status());
     case 'http_api_status':
       return httpApi.status();
+    case 'dw_tooling':
+      return toolingQuery(
+        await getServer(extensionRoot),
+        String(args.kind ?? 'completion'),
+        String(args.script ?? ''),
+        Number(args.offset ?? 0),
+        String(args.payload ?? ''),
+      );
     case 'dw_format':
       // getServer, not `server` — the latter is null until something has
       // started the engine, and formatting can be the first thing you do.
