@@ -2,6 +2,8 @@
 
 Store ID: 9NWD4L4J7D92 · Listing: https://apps.microsoft.com/detail/9NWD4L4J7D92
 
+**LIVE on the Microsoft Store since 2026-08-24** (submission 1, first attempt, 2.4.0.0).
+
 ---
 
 ## Category

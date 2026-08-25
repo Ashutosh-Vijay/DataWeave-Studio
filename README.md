@@ -6,7 +6,7 @@ A local IDE for DataWeave 2.0 — run, test, and debug transforms without Anypoi
 
 Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor. Ships with a bundled JRE 17 and the DataWeave runtime — no Java install required.
 
-**[Download](https://ashutosh-vijay.dev/dataweave/)** | **[VS Code Extension](https://marketplace.visualstudio.com/items?itemName=ashutosh-vijay.dataweave-studio)** | **[Landing Page](https://ashutosh-vijay.dev/dataweave/)** | **[Releases](https://github.com/Ashutosh-Vijay/DataWeave-Studio/releases)**
+**[Microsoft Store](https://apps.microsoft.com/detail/9NWD4L4J7D92)** | **[VS Code Extension](https://marketplace.visualstudio.com/items?itemName=ashutosh-vijay.dataweave-studio)** | **[Download](https://ashutosh-vijay.dev/dataweave/)** | **[Releases](https://github.com/Ashutosh-Vijay/DataWeave-Studio/releases)**
 
 > **Also on the VS Code Marketplace.** The same engine and UI run inside a VS Code webview with a bundled Java runtime — install from the Marketplace, nothing else to set up. Handy on locked-down corporate machines where a desktop installer isn't an option. (This is *DataWeave Studio's own* extension — not MuleSoft's official one, which is what the comparisons below refer to.)
 
@@ -332,13 +332,15 @@ Quick access to all actions via **Cmd/Ctrl+K**. Grouped commands: Run, Workspace
 
 ## Installation
 
-Download the latest installer from the **[landing page](https://ashutosh-vijay.dev/dataweave/)** or the [Releases page](https://github.com/Ashutosh-Vijay/DataWeave-Studio/releases):
+**On Windows, install from the [Microsoft Store](https://apps.microsoft.com/detail/9NWD4L4J7D92).** Microsoft signs the package, so there's no SmartScreen prompt, no Smart App Control block, and updates arrive through the Store. Everything in the warning box below applies only to the direct downloads.
+
+Otherwise, download the latest installer from the **[landing page](https://ashutosh-vijay.dev/dataweave/)** or the [Releases page](https://github.com/Ashutosh-Vijay/DataWeave-Studio/releases):
 
 - **Windows** — `.exe` (NSIS installer), `.msi`, `_x64_portable.zip` (no install — unzip and run), or `_x64-setup.zip` (the installer, zipped, for proxy-blocked `.exe` downloads)
 - **macOS** — `.dmg` for Apple Silicon and Intel
 - **Linux** — `.AppImage`, `.deb`, or `.rpm`
 
-> **The app isn't code-signed yet** (a free side-project — Apple notarization is ~$99/yr, a Windows EV cert ~$300+/yr). Your OS warns on first launch because the publisher isn't *verified* — not because the app is unsafe. See **[SECURITY.md](SECURITY.md)** for exactly what the app does and doesn't do on your network.
+> **The direct downloads aren't code-signed** (the Store build is — see above). This is a free side-project: Apple notarization is ~$99/yr and a Windows EV cert ~$300+/yr. Your OS warns on first launch because the publisher isn't *verified* — not because the app is unsafe. See **[SECURITY.md](SECURITY.md)** for exactly what the app does and doesn't do on your network.
 >
 > Pick the path that matches what you're seeing:
 >
