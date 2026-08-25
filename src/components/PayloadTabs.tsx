@@ -7,6 +7,8 @@ import { NamedInput, MIME_OPTIONS, MimeType, MultipartPart } from '../types';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';
+import { canFormatPayload, formatPayload } from '../payloadFormat';
+import { toast } from './Toast';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
@@ -252,6 +254,17 @@ export const PayloadTabs = memo(function PayloadTabs({
   const currentContent = isPayloadTab ? payload : (activeInput?.content || '');
   const currentMime = isPayloadTab ? payloadMimeType : (activeInput?.mimeType || 'application/json');
 
+  /** Pretty-print the payload in place. Shown only for JSON/XML — "format"
+   *  is meaningless for CSV or plain text. */
+  const handleFormatPayload = () => {
+    const result = formatPayload(currentContent, currentMime);
+    if ('error' in result) {
+      toast({ title: 'Couldn’t format', message: result.error, variant: 'warn' });
+      return;
+    }
+    handleEditorChange(result.text);
+  };
+
   const handleEditorChange = (val: string | undefined) => {
     if (isPayloadTab) {
       onPayloadChange(val);
@@ -344,6 +357,17 @@ export const PayloadTabs = memo(function PayloadTabs({
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
+          )}
+          {/* Format — JSON and XML only, and only when there's something to
+              format. Same treatment as Load file: text formats only. */}
+          {canFormatPayload(currentMime) && currentContent.trim() !== '' && (
+            <button
+              onClick={handleFormatPayload}
+              className="h-6 inline-flex items-center text-[10.5px] text-content-faint hover:text-accent px-2 rounded-md border border-line hover:border-accent-border hover:bg-accent-dim transition-colors cursor-pointer"
+              title="Pretty-print this payload"
+            >
+              Format
+            </button>
           )}
           {/* Load file — only for text formats; binary formats have their
               own full-pane picker below. */}
