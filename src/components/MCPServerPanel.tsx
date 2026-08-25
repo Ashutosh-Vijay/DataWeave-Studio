@@ -61,7 +61,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
     try {
       const next = httpApi.running
         ? await invoke<{ running: boolean; port: number | null }>('http_api_stop')
-        : await invoke<{ running: boolean; port: number | null }>('http_api_start', { port: 4675, advanced: false });
+        : await invoke<{ running: boolean; port: number | null }>('http_api_start', { port: parseInt(port, 10) || 4675, advanced: false });
       setHttpApi(next);
       toast(next.running ? `HTTP API listening on 127.0.0.1:${next.port}` : 'HTTP API stopped', 'success');
     } catch (e) {
@@ -212,6 +212,9 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
     };
     const btnPrimary: React.CSSProperties = { height: 30, padding: '0 13px', borderRadius: 8, fontSize: 11.5, fontWeight: 600, cursor: 'pointer', border: '1px solid var(--accent-border)', background: 'var(--accent-dim)', color: 'var(--accent)' };
     const btnGhost: React.CSSProperties = { height: 30, padding: '0 13px', borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: 'pointer', border: '1px solid var(--line)', background: 'var(--surface-2)', color: 'var(--content-secondary)' };
+    // The badge reports the server the current tab is about — MCP's heartbeat
+    // says nothing about whether the HTTP API is listening.
+    const live = mode === 'http' ? httpApi.running : vscodeRunning;
     return (
       <div className="fixed inset-0 z-[95] flex items-center justify-center" style={{ padding: 22, background: 'color-mix(in oklch, var(--bg) 64%, transparent)', backdropFilter: 'blur(3px)' }} onClick={onClose}>
         <style>{`@keyframes mcpDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.78)}} @keyframes mcpRing{0%{transform:scale(.6);opacity:.6}100%{transform:scale(1.6);opacity:0}}`}</style>
@@ -223,12 +226,14 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
               <div style={{ fontSize: 10.5, color: 'var(--content-faint)' }}>MCP is managed by VS Code · the HTTP API you start yourself</div>
             </div>
             <div className="flex-1" />
-            <span className="inline-flex items-center" title={vscodeRunning ? 'An agent is running the MCP server now' : 'No MCP server process running — VS Code starts it on demand'} style={{ gap: 7, height: 26, padding: '0 11px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, background: vscodeRunning ? 'color-mix(in oklch, #10b981 15%, transparent)' : 'color-mix(in oklch, #ef4444 11%, transparent)', border: '1px solid ' + (vscodeRunning ? 'color-mix(in oklch, #10b981 45%, transparent)' : 'color-mix(in oklch, #ef4444 36%, transparent)'), color: vscodeRunning ? '#10b981' : '#ef4444' }}>
+            <span className="inline-flex items-center" title={mode === 'http'
+              ? (httpApi.running ? `HTTP API listening on 127.0.0.1:${httpApi.port}` : 'HTTP API stopped — start it below')
+              : (vscodeRunning ? 'An agent is running the MCP server now' : 'No MCP server process running — VS Code starts it on demand')} style={{ gap: 7, height: 26, padding: '0 11px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, background: live ? 'color-mix(in oklch, #10b981 15%, transparent)' : 'color-mix(in oklch, #ef4444 11%, transparent)', border: '1px solid ' + (live ? 'color-mix(in oklch, #10b981 45%, transparent)' : 'color-mix(in oklch, #ef4444 36%, transparent)'), color: live ? '#10b981' : '#ef4444' }}>
               <span style={{ position: 'relative', width: 8, height: 8 }}>
-                {vscodeRunning && <span style={{ position: 'absolute', inset: -3, borderRadius: '50%', border: '1.5px solid #10b981', animation: 'mcpRing 2.2s ease-out infinite' }} />}
-                <span style={{ display: 'block', width: 8, height: 8, borderRadius: '50%', background: vscodeRunning ? '#10b981' : '#ef4444', animation: vscodeRunning ? 'mcpDot 1.4s ease-in-out infinite' : 'none' }} />
+                {live && <span style={{ position: 'absolute', inset: -3, borderRadius: '50%', border: '1.5px solid #10b981', animation: 'mcpRing 2.2s ease-out infinite' }} />}
+                <span style={{ display: 'block', width: 8, height: 8, borderRadius: '50%', background: live ? '#10b981' : '#ef4444', animation: live ? 'mcpDot 1.4s ease-in-out infinite' : 'none' }} />
               </span>
-              {vscodeRunning ? 'Running' : 'Idle'}
+              {live ? 'Running' : 'Idle'}
             </span>
             <button onClick={onClose} className="grid place-items-center cursor-pointer hover:bg-surface-2 hover:text-content" style={{ width: 30, height: 30, border: 'none', background: 'transparent', borderRadius: 8, color: 'var(--content-faint)' }} title="Close (Esc)">
               <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
@@ -305,6 +310,16 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
                 <button style={httpApi.running ? btnGhost : btnPrimary} onClick={toggleHttpApi} className="hover:brightness-110">
                   {httpApi.running ? '■ Stop HTTP API' : '▶ Start HTTP API'}
                 </button>
+                <label className="inline-flex items-center" style={{ gap: 6, fontSize: 11.5, color: 'var(--content-muted)' }}>
+                  Port
+                  <input
+                    value={port}
+                    onChange={(e) => { setPort(e.target.value); try { localStorage.setItem(PORT_KEY, e.target.value); } catch { /* ignore */ } }}
+                    disabled={httpApi.running}
+                    title={httpApi.running ? 'Stop the API to change the port' : 'Port to listen on'}
+                    style={{ width: 62, height: 30, padding: '0 8px', borderRadius: 8, border: '1px solid var(--line)', background: httpApi.running ? 'var(--surface-2)' : 'var(--surface-input)', color: 'var(--content)', fontFamily: MONO, fontSize: 11.5 }}
+                  />
+                </label>
                 <button style={btnGhost} className="hover:text-content" onClick={() => setDocsOpen(true)}>? How to use it</button>
                 {httpApi.running && (
                   <button style={btnGhost} className="hover:text-content" onClick={() => {
