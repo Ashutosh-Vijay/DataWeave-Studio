@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke, isTauri } from '../bridge';
 import { toast } from './Toast';
+import { HttpApiDocs } from './HttpApiDocs';
 
 interface McpStatus { running: boolean; port: number | null; advanced: boolean; uptimeSecs: number; requests: number; decryptKeySet: boolean; }
 type LogLine = { t: string; m: string; kind: 'ok' | 'warn' | 'err' | 'muted' };
@@ -45,6 +46,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
   // Two different ways to reach the same engine, and nothing in the UI said
   // the HTTP one existed. MCP is for AI clients; /run is for scripts.
   const [mode, setMode] = useState<'mcp' | 'http'>('mcp');
+  const [docsOpen, setDocsOpen] = useState(false);
 
   // VS Code manages the MCP server's lifecycle, but NOT the HTTP API — that one
   // the user starts explicitly, same as on the desktop.
@@ -290,6 +292,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
                 <button style={httpApi.running ? btnGhost : btnPrimary} onClick={toggleHttpApi} className="hover:brightness-110">
                   {httpApi.running ? '■ Stop HTTP API' : '▶ Start HTTP API'}
                 </button>
+                <button style={btnGhost} className="hover:text-content" onClick={() => setDocsOpen(true)}>? How to use it</button>
                 {httpApi.running && (
                   <button style={btnGhost} className="hover:text-content" onClick={() => {
                     navigator.clipboard.writeText(`curl -X POST http://127.0.0.1:${httpApi.port}/run -H 'Content-Type: application/json' -d '{"script":"%dw 2.0
@@ -306,6 +309,7 @@ output application/json
             </p>
           </div>
         </div>
+        <HttpApiDocs open={docsOpen} onClose={() => setDocsOpen(false)} port={httpApi.port ?? 4675} />
       </div>
     );
   }
@@ -526,9 +530,13 @@ output application/json
                     script&rsquo;s <code style={{ fontFamily: MONO }}>output</code> directive says.
                     <br /><br />
                     The engine compiles the script once and caches it — the first row costs about a second, every row
-                    after runs in milliseconds. Safe mode applies here too. A worked Python example lives in
-                    <code style={{ fontFamily: MONO }}> docs/examples/dw_backtest.py</code>.
+                    after runs in milliseconds. Safe mode applies here too.
                   </div>
+                  <button
+                    onClick={() => setDocsOpen(true)}
+                    className="cursor-pointer hover:brightness-110"
+                    style={{ marginTop: 12, height: 30, padding: '0 13px', borderRadius: 8, fontSize: 11.5, fontWeight: 600, border: '1px solid var(--accent-border)', background: 'var(--accent-dim)', color: 'var(--accent)' }}
+                  >How do I send vars, headers and other formats?</button>
                 </div>
               </section>
             ) : (
@@ -573,6 +581,7 @@ output application/json
           </div>
         </div>
       </div>
+      <HttpApiDocs open={docsOpen} onClose={() => setDocsOpen(false)} port={status.port ?? (parseInt(port, 10) || 4675)} />
     </div>
   );
 }
