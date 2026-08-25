@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import yaml from 'js-yaml';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '../bridge';
@@ -579,8 +579,12 @@ export function OpenApiReader({ open: isOpen, onClose, onImport }: OpenApiReader
     }
   };
 
+  // Bumping this focuses the paste box — see PasteStage.
+  const [pasteFocus, setPasteFocus] = useState(0);
+
   // Clear just the current view (not the library) — the "Add" / "New spec" path.
   const newSpec = () => {
+    setPasteFocus((n) => n + 1);
     setText('');
     setError('');
     setSpec(null);
@@ -768,9 +772,16 @@ export function OpenApiReader({ open: isOpen, onClose, onImport }: OpenApiReader
             <button
               onClick={newSpec}
               className="inline-flex items-center gap-1 h-6 px-1.5 rounded text-[11px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer"
-              title="Add a spec (paste or open a file)"
+              title="Start a new spec and put the cursor in the paste box"
             >
-              <Icons.Plus size={12} /> Add
+              <Icons.Plus size={12} /> Paste
+            </button>
+            <button
+              onClick={openFile}
+              className="inline-flex items-center gap-1 h-6 px-1.5 rounded text-[11px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer"
+              title="Open a .json or .yaml spec from disk"
+            >
+              <Icons.Folder size={12} /> Open
             </button>
           </div>
           <div className="flex-1 overflow-y-auto py-1">
@@ -842,6 +853,7 @@ export function OpenApiReader({ open: isOpen, onClose, onImport }: OpenApiReader
               onChange={(v) => { setText(v); setError(''); }}
               onParse={() => doParse(text)}
               onOpenFile={openFile}
+              focusSignal={pasteFocus}
             />
           </div>
         ) : (
@@ -1023,14 +1035,22 @@ function SamplePanels({ generated, fromExample }: { generated: { payload: string
 }
 
 function PasteStage({
-  text, error, onChange, onParse, onOpenFile,
+  text, error, onChange, onParse, onOpenFile, focusSignal,
 }: {
   text: string;
   error: string;
   onChange: (v: string) => void;
   onParse: () => void;
   onOpenFile: () => void;
+  /** Bumped by the Library's "Add" button — clearing the editor is only half
+   *  of "paste a spec"; the caret has to land in it too. */
+  focusSignal: number;
 }) {
+  const areaRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (focusSignal > 0) areaRef.current?.focus();
+  }, [focusSignal]);
+
   return (
     <div className="p-4 flex flex-col gap-3">
       <div
@@ -1047,6 +1067,7 @@ function PasteStage({
         </button>
       </div>
       <textarea
+        ref={areaRef}
         value={text}
         onChange={(e) => onChange(e.target.value)}
         placeholder={'openapi: 3.0.0\ninfo:\n  title: Pet Store\npaths:\n  /pets:\n    get:\n      responses:\n        \'200\': { ... }'}
