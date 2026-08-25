@@ -2,7 +2,7 @@
 
 A local IDE for DataWeave 2.0 — run, test, and debug transforms without Anypoint Studio. Available as a **desktop app** or a **VS Code extension**.
 
-> **Anypoint Studio is 2 GB. The online playground can't go offline. MuleSoft's VS Code extension needs Java + Maven. DataWeave Studio bundles everything — desktop or extension — with the engine and a Java runtime built in.**
+> **Anypoint Studio is 2 GB. The playground container needs Docker Desktop, which most companies license commercially. The online playground means pasting production payloads into a website. MuleSoft's VS Code extension needs Java + Maven. DataWeave Studio bundles everything — desktop or extension — with the engine and a Java runtime built in, and never sends your data anywhere.**
 
 Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor. Ships with a bundled JRE 17 and the DataWeave runtime — no Java install required.
 

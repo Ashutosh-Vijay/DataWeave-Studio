@@ -8,7 +8,13 @@ No Anypoint Studio. No Maven project, no `pom.xml`, no scenario files to hand-wr
 
 ## Why this exists
 
-Testing a four-line transform shouldn't mean booting a 2 GB IDE or pasting work data into a browser playground. DataWeave Studio keeps the whole loop local and fast: the engine starts warm in the background, so by the time you've typed your script, runs are instant.
+Testing a four-line transform currently means picking one of three bad options:
+
+- **Boot Anypoint Studio** — 2 GB, minutes to start, and you need a Mule project before you can evaluate an expression.
+- **Run the playground container** — you need Docker Desktop installed and running, which most companies license commercially and plenty of IT departments don't allow at all.
+- **Use the online playground** — which means pasting production-shaped payloads into a website. That's the one that should stop you: customer records, account numbers, tokens in headers. Fine for a toy example, not for the data you actually debug.
+
+This is the fourth option. It installs like any extension, runs entirely on your machine, and never sends your data anywhere — there's no account, no telemetry, and no network call required to run a script. The engine starts warm in the background, so by the time you've typed your script, runs are instant.
 
 And because it runs MuleSoft's actual DataWeave runtime — not a reimplementation — what works here works in your Mule app.
 
@@ -20,6 +26,7 @@ And because it runs MuleSoft's actual DataWeave runtime — not a reimplementati
 - **Config & Secure Properties, fully offline** — paste `application.yaml` and `secure-config.yaml` (with `![encrypted]` values), provide the key at runtime, and `${key}` / `${secure::key}` resolve before each run. Includes a standalone encrypt/decrypt tool compatible with MuleSoft's secure-properties-tool (AES, Blowfish, DES, DESede, RC2). Keys never touch disk.
 - **Message Flow designer** — chain Set Payload, Transform, Set Variable, HTTP, Salesforce, Database, and Logger nodes. Run the whole pipeline or step through node by node, inspecting payload, variables, and attributes at each stage. Imports real `<flow>` XML from your Mule projects.
 - **Tests with visual diff** — snapshot an expected output per request, re-run anytime, see exactly what changed when something breaks.
+- **Share a whole setup in one link** — copy a link carrying the script, payload, variables and headers, for one request or the entire workspace. The other person opens it and presses Run. The data rides in the part of the URL browsers never send to a server, so nothing is uploaded to create one — and if your network blocks the site, **Copy code only** works without a URL at all.
 - **cURL import** — paste any `curl` command (from Postman, browser devtools, a teammate); method, headers, params, and body fill themselves in, with a starter script generated to match.
 - **An editor that knows DataWeave** — syntax highlighting, autocomplete for all 309 functions with signature hints, hover docs, error markers on the failing line, formatting, snippets, and a built-in function reference browser.
 - **DW 1.0 → 2.0 migration** — paste a legacy script, get the converted version with a side-by-side diff.
@@ -45,7 +52,12 @@ Everything runs on your machine. No telemetry, no analytics, no accounts, no net
 
 ## Prefer a standalone app?
 
-The same tool ships as a desktop app for Windows, macOS, and Linux — same engine, same features, no VS Code required: **[ashutosh-vijay.dev/dataweave](https://ashutosh-vijay.dev/dataweave/)**
+The same tool ships as a desktop app for Windows, macOS, and Linux — same engine, same features, no VS Code required.
+
+- **Windows:** [get it from the Microsoft Store](https://apps.microsoft.com/detail/9NWD4L4J7D92) — signed by Microsoft, so no SmartScreen prompt and updates arrive automatically.
+- **macOS, Linux, or a direct installer:** [ashutosh-vijay.dev/dataweave](https://ashutosh-vijay.dev/dataweave/)
+
+If your workplace blocks the Store or unsigned installers, this extension is the way in — it needs no admin rights and no installer.
 
 ## Feedback
 
