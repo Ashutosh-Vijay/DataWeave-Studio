@@ -10,6 +10,7 @@ import { convertAllPropertyCalls, findPropertyCalls } from '../dataweaveProperty
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';
+import { invoke } from '../bridge';
 
 // Lazy-init a singleton DOM node attached directly to document.body for
 // Monaco's overflow widgets (hover popovers, completion menus). Attaching
@@ -138,11 +139,30 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
       if (!editor) return;
       const model = editor.getModel();
       if (!model) return;
-      const lineCount = model.getLineCount();
-      editor.setSelection({ startLineNumber: 1, startColumn: 1, endLineNumber: lineCount, endColumn: model.getLineMaxColumn(lineCount) });
-      const action = editor.getAction('editor.action.reindentselectedlines') || editor.getAction('editor.action.reindentlines');
-      if (action) action.run();
-      editor.setPosition({ lineNumber: 1, column: 1 });
+
+      // Monaco's re-indent, kept as the fallback for a cold engine or a script
+      // that doesn't parse — it only fixes leading whitespace.
+      const reindent = () => {
+        const lineCount = model.getLineCount();
+        editor.setSelection({ startLineNumber: 1, startColumn: 1, endLineNumber: lineCount, endColumn: model.getLineMaxColumn(lineCount) });
+        const action = editor.getAction('editor.action.reindentselectedlines') || editor.getAction('editor.action.reindentlines');
+        if (action) action.run();
+        editor.setPosition({ lineNumber: 1, column: 1 });
+      };
+
+      // The engine ships MuleSoft's own DataWeave formatter — the same one
+      // Anypoint Studio uses. It was reachable only from the MCP server, so an
+      // AI assistant got real formatting while ⌥⇧F got a generic re-indent.
+      const source = model.getValue();
+      invoke<string>('dw_format', { script: source })
+        .then((formatted) => {
+          if (!formatted || formatted === source) return;
+          const position = editor.getPosition();
+          // executeEdits rather than setValue, so Ctrl+Z undoes the format.
+          editor.executeEdits('engine-format', [{ range: model.getFullModelRange(), text: formatted }]);
+          if (position) editor.setPosition(position);
+        })
+        .catch(reindent);
     },
     focus: () => editorRef.current?.focus(),
     insertAtCursor: (text: string) => {

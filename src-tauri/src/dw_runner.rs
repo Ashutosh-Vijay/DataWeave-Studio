@@ -658,6 +658,14 @@ pub fn cancel_dataweave(state: tauri::State<'_, RunState>) -> Result<bool, Strin
 /// so the splash/banner reflect the restart, then stops and respawns the
 /// server on a background thread — the spawn + ready handshake takes ~1-3s and
 /// must not block the UI thread.
+/// Pretty-print a script with the engine's own DataWeave formatter — the same
+/// one Anypoint Studio uses. Previously reachable only from the MCP server, so
+/// the editor's Format action fell back to Monaco's generic re-indent.
+#[tauri::command]
+pub fn dw_format(app: tauri::AppHandle, script: String) -> Result<String, String> {
+    crate::dw_server::format(&app, &script)
+}
+
 /// Ask the engine's language service about a position in the script. The editor
 /// calls this for completion/hover/signature help; it falls back to the static
 /// catalog when the engine isn't warm yet, so typing never blocks on it.

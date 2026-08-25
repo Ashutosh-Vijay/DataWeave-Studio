@@ -90,6 +90,7 @@ pub fn run() {
             dw_runner::get_warmup_status,
             dw_runner::restart_engine,
             dw_runner::dw_tooling,
+            dw_runner::dw_format,
             dw_runner::get_log_dir,
             secure_properties::secure_properties_invoke,
             workspace::save_workspace,

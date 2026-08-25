@@ -18,7 +18,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
 import { execFile } from 'child_process';
-import { DwServer, resolveJava, resolveServerJar, runDataweave, warmDataweave, detectJavaMajor, RunArgs, WarmArgs } from './dwHost';
+import { DwServer, resolveJava, resolveServerJar, runDataweave, warmDataweave, detectJavaMajor, RunArgs, WarmArgs, formatDataweave} from './dwHost';
 import * as ws from './workspaceStore';
 import * as jarStore from './jarStore';
 import * as moduleStore from './moduleStore';
@@ -332,6 +332,8 @@ async function handleInvoke(
       warmupError = null;
       return true;
     }
+    case 'dw_format':
+      return formatDataweave(server, String(args.script ?? ''));
     case 'restart_engine': {
       const srv = await getServer(extensionRoot);
       await srv.restart();
