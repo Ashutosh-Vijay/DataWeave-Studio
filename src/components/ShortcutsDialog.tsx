@@ -1,61 +1,13 @@
 import { useEffect } from 'react';
 import { Icons } from './Icons';
+import { SHORTCUT_GROUPS } from '../shortcuts';
 
 interface ShortcutsDialogProps {
   open: boolean;
   onClose: () => void;
 }
 
-interface Shortcut {
-  keys: string[];
-  label: string;
-}
 
-const GROUPS: { title: string; items: Shortcut[] }[] = [
-  {
-    title: 'Run & execute',
-    items: [
-      { keys: ['⌘', '↵'], label: 'Run transform' },
-      { keys: ['⌘', '⇧', 'R'], label: 'Toggle auto-run' },
-      { keys: ['⌘', '.'], label: 'Cancel running' },
-    ],
-  },
-  {
-    title: 'Workspace',
-    items: [
-      { keys: ['⌘', 'N'], label: 'New' },
-      { keys: ['⌘', 'S'], label: 'Save' },
-      { keys: ['⌘', 'O'], label: 'Open workspace…' },
-      { keys: ['⌘', 'D'], label: 'Duplicate' },
-    ],
-  },
-  {
-    title: 'Navigation',
-    items: [
-      { keys: ['⌘', 'K'], label: 'Command palette' },
-      { keys: ['⌘', '/'], label: 'Keyboard shortcuts (this dialog)' },
-    ],
-  },
-  {
-    title: 'Appearance',
-    items: [
-      { keys: ['⌘', '⇧', '1'], label: 'Switch to Workbench' },
-      { keys: ['⌘', '⇧', '2'], label: 'Switch to Playground' },
-      { keys: ['⌘', '⇧', 'T'], label: 'Toggle theme' },
-      { keys: ['⌘', 'B'], label: 'Toggle sidebar' },
-      { keys: ['⌘', ','], label: 'Open settings' },
-    ],
-  },
-  {
-    title: 'Import & tools',
-    items: [
-      { keys: ['⌘', '⇧', 'I'], label: 'Import cURL' },
-      { keys: ['⌘', 'L'], label: 'Snippets library' },
-      { keys: ['⌘', '⇧', 'E'], label: 'Secure Properties tool' },
-      { keys: ['⌥', '⇧', 'F'], label: 'Format script' },
-    ],
-  },
-];
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
@@ -136,7 +88,7 @@ export function ShortcutsDialog({ open, onClose }: ShortcutsDialogProps) {
 
         {/* Body — 2 column grid of groups */}
         <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-          {GROUPS.map((g) => (
+          {SHORTCUT_GROUPS.map((g) => (
             <div key={g.title}>
               <div
                 className="text-[10.5px] font-semibold uppercase tracking-[0.5px] mb-2"
@@ -177,7 +129,7 @@ export function ShortcutsDialog({ open, onClose }: ShortcutsDialogProps) {
             color: 'var(--content-faint)',
           }}
         >
-          <span>{GROUPS.reduce((n, g) => n + g.items.length, 0)} shortcuts</span>
+          <span>{SHORTCUT_GROUPS.reduce((n, g) => n + g.items.length, 0)} shortcuts</span>
           <span className="flex-1" />
           <Kbd>Esc</Kbd>
           <span className="ml-2">to close</span>

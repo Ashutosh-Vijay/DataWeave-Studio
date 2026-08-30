@@ -3,6 +3,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { logoUrl } from '../assets';
 import { Icons } from './Icons';
 import { TARGETS } from '../targetRuntime';
+import { SHORTCUT_GROUPS } from '../shortcuts';
 import { ConfirmDialog } from './ConfirmDialog';
 import { MIME_OPTIONS, MimeType } from '../types';
 import { notifyEditorFontChanged } from '../hooks/useEditorFont';
@@ -700,44 +701,16 @@ function AdvancedPanel() {
 }
 
 function ShortcutsList() {
-  const groups: { title: string; items: [string, string[]][] }[] = [
-    { title: 'Run & execute', items: [
-      ['Run transform', ['⌘', '↵']],
-      ['Toggle auto-run', ['⌘', '⇧', 'R']],
-      ['Cancel running', ['⌘', '.']],
-    ]},
-    { title: 'Workspace', items: [
-      ['New', ['⌘', 'N']],
-      ['Save', ['⌘', 'S']],
-      ['Open workspace…', ['⌘', 'O']],
-      ['Duplicate', ['⌘', 'D']],
-    ]},
-    { title: 'Navigation', items: [
-      ['Command palette', ['⌘', 'K']],
-    ]},
-    { title: 'Appearance', items: [
-      ['Switch to Workbench', ['⌘', '⇧', '1']],
-      ['Switch to Playground', ['⌘', '⇧', '2']],
-      ['Toggle theme', ['⌘', '⇧', 'T']],
-      ['Toggle sidebar', ['⌘', 'B']],
-      ['Open settings', ['⌘', ',']],
-    ]},
-    { title: 'Import & tools', items: [
-      ['Import cURL', ['⌘', '⇧', 'I']],
-      ['Encrypt value', ['⌘', '⇧', 'E']],
-      ['Format script', ['⌥', '⇧', 'F']],
-    ]},
-  ];
   return (
     <div className="grid grid-cols-2 gap-x-7 gap-y-6">
-      {groups.map((g) => (
+      {SHORTCUT_GROUPS.map((g) => (
         <div key={g.title}>
           <div className="text-[10.5px] uppercase tracking-[0.5px] font-semibold text-content-faint mb-2">{g.title}</div>
-          {g.items.map(([label, keys]) => (
-            <div key={label} className="flex items-center gap-2.5 py-1.5 border-b border-line-subtle">
-              <span className="flex-1 text-[12.5px] text-content-secondary">{label}</span>
+          {g.items.map((it) => (
+            <div key={it.label} className="flex items-center gap-2.5 py-1.5 border-b border-line-subtle">
+              <span className="flex-1 text-[12.5px] text-content-secondary">{it.label}</span>
               <div className="flex gap-[3px]">
-                {keys.map((k, i) => (
+                {it.keys.map((k, i) => (
                   <span key={i} className="min-w-5 h-5 px-1.5 inline-flex items-center justify-center font-mono text-[11px] text-content-secondary bg-surface-3 border border-line-subtle rounded">
                     {k}
                   </span>

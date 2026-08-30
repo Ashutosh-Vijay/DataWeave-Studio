@@ -1062,10 +1062,12 @@ function App() {
       } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'T' || e.key === 't')) {
         e.preventDefault();
         toggle();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '.') {
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '.' && runner.isRunning) {
+        // Cancel a running script. Only claimed while something IS running —
+        // ⌘. is also Monaco's Quick Fix, and swallowing it unconditionally left
+        // the editor's code actions reachable only from the lightbulb.
         e.preventDefault();
-        // Cancel a running script (context now lives inline, not in a drawer).
-        if (runner.isRunning) runner.cancel();
+        runner.cancel();
       } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'o' || e.key === 'O')) {
         e.preventDefault();
         setOpenWsOpen((v) => !v); // toggle — ⌘O closes the manager too
@@ -1260,12 +1262,14 @@ function App() {
           {/* Sharing had no visible affordance at all — it lived only in the
               workspace menu, which is where it went unfound. One click copies
               the current request; ⌘K → "share" has the whole-workspace variant. */}
+          <span data-tour="share" className="inline-flex">
           <IconBtn
             title="Copy a share link for this request (⌘K → “share” for more)"
             onClick={handleCopyShareLink}
           >
             <Icons.Share size={15} />
           </IconBtn>
+          </span>
           <IconBtn title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggle}>
             {isDark ? <Icons.Sun size={15} /> : <Icons.Moon size={15} />}
           </IconBtn>
