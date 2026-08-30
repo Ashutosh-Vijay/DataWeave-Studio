@@ -11,7 +11,8 @@ import org.mule.weave.v2.parser.ast.variables.NameIdentifier
 import org.mule.weave.v2.parser.location.WeaveLocation
 import org.mule.weave.v2.runtime._
 import org.mule.weave.v2.sdk.ClassLoaderWeaveResourceResolver
-import org.mule.weave.v2.editor.{WeaveToolingService, SimpleVirtualFileSystem, SpecificModuleResourceResolver, ImplicitInput}
+import org.mule.weave.v2.editor.{WeaveToolingService, SimpleVirtualFileSystem, SpecificModuleResourceResolver, ImplicitInput, WeaveTextDocument, WeaveDocumentToolingService, ValidationMessage}
+import org.mule.weave.v2.completion.{Template, LiteralElement, PlaceHolderElement, ChoicePlaceHolderElement, EndPlaceHolderElement}
 import org.mule.weave.v2.ts.{WeaveType, ObjectType, KeyValuePairType, KeyType, NameType, ArrayType, StringType, NumberType, BooleanType, AnyType}
 import org.mule.weave.v2.parser.ast.QName
 import org.mule.weave.v2.completion.{DataFormatDescriptorProvider, DataFormatDescriptor}
@@ -345,6 +346,79 @@ object DwServer {
     o
   }
 
+  /** A document the engine's own quick fixes and refactors can edit.
+   *
+   *  QuickFixAction.run and CodeRefactor.run both mutate a WeaveTextDocument in
+   *  place rather than handing back a patch, so the only way to learn what a fix
+   *  actually does is to give it a document and read the text back afterwards.
+   */
+  private class StringDocument(initial: String) extends WeaveTextDocument {
+    private val buf = new StringBuilder(initial)
+    def result(): String = buf.toString()
+    private def clamp(i: Int): Int = math.max(0, math.min(i, buf.length))
+    override def insert(text: String, location: Int): Unit = buf.insert(clamp(location), text)
+    override def delete(startLocation: Int, endLocation: Int): Unit = {
+      val a = clamp(startLocation); val b = math.max(a, clamp(endLocation))
+      buf.delete(a, b)
+    }
+    override def text(startLocation: Int, endLocation: Int): String = {
+      val a = clamp(startLocation); val b = math.max(a, clamp(endLocation))
+      buf.substring(a, b)
+    }
+    override def runTemplate(template: Template, location: Int): Unit =
+      insert(renderTemplate(template), location)
+  }
+
+  /** Templates carry placeholders an interactive editor would let you tab
+   *  through. There is no such affordance over stdio, so a placeholder collapses
+   *  to its default value and the user edits it afterwards like any other text. */
+  private def renderTemplate(template: Template): String = {
+    val sb = new StringBuilder
+    template.elements.foreach {
+      case LiteralElement(content)        => sb.append(content)
+      case PlaceHolderElement(default)    => sb.append(default.getOrElse(""))
+      case ChoicePlaceHolderElement(opts) => sb.append(opts.headOption.getOrElse(""))
+      case EndPlaceHolderElement()        => ()
+    }
+    sb.toString()
+  }
+
+  /** Which checker output is worth showing. See the long note in the typeCheck
+   *  branch - both families were measured against this engine, not guessed at. */
+  private def isCheckerNoise(msg: String, hasPayloadType: Boolean): Boolean = {
+    val ambient = if (hasPayloadType) Seq("vars", "attributes") else Seq("vars", "attributes", "payload")
+    msg.startsWith("Auto-Coercing type from") ||
+      msg.startsWith("Multiple valid coercion functions") ||
+      ambient.exists(n => msg.startsWith("Unable to resolve reference of: `" + n + "`"))
+  }
+
+  /** Errors then warnings, noise removed - the ONE ordering shared by typeCheck,
+   *  quickFixes and applyQuickFix, so an index means the same thing in all three. */
+  private def visibleMessages(doc: WeaveDocumentToolingService, hasPayloadType: Boolean): Seq[(ValidationMessage, String)] = {
+    val msgs = doc.typeCheck()
+    val all = msgs.errorMessage.toSeq.map(m => (m, "error")) ++ msgs.warningMessage.toSeq.map(m => (m, "warning"))
+    all.filterNot { case (vm, _) => isCheckerNoise(vm.message.message, hasPayloadType) }
+  }
+
+  /** Does this text parse at all? Used to tell a good quick-fix result from one
+   *  the engine mangled - parseCheck is the cheap syntax-only pass. */
+  private def parsesCleanly(vfs: SimpleVirtualFileSystem, service: WeaveToolingService, text: String): Boolean = {
+    try {
+      vfs.updateContent("/main.dwl", text)
+      service.open("/main.dwl", new ImplicitInput(), scala.None).parseCheck().errorMessage.isEmpty
+    } catch { case _: Throwable => false }
+  }
+
+  /** `fun name(args): SomeType = body` -> `fun name(args) = body`. Only touches a
+   *  line that is actually a function declaration with an annotation. */
+  private def stripReturnType(line: String): String = {
+    val re = """^(\s*fun\s+[^(]+\([^)]*\))\s*:\s*.*?(\s=\s.*)$""".r
+    line match {
+      case re(head, tail) => head + tail
+      case _              => line
+    }
+  }
+
   private def toolingResponse(id: Int, req: JsonObject, started: Long): String = {
     val source = req.getString("script", "")
     val offset = if (req.get("offset") == null) 0 else req.get("offset").asInt()
@@ -492,59 +566,167 @@ object DwServer {
           payload.add("regions", arr)
 
         case "typeCheck" =>
-          // The engine's own type checker, which is what makes this worth
-          // wiring: it catches a typo-ed function, an undefined variable, a
-          // wrong argument count or a syntax error before the script is ever
-          // run, rather than at eval time.
+          // The engine's own type checker AND its linter, which both ride the
+          // same compilation. The inspectors (sizeOf-equals-zero, unnecessary
+          // if, double negation, deprecated using(), unused import, ...) are
+          // constructed inside WeaveDocumentToolingService itself, so their
+          // findings arrive here as warnings without any extra wiring.
           //
-          // It is honest but not tactful, so two families of message are
-          // dropped rather than shown. Both were measured against this engine,
-          // not guessed at:
+          // Two families are dropped rather than shown. Both were measured
+          // against this engine, not guessed at:
           //
           //  * "Auto-Coercing type from: `Any` to: X" - emitted once per
           //    candidate coercion whenever a value's type isn't known. A
           //    three-line script reading one absent field produced 33 of them.
-          //    They describe the type lattice, not a problem with the script.
           //
           //  * "Unable to resolve reference of: `payload`" - only true because
           //    WE didn't hand over an input type. Every XML, CSV or binary
           //    payload would otherwise light up a correct script with hard
-          //    errors on every `payload` reference. `vars` and `attributes` are
-          //    never given types at all, so they are always exempt.
+          //    errors on every `payload` reference.
           //
-          // Everything else passes through, which is the part worth having.
-          val ambient: Set[String] =
-            if (hasPayloadType) Set("vars", "attributes")
-            else Set("vars", "attributes", "payload")
-          def isNoise(msg: String): Boolean =
-            msg.startsWith("Auto-Coercing type from") ||
-              msg.startsWith("Multiple valid coercion functions") ||
-              ambient.exists(n => msg.startsWith("Unable to resolve reference of: `" + n + "`"))
-
-          val msgs = doc.typeCheck()
+          // `code` is the message's own class name, which reads like a lint rule
+          // id (UnnecessaryIfBlockMessage, InvalidReferenceMessage) and lets the
+          // editor tell a style hint from a type error without matching on prose.
           val arr = new com.eclipsesource.json.JsonArray()
-          def addAll(items: Array[org.mule.weave.v2.editor.ValidationMessage], sev: String): Unit =
-            items.foreach { vm =>
-              val text = vm.message.message
-              if (!isNoise(text)) {
-                val o = new JsonObject()
-                o.add("severity", sev)
-                o.add("location", locJson(vm.location))
-                o.add("message", text)
-                val fixes = new com.eclipsesource.json.JsonArray()
-                vm.quickFix.foreach { qf =>
-                  val f = new JsonObject()
-                  f.add("name", qf.name)
-                  f.add("description", qf.description)
-                  fixes.add(f)
-                }
-                o.add("quickFixes", fixes)
-                arr.add(o)
+          visibleMessages(doc, hasPayloadType).foreach { case (vm, sev) =>
+            val o = new JsonObject()
+            o.add("severity", sev)
+            o.add("location", locJson(vm.location))
+            o.add("message", vm.message.message)
+            o.add("code", vm.message.getClass.getSimpleName)
+            // Ask for fixes rather than reading vm.quickFix: getQuickFix
+            // SYNTHESISES them for common shapes (an unresolved reference gets
+            // create-variable / create-function), where the prepopulated array
+            // is usually empty.
+            val fixes = new com.eclipsesource.json.JsonArray()
+            try {
+              doc.getQuickFix(vm.message).foreach { qf =>
+                val f = new JsonObject()
+                f.add("name", qf.name)
+                f.add("description", qf.description)
+                fixes.add(f)
               }
-            }
-          addAll(msgs.errorMessage, "error")
-          addAll(msgs.warningMessage, "warning")
+            } catch { case _: Throwable => () }
+            o.add("quickFixes", fixes)
+            arr.add(o)
+          }
           payload.add("messages", arr)
+
+        case "applyQuickFix" =>
+          // Stateless by necessity: a QuickFixAction is a live object built
+          // during a type-check and cannot travel over stdio. So we re-run the
+          // check on the same text, take the same message by index, and run its
+          // Nth fix. Deterministic as long as the script is unchanged between
+          // the two calls, which it is - the editor sends its current model both
+          // times.
+          val mi = if (req.get("messageIndex") == null) 0 else req.get("messageIndex").asInt()
+          val fi = if (req.get("fixIndex") == null) 0 else req.get("fixIndex").asInt()
+          val msgs = visibleMessages(doc, hasPayloadType)
+          if (mi < 0 || mi >= msgs.size) {
+            return errorResponse(id, "No message at index " + mi, started)
+          }
+          val fixes = doc.getQuickFix(msgs(mi)._1.message)
+          if (fi < 0 || fi >= fixes.length) {
+            return errorResponse(id, "No quick fix at index " + fi, started)
+          }
+          val document = new StringDocument(source)
+          fixes(fi).quickFix.run(document)
+          var produced = document.result()
+
+          // "Create Function" infers the return type from the CALL SITE. In an
+          // unconstrained position it writes none, which is what you want. Passed
+          // to a single-signature function it writes something genuinely useful
+          // (upper(f(1)) gives `: String | Null`). But inside a heavily overloaded
+          // operator such as `++`, it emits the union of every type that operator
+          // accepts - and that union carries type variables (`T`, `Q <: Object`)
+          // which are not bound in the generated scope, so the signature does not
+          // parse.
+          //
+          // Rather than pattern-match for that shape, just check: if the engine's
+          // own output no longer parses, drop the return annotation and see
+          // whether that fixes it. A missing return type is always valid
+          // DataWeave; a broken one never is. If stripping doesn't help either,
+          // hand back what the engine said and let the user judge.
+          if (!parsesCleanly(vfs, service, produced)) {
+            val stripped = produced
+              .split(String.valueOf('\n'))
+              .map(stripReturnType)
+              .mkString(String.valueOf('\n'))
+            if (stripped != produced && parsesCleanly(vfs, service, stripped)) produced = stripped
+          }
+          // Leave the cached document holding the text the request came in with,
+          // so the next query isn't answered against a trial balloon.
+          vfs.updateContent("/main.dwl", source)
+
+          payload.add("script", produced)
+          payload.add("applied", fixes(fi).name)
+
+        case "refactor" =>
+          // extractVariable / extractConstant / extractFunction. These mutate a
+          // document too, so the shape matches applyQuickFix: run it, hand back
+          // the whole rewritten script and let the editor diff it into the model.
+          val start = if (req.get("start") == null) 0 else req.get("start").asInt()
+          val end   = if (req.get("end") == null) 0 else req.get("end").asInt()
+          val what  = req.getString("refactor", "variable")
+          val maybe = what match {
+            case "constant" => doc.extractConstant(start, end)
+            case "function" => doc.extractFunction(start, end)
+            case _          => doc.extractVariable(start, end)
+          }
+          maybe match {
+            case Some(refactor) =>
+              // parameters() is what an IDE would prompt for (the new name, and
+              // so on). Over stdio we take the defaults; the user renames after
+              // with F2, which is now wired.
+              val args = refactor.parameters().map(p => (p.name, p.defaultValue.asInstanceOf[Any])).toMap
+              val document = new StringDocument(source)
+              refactor.run(document, args)
+              payload.add("script", document.result())
+              val ps = new com.eclipsesource.json.JsonArray()
+              refactor.parameters().foreach { p =>
+                val o = new JsonObject()
+                o.add("name", p.name); o.add("default", p.defaultValue); o.add("title", p.title)
+                ps.add(o)
+              }
+              payload.add("parameters", ps)
+            case None =>
+              payload.add("script", Json.NULL)
+          }
+
+        case "availableFunctions" =>
+          // Everything in scope, straight from the engine - the live equivalent
+          // of the generated 309-function list. Docs are deliberately NOT
+          // rendered here: markdownDoc() runs an asciidoc conversion per entry
+          // and there are hundreds, which is a real cost for text a completion
+          // popup does not show until one item is focused.
+          val arr = new com.eclipsesource.json.JsonArray()
+          doc.availableFunctions().foreach { fd =>
+            val o = new JsonObject()
+            o.add("name", fd.nameIdentifier.name)
+            fd.returnType.foreach(rt => o.add("returns", rt.toString))
+            val ps = new com.eclipsesource.json.JsonArray()
+            fd.params.foreach { p =>
+              val po = new JsonObject()
+              po.add("name", p.name)
+              p.weaveType.foreach(t => po.add("type", t.toString))
+              p.defaultValue.foreach(d => po.add("default", d))
+              ps.add(po)
+            }
+            o.add("params", ps)
+            if (fd.labels.nonEmpty) o.add("labels", fd.labels.mkString(", "))
+            arr.add(o)
+          }
+          payload.add("functions", arr)
+
+        case "visibleVariables" =>
+          val arr = new com.eclipsesource.json.JsonArray()
+          doc.visibleLocalVariables(offset).foreach { v =>
+            val o = new JsonObject()
+            o.add("name", v.name)
+            o.add("type", v.weaveType.toString)
+            arr.add(o)
+          }
+          payload.add("variables", arr)
 
         case other =>
           return errorResponse(id, "Unknown tooling kind: " + other, started)

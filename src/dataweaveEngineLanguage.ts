@@ -89,6 +89,28 @@ function offsetOf(model: Monaco.editor.ITextModel, position: Monaco.IPosition): 
   return model.getOffsetAt(position);
 }
 
+/** One checker or linter finding. `code` is the engine's message class name,
+ *  which reads like a lint rule id (UnusedImportModule, InvalidReferenceMessage). */
+interface EngineMessage {
+  severity: string;
+  location: EngineLoc;
+  message: string;
+  code?: string;
+  quickFixes?: { name: string; description: string }[];
+}
+
+/**
+ * The last diagnostics computed per model, kept so the code-action provider can
+ * offer fixes without paying for a second type-check.
+ *
+ * The script text is stored with them on purpose. Quick fixes are applied by
+ * index (see applyQuickFix in DwServer.scala — a QuickFixAction is a live object
+ * and cannot travel over stdio), so an index only means anything against the
+ * exact text it was computed from. If the user has typed since, we would rather
+ * offer nothing than rewrite the document from a stale index.
+ */
+const lastDiagnostics = new Map<string, { script: string; messages: EngineMessage[] }>();
+
 /** A source range as the engine reports it. Offsets, not line/column — see the
  *  note on locJson in DwServer.scala for why. */
 interface EngineLoc {
@@ -297,6 +319,94 @@ export function registerEngineLanguageFeatures(
     },
   });
 
+  // ── Quick fixes and refactorings ──────────────────────────────────────────
+  // Both arrive as code actions (the lightbulb). Neither carries an `edit` when
+  // first offered: computing one means asking the engine to actually perform the
+  // change, and building the menu would then cost one round-trip per available
+  // fix. Monaco calls resolveCodeAction only for the action the user picks, so
+  // the cost is paid once and only when it is really wanted.
+  const actions = monaco.languages.registerCodeActionProvider('dataweave', {
+    provideCodeActions(model, range) {
+      const out: DWCodeAction[] = [];
+      const cached = lastDiagnostics.get(model.uri.toString());
+
+      // Fixes for any finding the cursor or selection touches.
+      if (cached && cached.script === model.getValue()) {
+        cached.messages.forEach((m, messageIndex) => {
+          if (!m.quickFixes?.length) return;
+          const at = rangeOf(model, m.location);
+          if (!at || !monaco.Range.areIntersectingOrTouching(at, range)) return;
+          m.quickFixes.forEach((fix, fixIndex) => {
+            out.push({
+              title: fix.name,
+              kind: 'quickfix',
+              isPreferred: fixIndex === 0,
+              __dw: { op: 'quickfix', script: cached.script, messageIndex, fixIndex },
+            });
+          });
+        });
+      }
+
+      // Extract only makes sense over a real selection.
+      if (!range.isEmpty()) {
+        const start = model.getOffsetAt({ lineNumber: range.startLineNumber, column: range.startColumn });
+        const end = model.getOffsetAt({ lineNumber: range.endLineNumber, column: range.endColumn });
+        // The engine offers extractConstant too, but it currently produces the
+        // same `var` declaration as extractVariable, so listing both would just
+        // be two menu entries that do one thing.
+        out.push({
+          title: 'Extract to variable',
+          kind: 'refactor.extract',
+          __dw: { op: 'refactor', refactor: 'variable', script: model.getValue(), start, end },
+        });
+        out.push({
+          title: 'Extract to function',
+          kind: 'refactor.extract',
+          __dw: { op: 'refactor', refactor: 'function', script: model.getValue(), start, end },
+        });
+      }
+
+      return { actions: out, dispose: () => {} };
+    },
+
+    async resolveCodeAction(codeAction) {
+      const action = codeAction as DWCodeAction;
+      const req = action.__dw;
+      if (!req) return codeAction;
+
+      const res =
+        req.op === 'quickfix'
+          ? await askNow<{ script?: string }>('applyQuickFix', req.script, 0, payloadOf(), {
+              messageIndex: req.messageIndex,
+              fixIndex: req.fixIndex,
+            })
+          : await askNow<{ script?: string }>('refactor', req.script, 0, payloadOf(), {
+              refactor: req.refactor,
+              start: req.start,
+              end: req.end,
+            });
+      if (!res?.script) return codeAction;
+
+      // The engine rewrites whole documents rather than emitting patches, so the
+      // edit is a full replace. Monaco still records it as a single undo step.
+      const model = monaco.editor.getModels().find((m) => m.getValue() === req.script);
+      if (!model) return codeAction;
+      codeAction.edit = {
+        edits: [
+          {
+            resource: model.uri,
+            textEdit: { range: model.getFullModelRange(), text: res.script },
+            versionId: model.getVersionId(),
+          },
+        ],
+      };
+      return codeAction;
+    },
+  },
+  // Declared on the registration rather than the provider: Monaco uses this to
+  // decide whether to even ask us when a menu is filtered to one kind.
+  { providedCodeActionKinds: ['quickfix', 'refactor.extract'] });
+
   return {
     dispose() {
       hover.dispose();
@@ -306,9 +416,17 @@ export function registerEngineLanguageFeatures(
       rename.dispose();
       symbols.dispose();
       folding.dispose();
+      actions.dispose();
     },
   };
 }
+
+/** What a pending code action needs in order to compute its edit later. */
+type DWActionRequest =
+  | { op: 'quickfix'; script: string; messageIndex: number; fixIndex: number }
+  | { op: 'refactor'; script: string; refactor: 'variable' | 'function'; start: number; end: number };
+
+type DWCodeAction = Monaco.languages.CodeAction & { __dw?: DWActionRequest };
 
 /**
  * Live type diagnostics for one editor.
@@ -340,31 +458,28 @@ export function attachEngineDiagnostics(
     const model = editor.getModel();
     if (!model || disposed) return;
     const mine = ++generation;
-    const res = await askNow<{
-      messages?: {
-        severity: string;
-        location: EngineLoc;
-        message: string;
-        quickFixes?: { name: string; description: string }[];
-      }[];
-    }>('typeCheck', model.getValue(), 0, getPayload());
+    const script = model.getValue();
+    const res = await askNow<{ messages?: EngineMessage[] }>('typeCheck', script, 0, getPayload());
     // The user kept typing while we were waiting — that answer is about a
     // script that no longer exists.
     if (disposed || mine !== generation || model.isDisposed()) return;
     if (!res) return; // engine cold or restarting: leave the last markers alone
+    lastDiagnostics.set(model.uri.toString(), { script, messages: res.messages ?? [] });
 
     const markers: Monaco.editor.IMarkerData[] = [];
     for (const m of res.messages ?? []) {
       const range = rangeOf(model, m.location);
       if (!range) continue;
-      const fixes = m.quickFixes?.length
-        ? ` (${m.quickFixes.map((f) => f.name).join(', ')})`
-        : '';
       markers.push({
         severity:
           m.severity === 'error' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
-        message: m.message + fixes,
+        message: m.message,
+        // Surfaces as the rule id beside the message, the way a linter does.
+        code: m.code,
         source: 'DataWeave',
+        // An unused import is dead weight rather than a mistake; Monaco greys it
+        // out instead of underlining it, which is the usual editor convention.
+        tags: m.code === 'UnusedImportModule' ? [monaco.MarkerTag.Unnecessary] : undefined,
         ...range,
       });
     }
@@ -392,7 +507,10 @@ export function attachEngineDiagnostics(
       sub.dispose();
       swap.dispose();
       const model = editor.getModel();
-      if (model && !model.isDisposed()) monaco.editor.setModelMarkers(model, OWNER, []);
+      if (model && !model.isDisposed()) {
+        monaco.editor.setModelMarkers(model, OWNER, []);
+        lastDiagnostics.delete(model.uri.toString());
+      }
     },
   };
 }
