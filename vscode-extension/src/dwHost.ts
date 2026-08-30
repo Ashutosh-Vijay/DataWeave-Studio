@@ -14,42 +14,112 @@ import * as path from 'path';
 
 // --- Java + jar resolution --------------------------------------------------
 
-/** Prefer the BUNDLED JRE, fall back to system Java (JAVA_HOME -> PATH).
+/** Every `java` we're willing to run, best first.
  *
  *  Bundled-first is deliberate and matches the desktop (see dw_server.rs): this
  *  audience (banks / MuleSoft shops) is often locked to Java 8 for Anypoint
  *  Studio, but DataWeave 2.11 needs Java 11+. Shipping our own Java 17 — invoked
  *  by absolute path, never touching JAVA_HOME/PATH — guarantees the right
  *  version without disturbing their setup, and works offline (air-gapped nets).
- *  The system fallback only kicks in during dev/sideload before a JRE is bundled. */
-export function resolveJava(extensionRoot: string): string {
+ *
+ *  The rest of the list is NOT just a dev/sideload convenience. Application
+ *  allowlisting (ManageEngine, Ivanti, AppLocker, Carbon Black) routinely blocks
+ *  an unsigned java.exe that appeared inside a user-writable extensions folder,
+ *  while a system JDK installed by IT is already allowlisted. When that happens
+ *  the bundled JRE exists on disk and still cannot execute — so existsSync is
+ *  the wrong test, and `pickJava` actually runs each one. */
+export function javaCandidates(extensionRoot: string): string[] {
   const exe = process.platform === 'win32' ? 'java.exe' : 'java';
-
-  const bundled = path.join(extensionRoot, 'resources', 'jre', 'bin', exe);
-  if (fs.existsSync(bundled)) return bundled;
-
-  const home = process.env.JAVA_HOME;
-  if (home) {
-    const p = path.join(home, 'bin', exe);
-    if (fs.existsSync(p)) return p;
-  }
-  return 'java'; // last resort: whatever is on PATH (preflight checks the version)
+  const out = [path.join(extensionRoot, 'resources', 'jre', 'bin', exe)];
+  if (process.env.JAVA_HOME) out.push(path.join(process.env.JAVA_HOME, 'bin', exe));
+  out.push('java'); // whatever is on PATH
+  return out.filter((p, i) => out.indexOf(p) === i);
 }
 
-/** Detect the major Java version of a `java` binary (null if it won't run).
+/** Back-compat shape for callers that just want a path (jarStore's javac pairing). */
+export function resolveJava(extensionRoot: string): string {
+  const c = javaCandidates(extensionRoot);
+  return c.find((p) => path.isAbsolute(p) && fs.existsSync(p)) ?? 'java';
+}
+
+export interface JavaProbe {
+  bin: string;
+  /** Major version, or null when the binary would not run at all. */
+  major: number | null;
+  /** Why it didn't run — spawn errno, or the tail of what it printed. */
+  error?: string;
+}
+
+/** Run `java -version` and report what happened.
  *  `java -version` prints to stderr, e.g. `openjdk version "17.0.1"` or the old
  *  `"1.8.0_xxx"` form (→ 8). DataWeave 2.11 needs Java 11+. */
-export function detectJavaMajor(javaBin: string): Promise<number | null> {
+export function probeJava(javaBin: string): Promise<JavaProbe> {
   return new Promise((resolve) => {
-    execFile(javaBin, ['-version'], { windowsHide: true }, (err, _stdout, stderr) => {
-      if (err) return resolve(null);
-      const m = (stderr || '').match(/version "(\d+)(?:\.(\d+))?/);
-      if (!m) return resolve(null);
+    if (path.isAbsolute(javaBin) && !fs.existsSync(javaBin)) {
+      return resolve({ bin: javaBin, major: null, error: 'not present' });
+    }
+    execFile(javaBin, ['-version'], { windowsHide: true, timeout: 20000 }, (err, _stdout, stderr) => {
+      const text = String(stderr || '').trim();
+      if (err) {
+        const code = (err as NodeJS.ErrnoException).code;
+        return resolve({
+          bin: javaBin,
+          major: null,
+          error: code ? `${code}${text ? ` — ${text.split('\n')[0]}` : ''}` : text || String(err),
+        });
+      }
+      const m = text.match(/version "(\d+)(?:\.(\d+))?/);
+      if (!m) return resolve({ bin: javaBin, major: null, error: text || 'no version in output' });
       let major = parseInt(m[1], 10);
       if (major === 1 && m[2]) major = parseInt(m[2], 10); // 1.8 -> 8
-      resolve(Number.isFinite(major) ? major : null);
+      resolve({ bin: javaBin, major: Number.isFinite(major) ? major : null });
     });
   });
+}
+
+/** Legacy single-binary probe, kept for callers that only want the number. */
+export async function detectJavaMajor(javaBin: string): Promise<number | null> {
+  return (await probeJava(javaBin)).major;
+}
+
+/** First candidate that actually runs and is new enough, plus the full trail.
+ *  The trail is what makes a blocked-JRE report actionable — it names each
+ *  binary tried and exactly why it was rejected. */
+export async function pickJava(
+  extensionRoot: string,
+): Promise<{ bin: string | null; major: number | null; tried: JavaProbe[] }> {
+  const tried: JavaProbe[] = [];
+  for (const cand of javaCandidates(extensionRoot)) {
+    const probe = await probeJava(cand);
+    tried.push(probe);
+    if (probe.major !== null && probe.major >= 11) return { bin: cand, major: probe.major, tried };
+  }
+  const usable = tried.find((t) => t.major !== null);
+  return { bin: null, major: usable?.major ?? null, tried };
+}
+
+/** Turn a failed `pickJava` into something a user can hand to their IT desk. */
+export function javaFailureMessage(tried: JavaProbe[]): string {
+  const tooOld = tried.find((t) => t.major !== null && t.major < 11);
+  if (tooOld) {
+    return `Found Java ${tooOld.major} at ${tooOld.bin}, but DataWeave 2.11 needs Java 11 or newer.`;
+  }
+  const bundled = tried[0];
+  const lines = tried.map((t) => `  • ${t.bin} — ${t.error ?? 'unusable'}`);
+  const blocked =
+    bundled && bundled.error && /EPERM|EACCES|denied|blocked|virus|policy|ENOEXEC/i.test(bundled.error);
+  return (
+    `DataWeave Studio could not start its Java runtime.\n\n` +
+    `Tried:\n${lines.join('\n')}\n\n` +
+    (blocked || (bundled && bundled.error !== 'not present')
+      ? `The bundled runtime is present but would not execute. Endpoint security ` +
+        `(ManageEngine, Ivanti, AppLocker, Carbon Black and similar) commonly blocks an ` +
+        `unsigned java.exe running from an extensions folder. Ask IT to allowlist:\n\n` +
+        `  ${bundled.bin}\n\n` +
+        `Alternatively, install a Java 17 JDK system-wide and set JAVA_HOME — a JDK ` +
+        `installed by IT is usually already permitted, and the extension will use it.`
+      : `Install a Java 17 JDK and set JAVA_HOME, or reinstall the extension.`)
+  );
 }
 
 /** Find dwstudio-server.jar - bundled in the extension when packaged, else the
@@ -98,8 +168,11 @@ interface DwRequest {
   /** "run" (default) or "format" — format runs the engine's IDE formatter and
    *  returns the pretty-printed script in `output`. */
   op?: 'run' | 'format' | 'tooling';
+  /** op=tooling, kind=rename: the identifier to rename to. */
+  newName?: string;
   /** op=tooling: which language-service query — completion | hover | signature |
-   *  typeOf | typeCheck | definition | rename. */
+   *  typeOf | typeCheck | definition | references | rename | documentSymbol |
+   *  folding. */
   kind?: string;
   /** op=tooling: character offset of the cursor in `script`. */
   offset?: number;
@@ -110,13 +183,16 @@ interface DwRequest {
 }
 
 export class DwServer {
-  private proc: ChildProcessByStdio<Writable, Readable, null> | null = null;
+  private proc: ChildProcessByStdio<Writable, Readable, Readable> | null = null;
   private nextId = 1;
   private pending = new Map<
     number,
     { resolve: (r: DwResponse) => void; reject: (e: Error) => void }
   >();
   private stdoutBuf = '';
+  /** Last few KB the JVM wrote to stderr. Kept because it is the only place
+   *  a blocked-by-policy launch explains itself — see the stdio note in start(). */
+  private stderrTail = '';
   private readyPromise: Promise<void> | null = null;
   private keepaliveTimer: NodeJS.Timeout | null = null;
   /** True only once spawned + primed — i.e. the next Run will be warm. The
@@ -143,7 +219,7 @@ export class DwServer {
   start(): Promise<void> {
     if (this.readyPromise) return this.readyPromise;
     this.readyPromise = new Promise<void>((resolve, reject) => {
-      let proc: ChildProcessByStdio<Writable, Readable, null>;
+      let proc: ChildProcessByStdio<Writable, Readable, Readable>;
       try {
         proc = spawn(
           this.javaBin,
@@ -156,7 +232,12 @@ export class DwServer {
           // flag alone fixes one version and corrupts the other. See dw_server.rs.
           ['-Xmx512m', '-Xss2m', '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8',
            '-Dsun.stdout.encoding=UTF-8', '-jar', this.jarPath],
-          { stdio: ['pipe', 'pipe', 'ignore'] }
+          // stderr was 'ignore'. It is now piped because this is the ONLY channel
+          // that explains a launch the OS refused: application allowlisting
+          // (ManageEngine, Ivanti, AppLocker) kills or sandboxes an unsigned
+          // java.exe from a user-writable extensions folder, and what it prints
+          // here is the difference between a real diagnosis and "exited (code 1)".
+          { stdio: ['pipe', 'pipe', 'pipe'] }
         );
       } catch (e) {
         reject(e as Error);
@@ -164,13 +245,46 @@ export class DwServer {
       }
       this.proc = proc;
 
+      proc.stderr.setEncoding('utf8');
+      proc.stderr.on('data', (chunk: string) => {
+        this.stderrTail = (this.stderrTail + chunk).slice(-4000);
+      });
+
       let ready = false;
+
+      // A blocked JVM does not always fail loudly. Endpoint security can leave the
+      // process spawned but suspended, so it never prints the handshake and never
+      // exits — and before this timer that meant start() never settled, the webview
+      // never got a warmup message, and the splash sat at 85% forever. Whatever
+      // else is wrong, the user now gets told something.
+      const startupTimer = setTimeout(() => {
+        if (ready) return;
+        const tail = this.stderrTail.trim();
+        const printed = tail
+          ? 'It printed:\n' + tail.split('\n').slice(-12).join('\n')
+          : 'It printed nothing at all.';
+        onDead(
+          new Error(
+            `The DataWeave engine did not start within 90 seconds.\n\n` +
+              `Java: ${this.javaBin}\n\n${printed}\n\n` +
+              `This usually means endpoint security blocked or suspended the Java ` +
+              `process rather than letting it run. Ask IT to allowlist the path above, ` +
+              `or install a Java 17 JDK system-wide and set JAVA_HOME.`,
+          ),
+        );
+        try {
+          proc.kill();
+        } catch {
+          /* already gone */
+        }
+      }, 90000);
       // If the JVM dies — crash, OOM, or an external kill — reset ALL state so
       // the next start()/getServer() transparently respawns + re-primes. Without
       // resetting readyPromise, start() would keep returning a stale resolved
       // promise over a null proc, leaving the engine bricked ("server not
       // running") until a full window reload.
       const onDead = (err: Error) => {
+        clearTimeout(startupTimer);
         if (!ready) reject(err);
         this.failAll(err);
         this.proc = null;
@@ -182,7 +296,20 @@ export class DwServer {
         }
       };
       proc.on('error', (e) => onDead(e instanceof Error ? e : new Error(String(e))));
-      proc.on('exit', (code) => onDead(new Error(`DataWeave server exited (code ${code}).`)));
+      proc.on('exit', (code) => {
+        // Exit before the handshake is the loud form of the same problem the
+        // timeout catches quietly — attach whatever the JVM managed to say.
+        const tail = this.stderrTail.trim();
+        onDead(
+          new Error(
+            ready || !tail
+              ? `DataWeave server exited (code ${code}).`
+              : `DataWeave server exited (code ${code}) before it finished starting.\n\n` +
+                `Java: ${this.javaBin}\n\nIt printed:\n` +
+                tail.split('\n').slice(-12).join('\n'),
+          ),
+        );
+      });
 
       proc.stdout.setEncoding('utf8');
       proc.stdout.on('data', (chunk: string) => {
@@ -196,6 +323,7 @@ export class DwServer {
             // First line is the handshake: {"event":"ready",...}
             if (line.includes('"ready"')) {
               ready = true;
+              clearTimeout(startupTimer);
               // Prime + start keepalive, then mark started. The primer warms
               // the compiler's hot paths (parser, type checker, codegen, JSON
               // reader/writer) and caches the default-workspace script so a
@@ -721,6 +849,7 @@ export async function toolingQuery(
   script: string,
   offset: number,
   payload: string,
+  newName?: string,
 ): Promise<unknown> {
   const resp = await server.run(
     {
@@ -728,6 +857,7 @@ export async function toolingQuery(
       kind,
       offset,
       payload,
+      newName,
       script,
       payloadPath: '',
       payloadMime: 'application/json',

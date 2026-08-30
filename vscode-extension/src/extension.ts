@@ -19,7 +19,7 @@ import * as os from 'os';
 import * as crypto from 'crypto';
 import { execFile } from 'child_process';
 import * as httpApi from './httpApi';
-import { DwServer, resolveJava, resolveServerJar, runDataweave, warmDataweave, detectJavaMajor, RunArgs, WarmArgs, formatDataweave, toolingQuery} from './dwHost';
+import { DwServer, resolveJava, resolveServerJar, runDataweave, warmDataweave, pickJava, javaFailureMessage, RunArgs, WarmArgs, formatDataweave, toolingQuery} from './dwHost';
 import * as ws from './workspaceStore';
 import * as jarStore from './jarStore';
 import * as moduleStore from './moduleStore';
@@ -35,23 +35,16 @@ async function getServer(extensionRoot: string): Promise<DwServer> {
     await server.start(); // idempotent
     return server;
   }
-  const java = resolveJava(extensionRoot);
-  // Preflight: a clear, actionable message beats a cryptic spawn ENOENT. (The
-  // "optional auto-download" of a JRE into global storage is the packaging-time
-  // follow-up; for now we point the user at a download.)
-  const major = await detectJavaMajor(java);
-  if (major === null) {
-    throw new Error(
-      'Java not found. DataWeave Studio needs a Java 11+ runtime on your PATH (or set JAVA_HOME).'
-    );
-  }
-  if (major < 11) {
-    throw new Error(
-      `Found Java ${major}, but DataWeave 2.11 needs Java 11 or newer. Install a newer JDK.`
-    );
-  }
+  // Preflight by actually RUNNING each candidate, not by checking it exists.
+  // We ship a JRE, so "Java not found, install Java" was the wrong thing to say
+  // when the real story is that the bundled java.exe is sitting right there and
+  // the machine's endpoint security refused to execute it. pickJava walks
+  // bundled -> JAVA_HOME -> PATH and reports what each one did, which is both
+  // the fix (a system JDK is usually already allowlisted) and the diagnosis.
+  const { bin, tried } = await pickJava(extensionRoot);
+  if (!bin) throw new Error(javaFailureMessage(tried));
   const jar = resolveServerJar(extensionRoot);
-  server = new DwServer(java, jar);
+  server = new DwServer(bin, jar);
   await server.start();
   return server;
 }
@@ -105,13 +98,22 @@ export function activate(context: vscode.ExtensionContext) {
         (e) => {
           warmupError = e instanceof Error ? e.message : String(e);
           panel.webview.postMessage({ kind: 'warmup', ready: false, error: warmupError });
-          // Java-runtime problems get an actionable notification with a download link.
+          // Java-runtime problems get an actionable notification. Copy Details comes
+          // first because the common case is now a blocked bundled JRE, where the
+          // useful action is pasting the path into a mail to IT — not installing a
+          // second Java that the same policy would also refuse to run.
           if (/\bjava\b/i.test(warmupError)) {
-            vscode.window.showErrorMessage(warmupError, 'Download Java').then((choice) => {
-              if (choice === 'Download Java') {
-                vscode.env.openExternal(vscode.Uri.parse('https://adoptium.net/temurin/releases/?version=17'));
-              }
-            });
+            const detail = warmupError;
+            vscode.window
+              .showErrorMessage(detail.split('\n')[0], 'Copy Details', 'Download Java')
+              .then((choice) => {
+                if (choice === 'Copy Details') {
+                  vscode.env.clipboard.writeText(detail);
+                  vscode.window.showInformationMessage('Startup diagnostics copied to the clipboard.');
+                } else if (choice === 'Download Java') {
+                  vscode.env.openExternal(vscode.Uri.parse('https://adoptium.net/temurin/releases/?version=17'));
+                }
+              });
           }
         }
       );
@@ -350,6 +352,7 @@ async function handleInvoke(
         String(args.script ?? ''),
         Number(args.offset ?? 0),
         String(args.payload ?? ''),
+        args.newName === undefined ? undefined : String(args.newName),
       );
     case 'dw_format':
       // getServer, not `server` — the latter is null until something has

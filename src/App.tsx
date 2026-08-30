@@ -59,6 +59,7 @@ import { WhatsNew, LATEST_VERSION, getRelease } from './components/WhatsNew';
 import { FeatureIntroHost } from './components/FeatureIntroHost';
 import { introFeature } from './featureIntros';
 import { SplashScreen } from './components/SplashScreen';
+import { EngineDownScreen } from './components/EngineDownScreen';
 import { CommandPalette, Command } from './components/CommandPalette';
 import { CompactLayout } from './components/CompactLayout';
 
@@ -926,13 +927,17 @@ function App() {
   // User-triggered engine restart with success/error toast. The engine-error
   // banner has its own retry button that uses this; Settings → Restart engine
   // does too.
+  const [restartingEngine, setRestartingEngine] = useState(false);
   const handleRestartEngine = useCallback(async () => {
     toast({ title: 'Restarting engine', message: 'Reloading the DataWeave runtime…', variant: 'info' });
+    setRestartingEngine(true);
     try {
       await runner.restartEngine();
       toast({ title: 'Engine restarted', message: 'Ready to run scripts.', variant: 'success' });
     } catch (e) {
       toast({ title: 'Engine restart failed', message: (e as Error).message || String(e), variant: 'error' });
+    } finally {
+      setRestartingEngine(false);
     }
   }, [runner.restartEngine]);
 
@@ -1393,8 +1398,10 @@ function App() {
         <WindowControls />
       </header>
 
-      {/* Runtime error banner */}
-      {runner.engineError && (
+      {/* Runtime error banner — only once the engine has worked at least once.
+          A cold-start failure gets EngineDownScreen instead, because there is no
+          usable app behind this banner to go back to. */}
+      {runner.engineError && runner.isWarmedUp && (
         <div
           className="px-4 py-2 flex items-center gap-3 shrink-0 border-b"
           style={{
@@ -1948,6 +1955,13 @@ function App() {
 
       {/* Splash screen — covers everything until engine is ready */}
       <SplashScreen isReady={runner.isWarmedUp} hasError={!!runner.engineError} />
+      {runner.engineError && !runner.isWarmedUp && (
+        <EngineDownScreen
+          error={runner.engineError}
+          onRetry={handleRestartEngine}
+          retrying={restartingEngine}
+        />
+      )}
 
       {referenceOpen && (
         <Suspense fallback={null}>

@@ -148,6 +148,122 @@ fn resolve_bundled_java(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     Ok(strip_unc_prefix(path))
 }
 
+/// Spawn one candidate `java` and wait for the `{"event":"ready"}` handshake.
+///
+/// Two things here exist because of how a blocked JVM actually behaves:
+///
+/// * **stderr is piped, not null.** It used to be `Stdio::null()`, which threw
+///   away the only channel that ever explains a refused launch. Whatever the JVM
+///   says on its way down is kept and folded into the error.
+/// * **the handshake read has a deadline.** Application allowlisting often leaves
+///   the process spawned but suspended, so it never prints the handshake and
+///   never exits. A plain blocking `read_line` waited on that forever - which is
+///   why the splash screen would sit at 85% with nothing logged anywhere.
+fn try_start_java(
+    java_bin: &std::path::Path,
+    jar: &std::path::Path,
+) -> Result<(Child, ChildStdin, BufReader<ChildStdout>), String> {
+    let mut cmd = Command::new(java_bin);
+    cmd.arg("-Xmx512m")
+        .arg("-Xss2m")
+        // The server writes its response with println -> System.out, which encodes
+        // using the JVM's default charset. On Windows that is the OS ANSI codepage,
+        // so Hindi/Chinese/euro silently become literal '?' (ok:true, no error).
+        //
+        // ALL THREE flags are required - which one works depends on the JRE, and we
+        // can run on the bundled 17 or on any system JRE:
+        //   Java 17  -> System.out follows `file.encoding`   (stdout.encoding: n/a)
+        //   Java 19+ -> System.out follows `stdout.encoding`; when the stream is
+        //               redirected (our pipe) it falls back to the NATIVE encoding
+        //               and ignores file.encoding, so JEP 400 does NOT save us.
+        // Verified matrix: file.encoding alone passes on 17 but CORRUPTS on 21;
+        // stdout.encoding alone is the reverse. Unknown properties are ignored, so
+        // setting all three is safe everywhere. (sun.stdout.encoding is the JDK 18
+        // transitional name.)
+        .arg("-Dfile.encoding=UTF-8")
+        .arg("-Dstdout.encoding=UTF-8")
+        .arg("-Dsun.stdout.encoding=UTF-8")
+        .arg("-jar")
+        .arg(jar)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    hide_console_window(&mut cmd);
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("{} ({})", java_bin.display(), e))?;
+
+    // Drain stderr on a worker, keeping a rolling tail. An unread pipe fills up
+    // and blocks the writer, so this has to be drained even when nobody reads it.
+    let tail = std::sync::Arc::new(Mutex::new(String::new()));
+    if let Some(errpipe) = child.stderr.take() {
+        let tail = tail.clone();
+        std::thread::spawn(move || {
+            let mut reader = BufReader::new(errpipe);
+            let mut line = String::new();
+            while reader.read_line(&mut line).unwrap_or(0) > 0 {
+                let mut t = tail.lock().unwrap_or_else(|e| e.into_inner());
+                t.push_str(&line);
+                if t.len() > 4000 {
+                    let cut = t.len() - 4000;
+                    *t = t[cut..].to_string();
+                }
+                line.clear();
+            }
+        });
+    }
+
+    let stdin = child.stdin.take().ok_or("server stdin missing")?;
+    let stdout = child.stdout.take().ok_or("server stdout missing")?;
+
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut reader = BufReader::new(stdout);
+        let mut line = String::new();
+        let ok = reader.read_line(&mut line).is_ok();
+        let _ = tx.send((reader, line, ok));
+    });
+
+    // What the JVM managed to say before giving up - the whole reason stderr is
+    // piped now. Collapsed onto one line so it fits in a Tauri error string.
+    let said = |tail: &std::sync::Arc<Mutex<String>>| -> String {
+        let t = tail
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .trim()
+            .to_string();
+        if t.is_empty() {
+            "printed nothing".to_string()
+        } else {
+            let last: Vec<String> = t.lines().rev().take(6).map(|l| l.to_string()).collect();
+            let ordered: Vec<String> = last.into_iter().rev().collect();
+            format!("said: {}", ordered.join(" | "))
+        }
+    };
+
+    match rx.recv_timeout(std::time::Duration::from_secs(90)) {
+        Ok((reader, line, true)) if line.contains("\"ready\"") => Ok((child, stdin, reader)),
+        Ok((_, line, _)) => {
+            let _ = child.kill();
+            let what = if line.trim().is_empty() {
+                said(&tail)
+            } else {
+                format!("gave an unexpected handshake ({})", line.trim())
+            };
+            Err(format!("{} started but {}", java_bin.display(), what))
+        }
+        Err(_) => {
+            let _ = child.kill();
+            Err(format!(
+                "{} did not respond within 90s and {}",
+                java_bin.display(),
+                said(&tail)
+            ))
+        }
+    }
+}
+
 /// Spawn the server and wait for its `{"event":"ready"}` handshake.
 pub fn start(app: &AppHandle) -> Result<(), String> {
     let jar = resolve_server_jar(app)?;
@@ -158,69 +274,55 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
         ));
     }
 
-    // Use the bundled JRE so we don't depend on whatever Java version
-    // the system has (the DW 2.11 runtime requires Java 11+, but many
-    // MuleSoft dev machines are locked to Java 8 for Anypoint Studio).
-    let java = resolve_bundled_java(app)?;
-    let java_bin = if java.exists() {
-        java
-    } else {
-        log::warn!("Bundled JRE not found at {}, falling back to system java", java.display());
-        std::path::PathBuf::from("java")
-    };
-
-    let mut cmd = Command::new(&java_bin);
-    cmd.arg("-Xmx512m")
-        .arg("-Xss2m")
-        // The server writes its response with println → System.out, which encodes
-        // using the JVM's default charset. On Windows that's the OS ANSI codepage,
-        // so Hindi/Chinese/€ silently become literal '?' (ok:true, no error).
-        //
-        // ALL THREE flags are required — which one works depends on the JRE, and
-        // we can run on the bundled 17 or (in VS Code) any system JRE:
-        //   Java 17  → System.out follows `file.encoding`   (stdout.encoding: n/a)
-        //   Java 19+ → System.out follows `stdout.encoding`; when the stream is
-        //              redirected (our pipe) it falls back to the NATIVE encoding
-        //              and ignores file.encoding, so JEP 400 does NOT save us.
-        // Verified matrix: file.encoding alone passes on 17 but CORRUPTS on 21;
-        // stdout.encoding alone is the reverse. Unknown properties are ignored,
-        // so setting all three is safe everywhere. (sun.stdout.encoding is the
-        // JDK 18 transitional name.)
-        .arg("-Dfile.encoding=UTF-8")
-        .arg("-Dstdout.encoding=UTF-8")
-        .arg("-Dsun.stdout.encoding=UTF-8")
-        .arg("-jar")
-        .arg(&jar)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null());
-    hide_console_window(&mut cmd);
-
-    let mut child = cmd.spawn().map_err(|e| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            format!(
-                "Bundled Java runtime not found at {}.\n\n\
-                 The app bundle may be corrupted — try reinstalling.",
-                java_bin.display()
-            )
-        } else {
-            format!("Failed to start DataWeave server: {}", e)
-        }
-    })?;
-
-    let stdin = child.stdin.take().ok_or("server stdin missing")?;
-    let stdout = child.stdout.take().ok_or("server stdout missing")?;
-    let mut reader = BufReader::new(stdout);
-
-    // Wait for ready handshake (with timeout via blocking read — JVM init
-    // takes ~1-3s, we give it generous headroom).
-    let mut ready_line = String::new();
-    reader
-        .read_line(&mut ready_line)
-        .map_err(|e| format!("Server failed during startup: {}", e))?;
-    if !ready_line.contains("\"ready\"") {
-        return Err(format!("Unexpected handshake from server: {}", ready_line));
+    // Walk every java we might use, running each one rather than trusting that
+    // the file exists. A bundled JRE that is present but not permitted to execute
+    // is the most common failure on a managed corporate laptop: application
+    // allowlisting (ManageEngine, Ivanti, AppLocker) does not like an unsigned
+    // java.exe under a user-writable directory. A JDK installed by IT normally is
+    // permitted, so falling through to JAVA_HOME/PATH turns a dead install into a
+    // working one instead of a support ticket.
+    let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(bundled) = resolve_bundled_java(app) {
+        candidates.push(bundled);
     }
+    if let Ok(home) = std::env::var("JAVA_HOME") {
+        let exe = if cfg!(target_os = "windows") { "java.exe" } else { "java" };
+        candidates.push(std::path::PathBuf::from(home).join("bin").join(exe));
+    }
+    candidates.push(std::path::PathBuf::from("java"));
+
+    let mut failures: Vec<String> = Vec::new();
+    let mut started: Option<(Child, ChildStdin, BufReader<ChildStdout>)> = None;
+    for cand in &candidates {
+        if cand.is_absolute() && !cand.exists() {
+            failures.push(format!("  - {} (not present)", cand.display()));
+            continue;
+        }
+        match try_start_java(cand, &jar) {
+            Ok(pipes) => {
+                if !failures.is_empty() {
+                    log::warn!(
+                        "Using fallback Java at {} after: {}",
+                        cand.display(),
+                        failures.join("; ")
+                    );
+                }
+                started = Some(pipes);
+                break;
+            }
+            Err(e) => failures.push(format!("  - {}", e)),
+        }
+    }
+
+    let (child, stdin, reader) = match started {
+        Some(v) => v,
+        None => {
+            return Err(format!(
+                "DataWeave Studio could not start its Java runtime.\n\nTried:\n{}\n\nThe runtime ships inside the app, so this is almost never a missing Java - it is endpoint security refusing to run it. Ask IT to allowlist the first path above, or install a Java 17 JDK system-wide and set JAVA_HOME.",
+                failures.join("\n")
+            ));
+        }
+    };
 
     let state = app.state::<DwServerState>();
     *state.inner.lock().unwrap_or_else(|e| e.into_inner()) = Some(DwServerInner {
