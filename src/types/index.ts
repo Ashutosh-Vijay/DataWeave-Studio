@@ -51,7 +51,14 @@ export interface NamedInput {
   filePath?: string;
 }
 
-/** A single test case attached to a request (Phase 2). */
+/**
+ * A snapshot test case.
+ *
+ * @deprecated Superseded by `Request.testScript`, which runs a real dw::test
+ * suite. Nothing reads this any more, but the field is still carried through
+ * load and save so existing `.dwstudio` files and older share links do not
+ * silently lose data the first time they are re-saved.
+ */
 export interface TestCase {
   id: string;
   name: string;
@@ -86,6 +93,9 @@ export interface Request {
   payloadFilePath?: string;
   multipartParts: MultipartPart[];
   context: ContextState;
+  /** A `dw::test` suite for this request. Empty until the user writes one. */
+  testScript?: string;
+  /** @deprecated Legacy snapshot tests — preserved on round-trip, never read. */
   tests: TestCase[];
 }
 

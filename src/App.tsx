@@ -1315,9 +1315,6 @@ function App() {
             {(['script', 'tests'] as const).map((m) => {
               const active = viewMode === m;
               const isTests = m === 'tests';
-              const failingCount = isTests
-                ? workspace.tests.filter((t) => t.lastStatus === 'fail').length
-                : 0;
               return (
                 <button
                   key={m}
@@ -1331,19 +1328,6 @@ function App() {
                 >
                   {isTests ? <Icons.Activity size={10} /> : <Icons.Braces size={10} />}
                   {isTests ? 'Tests' : 'Script'}
-                  {isTests && workspace.tests.length > 0 && (
-                    <span
-                      className="font-mono text-[9.5px] px-1 rounded"
-                      style={{
-                        background: failingCount > 0
-                          ? 'color-mix(in oklch, var(--err) 14%, transparent)'
-                          : 'var(--accent-dim)',
-                        color: failingCount > 0 ? 'var(--err)' : 'var(--accent)',
-                      }}
-                    >
-                      {workspace.tests.length}
-                    </span>
-                  )}
                 </button>
               );
             })}
@@ -1571,8 +1555,7 @@ function App() {
           <main className="flex-1 overflow-hidden bg-bg flex">
             <TestsView
               request={workspace.request}
-              onTestsChange={workspace.setTests}
-              onScriptChange={workspace.setScript}
+              onTestScriptChange={workspace.setTestScript}
             />
           </main>
         ) : isCompact ? (

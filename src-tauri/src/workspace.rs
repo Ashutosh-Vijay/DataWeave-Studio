@@ -131,6 +131,11 @@ pub struct Request {
     pub multipart_parts: Vec<serde_json::Value>,
     #[serde(default)]
     pub context: ContextState,
+    /// A dw::test suite for this request. Optional so older files load unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test_script: Option<String>,
+    /// Legacy snapshot tests. Nothing reads these any more - they are kept so a
+    /// workspace written by an older build does not lose them on its first save.
     #[serde(default)]
     pub tests: Vec<TestCase>,
 }
@@ -238,6 +243,7 @@ fn migrate_legacy(legacy: LegacyWorkspaceFile) -> WorkspaceFile {
         payload_file_path: legacy.single_transform.payload_file_path,
         multipart_parts: legacy.single_transform.multipart_parts,
         context: legacy.context.unwrap_or_default(),
+        test_script: None,
         tests: vec![],
     };
 
@@ -356,6 +362,7 @@ pub fn save_workspace(app: AppHandle, workspace: WorkspaceFile) -> Result<String
             payload_file_path: None,
             multipart_parts: vec![],
             context: ContextState::default(),
+            test_script: None,
             tests: vec![],
         });
         ws.active_request_id = Some(id);

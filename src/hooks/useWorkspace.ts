@@ -7,7 +7,6 @@ import {
   NamedInput,
   MultipartPart,
   Request,
-  TestCase,
 } from '../types';
 
 // ===========================================================================
@@ -103,7 +102,6 @@ interface UseWorkspaceReturn {
   queryTemplate: string;
   classpath: string[];
   timeoutMs: number;
-  tests: TestCase[];
 
   // Per-active-request setters
   setScript: (script: string) => void;
@@ -117,7 +115,8 @@ interface UseWorkspaceReturn {
   setQueryTemplate: (query: string) => void;
   setClasspath: (cp: string[]) => void;
   setTimeoutMs: (ms: number) => void;
-  setTests: (tests: TestCase[]) => void;
+  /** Replace this request's dw::test suite. */
+  setTestScript: (script: string) => void;
 
   // Request collection management
   addRequest: (name?: string) => void;
@@ -197,7 +196,7 @@ export function useWorkspace(): UseWorkspaceReturn {
   const setQueryTemplate = useCallback((q: string) => updateActive((r) => ({ ...r, queryTemplate: q })), [updateActive]);
   const setClasspath = useCallback((cp: string[]) => updateActive((r) => ({ ...r, classpath: cp })), [updateActive]);
   const setTimeoutMs = useCallback((ms: number) => updateActive((r) => ({ ...r, timeoutMs: ms })), [updateActive]);
-  const setTests = useCallback((tests: TestCase[]) => updateActive((r) => ({ ...r, tests })), [updateActive]);
+  const setTestScript = useCallback((testScript: string) => updateActive((r) => ({ ...r, testScript })), [updateActive]);
 
   const setNodeLabel = useCallback((label: string) => {
     // Switching role: stash the current script for this request+label,
@@ -406,7 +405,6 @@ export function useWorkspace(): UseWorkspaceReturn {
     queryTemplate: active.queryTemplate,
     classpath: active.classpath,
     timeoutMs: active.timeoutMs ?? 30000,
-    tests: active.tests,
 
     setScript,
     setPayload,
@@ -419,7 +417,7 @@ export function useWorkspace(): UseWorkspaceReturn {
     setQueryTemplate,
     setClasspath,
     setTimeoutMs,
-    setTests,
+    setTestScript,
 
     addRequest,
     removeRequest,

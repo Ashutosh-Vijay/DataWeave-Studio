@@ -1,12 +1,23 @@
 import { useCallback, useState } from 'react';
 import { invoke } from '../bridge';
-import { TestCase, Request, ContextState } from '../types';
+import { Request } from '../types';
 
 /**
- * Runs DataWeave tests against a request. Each test reuses the request's
- * script + (optionally) its own payload; the runner invokes the DW engine
- * the same way the main Run button does, then compares the output against
- * the test's `expectedOutput` using the chosen comparator.
+ * Runs a real `dw::test` suite through the bundled engine.
+ *
+ * This replaces the old snapshot runner, which ran the request's script against
+ * a stored payload and diffed the output against a captured blob. That model
+ * only ever answered "did the output change", and the captured blob went stale
+ * the moment the transform legitimately changed.
+ *
+ * A suite is an ordinary DataWeave script whose result happens to be a test
+ * report, so there is nothing special about executing one — it goes through the
+ * same `run_dataweave` command as the Run button. What makes it work is that
+ * `dw::test::Tests`, `dw::test::Asserts` and `dw::io::file` are now compiled
+ * into the server jar. They have to be real dependencies rather than jars added
+ * to the classpath at runtime: the file module registers native functions at
+ * engine startup, and adding it late resolves the DWL modules while leaving the
+ * natives missing ("Unable to find native module file").
  */
 
 interface RunResult {
@@ -17,187 +28,143 @@ interface RunResult {
   error_column: number | null;
 }
 
-export interface TestRunOutcome {
-  status: 'pass' | 'fail';
-  timeMs: number;
-  /** Set on fail — what the runner got back. */
-  actualOutput?: string;
-  /** Set on fail — first short reason ("script error", "output differs", etc.). */
-  reason?: string;
-  /** Set on script-level error (vs. mismatch). */
+/**
+ * A node in the engine's report. `describedBy` blocks nest, so a node is either
+ * a suite (has `tests`) or a single test (has a status and maybe a message).
+ */
+export interface DWTestNode {
+  name: string;
+  status: string;
+  time?: number;
   errorMessage?: string;
+  location?: {
+    start?: { index?: number; line?: number; column?: number };
+    end?: { index?: number; line?: number; column?: number };
+  };
+  tests?: DWTestNode[];
 }
 
-function compare(comparator: TestCase['comparator'], expected: string, actual: string): boolean {
-  if (comparator === 'exact') return expected.trim() === actual.trim();
-  // semantic-json: parse both, deep-equal ignoring key order.
-  try {
-    return deepEqual(JSON.parse(expected), JSON.parse(actual));
-  } catch {
-    // Fall back to exact when either side isn't valid JSON.
-    return expected.trim() === actual.trim();
-  }
+export interface SuiteRun {
+  root: DWTestNode | null;
+  passed: number;
+  failed: number;
+  /** Wall-clock for the whole run, as the engine measured it. */
+  timeMs: number;
+  /** Set when the suite didn't run at all — a compile error, a timeout, no suite. */
+  error: string | null;
+  /** Line the compile error points at, so the editor can mark it. */
+  errorLine: number | null;
 }
 
-function deepEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (typeof a !== typeof b) return false;
-  if (a === null || b === null) return a === b;
-  if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length !== b.length) return false;
-    return a.every((v, i) => deepEqual(v, b[i]));
-  }
-  if (typeof a === 'object' && typeof b === 'object') {
-    const ka = Object.keys(a as object);
-    const kb = Object.keys(b as object);
-    if (ka.length !== kb.length) return false;
-    return ka.every((k) => deepEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
-  }
-  return false;
-}
+export const EMPTY_RUN: SuiteRun = {
+  root: null, passed: 0, failed: 0, timeMs: 0, error: null, errorLine: null,
+};
 
-function buildAttributesJson(ctx: ContextState): string {
-  const headers: Record<string, string> = {};
-  for (const h of ctx.headers) {
-    if (h.enabled === false) continue;
-    if (h.key) headers[h.key] = h.value;
-  }
-  const queryParams: Record<string, string> = {};
-  for (const p of ctx.queryParams) {
-    if (p.enabled === false) continue;
-    if (p.key) queryParams[p.key] = p.value;
-  }
-  return JSON.stringify({ method: ctx.method, headers, queryParams });
-}
-
-function buildVarsJson(ctx: ContextState): string {
-  const out: Record<string, unknown> = {};
-  for (const v of ctx.vars) {
-    if (v.enabled === false) continue;
-    if (!v.key) continue;
-    if (v.valueType === 'json') {
-      try { out[v.key] = JSON.parse(v.value); } catch { out[v.key] = v.value; }
-    } else {
-      out[v.key] = v.value;
-    }
-  }
-  return JSON.stringify(out);
+/** A test node is a leaf if it has no children; only leaves count toward pass/fail. */
+export function isLeaf(node: DWTestNode): boolean {
+  return !node.tests || node.tests.length === 0;
 }
 
 /**
- * Executes a single test case against a request's runnable context. Returns
- * the outcome (pass/fail + timing) without mutating state — the caller (the
- * Tests UI) decides what to do with it.
+ * Count leaves by status.
+ *
+ * Deliberately does NOT trust the suite-level `status`: a suite containing a
+ * failing test still came back as "OK" in testing, because that field reports
+ * whether the suite executed rather than whether its tests passed.
  */
-async function executeOne(test: TestCase, req: Request): Promise<TestRunOutcome> {
-  const t0 = performance.now();
-  try {
-    const result = await invoke<RunResult>('run_dataweave', {
-      script: req.script,
-      payload: test.payload,
-      payloadMimeType: test.payloadMimeType,
-      attributesJson: buildAttributesJson(req.context),
-      varsJson: buildVarsJson(req.context),
-      namedInputsJson: JSON.stringify(req.namedInputs.map((n) => ({
-        name: n.name,
-        content: n.content,
-        mime_type: n.mimeType,
-        file_path: n.filePath ?? null,
-      }))),
-      payloadFilePath: null,
-      classpath: req.classpath,
-      timeoutMs: req.timeoutMs ?? 30000,
-      multipartPartsJson: null,
-    });
-    const timeMs = Math.round(performance.now() - t0);
-
-    if (result.error) {
-      return {
-        status: 'fail',
-        timeMs,
-        reason: 'script error',
-        errorMessage: result.error,
-      };
-    }
-
-    if (test.expectedOutput === undefined) {
-      // No expected yet — caller should treat this as a "capture" flow.
-      // Surfaced as pass=false so the UI doesn't claim success.
-      return {
-        status: 'fail',
-        timeMs,
-        actualOutput: result.output,
-        reason: 'no expected output set',
-      };
-    }
-
-    if (compare(test.comparator, test.expectedOutput, result.output)) {
-      return { status: 'pass', timeMs };
-    }
-    return {
-      status: 'fail',
-      timeMs,
-      actualOutput: result.output,
-      reason: 'output differs from expected',
-    };
-  } catch (e) {
-    return {
-      status: 'fail',
-      timeMs: Math.round(performance.now() - t0),
-      reason: 'execution failed',
-      errorMessage: (e as Error).message || String(e),
-    };
+export function tally(node: DWTestNode | null): { passed: number; failed: number } {
+  if (!node) return { passed: 0, failed: 0 };
+  if (isLeaf(node)) {
+    return node.status === 'OK'
+      ? { passed: 1, failed: 0 }
+      : { passed: 0, failed: 1 };
   }
+  return (node.tests ?? []).reduce(
+    (acc, child) => {
+      const sub = tally(child);
+      return { passed: acc.passed + sub.passed, failed: acc.failed + sub.failed };
+    },
+    { passed: 0, failed: 0 },
+  );
 }
 
-interface UseTestRunnerReturn {
-  /** Map of test id → outcome from the most recent run. */
-  outcomes: Record<string, TestRunOutcome>;
-  /** Set of test ids that are currently executing. */
-  running: Set<string>;
-  /** Run a single test, return its outcome. */
-  runOne: (test: TestCase, req: Request) => Promise<TestRunOutcome>;
-  /** Run every test in a request, in order. */
-  runAll: (req: Request) => Promise<TestRunOutcome[]>;
-  /** Clear all recorded outcomes (e.g. when the request changes). */
+export interface UseTestRunnerReturn {
+  result: SuiteRun;
+  running: boolean;
+  runSuite: (req: Request) => Promise<SuiteRun>;
   reset: () => void;
-  /** Overwrite or clear one test's in-memory outcome (e.g. after capturing
-   *  expected output, so the pre-capture "fail" doesn't linger). */
-  setOutcome: (id: string, outcome: TestRunOutcome | undefined) => void;
 }
 
 export function useTestRunner(): UseTestRunnerReturn {
-  const [outcomes, setOutcomes] = useState<Record<string, TestRunOutcome>>({});
-  const [running, setRunning] = useState<Set<string>>(new Set());
+  const [result, setResult] = useState<SuiteRun>(EMPTY_RUN);
+  const [running, setRunning] = useState(false);
 
-  const runOne = useCallback(async (test: TestCase, req: Request) => {
-    setRunning((prev) => { const next = new Set(prev); next.add(test.id); return next; });
-    const result = await executeOne(test, req);
-    setOutcomes((prev) => ({ ...prev, [test.id]: result }));
-    setRunning((prev) => { const next = new Set(prev); next.delete(test.id); return next; });
-    return result;
-  }, []);
-
-  const runAll = useCallback(async (req: Request) => {
-    const results: TestRunOutcome[] = [];
-    for (const test of req.tests) {
-      // eslint-disable-next-line no-await-in-loop
-      const result = await runOne(test, req);
-      results.push(result);
+  const runSuite = useCallback(async (req: Request): Promise<SuiteRun> => {
+    const suite = (req.testScript ?? '').trim();
+    if (!suite) {
+      const out = { ...EMPTY_RUN, error: 'There is no test suite in this request yet.' };
+      setResult(out);
+      return out;
     }
-    return results;
-  }, [runOne]);
 
-  const reset = useCallback(() => setOutcomes({}), []);
+    setRunning(true);
+    try {
+      const res = await invoke<RunResult>('run_dataweave', {
+        script: req.testScript,
+        // A suite drives its own inputs through assertions, but the request's
+        // payload is still passed so a suite CAN reference `payload` if the
+        // author wants to exercise the same fixture the transform uses.
+        payload: req.payload,
+        payloadMimeType: req.payloadMimeType,
+        attributesJson: '{}',
+        varsJson: '{}',
+        namedInputsJson: '[]',
+        payloadFilePath: null,
+        classpath: req.classpath,
+        timeoutMs: req.timeoutMs ?? 30000,
+        multipartPartsJson: null,
+      });
 
-  const setOutcome = useCallback((id: string, outcome: TestRunOutcome | undefined) => {
-    setOutcomes((prev) => {
-      const next = { ...prev };
-      if (outcome) next[id] = outcome;
-      else delete next[id];
-      return next;
-    });
+      if (res.error) {
+        const out = {
+          ...EMPTY_RUN,
+          error: res.error,
+          errorLine: res.error_line,
+          timeMs: res.execution_time_ms,
+        };
+        setResult(out);
+        return out;
+      }
+
+      let root: DWTestNode | null = null;
+      try {
+        root = JSON.parse(res.output) as DWTestNode;
+      } catch {
+        const out = {
+          ...EMPTY_RUN,
+          error: 'The suite ran but did not return a test report. A suite\'s body must be a `describedBy` block.',
+          timeMs: res.execution_time_ms,
+        };
+        setResult(out);
+        return out;
+      }
+
+      const { passed, failed } = tally(root);
+      const out: SuiteRun = {
+        root, passed, failed, timeMs: res.execution_time_ms, error: null, errorLine: null,
+      };
+      setResult(out);
+      return out;
+    } catch (e) {
+      const out = { ...EMPTY_RUN, error: (e as Error)?.message ?? String(e) };
+      setResult(out);
+      return out;
+    } finally {
+      setRunning(false);
+    }
   }, []);
 
-  return { outcomes, running, runOne, runAll, reset, setOutcome };
+  const reset = useCallback(() => setResult(EMPTY_RUN), []);
+
+  return { result, running, runSuite, reset };
 }

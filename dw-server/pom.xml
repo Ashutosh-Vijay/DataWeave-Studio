@@ -92,6 +92,36 @@
             <version>${weave.version}</version>
         </dependency>
 
+        <!-- dw::test support. These carry their own date stamps rather than
+             ${weave.version}: the engine we pin (2.11.0-20251023) has no matching
+             build of these three, but the 2.11 line is source-compatible.
+
+             All three are required and each for a different reason:
+               data-weave-testing-framework  dw::test::Tests   (describedBy / in)
+               assertions                    dw::test::Asserts (must / equalTo)
+               file-module                   dw::io::file::FileSystem, which the
+                                             framework's own internals import.
+
+             file-module must be a real dependency, not a hot-added classpath jar:
+             its native functions are registered at engine startup, and adding the
+             jar late resolves the DWL modules but leaves the natives missing
+             ("Unable to find native module file"). -->
+        <dependency>
+            <groupId>org.mule.weave</groupId>
+            <artifactId>data-weave-testing-framework</artifactId>
+            <version>2.11.0-20251202</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mule.weave</groupId>
+            <artifactId>assertions</artifactId>
+            <version>2.11.0-20251202</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mule.weave</groupId>
+            <artifactId>file-module</artifactId>
+            <version>2.11.0-20251008</version>
+        </dependency>
+
         <!-- Tiny JSON parser/encoder. jackson would be heavier; we only need
              4 ops on flat structures so we use minimal-json. -->
         <dependency>

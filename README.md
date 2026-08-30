@@ -126,7 +126,7 @@ Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA
 | **Config YAML (`${key}`)** | Yes | No | No | Yes (full runtime) |
 | **Secure config (`![encrypted]`)** | Yes — offline | No | No | Yes (full runtime) |
 | **SOQL/SQL query rendering** | Yes | No | No | Yes (full runtime) |
-| **Testing** | Snapshot tests + visual diff | Unit tests (`dw::test`) | No | MUnit |
+| **Testing** | Unit tests (`dw::test`), run in-app | Unit tests (`dw::test`) | No | MUnit |
 | **Multi-request workspaces** | Yes (Postman-style) | One mapping per file | No | Per-flow |
 | **Multipart form-data** | Visual builder | No | No | Yes (full runtime) |
 | **DW 1.0 → 2.0 migration** | Yes | No | No | Yes |
@@ -206,13 +206,21 @@ Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA
 - Per-label script caching — switching between Transform / SOQL / SQL restores the previous script for that mode
 
 ### Testing
-- **Per-request test collections** with status badges (pass / fail / untested)
-- Add tests with independent payloads per test
-- **Expected output capture** — run once, snapshot the output
-- **Two comparators**: exact (byte-for-byte) or semantic JSON (parse + deep compare)
-- **Visual diff on failure** — see exactly what changed
-- Execution time tracking per test
-- Filter by: all / failing / untested
+- **Real `dw::test` suites**, executed by the bundled engine — the same framework
+  MuleSoft ships, not a lookalike. `dw::test::Tests`, `dw::test::Asserts` and
+  `dw::io::file` are compiled into the server jar, so nothing needs installing
+- Named assertions with the engine's own failure messages
+  (`Expected value to be 3 but was 2`), rather than a diff you have to read yourself
+- **Per-test status and timing**, with nested `describedBy` blocks shown as a tree
+- **Source locations on failures** — the report says which line the assertion was on
+- Suites are ordinary DataWeave, so they run through the same engine path as the
+  Run button and behave identically
+
+> `dw::test` exercises **functions**, so a suite either defines what it tests inline
+> or imports from the Module library. Earlier builds had a snapshot runner here
+> instead — it compared output against a captured blob, which mostly told you the
+> capture had gone stale. Snapshot data in existing workspaces is preserved on load
+> and save, it is simply no longer read.
 
 ### cURL Importer
 - Paste any `curl` command (from Postman, browser devtools, or manual)
