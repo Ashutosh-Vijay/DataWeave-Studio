@@ -716,7 +716,7 @@ impl DwTools {
     }
 
     #[tool(
-        description = "OFFLINE DataWeave 2.11 standard-library reference — 309 functions with exact signatures, descriptions, and runnable examples. Pass `name` for one function's full doc, `search` for a keyword match list, or no args to list every function name. Use THIS instead of recalling/ web-searching DW syntax — it's the authoritative signature source."
+        description = "OFFLINE DataWeave 2.12 standard-library reference — 309 functions with exact signatures, descriptions, and runnable examples. Pass `name` for one function's full doc, `search` for a keyword match list, or no args to list every function name. Use THIS instead of recalling/ web-searching DW syntax — it's the authoritative signature source."
     )]
     async fn dw_function_reference(
         &self,

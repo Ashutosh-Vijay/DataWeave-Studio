@@ -1,7 +1,7 @@
 /**
  * MCP tool surface for DataWeave Studio (VS Code extension) — at parity with the
  * desktop's rmcp server (src-tauri/src/mcp_server.rs). Six tools, all backed by
- * the SAME bundled DataWeave 2.11 engine via dwHost:
+ * the SAME bundled DataWeave 2.12 engine via dwHost:
  *
  *   validate_and_run_dataweave · secure_properties · migrate_dw_1_to_2 ·
  *   format_dataweave · dw_function_reference · dw_cookbook
@@ -183,7 +183,7 @@ export function registerTools(
     {
       title: 'Validate & run DataWeave',
       description:
-        'Run and validate a DataWeave 2.0 script against a sample payload on the local, real DataWeave 2.11 ' +
+        'Run and validate a DataWeave 2.0 script against a sample payload on the local, real DataWeave 2.12 ' +
         'engine; returns the rendered output, or the exact compile/runtime error with line & column. MANDATORY: ' +
         'call this on EVERY DataWeave script you write BEFORE showing it to the user — never present unverified ' +
         "DataWeave. On error, fix the script using the reported line/column and re-run until it succeeds (don't " +
@@ -431,7 +431,7 @@ export function registerTools(
     {
       title: 'DataWeave function reference (offline)',
       description:
-        'OFFLINE DataWeave 2.11 standard-library reference — 309 functions with exact signatures, descriptions, ' +
+        'OFFLINE DataWeave 2.12 standard-library reference — 309 functions with exact signatures, descriptions, ' +
         "and runnable examples. Pass `name` for one function's full doc, `search` for a keyword match list, or no " +
         'args to list every function name. Use THIS instead of recalling/web-searching DW syntax.',
       inputSchema: {

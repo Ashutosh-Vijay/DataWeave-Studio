@@ -105,7 +105,7 @@ export function FunctionBrowser({ open, onClose, onInsertAtCursor }: FunctionBro
             DataWeave function reference
           </span>
           <span className="text-[10.5px] text-content-faint font-mono">
-            {ALL_FUNCTIONS.length} functions · {ALL_MODULES.length} modules · dw 2.11
+            {ALL_FUNCTIONS.length} functions · {ALL_MODULES.length} modules · dw 2.12
           </span>
         </div>
         <span className="flex-1" />

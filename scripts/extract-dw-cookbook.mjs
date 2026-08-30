@@ -205,12 +205,14 @@ console.log(`\nvalidated: ${passed.length} ok, ${failed.length} skipped`);
 for (const f of failed.slice(0, 12)) console.log(`  skip ${f.id}: ${f.err}`);
 if (failed.length > 12) console.log(`  … and ${failed.length - 12} more`);
 
+let branch = 'unknown';
+try { branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: join(ROOT, '.dwdocs-src') }).toString().trim(); } catch {}
 let ref = 'unknown';
 try { ref = execSync('git rev-parse --short HEAD', { cwd: join(ROOT, '.dwdocs-src') }).toString().trim(); } catch {}
 
 passed.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
 
-writeFileSync(OUT_FILE, `// AUTO-GENERATED from mulesoft/docs-dataweave@v2.11 (${ref}). Do not edit by hand.
+writeFileSync(OUT_FILE, `// AUTO-GENERATED from mulesoft/docs-dataweave@${branch} (${ref}). Do not edit by hand.
 // Re-run: npm run docs:refresh
 //
 // MuleSoft's official DataWeave cookbook examples. Every recipe here was executed

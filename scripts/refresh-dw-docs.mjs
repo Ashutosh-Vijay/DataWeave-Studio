@@ -11,11 +11,26 @@
 // can never document a function the runtime doesn't have. Bump DOCS_BRANCH in
 // lockstep with the engine jar, not before.
 import { execSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 
-const DOCS_BRANCH = 'v2.11'; // must match the bundled DW runtime (see dw-server/pom.xml)
+const DOCS_BRANCH = 'v2.12'; // must match the bundled DW runtime (see dw-server/pom.xml)
 const DIR = '.dwdocs-src';
 const run = (cmd, opts = {}) => execSync(cmd, { stdio: 'inherit', ...opts });
+
+// The clone is --single-branch, so its refspec only knows the branch it was
+// made with. After bumping DOCS_BRANCH, fetching the new one fails with
+// "couldn't find remote ref" (git exit 128) -- so re-clone instead of fetching
+// when the existing checkout is on a different branch.
+if (existsSync(DIR)) {
+  let onBranch = '';
+  try {
+    onBranch = execSync(`git -C ${DIR} rev-parse --abbrev-ref HEAD`, { encoding: 'utf8' }).trim();
+  } catch { /* not a git dir -- fall through to the re-clone below */ }
+  if (onBranch !== DOCS_BRANCH) {
+    console.log(`==> ${DIR} is on ${onBranch || 'an unknown ref'}, want ${DOCS_BRANCH} -- re-cloning`);
+    rmSync(DIR, { recursive: true, force: true });
+  }
+}
 
 if (existsSync(DIR)) {
   console.log(`==> Updating ${DIR} (${DOCS_BRANCH})`);

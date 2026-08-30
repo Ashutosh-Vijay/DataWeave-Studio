@@ -136,6 +136,10 @@ if (!existsSync(PAGES_DIR)) {
   process.exit(1);
 }
 
+let sourceBranch = 'unknown';
+try {
+  sourceBranch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: resolve('.dwdocs-src') }).toString().trim();
+} catch { /* no clone — leave it unknown */ }
 let sourceRef = 'unknown';
 try {
   sourceRef = execSync('git rev-parse --short HEAD', { cwd: resolve('.dwdocs-src') }).toString().trim();
@@ -153,7 +157,7 @@ for (const [id, mime] of Object.entries(FORMAT_MIME)) {
   console.log(`  ${mime.padEnd(36)} reader ${String(reader.length).padStart(2)}  writer ${String(writer.length).padStart(2)}`);
 }
 
-const banner = `// AUTO-GENERATED from mulesoft/docs-dataweave@v2.11 (${sourceRef}). Do not edit by hand.
+const banner = `// AUTO-GENERATED from mulesoft/docs-dataweave@${sourceBranch} (${sourceRef}). Do not edit by hand.
 // Re-run: npm run docs:refresh
 //
 // Reader/writer configuration properties per data format — what may follow a

@@ -52,7 +52,7 @@ export interface JavaProbe {
 
 /** Run `java -version` and report what happened.
  *  `java -version` prints to stderr, e.g. `openjdk version "17.0.1"` or the old
- *  `"1.8.0_xxx"` form (→ 8). DataWeave 2.11 needs Java 11+. */
+ *  `"1.8.0_xxx"` form (→ 8). DataWeave 2.12 needs Java 11+. */
 export function probeJava(javaBin: string): Promise<JavaProbe> {
   return new Promise((resolve) => {
     if (path.isAbsolute(javaBin) && !fs.existsSync(javaBin)) {
@@ -102,7 +102,7 @@ export async function pickJava(
 export function javaFailureMessage(tried: JavaProbe[]): string {
   const tooOld = tried.find((t) => t.major !== null && t.major < 11);
   if (tooOld) {
-    return `Found Java ${tooOld.major} at ${tooOld.bin}, but DataWeave 2.11 needs Java 11 or newer.`;
+    return `Found Java ${tooOld.major} at ${tooOld.bin}, but DataWeave 2.12 needs Java 11 or newer.`;
   }
   const bundled = tried[0];
   const lines = tried.map((t) => `  • ${t.bin} — ${t.error ?? 'unusable'}`);

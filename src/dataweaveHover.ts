@@ -2,7 +2,7 @@
  * Monaco hover provider for DataWeave function documentation.
  *
  * Pulls from the auto-generated `dataweaveDocs.ts` (vendored from
- * mulesoft/docs-dataweave@v2.11) and renders signature + description +
+ * mulesoft/docs-dataweave@v2.12) and renders signature + description +
  * up to 2 examples as Markdown that Monaco's hover popup can format.
  */
 

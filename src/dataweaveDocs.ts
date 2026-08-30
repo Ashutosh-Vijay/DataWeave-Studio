@@ -1,4 +1,4 @@
-// AUTO-GENERATED from mulesoft/docs-dataweave@v2.11. Do not edit by hand.
+// AUTO-GENERATED from mulesoft/docs-dataweave@v2.12. Do not edit by hand.
 // Re-run scripts/extract-dw-docs.mjs to refresh.
 
 export interface FnExample { source: string; output: string; }
@@ -2231,7 +2231,7 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
     "overloads": [
       {
         "module": "crypto",
-        "signature": "hashWith(content: Binary, algorithm: String = \"SHA-1\"): Binary",
+        "signature": "hashWith(content: Binary, @CryptographicSink algorithm: String = \"SHA-1\"): Binary",
         "description": "Computes the hash value of binary content using a specified algorithm.\n\n\nThe first argument specifies the binary content to use to calculate the hash value, and the second argument specifies the hashing algorithm to use. The second argument must be any of the accepted Algorithm names:\n\n\n[%header%autowidth.spread]\n|===\n|Algorithm names |Description\n|`MD2` |The MD2 message digest algorithm as defined in https://www.ietf.org/rfc/rfc1319.txt[RFC 1319].\n|`MD5` |The MD5 message digest algorithm as defined in https://www.ietf.org/rfc/rfc1321.txt[RFC 1321].\n|`SHA-1`, `SHA-256`, `SHA-384`, `SHA-512` | Hash algorithms defined in the https://csrc.nist.gov/publications/fips[FIPS PUB 180-2]. SHA-256 is a 256-bit hash function intended to provide 128 bits of security against collision attacks, while SHA-512 is a 512-bit hash function intended to provide 256 bits of security. A 384-bit hash may be obtained by truncating the SHA-512 output.\n|===",
         "examples": [
           {
@@ -2247,7 +2247,7 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
     "overloads": [
       {
         "module": "crypto",
-        "signature": "HMACBinary(secret: Binary, content: Binary, algorithm: String = \"HmacSHA1\"): Binary",
+        "signature": "HMACBinary(secret: Binary, content: Binary, @CryptographicSink algorithm: String = \"HmacSHA1\"): Binary",
         "description": "Computes an HMAC hash (with a secret cryptographic key) on input content.\n\n\nSee also, `HMACWith`.",
         "examples": [
           {

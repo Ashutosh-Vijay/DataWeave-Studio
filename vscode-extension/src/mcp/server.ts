@@ -61,7 +61,7 @@ const ADVANCED_LINE =
 const INSTRUCTIONS = [
   '# DataWeave Studio — local DataWeave 2.0 engine\n',
   "You can run REAL DataWeave 2.0 against a payload on the user's machine via `validate_and_run_dataweave`. ",
-  'This is the genuine DataWeave 2.11 runtime, so its output and errors are authoritative.\n\n',
+  'This is the genuine DataWeave 2.12 runtime, so its output and errors are authoritative.\n\n',
   '## Rules (always follow)\n',
   '1. VALIDATE BEFORE PRESENTING — never show the user a DataWeave script you have not run successfully with ',
   "`validate_and_run_dataweave`. Don't reason about whether it compiles; run it.\n",

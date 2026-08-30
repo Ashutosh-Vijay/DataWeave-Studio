@@ -1,4 +1,4 @@
-// AUTO-GENERATED from mulesoft/docs-dataweave@v2.11 (c3076b2). Do not edit by hand.
+// AUTO-GENERATED from mulesoft/docs-dataweave@v2.12 (495df0c). Do not edit by hand.
 // Re-run: npm run docs:refresh
 //
 // MuleSoft's official DataWeave cookbook examples. Every recipe here was executed

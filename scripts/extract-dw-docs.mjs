@@ -4,14 +4,22 @@
 // Usage:
 //   node scripts/extract-dw-docs.mjs [pagesDir]
 //
-// pagesDir defaults to /tmp/docs-dw/docs-dataweave-2.11/modules/ROOT/pages
+// pagesDir defaults to .dwdocs-src/modules/ROOT/pages (made by docs:refresh)
 
 import { readFileSync, readdirSync, writeFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { execSync } from 'node:child_process';
 
-const PAGES_DIR = process.argv[2] || '/tmp/docs-dw/docs-dataweave-2.11/modules/ROOT/pages';
+const PAGES_DIR = process.argv[2] || resolve('.dwdocs-src/modules/ROOT/pages');
 const OUT_FILE = resolve('src/dataweaveDocs.ts');
 const MAX_EXAMPLES = 2;
+
+// Which docs branch this run is reading. Hardcoding it meant the banner kept
+// claiming v2.11 after the branch moved on.
+let sourceBranch = 'unknown';
+try {
+  sourceBranch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: resolve('.dwdocs-src') }).toString().trim();
+} catch { /* custom pagesDir with no clone beside it — leave it unknown */ }
 
 function decodeEntities(s) {
   return s
@@ -187,7 +195,7 @@ function main() {
   const sortedKeys = Object.keys(byKey).sort();
 
   // Build TS output
-  const head = `// AUTO-GENERATED from mulesoft/docs-dataweave@v2.11. Do not edit by hand.
+  const head = `// AUTO-GENERATED from mulesoft/docs-dataweave@${sourceBranch}. Do not edit by hand.
 // Re-run scripts/extract-dw-docs.mjs to refresh.
 
 export interface FnExample { source: string; output: string; }
