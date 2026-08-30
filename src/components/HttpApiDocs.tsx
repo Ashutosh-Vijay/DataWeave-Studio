@@ -79,7 +79,7 @@ export function HttpApiDocs({ open, onClose, port }: { open: boolean; onClose: (
         <div style={{ padding: '4px 22px 24px', overflowY: 'auto' }}>
           <H>The idea</H>
           <P>
-            The engine running in this app is the real DataWeave 2.11 runtime. While the server is on,
+            The engine running in this app is the real DataWeave 2.12 runtime. While the server is on,
             anything on your machine can POST a script to it and get the output back — a shell script, a
             Python driver, a CI job. No Mule app, no deployed endpoint.
           </P>

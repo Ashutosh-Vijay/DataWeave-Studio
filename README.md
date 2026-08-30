@@ -121,7 +121,7 @@ Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA
 | **Breakpoint debugging** | Flow-level step-through | Yes (full VS Code debugger) | No | Yes |
 | **Go to Definition / Rename** | Yes — engine language service | Yes (LSP) | No | Yes |
 | **Type inference** | Yes — engine language service | Yes (LSP) | No | Yes |
-| **Target an older Mule runtime** | Yes — per request, 4.1 to 4.11 | No | No | Per project |
+| **Target an older Mule runtime** | Yes — per request, 4.1 to 4.12 | No | No | Per project |
 | **Autocomplete** | 309 functions + type-aware fields from your payload | LSP, type-aware | Basic suggestions | Full LSP |
 | **Context (vars, attrs, headers)** | UI — no files | Manual JSON scenario files | Partial | Full runtime |
 | **Config YAML (`${key}`)** | Yes | No | No | Yes (full runtime) |
@@ -202,7 +202,7 @@ Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA
 - Saved with workspace
 
 ### Target runtime
-The engine bundled here is DataWeave 2.11 (Mule 4.11). If you deploy somewhere
+The engine bundled here is DataWeave 2.12 (Mule 4.12). If you deploy somewhere
 older, a script can work here and fail there — `logInfo` needs 2.10, the `update`
 operator needs 2.3, and around 30 of the 309 standard-library functions did not
 exist in 2.4.
@@ -214,7 +214,7 @@ Pick a target from the toolbar and the engine checks against it:
   MuleSoft's own runtime uses, not a table we maintain
 - **Version-dependent behaviour reverts too**, so the answer matches. For
   instance `[3, "a", true] orderBy $` fails as `InvalidComparisonException` on
-  2.11 but `InvalidBooleanException` on 2.9
+  2.12 but `InvalidBooleanException` on 2.9
 - Applies to Run, the Tests panel, and the editor's live diagnostics, so you see
   it while typing rather than after deploying
 - Travels in share links, so "this breaks on 4.4" is reproducible by whoever

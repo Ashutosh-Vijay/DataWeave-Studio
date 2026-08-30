@@ -331,7 +331,7 @@ pub async fn run_dataweave(
 ) -> Result<RunResult, String> {
     let start_time = Instant::now();
     let trace = trace.unwrap_or(false);
-    // Target runtime, e.g. "2.4" for Mule 4.4. Empty = the engine's own 2.11.
+    // Target runtime, e.g. "2.4" for Mule 4.4. Empty = the engine's own 2.12.
     let language_level = language_level.unwrap_or_default();
 
     // Custom `.dwl` module libraries so `import x from MyModule` resolves. The

@@ -97,7 +97,7 @@ export interface Request {
   testScript?: string;
   /**
    * Target DataWeave runtime, e.g. `"2.4"` for Mule 4.4. Undefined or empty
-   * means the engine's own version (2.11) with no version gating.
+   * means the engine's own version (2.12) with no version gating.
    *
    * When set, the engine rejects standard-library functions and language
    * features newer than the target, and reverts its registered runtime

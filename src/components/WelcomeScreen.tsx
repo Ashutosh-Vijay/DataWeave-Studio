@@ -59,7 +59,7 @@ const BENTO = [
   { key: 'offline', title: '100% offline', desc: 'No telemetry, no account, no network. Your payloads never leave the machine.', icon: ICONS.offline },
 ];
 
-const CHIPS = ['DataWeave 2.11 runtime', 'Bundled JVM', 'JSON · XML · CSV · YAML', 'cURL import', 'Dusk / Paper themes', 'Cross-platform'];
+const CHIPS = ['DataWeave 2.12 runtime', 'Bundled JVM', 'JSON · XML · CSV · YAML', 'cURL import', 'Dusk / Paper themes', 'Cross-platform'];
 
 function useReducedMotion(): boolean {
   const [reduce, setReduce] = useState(() => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
@@ -141,7 +141,7 @@ export function WelcomeScreen({ appVersion, onOpenPlayground, onTakeTour }: {
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2.4, color: 'var(--content-faint)' }}>DATAWEAVE&nbsp;STUDIO</div>
               </div>
               <h1 style={{ margin: 0, fontSize: 44, lineHeight: 1.04, fontWeight: 800, letterSpacing: -1.4, maxWidth: '13ch' }}>Transform data, <span style={{ color: 'var(--accent)' }}>locally.</span></h1>
-              <p style={{ margin: '16px 0 0', fontSize: 15, lineHeight: 1.6, color: 'var(--content-secondary)', maxWidth: '50ch' }}>A fast workbench for DataWeave 2.0 — write a transform, run it against real JSON, XML, CSV or YAML, and see the output instantly. The full DataWeave&nbsp;2.11 runtime, bundled. No Anypoint, no cloud, no waiting.</p>
+              <p style={{ margin: '16px 0 0', fontSize: 15, lineHeight: 1.6, color: 'var(--content-secondary)', maxWidth: '50ch' }}>A fast workbench for DataWeave 2.0 — write a transform, run it against real JSON, XML, CSV or YAML, and see the output instantly. The full DataWeave&nbsp;2.12 runtime, bundled. No Anypoint, no cloud, no waiting.</p>
               <div className="flex flex-wrap" style={{ gap: 12, marginTop: 26 }}>
                 <button onClick={onOpenPlayground} className="cursor-pointer hover:brightness-110 inline-flex items-center" style={{ gap: 9, height: 46, padding: '0 22px', borderRadius: 11, border: '1px solid var(--accent)', background: 'var(--accent)', color: 'var(--accent-ink)', fontSize: 14, fontWeight: 600, boxShadow: '0 10px 30px color-mix(in oklch, var(--accent) 34%, transparent)' }}>
                   Open the playground

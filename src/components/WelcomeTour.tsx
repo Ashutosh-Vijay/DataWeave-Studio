@@ -36,7 +36,7 @@ const STEPS: Step[] = [
     desc: 'The center pane is your DataWeave script — syntax highlighting, 309-function autocomplete, inline error markers and hover docs. Type and the output updates live.',
     tip: 'Press ⌘↵ to run, or leave Auto-run on for a live preview.' },
   { sel: 'run-controls', side: 'bottom', kicker: 'Run', title: 'Run the transform',
-    desc: 'Executes your script against the input using the bundled DataWeave 2.11 runtime — fully local. The timing chip by the output shows how long it took.' },
+    desc: 'Executes your script against the input using the bundled DataWeave 2.12 runtime — fully local. The timing chip by the output shows how long it took.' },
   { sel: 'output', side: 'left', kicker: 'Output', title: 'See it instantly',
     desc: 'Results render here as formatted JSON, XML or text — copy or export in one click. Errors show the exact line, a source snippet and a collapsible stack trace.' },
   { sel: 'rail-ref', side: 'right', kicker: 'Function reference', title: '309 DataWeave functions',

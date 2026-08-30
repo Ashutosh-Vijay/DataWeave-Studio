@@ -161,7 +161,7 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
             className="mt-[18px] mb-0 text-[15px] leading-[1.55] max-w-[560px]"
             style={{ color: 'var(--content-muted)' }}
           >
-            The real DataWeave 2.11 engine, {isTauri ? 'in a desktop app' : 'right inside VS Code'}.
+            The real DataWeave 2.12 engine, {isTauri ? 'in a desktop app' : 'right inside VS Code'}.
             No Anypoint Studio, no browser tab, no signup. Write a script, drop a payload, hit Run.
           </p>
 
@@ -171,7 +171,7 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
           <div className="grid grid-cols-3 gap-x-7 gap-y-6">
             <Stat kicker="version" value={appVersion || '—'} sub="latest stable" valueAccent />
             <Stat kicker="license" value="MIT" sub="free forever" />
-            <Stat kicker="dw engine" value="2.11.0" sub="BSD-3 · MuleSoft" />
+            <Stat kicker="dw engine" value="2.12.0" sub="Apache 2.0 · MuleSoft" />
             {isTauri ? (
               <Stat kicker="size" value="~87 MB" sub="installer · all bundled" />
             ) : (

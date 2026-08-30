@@ -192,7 +192,7 @@ function StatusBar({
       >
         <Icons.Dot size={8} /> {isReady ? 'Ready' : 'Warming up'}
       </span>
-      <span>DW {dwVersion || '2.11.0'}</span>
+      <span>DW {dwVersion || '2.12.0'}</span>
       {workspaceFile && <span className="truncate max-w-[280px]">{workspaceFile}</span>}
       <span className="flex-1" />
       <CursorIndicator />
@@ -1353,7 +1353,7 @@ function App() {
             title="Check this script against an older Mule runtime. Anything newer than the target becomes an error instead of failing later on the server."
           >
             <option value="">Target: latest</option>
-            {[11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((n) => (
+            {[12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((n) => (
               <option key={n} value={`2.${n}`}>Mule 4.{n} · DW 2.{n}</option>
             ))}
           </select>

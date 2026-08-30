@@ -18,7 +18,7 @@ import * as path from 'path';
  *
  *  Bundled-first is deliberate and matches the desktop (see dw_server.rs): this
  *  audience (banks / MuleSoft shops) is often locked to Java 8 for Anypoint
- *  Studio, but DataWeave 2.11 needs Java 11+. Shipping our own Java 17 — invoked
+ *  Studio, but DataWeave 2.12 needs Java 11+. Shipping our own Java 17 — invoked
  *  by absolute path, never touching JAVA_HOME/PATH — guarantees the right
  *  version without disturbing their setup, and works offline (air-gapped nets).
  *
