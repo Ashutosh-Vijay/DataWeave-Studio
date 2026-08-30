@@ -1,7 +1,8 @@
 /**
- * Engine-backed language features — completion, hover and signature help
- * answered by the real DataWeave language service inside the bundled engine,
- * instead of our own heuristics.
+ * Engine-backed language features — completion, hover, signature help,
+ * go-to-definition, find-references, rename, outline, folding and type
+ * diagnostics, all answered by the real DataWeave language service inside the
+ * bundled engine instead of our own heuristics.
  *
  * The jar has shipped MuleSoft's full language server since day one; this asks
  * it. `payload.` returns the payload's actual fields, and a `map` lambda's
@@ -60,9 +61,58 @@ async function ask<T>(
   }
 }
 
+/**
+ * Same query, but for things the user explicitly asked for.
+ *
+ * `ask` drops a request when another is already running, which is right while
+ * typing — a stale completion is worse than none. It is wrong for F12, Shift+F12
+ * and F2: silently doing nothing because a background hover happened to be in
+ * flight would read as the feature being broken. The engine serialises requests
+ * behind its own mutex anyway, so waiting our turn costs a few ms.
+ */
+async function askNow<T>(
+  kind: string,
+  script: string,
+  offset: number,
+  payload: string,
+  extra?: Record<string, unknown>,
+): Promise<T | null> {
+  try {
+    return await invoke<T>('dw_tooling', { kind, script, offset, payload, ...extra });
+  } catch {
+    return null;
+  }
+}
+
 /** Character offset of a Monaco position — what the language service wants. */
 function offsetOf(model: Monaco.editor.ITextModel, position: Monaco.IPosition): number {
   return model.getOffsetAt(position);
+}
+
+/** A source range as the engine reports it. Offsets, not line/column — see the
+ *  note on locJson in DwServer.scala for why. */
+interface EngineLoc {
+  startIndex: number;
+  endIndex: number;
+  startLine?: number;
+  startColumn?: number;
+  endLine?: number;
+  endColumn?: number;
+}
+
+/** Engine offsets -> a Monaco range. Null when the engine had no real location,
+ *  which it reports as -1 rather than omitting the field. */
+function rangeOf(model: Monaco.editor.ITextModel, loc: EngineLoc | undefined): Monaco.IRange | null {
+  if (!loc || loc.startIndex < 0 || loc.endIndex < loc.startIndex) return null;
+  const max = model.getValueLength();
+  const a = model.getPositionAt(Math.min(loc.startIndex, max));
+  const b = model.getPositionAt(Math.min(loc.endIndex, max));
+  return {
+    startLineNumber: a.lineNumber,
+    startColumn: a.column,
+    endLineNumber: b.lineNumber,
+    endColumn: b.column,
+  };
 }
 
 /**
@@ -124,10 +174,225 @@ export function registerEngineLanguageFeatures(
     },
   });
 
+  // ── Navigation ────────────────────────────────────────────────────────────
+  // All four of these were listed as "No" against MuleSoft's extension in the
+  // README's comparison table. The engine has answered them since day one; we
+  // simply were not asking.
+
+  const definition = monaco.languages.registerDefinitionProvider('dataweave', {
+    async provideDefinition(model, position) {
+      const res = await askNow<{ links?: { name: string; target: EngineLoc }[] }>(
+        'definition',
+        model.getValue(),
+        offsetOf(model, position),
+        payloadOf(),
+      );
+      const out: Monaco.languages.Location[] = [];
+      for (const link of res?.links ?? []) {
+        const range = rangeOf(model, link.target);
+        if (range) out.push({ uri: model.uri, range });
+      }
+      return out.length ? out : null;
+    },
+  });
+
+  const references = monaco.languages.registerReferenceProvider('dataweave', {
+    async provideReferences(model, position) {
+      const res = await askNow<{ references?: { name: string; location: EngineLoc }[] }>(
+        'references',
+        model.getValue(),
+        offsetOf(model, position),
+        payloadOf(),
+      );
+      const out: Monaco.languages.Location[] = [];
+      for (const ref of res?.references ?? []) {
+        const range = rangeOf(model, ref.location);
+        if (range) out.push({ uri: model.uri, range });
+      }
+      return out.length ? out : null;
+    },
+  });
+
+  const rename = monaco.languages.registerRenameProvider('dataweave', {
+    async provideRenameEdits(model, position, newName) {
+      // The engine resolves the symbol through its scope graph, so a name that
+      // is shadowed in an inner scope is correctly left alone — which is the
+      // whole reason to ask it instead of running a find-and-replace.
+      const res = await askNow<{ references?: { name: string; location: EngineLoc }[] }>(
+        'rename',
+        model.getValue(),
+        offsetOf(model, position),
+        payloadOf(),
+        { newName },
+      );
+      const edits: Monaco.languages.IWorkspaceTextEdit[] = [];
+      for (const ref of res?.references ?? []) {
+        const range = rangeOf(model, ref.location);
+        if (range) {
+          edits.push({
+            resource: model.uri,
+            textEdit: { range, text: newName },
+            versionId: model.getVersionId(),
+          });
+        }
+      }
+      if (!edits.length) {
+        return { edits: [], rejectReason: 'Nothing here can be renamed.' };
+      }
+      return { edits };
+    },
+  });
+
+  const symbols = monaco.languages.registerDocumentSymbolProvider('dataweave', {
+    displayName: 'DataWeave',
+    async provideDocumentSymbols(model) {
+      const res = await askNow<{
+        symbols?: { name: string; kind: number; location: EngineLoc; container?: string }[];
+      }>('documentSymbol', model.getValue(), 0, payloadOf());
+      const out: Monaco.languages.DocumentSymbol[] = [];
+      for (const sym of res?.symbols ?? []) {
+        const range = rangeOf(model, sym.location);
+        if (!range) continue;
+        out.push({
+          name: sym.name,
+          detail: sym.container ?? '',
+          // The engine numbers symbol kinds exactly as LSP does (File = 1);
+          // Monaco's enum is the same list zero-based.
+          kind: Math.max(0, sym.kind - 1) as Monaco.languages.SymbolKind,
+          tags: [],
+          range,
+          selectionRange: range,
+        });
+      }
+      return out;
+    },
+  });
+
+  const folding = monaco.languages.registerFoldingRangeProvider('dataweave', {
+    async provideFoldingRanges(model) {
+      const res = await askNow<{ regions?: { kind: number; location: EngineLoc }[] }>(
+        'folding',
+        model.getValue(),
+        0,
+        payloadOf(),
+      );
+      const out: Monaco.languages.FoldingRange[] = [];
+      for (const region of res?.regions ?? []) {
+        const range = rangeOf(model, region.location);
+        // A region confined to one line has nothing to fold.
+        if (!range || range.endLineNumber <= range.startLineNumber) continue;
+        out.push({
+          start: range.startLineNumber,
+          end: range.endLineNumber,
+          // RegionKind.COMMENTS === 0 upstream; everything else folds as a region.
+          kind:
+            region.kind === 0
+              ? monaco.languages.FoldingRangeKind.Comment
+              : region.kind === 6
+                ? monaco.languages.FoldingRangeKind.Imports
+                : monaco.languages.FoldingRangeKind.Region,
+        });
+      }
+      return out;
+    },
+  });
+
   return {
     dispose() {
       hover.dispose();
       signature.dispose();
+      definition.dispose();
+      references.dispose();
+      rename.dispose();
+      symbols.dispose();
+      folding.dispose();
+    },
+  };
+}
+
+/**
+ * Live type diagnostics for one editor.
+ *
+ * This is the engine's own type checker, so it catches things no amount of
+ * pattern-matching would: a field that isn't on the payload, an argument of the
+ * wrong type, a function that doesn't exist. Previously none of it surfaced
+ * until you pressed Run and read an error message.
+ *
+ * Attached per-editor rather than registered globally on purpose. Every Flow
+ * Designer node owns a DataWeave model too, and type-checking all of them on
+ * every keystroke would put real load on a single-threaded engine for squiggles
+ * nobody is looking at. The main script editor is the one that earns it.
+ *
+ * Markers use their own owner string so they sit alongside, and never clobber,
+ * the run-time error markers the runner sets.
+ */
+export function attachEngineDiagnostics(
+  monaco: typeof Monaco,
+  editor: Monaco.editor.IStandaloneCodeEditor,
+  getPayload: () => string,
+): Monaco.IDisposable {
+  const OWNER = 'dataweave-engine';
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let disposed = false;
+  let generation = 0;
+
+  const run = async () => {
+    const model = editor.getModel();
+    if (!model || disposed) return;
+    const mine = ++generation;
+    const res = await askNow<{
+      messages?: {
+        severity: string;
+        location: EngineLoc;
+        message: string;
+        quickFixes?: { name: string; description: string }[];
+      }[];
+    }>('typeCheck', model.getValue(), 0, getPayload());
+    // The user kept typing while we were waiting — that answer is about a
+    // script that no longer exists.
+    if (disposed || mine !== generation || model.isDisposed()) return;
+    if (!res) return; // engine cold or restarting: leave the last markers alone
+
+    const markers: Monaco.editor.IMarkerData[] = [];
+    for (const m of res.messages ?? []) {
+      const range = rangeOf(model, m.location);
+      if (!range) continue;
+      const fixes = m.quickFixes?.length
+        ? ` (${m.quickFixes.map((f) => f.name).join(', ')})`
+        : '';
+      markers.push({
+        severity:
+          m.severity === 'error' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
+        message: m.message + fixes,
+        source: 'DataWeave',
+        ...range,
+      });
+    }
+    monaco.editor.setModelMarkers(model, OWNER, markers);
+  };
+
+  const schedule = () => {
+    if (timer) clearTimeout(timer);
+    // Long enough that a fast typist doesn't queue a check per keystroke, short
+    // enough that the squiggle feels like it belongs to what you just wrote.
+    timer = setTimeout(run, 450);
+  };
+
+  const sub = editor.onDidChangeModelContent(schedule);
+  const swap = editor.onDidChangeModel(() => {
+    generation++;
+    schedule();
+  });
+  schedule();
+
+  return {
+    dispose() {
+      disposed = true;
+      if (timer) clearTimeout(timer);
+      sub.dispose();
+      swap.dispose();
+      const model = editor.getModel();
+      if (model && !model.isDisposed()) monaco.editor.setModelMarkers(model, OWNER, []);
     },
   };
 }

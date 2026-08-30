@@ -564,13 +564,14 @@ pub fn tooling(
     offset: usize,
     payload: &str,
     classpath: &[String],
+    new_name: &str,
 ) -> Result<serde_json::Value, String> {
     let state = app.state::<DwServerState>();
     let id = state.next_id.fetch_add(1, Ordering::Relaxed);
     let req = serde_json::json!({
         "id": id, "op": "tooling", "kind": kind,
         "script": script, "offset": offset, "payload": payload,
-        "classpath": classpath,
+        "classpath": classpath, "newName": new_name,
     })
     .to_string();
 

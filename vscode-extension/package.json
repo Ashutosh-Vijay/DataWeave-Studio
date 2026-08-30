@@ -126,6 +126,12 @@
         "key": "ctrl+shift+t",
         "mac": "cmd+shift+t",
         "when": "activeWebviewPanelId == 'dataweaveStudio'"
+      },
+      {
+        "command": "dataweaveStudio.noop",
+        "key": "ctrl+shift+o",
+        "mac": "cmd+shift+o",
+        "when": "activeWebviewPanelId == 'dataweaveStudio'"
       }
     ]
   },

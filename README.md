@@ -119,9 +119,9 @@ Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA
 | **Visual flow designer** | Yes — drag-and-drop | No | No | Yes |
 | **cURL import** | Yes | No | No | No |
 | **Breakpoint debugging** | Flow-level step-through | Yes (full VS Code debugger) | No | Yes |
-| **Go to Definition / Rename** | No | Yes (LSP) | No | Yes |
-| **Type inference** | No | Yes (LSP) | No | Yes |
-| **Autocomplete** | 309 functions + signatures | LSP, type-aware | Basic suggestions | Full LSP |
+| **Go to Definition / Rename** | Yes — engine language service | Yes (LSP) | No | Yes |
+| **Type inference** | Yes — engine language service | Yes (LSP) | No | Yes |
+| **Autocomplete** | 309 functions + type-aware fields from your payload | LSP, type-aware | Basic suggestions | Full LSP |
 | **Context (vars, attrs, headers)** | UI — no files | Manual JSON scenario files | Partial | Full runtime |
 | **Config YAML (`${key}`)** | Yes | No | No | Yes (full runtime) |
 | **Secure config (`![encrypted]`)** | Yes — offline | No | No | Yes (full runtime) |
@@ -150,9 +150,14 @@ Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA
 ### Script Editor (Monaco)
 - DataWeave 2.0 syntax highlighting with custom Monarch tokenizer
 - **309-function autocomplete** with signature hints and module grouping
-- Context-aware suggestions from payload fields, variables, attributes, and config properties
+- **Type-aware completion from the engine itself** — `payload.` lists the fields your payload actually has, and inside a `map` the lambda parameter resolves to the element type, so `item.` suggests that element's own fields. This is the DataWeave language service inside the bundled engine, so the types are the engine's truth rather than a guess made from your sample.
+- **Hover for inferred types** and signature help showing which argument you're on
+- **Go to Definition** (F12), **Find All References** (Shift+F12) and **Rename Symbol** (F2), resolved through the engine's scope graph — so a name shadowed in an inner scope is correctly left alone rather than blindly text-replaced
+- **Outline** (Ctrl+Shift+O) and code folding driven by the parsed AST, not by indentation
+- **Live type diagnostics** — a typo-ed function, an undefined variable, a wrong argument count or a syntax error is underlined as you type, before you ever press Run
+- Context-aware suggestions from variables, attributes, and config properties
 - Error highlighting with line markers and gutter glyphs — auto-scrolls to the failing line
-- Code formatting (Alt+Shift+F)
+- **Code formatting (Alt+Shift+F)** using the engine's own formatter — the same one Anypoint Studio uses — plus a Format button for JSON and XML payloads
 - Bracket pair colorization
 - Auto-closing brackets/quotes, smart indentation
 - Configurable font family, font size, line height, tab size, word wrap
@@ -459,7 +464,7 @@ licenses/                   # Third-party licenses
 - Undo/redo is per-session and does not persist across workspace reloads.
 - Config property autocomplete triggers on `$` — type `${` to see suggestions.
 - Trackpad pinch-to-zoom in the flow designer is limited by WebView2 — use Ctrl+scroll or the +/- buttons instead.
-- No Language Server Protocol (LSP) — no Go to Definition, Find References, Rename Symbol, or type inference. MuleSoft's official VS Code extension has these via its LSP.
+- No extract-variable / extract-function refactors, and no Publish to Exchange. (Completion, hover types, signature help, go-to-definition, find-references, rename, outline, folding and live type diagnostics all come from the engine's language service — see above.)
 - No breakpoint-level debugging of DataWeave expressions (the Flow Designer offers node-level step-through instead).
 - No Anypoint Exchange publishing or Maven dependency management.
 

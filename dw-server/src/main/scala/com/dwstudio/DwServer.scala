@@ -8,6 +8,7 @@ import org.mule.weave.v2.model.service.{
   UrlSourceProviderResolverService
 }
 import org.mule.weave.v2.parser.ast.variables.NameIdentifier
+import org.mule.weave.v2.parser.location.WeaveLocation
 import org.mule.weave.v2.runtime._
 import org.mule.weave.v2.sdk.ClassLoaderWeaveResourceResolver
 import org.mule.weave.v2.editor.{WeaveToolingService, SimpleVirtualFileSystem, SpecificModuleResourceResolver, ImplicitInput}
@@ -316,6 +317,34 @@ object DwServer {
 
   /** The engine's IDE language service, exposed over the same stdio protocol.
    *  `kind` picks the query; `offset` is a character offset into the script. */
+  /** Serialise a source range for the editor.
+   *
+   *  `index` is the character offset and is what the editor actually uses -
+   *  Monaco converts an offset to a position itself, which sidesteps having to
+   *  guess whether the engine counts lines and columns from 0 or from 1. Line
+   *  and column ride along for logs and for anything that wants to show a
+   *  human-readable position.
+   *
+   *  Everything here used to be `.toString` on the location object, which threw
+   *  away the numbers entirely and produced a pretty-printed source excerpt -
+   *  fine to look at, useless to navigate to.
+   */
+  private def locJson(loc: WeaveLocation): JsonObject = {
+    val o = new JsonObject()
+    if (loc == null || loc.startPosition == null || loc.endPosition == null) {
+      o.add("startIndex", -1)
+      o.add("endIndex", -1)
+    } else {
+      o.add("startIndex", loc.startPosition.index)
+      o.add("endIndex", loc.endPosition.index)
+      o.add("startLine", loc.startPosition.line)
+      o.add("startColumn", loc.startPosition.column)
+      o.add("endLine", loc.endPosition.line)
+      o.add("endColumn", loc.endPosition.column)
+    }
+    o
+  }
+
   private def toolingResponse(id: Int, req: JsonObject, started: Long): String = {
     val source = req.getString("script", "")
     val offset = if (req.get("offset") == null) 0 else req.get("offset").asInt()
@@ -345,9 +374,12 @@ object DwServer {
     // user already has loaded and hand it over as the implicit input.
     val inputs = new ImplicitInput()
     val rawPayload = req.getString("payload", "")
+    var hasPayloadType = false
     if (rawPayload.trim.nonEmpty) {
-      try inputs.addInput("payload", weaveTypeOfJson(Json.parse(rawPayload)))
-      catch { case _: Throwable => () }  // not JSON: fall back to no input type
+      try {
+        inputs.addInput("payload", weaveTypeOfJson(Json.parse(rawPayload)))
+        hasPayloadType = true
+      } catch { case _: Throwable => () }  // not JSON: fall back to no input type
     }
     val doc = service.open("/main.dwl", inputs, scala.None)
 
@@ -403,26 +435,112 @@ object DwServer {
           payload.add("type", doc.typeOf(offset).toString)
 
         case "definition" =>
+          // definitions() returns Links: where the name was used, and the
+          // Reference it resolves to. The editor wants the target.
           val arr = new com.eclipsesource.json.JsonArray()
-          doc.definitions(offset).foreach(l => arr.add(l.toString))
+          doc.definitions(offset).foreach { l =>
+            val o = new JsonObject()
+            o.add("name", l.reference.referencedNode.name)
+            o.add("target", locJson(l.reference.referencedNode.location()))
+            o.add("origin", locJson(l.linkLocation.location()))
+            arr.add(o)
+          }
           payload.add("links", arr)
 
-        case "rename" =>
+        case "references" =>
           val arr = new com.eclipsesource.json.JsonArray()
-          doc.rename(offset, req.getString("newName", "renamed")).foreach(r => arr.add(r.toString))
+          doc.references(offset).foreach { r =>
+            val o = new JsonObject()
+            o.add("name", r.referencedNode.name)
+            o.add("location", locJson(r.referencedNode.location()))
+            arr.add(o)
+          }
           payload.add("references", arr)
 
+        case "rename" =>
+          // Every occurrence the engine says belongs to this symbol - scope
+          // aware, so a shadowed name in another scope is correctly left alone.
+          val arr = new com.eclipsesource.json.JsonArray()
+          doc.rename(offset, req.getString("newName", "renamed")).foreach { r =>
+            val o = new JsonObject()
+            o.add("name", r.referencedNode.name)
+            o.add("location", locJson(r.referencedNode.location()))
+            arr.add(o)
+          }
+          payload.add("references", arr)
+
+        case "documentSymbol" =>
+          val arr = new com.eclipsesource.json.JsonArray()
+          doc.documentSymbol().foreach { sym =>
+            val o = new JsonObject()
+            o.add("name", sym.name)
+            o.add("kind", sym.kind)
+            o.add("location", locJson(sym.location))
+            sym.containerName.foreach(c => o.add("container", c))
+            arr.add(o)
+          }
+          payload.add("symbols", arr)
+
+        case "folding" =>
+          val arr = new com.eclipsesource.json.JsonArray()
+          doc.foldingRegions().foreach { fr =>
+            val o = new JsonObject()
+            o.add("kind", fr.kind)
+            o.add("location", locJson(fr.location))
+            arr.add(o)
+          }
+          payload.add("regions", arr)
+
         case "typeCheck" =>
+          // The engine's own type checker, which is what makes this worth
+          // wiring: it catches a typo-ed function, an undefined variable, a
+          // wrong argument count or a syntax error before the script is ever
+          // run, rather than at eval time.
+          //
+          // It is honest but not tactful, so two families of message are
+          // dropped rather than shown. Both were measured against this engine,
+          // not guessed at:
+          //
+          //  * "Auto-Coercing type from: `Any` to: X" - emitted once per
+          //    candidate coercion whenever a value's type isn't known. A
+          //    three-line script reading one absent field produced 33 of them.
+          //    They describe the type lattice, not a problem with the script.
+          //
+          //  * "Unable to resolve reference of: `payload`" - only true because
+          //    WE didn't hand over an input type. Every XML, CSV or binary
+          //    payload would otherwise light up a correct script with hard
+          //    errors on every `payload` reference. `vars` and `attributes` are
+          //    never given types at all, so they are always exempt.
+          //
+          // Everything else passes through, which is the part worth having.
+          val ambient: Set[String] =
+            if (hasPayloadType) Set("vars", "attributes")
+            else Set("vars", "attributes", "payload")
+          def isNoise(msg: String): Boolean =
+            msg.startsWith("Auto-Coercing type from") ||
+              msg.startsWith("Multiple valid coercion functions") ||
+              ambient.exists(n => msg.startsWith("Unable to resolve reference of: `" + n + "`"))
+
           val msgs = doc.typeCheck()
           val arr = new com.eclipsesource.json.JsonArray()
           def addAll(items: Array[org.mule.weave.v2.editor.ValidationMessage], sev: String): Unit =
             items.foreach { vm =>
-              val o = new JsonObject()
-              o.add("severity", sev)
-              o.add("location", vm.location.toString)
-              o.add("message", vm.message.message)
-              o.add("quickFixes", vm.quickFix.length)
-              arr.add(o)
+              val text = vm.message.message
+              if (!isNoise(text)) {
+                val o = new JsonObject()
+                o.add("severity", sev)
+                o.add("location", locJson(vm.location))
+                o.add("message", text)
+                val fixes = new com.eclipsesource.json.JsonArray()
+                vm.quickFix.foreach { qf =>
+                  val f = new JsonObject()
+                  f.add("name", qf.name)
+                  f.add("description", qf.description)
+                  fixes.add(f)
+                }
+                o.add("quickFixes", fixes)
+                arr.add(o)
+              }
             }
           addAll(msgs.errorMessage, "error")
           addAll(msgs.warningMessage, "warning")

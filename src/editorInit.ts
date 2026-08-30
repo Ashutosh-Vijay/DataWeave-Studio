@@ -38,6 +38,7 @@ export function configureEditor(editor: unknown): void {
     onDidDispose?: (cb: () => void) => void;
     trigger?: (source: string, handlerId: string, payload: unknown) => void;
     onMouseUp?: (cb: () => void) => void;
+    hasWidgetFocus?: () => boolean;
     hasTextFocus?: () => boolean;
     focus?: () => void;
     getSelection?: () => { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number } | null;
@@ -113,6 +114,55 @@ export function configureEditor(editor: unknown): void {
       },
       true, // capture: get there before Monaco's own listener
     );
+  }
+
+  // 5. Give overflow widgets their keyboard back.
+  //
+  // Monaco renders "overflow" widgets into a <body>-level node so they can
+  // escape the editor's clipping (see getOverflowWidgetsDomNode in
+  // ScriptEditor). Standalone Monaco's keybinding service, however, listens for
+  // keydown on the EDITOR's own DOM node — and the rename widget is the one
+  // overflow widget that takes focus for itself.
+  //
+  // The result was a rename box that opened, accepted typing, and then ignored
+  // both Enter and Escape completely: every keystroke landed on a node nothing
+  // was listening to, so `acceptRenameInput` never ran and F2 looked broken
+  // even though the rename provider underneath it was fine. Re-dispatching on
+  // the editor node puts the event back where the keybinding service can see
+  // it. The clone lands outside the overflow root, so it cannot re-enter here.
+  const overflowRoot = document.querySelector('.monaco-overflow-widgets-root');
+  const editorNode = ed.getDomNode?.();
+  if (overflowRoot && editorNode) {
+    const forwardKey = (e: Event) => {
+      const ev = e as KeyboardEvent;
+      if (ev.key !== 'Enter' && ev.key !== 'Escape') return;
+      // Several editors share one overflow root; only the one holding widget
+      // focus should act, or a rename in the script pane would also be handled
+      // by every flow-node editor on screen.
+      if (ed.hasWidgetFocus?.() !== true) return;
+      const clone = new KeyboardEvent('keydown', {
+        key: ev.key,
+        code: ev.code,
+        location: ev.location,
+        ctrlKey: ev.ctrlKey,
+        shiftKey: ev.shiftKey,
+        altKey: ev.altKey,
+        metaKey: ev.metaKey,
+        bubbles: true,
+        cancelable: true,
+      });
+      // Monaco's StandardKeyboardEvent reads the legacy keyCode, which the
+      // constructor won't set — assign it before dispatch or the event is
+      // KeyCode.Unknown and matches no binding.
+      Object.defineProperty(clone, 'keyCode', { get: () => (ev.key === 'Enter' ? 13 : 27) });
+      editorNode.dispatchEvent(clone);
+      if (clone.defaultPrevented) {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+    };
+    overflowRoot.addEventListener('keydown', forwardKey, true);
+    ed.onDidDispose?.(() => overflowRoot.removeEventListener('keydown', forwardKey, true));
   }
 
   // 4. Re-trigger suggest on backspace within a word.

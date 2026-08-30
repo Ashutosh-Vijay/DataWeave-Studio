@@ -1,6 +1,7 @@
 import Editor, { useMonaco, BeforeMount } from '@monaco-editor/react';
 import { useEffect, useRef, useCallback, useState, useMemo, forwardRef, useImperativeHandle, memo } from 'react';
 import { configureEditor } from '../editorInit';
+import { attachEngineDiagnostics } from '../dataweaveEngineLanguage';
 import { Icons } from './Icons';
 import { migrateDW1to2, type MigrationChange } from '../dwMigrate';
 import { dwTokensProvider } from '../dataweaveGrammar';
@@ -200,6 +201,8 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
   }), []);
 
   const codeActionDisposableRef = useRef<any>(null);
+  const diagnosticsRef = useRef<{ dispose(): void } | null>(null);
+  useEffect(() => () => diagnosticsRef.current?.dispose(), []);
   const contextRef = useRef<DWCompletionContext>({
     payload: '',
     payloadMimeType: 'application/json',
@@ -379,6 +382,16 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
 
     // Shared editor init: spell-check off + re-trigger suggest on backspace.
     configureEditor(editor);
+
+    // Live type errors from the engine's own checker. Only this editor gets
+    // them — see attachEngineDiagnostics for why flow-node editors don't.
+    diagnosticsRef.current?.dispose();
+    diagnosticsRef.current = attachEngineDiagnostics(monacoInstance, editor, () => {
+      const ctx = contextRef.current;
+      // Non-JSON payloads can't be turned into a type, and passing one anyway
+      // makes the checker report the whole script against an unknown input.
+      return /json/i.test(ctx.payloadMimeType || '') ? ctx.payload || '' : '';
+    });
   };
 
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;

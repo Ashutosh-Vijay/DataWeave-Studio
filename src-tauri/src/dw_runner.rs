@@ -677,6 +677,7 @@ pub fn dw_tooling(
     offset: usize,
     payload: Option<String>,
     classpath: Option<Vec<String>>,
+    new_name: Option<String>,
 ) -> Result<serde_json::Value, String> {
     crate::dw_server::tooling(
         &app,
@@ -685,6 +686,7 @@ pub fn dw_tooling(
         offset,
         payload.as_deref().unwrap_or(""),
         &classpath.unwrap_or_default(),
+        new_name.as_deref().unwrap_or(""),
     )
 }
 
