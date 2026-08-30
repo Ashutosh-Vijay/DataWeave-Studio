@@ -728,6 +728,44 @@ object DwServer {
           }
           payload.add("variables", arr)
 
+        case "scaffoldDocs" =>
+          // A doc comment for the function under the cursor, with its parameters
+          // already listed. Both this and unitTest need the range to land on a
+          // function DECLARATION, not a call - they resolve a FunctionDirectiveNode
+          // and return None for anything else.
+          val start = if (req.get("start") == null) offset else req.get("start").asInt()
+          val end   = if (req.get("end") == null) start else req.get("end").asInt()
+          doc.scaffoldDocs(start, end) match {
+            case Some(text) => payload.add("docs", text)
+            case None       => payload.add("docs", Json.NULL)
+          }
+
+        case "unitTest" =>
+          val start = if (req.get("start") == null) offset else req.get("start").asInt()
+          val end   = if (req.get("end") == null) start else req.get("end").asInt()
+          doc.createUnitTestFromDefinition(start, end) match {
+            case Some(text) =>
+              payload.add("test", text)
+              payload.add("path", doc.getTestPathFromDefinition())
+            case None => payload.add("test", Json.NULL)
+          }
+
+        case "validateDocs" =>
+          val arr = new com.eclipsesource.json.JsonArray()
+          val vd = doc.validateDocs()
+          def addDocMsgs(items: Array[org.mule.weave.v2.editor.ValidationMessage], sev: String): Unit =
+            items.foreach { vm =>
+              val o = new JsonObject()
+              o.add("severity", sev)
+              o.add("location", locJson(vm.location))
+              o.add("message", vm.message.message)
+              o.add("code", vm.message.getClass.getSimpleName)
+              arr.add(o)
+            }
+          addDocMsgs(vd.errorMessage, "error")
+          addDocMsgs(vd.warningMessage, "warning")
+          payload.add("messages", arr)
+
         case other =>
           return errorResponse(id, "Unknown tooling kind: " + other, started)
       }

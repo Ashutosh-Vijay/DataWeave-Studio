@@ -347,6 +347,19 @@ export function registerEngineLanguageFeatures(
         });
       }
 
+      // Documentation only applies to a function declaration. The engine returns
+      // nothing for anything else, and a menu entry that silently does nothing is
+      // worse than no entry, so check the line before offering it rather than
+      // spending a round-trip to find out.
+      const lineText = model.getLineContent(range.startLineNumber);
+      if (/^\s*fun\s+[A-Za-z_$][\w$]*/.test(lineText)) {
+        out.push({
+          title: 'Generate documentation comment',
+          kind: 'refactor.rewrite',
+          __dw: { op: 'docs', script: model.getValue(), line: range.startLineNumber },
+        });
+      }
+
       // Extract only makes sense over a real selection.
       if (!range.isEmpty()) {
         const start = model.getOffsetAt({ lineNumber: range.startLineNumber, column: range.startColumn });
@@ -374,6 +387,50 @@ export function registerEngineLanguageFeatures(
       const req = action.__dw;
       if (!req) return codeAction;
 
+      const model = monaco.editor.getModels().find((m) => m.getValue() === req.script);
+      if (!model) return codeAction;
+
+      // Docs are the odd one out: the engine hands back just the comment, not a
+      // rewritten document, so this is an insert rather than a whole-file swap.
+      if (req.op === 'docs') {
+        const lineStart = model.getOffsetAt({ lineNumber: req.line, column: 1 });
+        const lineEnd = lineStart + model.getLineLength(req.line);
+        const res = await askNow<{ docs?: string | null }>('scaffoldDocs', req.script, lineStart, payloadOf(), {
+          start: lineStart,
+          end: lineEnd,
+        });
+        if (!res?.docs) return codeAction;
+        // The scaffold arrives with a leading blank line and trailing padding,
+        // and knows nothing about where it will land - so match the function's
+        // own indentation here.
+        const indent = /^\s*/.exec(model.getLineContent(req.line))?.[0] ?? '';
+        const body = res.docs
+          .replace(/^\r?\n/, '')
+          .replace(/[ \t]+$/gm, '')
+          .replace(/\s+$/, '')
+          .split(/\r?\n/)
+          .map((l) => (l ? indent + l : l))
+          .join('\n');
+        codeAction.edit = {
+          edits: [
+            {
+              resource: model.uri,
+              textEdit: {
+                range: {
+                  startLineNumber: req.line,
+                  startColumn: 1,
+                  endLineNumber: req.line,
+                  endColumn: 1,
+                },
+                text: body + '\n',
+              },
+              versionId: model.getVersionId(),
+            },
+          ],
+        };
+        return codeAction;
+      }
+
       const res =
         req.op === 'quickfix'
           ? await askNow<{ script?: string }>('applyQuickFix', req.script, 0, payloadOf(), {
@@ -387,10 +444,8 @@ export function registerEngineLanguageFeatures(
             });
       if (!res?.script) return codeAction;
 
-      // The engine rewrites whole documents rather than emitting patches, so the
-      // edit is a full replace. Monaco still records it as a single undo step.
-      const model = monaco.editor.getModels().find((m) => m.getValue() === req.script);
-      if (!model) return codeAction;
+      // Quick fixes and refactors rewrite whole documents rather than emitting
+      // patches, so those are a full replace. Monaco still records one undo step.
       codeAction.edit = {
         edits: [
           {
@@ -405,7 +460,7 @@ export function registerEngineLanguageFeatures(
   },
   // Declared on the registration rather than the provider: Monaco uses this to
   // decide whether to even ask us when a menu is filtered to one kind.
-  { providedCodeActionKinds: ['quickfix', 'refactor.extract'] });
+  { providedCodeActionKinds: ['quickfix', 'refactor.extract', 'refactor.rewrite'] });
 
   return {
     dispose() {
@@ -424,7 +479,8 @@ export function registerEngineLanguageFeatures(
 /** What a pending code action needs in order to compute its edit later. */
 type DWActionRequest =
   | { op: 'quickfix'; script: string; messageIndex: number; fixIndex: number }
-  | { op: 'refactor'; script: string; refactor: 'variable' | 'function'; start: number; end: number };
+  | { op: 'refactor'; script: string; refactor: 'variable' | 'function'; start: number; end: number }
+  | { op: 'docs'; script: string; line: number };
 
 type DWCodeAction = Monaco.languages.CodeAction & { __dw?: DWActionRequest };
 
