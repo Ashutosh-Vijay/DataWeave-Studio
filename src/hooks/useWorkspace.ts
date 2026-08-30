@@ -79,6 +79,10 @@ function blankRequest(name = 'Request'): Request {
 interface UseWorkspaceReturn {
   // Workspace-level
   projectName: string;
+  /** This workspace's target runtime. Undefined = inherit the app-wide one. */
+  languageLevel: string | undefined;
+  /** Set this workspace's target runtime (per-workspace override only). */
+  setWorkspaceTarget: (level: string) => void;
   requests: Request[];
   activeRequestId: string;
   flow: unknown;
@@ -117,8 +121,6 @@ interface UseWorkspaceReturn {
   setTimeoutMs: (ms: number) => void;
   /** Replace this request's dw::test suite. */
   setTestScript: (script: string) => void;
-  /** Target runtime to validate against, e.g. "2.4". Empty = no gating. */
-  setLanguageLevel: (level: string) => void;
 
   // Request collection management
   addRequest: (name?: string) => void;
@@ -141,11 +143,12 @@ interface UseWorkspaceReturn {
   duplicateWorkspace: () => void;
   /** Restore a whole workspace state from a snapshot (used for draft
    *  resume). Pass the full collection; the hook replaces its state. */
-  restoreSnapshot: (snap: { projectName: string; requests: Request[]; activeRequestId?: string; flow?: unknown }) => void;
+  restoreSnapshot: (snap: { projectName: string; requests: Request[]; activeRequestId?: string; languageLevel?: string; flow?: unknown }) => void;
 }
 
 export function useWorkspace(): UseWorkspaceReturn {
   const [projectName, setProjectNameState] = useState('Untitled');
+  const [languageLevel, setLanguageLevelState] = useState<string | undefined>(undefined);
   const initial = blankRequest('Request');
   const [requests, setRequests] = useState<Request[]>([initial]);
   const [activeRequestId, setActiveRequestId] = useState<string>(initial.id);
@@ -172,6 +175,7 @@ export function useWorkspace(): UseWorkspaceReturn {
 
   // ── Workspace-level setters ──────────────────────────────────────────
   const setProjectName = useCallback((name: string) => { setProjectNameState(name); setIsDirty(true); }, []);
+  const setWorkspaceTarget = useCallback((level: string) => { setLanguageLevelState(level); setIsDirty(true); }, []);
   const setFlow = useCallback((f: unknown) => { setFlowState(f); setIsDirty(true); }, []);
 
   // ── Per-request setters ──────────────────────────────────────────────
@@ -199,7 +203,6 @@ export function useWorkspace(): UseWorkspaceReturn {
   const setClasspath = useCallback((cp: string[]) => updateActive((r) => ({ ...r, classpath: cp })), [updateActive]);
   const setTimeoutMs = useCallback((ms: number) => updateActive((r) => ({ ...r, timeoutMs: ms })), [updateActive]);
   const setTestScript = useCallback((testScript: string) => updateActive((r) => ({ ...r, testScript })), [updateActive]);
-  const setLanguageLevel = useCallback((languageLevel: string) => updateActive((r) => ({ ...r, languageLevel })), [updateActive]);
 
   const setNodeLabel = useCallback((label: string) => {
     // Switching role: stash the current script for this request+label,
@@ -271,6 +274,7 @@ export function useWorkspace(): UseWorkspaceReturn {
       updatedAt: '',
       requests,
       activeRequestId,
+      languageLevel,
       flow: flow ?? undefined,
     };
     const path = await invoke<string>('save_workspace', { workspace });
@@ -289,7 +293,7 @@ export function useWorkspace(): UseWorkspaceReturn {
       detail: previous && previous !== filename ? { renamedFrom: previous, renamedTo: filename } : undefined,
     }));
     return path;
-  }, [projectName, requests, activeRequestId, flow, currentFile]);
+  }, [projectName, requests, activeRequestId, languageLevel, flow, currentFile]);
 
   const loadWorkspace = useCallback(async (filename: string) => {
     const ws = await invoke<WorkspaceFile>('load_workspace', { filename });
@@ -303,6 +307,7 @@ export function useWorkspace(): UseWorkspaceReturn {
     setProjectNameState(ws.projectName);
     setRequests(reqs);
     setActiveRequestId(ws.activeRequestId || reqs[0].id);
+    setLanguageLevelState(ws.languageLevel);
     setFlowState(ws.flow ?? null);
     setCurrentFile(filename);
     setIsDirty(false);
@@ -365,12 +370,13 @@ export function useWorkspace(): UseWorkspaceReturn {
     setProjectNameState('Untitled');
     setRequests([req]);
     setActiveRequestId(req.id);
+    setLanguageLevelState(undefined);
     setFlowState(null);
     setCurrentFile(null);
     setIsDirty(false);
   }, []);
 
-  const restoreSnapshot = useCallback((snap: { projectName: string; requests: Request[]; activeRequestId?: string; flow?: unknown }) => {
+  const restoreSnapshot = useCallback((snap: { projectName: string; requests: Request[]; activeRequestId?: string; languageLevel?: string; flow?: unknown }) => {
     scriptsByLabel.current = new Map();
     const reqs = snap.requests.length > 0 ? snap.requests : [blankRequest()];
     for (const r of reqs) {
@@ -379,6 +385,7 @@ export function useWorkspace(): UseWorkspaceReturn {
     setProjectNameState(snap.projectName);
     setRequests(reqs);
     setActiveRequestId(snap.activeRequestId || reqs[0].id);
+    setLanguageLevelState(snap.languageLevel);
     setFlowState(snap.flow ?? null);
     setCurrentFile(null);
     setIsDirty(true); // a restored draft is by definition unsaved
@@ -387,6 +394,8 @@ export function useWorkspace(): UseWorkspaceReturn {
   return {
     // Workspace-level
     projectName,
+    languageLevel,
+    setWorkspaceTarget,
     requests,
     activeRequestId,
     flow,
@@ -421,7 +430,6 @@ export function useWorkspace(): UseWorkspaceReturn {
     setClasspath,
     setTimeoutMs,
     setTestScript,
-    setLanguageLevel,
 
     addRequest,
     removeRequest,

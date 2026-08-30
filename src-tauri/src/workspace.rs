@@ -134,12 +134,6 @@ pub struct Request {
     /// A dw::test suite for this request. Optional so older files load unchanged.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub test_script: Option<String>,
-    /// Target DataWeave runtime to validate against, e.g. "2.4" for Mule 4.4.
-    /// None means the engine's own version, i.e. no version gating. There is no
-    /// catch-all field on this struct, so a field missing here is dropped from
-    /// the file on the next save - hence the explicit entry.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub language_level: Option<String>,
     /// Legacy snapshot tests. Nothing reads these any more - they are kept so a
     /// workspace written by an older build does not lose them on its first save.
     #[serde(default)]
@@ -162,6 +156,14 @@ pub struct WorkspaceFile {
     /// workspace. UI restores selection on load.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub active_request_id: Option<String>,
+    /// Target DataWeave runtime for this workspace, e.g. "2.4" for Mule 4.4.
+    /// Only consulted when the per-workspace override is on in Settings;
+    /// otherwise the app-wide target applies. None means "inherit".
+    ///
+    /// There is no catch-all field on this struct, so anything missing here is
+    /// dropped from the file on the next save - hence the explicit entry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language_level: Option<String>,
     /// Optional message-flow definition that pipelines this workspace's
     /// requests. `None` means "this workspace is just a request collection,
     /// no flow attached." For multi-flow documents this mirrors the *active*
@@ -250,7 +252,6 @@ fn migrate_legacy(legacy: LegacyWorkspaceFile) -> WorkspaceFile {
         multipart_parts: legacy.single_transform.multipart_parts,
         context: legacy.context.unwrap_or_default(),
         test_script: None,
-        language_level: None,
         tests: vec![],
     };
 
@@ -263,6 +264,7 @@ fn migrate_legacy(legacy: LegacyWorkspaceFile) -> WorkspaceFile {
         updated_at: legacy.updated_at,
         requests: vec![request],
         active_request_id: Some(request_id),
+        language_level: None,
         flow: legacy.flow_nodes,
         flows: None,
         active_flow_idx: None,
@@ -370,7 +372,6 @@ pub fn save_workspace(app: AppHandle, workspace: WorkspaceFile) -> Result<String
             multipart_parts: vec![],
             context: ContextState::default(),
             test_script: None,
-            language_level: None,
             tests: vec![],
         });
         ws.active_request_id = Some(id);

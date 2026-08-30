@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icons } from './Icons';
+import { TARGETS } from '../targetRuntime';
 
 interface FirstWorkspacePromptProps {
   open: boolean;
+  /** App-wide target to preselect. */
+  targetRuntime: string;
   /** Create the workspace with this name and dismiss. Passes empty string if
-   *  user picks "Use default" → caller fills in "My Workspace". */
-  onCreate: (name: string) => void;
+   *  user picks "Use default" → caller fills in "My Workspace". The target is
+   *  an app-wide preference, not part of the workspace — it is asked here
+   *  because this is the one moment we already have the user's attention. */
+  onCreate: (name: string, targetRuntime: string) => void;
 }
 
 /**
@@ -16,21 +21,23 @@ interface FirstWorkspacePromptProps {
  * Surfaced exactly once — the App tracks `dw.firstWorkspace.seen` in
  * localStorage so returning users skip this entirely.
  */
-export function FirstWorkspacePrompt({ open, onCreate }: FirstWorkspacePromptProps) {
+export function FirstWorkspacePrompt({ open, targetRuntime, onCreate }: FirstWorkspacePromptProps) {
   const [name, setName] = useState('');
+  const [target, setTarget] = useState(targetRuntime);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
       setName('');
+      setTarget(targetRuntime);
       requestAnimationFrame(() => inputRef.current?.focus());
     }
-  }, [open]);
+  }, [open, targetRuntime]);
 
   if (!open) return null;
 
   const submit = (n: string) => {
-    onCreate(n.trim() || 'My Workspace');
+    onCreate(n.trim() || 'My Workspace', target);
   };
 
   return (
@@ -100,6 +107,32 @@ export function FirstWorkspacePrompt({ open, onCreate }: FirstWorkspacePromptPro
           />
           <div className="text-[11px] mt-1.5" style={{ color: 'var(--content-faint)' }}>
             You can rename it anytime. Leave blank to use the default.
+          </div>
+
+          <label
+            className="text-[10.5px] font-semibold uppercase tracking-[0.5px] block mt-4 mb-1.5"
+            style={{ color: 'var(--content-faint)' }}
+          >
+            Which Mule do you deploy to?
+          </label>
+          <select
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+            className="w-full h-9 px-2.5 rounded-md outline-none text-[13px] cursor-pointer"
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--line)',
+              color: 'var(--content)',
+            }}
+          >
+            <option value="">I'm not sure / latest</option>
+            {TARGETS.map((t) => (
+              <option key={t.level} value={t.level}>{t.label}</option>
+            ))}
+          </select>
+          <div className="text-[11px] mt-1.5" style={{ color: 'var(--content-faint)' }}>
+            Scripts get checked against it, so a function your runtime doesn&rsquo;t have
+            fails here instead of on the server. Changeable in Settings &rarr; Runtime.
           </div>
         </form>
 

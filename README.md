@@ -121,7 +121,7 @@ Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA
 | **Breakpoint debugging** | Flow-level step-through | Yes (full VS Code debugger) | No | Yes |
 | **Go to Definition / Rename** | Yes — engine language service | Yes (LSP) | No | Yes |
 | **Type inference** | Yes — engine language service | Yes (LSP) | No | Yes |
-| **Target an older Mule runtime** | Yes — per request, 4.1 to 4.12 | No | No | Per project |
+| **Target an older Mule runtime** | Yes — set once, 4.1 to 4.12 | No | No | Per project |
 | **Autocomplete** | 309 functions + type-aware fields from your payload | LSP, type-aware | Basic suggestions | Full LSP |
 | **Context (vars, attrs, headers)** | UI — no files | Manual JSON scenario files | Partial | Full runtime |
 | **Config YAML (`${key}`)** | Yes | No | No | Yes (full runtime) |
@@ -207,7 +207,16 @@ older, a script can work here and fail there — `logInfo` needs 2.10, the `upda
 operator needs 2.3, and around 30 of the 309 standard-library functions did not
 exist in 2.4.
 
-Pick a target from the toolbar and the engine checks against it:
+You're asked once, when you first set the app up, and the answer is remembered
+for everything you do. Change it anytime from the toolbar next to Run, or in
+Settings &rarr; Runtime. The default is "latest", which checks nothing.
+
+It's one app-wide setting rather than a per-workspace one, because which Mule
+you deploy to is a fact about you, not about one script — being asked again in
+every new workspace would be noise. If you genuinely straddle two runtimes,
+Settings &rarr; Runtime has a **Set it per workspace** toggle.
+
+Once set, the engine checks against it:
 
 - **Functions and syntax newer than the target become errors**, with the version
   that introduced them named in the message — the same `@Since` metadata
@@ -218,7 +227,9 @@ Pick a target from the toolbar and the engine checks against it:
 - Applies to Run, the Tests panel, and the editor's live diagnostics, so you see
   it while typing rather than after deploying
 - Travels in share links, so "this breaks on 4.4" is reproducible by whoever
-  opens it
+  opens it — though it only takes effect for them if they've turned on
+  per-workspace targets, since otherwise their own app-wide setting wins. The
+  toast that opens the link says so
 
 Note that the `%dw 2.4` header does **not** do this — the runtime only checks
 that header against its own version and otherwise ignores it. The target is a

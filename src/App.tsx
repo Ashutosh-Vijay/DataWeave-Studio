@@ -40,6 +40,7 @@ import { OpenWorkspaceDialog } from './components/OpenWorkspaceDialog';
 import { shareUrl, encodeShare, decodeShare, isShareTooLong, unshareableItems, type ShareRequest } from './shareLink';
 import { TestsView } from './components/TestsView';
 import { FirstWorkspacePrompt } from './components/FirstWorkspacePrompt';
+import { TargetRuntimePrompt } from './components/TargetRuntimePrompt';
 import { PayloadTabs } from './components/PayloadTabs';
 import { OutputPane } from './components/OutputPane';
 import { ContextPanel } from './components/ContextPanel';
@@ -56,6 +57,10 @@ const ShortcutsDialog = lazy(() => import('./components/ShortcutsDialog').then((
 const SettingsScreen = lazy(() => import('./components/SettingsScreen').then((m) => ({ default: m.SettingsScreen })));
 const WelcomeScreen = lazy(() => import('./components/WelcomeScreen').then((m) => ({ default: m.WelcomeScreen })));
 import { WhatsNew, LATEST_VERSION, getRelease } from './components/WhatsNew';
+import {
+  TARGETS, readAppTarget, writeAppTarget, readPerWorkspace, writePerWorkspace,
+  effectiveTarget, labelFor, shouldPromptForTarget, markTargetPrompted,
+} from './targetRuntime';
 import { FeatureIntroHost } from './components/FeatureIntroHost';
 import { introFeature } from './featureIntros';
 import { SplashScreen } from './components/SplashScreen';
@@ -249,6 +254,26 @@ function App() {
    *  theme/layout FirstRunPicker is dismissed (or skipped — for returning
    *  users on a fresh install). */
   const [showFirstWorkspace, setShowFirstWorkspace] = useState(false);
+  // Target runtime lives app-wide: "which Mule do I deploy to" is a fact about
+  // the user, not about one workspace. The per-workspace override exists for
+  // people who genuinely straddle two runtimes, and is off unless asked for.
+  const [appTarget, setAppTargetState] = useState(readAppTarget);
+  const [perWorkspaceTarget, setPerWorkspaceTargetState] = useState(readPerWorkspace);
+  const [showTargetPrompt, setShowTargetPrompt] = useState(false);
+
+  /** The target actually in force: the workspace's when the override is on and
+   *  it has one, else the app-wide setting. */
+  const targetRuntime = effectiveTarget(appTarget, perWorkspaceTarget, workspace.languageLevel);
+
+  /** The picker writes wherever the override says it should. */
+  const setTargetRuntime = useCallback((level: string) => {
+    if (perWorkspaceTarget) {
+      workspace.setWorkspaceTarget(level);
+    } else {
+      setAppTargetState(level);
+      writeAppTarget(level);
+    }
+  }, [perWorkspaceTarget, workspace.setWorkspaceTarget]);
   const [hasStarted, setHasStarted] = useState(false);
   const [lastWorkspace, setLastWorkspace] = useState<string | null>(() => readLastWorkspace());
   // Whether a recoverable in-progress draft exists in localStorage. Used by
@@ -328,7 +353,6 @@ function App() {
     namedInputs: r.namedInputs,
     nodeLabel: r.nodeLabel,
     queryTemplate: r.queryTemplate,
-    languageLevel: r.languageLevel,
     // File-backed parts hold a local path that means nothing to the recipient;
     // only in-memory parts can travel. unshareableItems() warns about the rest.
     multipartParts: (r.multipartParts || [])
@@ -347,6 +371,7 @@ function App() {
       ...requestToShare(active),
       name: workspace.projectName,
       requests: whole ? workspace.requests.map(requestToShare) : undefined,
+      languageLevel: targetRuntime || undefined,
     };
     const url = codeOnly ? encodeShare(snapshot) : shareUrl(snapshot);
     if (isShareTooLong(url)) {
@@ -424,7 +449,6 @@ function App() {
             mimeType: isValidMimeType(n.mimeType) ? n.mimeType : 'application/json',
           })),
           queryTemplate: r.queryTemplate || '',
-          languageLevel: r.languageLevel || undefined,
           classpath: [],
           multipartParts: (r.multipartParts || []).map((mp) => ({
             name: mp.name, value: mp.value, contentType: mp.contentType, isFile: false,
@@ -446,10 +470,14 @@ function App() {
         workspace.restoreSnapshot({
           projectName: snap.name || 'Shared workspace',
           requests: snap.requests.map(mk),
+          languageLevel: snap.languageLevel,
         });
         toast({
           title: `Opened shared workspace`,
-          message: `${snap.requests.length} requests restored.`,
+          message: `${snap.requests.length} requests restored.`
+            + (snap.languageLevel && !perWorkspaceTarget
+              ? ` Shared targeting ${labelFor(snap.languageLevel)} — turn on per-workspace targets in Settings → Runtime to use it.`
+              : ''),
           variant: 'success',
         });
         setTimeout(() => scriptEditorRef.current?.focus(), 50);
@@ -468,7 +496,7 @@ function App() {
     } catch (e) {
       toast((e as Error).message, 'error');
     }
-  }, [beginTransforming, workspace]);
+  }, [beginTransforming, workspace, perWorkspaceTarget]);
 
   // Menu entry point: read the clipboard, then hand off to the same apply path.
   const handleOpenShareLink = useCallback(async () => {
@@ -712,19 +740,28 @@ function App() {
     workspace.context, workspace.namedInputs,
   ]);
 
-  // Surface the first-workspace prompt as soon as the FirstRunPicker is
-  // out of the way. Skip silently for users who already have saved
-  // workspaces from a previous app version (they don't need an onboarding
-  // prompt for something they already understand).
+  // Surface the first-workspace prompt as soon as the welcome screen is out of
+  // the way. Users who already have saved workspaces skip it — they don't need
+  // onboarding for something they already understand.
+  //
+  // This effect also decides who gets the one-time target-runtime question:
+  // new users answer it inside the first-workspace prompt, everyone else gets
+  // it on its own. Deciding in one place keeps the two from both firing.
   useEffect(() => {
     // showTour: the prompt would mount UNDER the tour scrim, auto-focus an
     // invisible input, and swallow keystrokes — wait until the tour finishes.
-    if (showFirstRun || showTour || !shouldShowFirstWorkspace()) return;
+    if (showFirstRun || showTour) return;
+    if (!shouldShowFirstWorkspace()) {
+      // Onboarded by an earlier version, which had no target question.
+      if (shouldPromptForTarget()) setShowTargetPrompt(true);
+      return;
+    }
     (async () => {
       try {
         const metas = await workspace.listWorkspaces();
         if (metas.length > 0) {
           markFirstWorkspaceSeen();
+          if (shouldPromptForTarget()) setShowTargetPrompt(true);
           return;
         }
       } catch { /* if listing fails, fall through to the prompt */ }
@@ -732,7 +769,11 @@ function App() {
     })();
   }, [showFirstRun, showTour, workspace.listWorkspaces]);
 
-  const handleFirstWorkspaceCreate = useCallback(async (name: string) => {
+  const handleFirstWorkspaceCreate = useCallback(async (name: string, target: string) => {
+    // Asked here for new users, so the standalone prompt never fires for them.
+    setAppTargetState(target);
+    writeAppTarget(target);
+    markTargetPrompted();
     workspace.setProjectName(name);
     try {
       await workspace.saveWorkspace();
@@ -919,9 +960,9 @@ function App() {
       workspace.timeoutMs,
       multipartPartsJson,
       modulesJson,
-      workspace.request.languageLevel,
+      targetRuntime,
     );
-  }, [workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, workspace.payloadFilePath, workspace.classpath, workspace.timeoutMs, workspace.multipartParts, workspace.request.languageLevel, modules, runner, encryptionKey]);
+  }, [workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, workspace.payloadFilePath, workspace.classpath, workspace.timeoutMs, workspace.multipartParts, targetRuntime, modules, runner, encryptionKey]);
 
   // Keep refs in sync for auto-run (avoids stale closures and infinite loops)
   handleRunRef.current = handleRun;
@@ -1343,18 +1384,22 @@ function App() {
               to match — so a script that runs here runs there. Applies to Run,
               the Tests panel, and the editor's own diagnostics. */}
           <select
-            value={workspace.request.languageLevel || ''}
-            onChange={(e) => workspace.setLanguageLevel(e.target.value)}
+            value={targetRuntime}
+            onChange={(e) => setTargetRuntime(e.target.value)}
             className="h-7 px-2 rounded-md bg-surface-2 border text-[11.5px] focus:outline-none focus:border-accent cursor-pointer"
             style={{
-              borderColor: workspace.request.languageLevel ? 'var(--accent-border)' : 'var(--line)',
-              color: workspace.request.languageLevel ? 'var(--accent)' : 'var(--content-faint)',
+              borderColor: targetRuntime ? 'var(--accent-border)' : 'var(--line)',
+              color: targetRuntime ? 'var(--accent)' : 'var(--content-faint)',
             }}
-            title="Check this script against an older Mule runtime. Anything newer than the target becomes an error instead of failing later on the server."
+            title={
+              perWorkspaceTarget
+                ? 'Target runtime for this workspace. Anything newer than it becomes an error here instead of failing later on the server.'
+                : 'Target runtime for every workspace. Anything newer than it becomes an error here instead of failing later on the server. Settings → Runtime can make this per-workspace.'
+            }
           >
             <option value="">Target: latest</option>
-            {[12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((n) => (
-              <option key={n} value={`2.${n}`}>Mule 4.{n} · DW 2.{n}</option>
+            {TARGETS.map((t) => (
+              <option key={t.level} value={t.level}>{t.label}</option>
             ))}
           </select>
 
@@ -1580,6 +1625,7 @@ function App() {
           <main className="flex-1 overflow-hidden bg-bg flex">
             <TestsView
               request={workspace.request}
+              languageLevel={targetRuntime}
               onTestScriptChange={workspace.setTestScript}
             />
           </main>
@@ -1604,7 +1650,7 @@ function App() {
                   payload={workspace.payload}
                   payloadMimeType={workspace.payloadMimeType}
                   contextData={contextDataMemo}
-                  languageLevel={workspace.request.languageLevel}
+                  languageLevel={targetRuntime}
                   onCursorChange={publishCursor}
                 />
               }
@@ -1755,7 +1801,7 @@ function App() {
                       payloadMimeType={workspace.payloadMimeType}
                       headerLabel={isQueryMode ? 'Parameters (DataWeave 2.0)' : undefined}
                       contextData={contextDataMemo}
-                      languageLevel={workspace.request.languageLevel}
+                      languageLevel={targetRuntime}
                       onCursorChange={publishCursor}
                     />
                     </div>
@@ -1874,6 +1920,17 @@ function App() {
             onClasspathChange={workspace.setClasspath}
             timeoutMs={workspace.timeoutMs}
             onTimeoutMsChange={workspace.setTimeoutMs}
+            targetRuntime={appTarget}
+            onTargetRuntimeChange={(level) => { setAppTargetState(level); writeAppTarget(level); }}
+            perWorkspaceTarget={perWorkspaceTarget}
+            onPerWorkspaceTargetChange={(on) => {
+              setPerWorkspaceTargetState(on);
+              writePerWorkspace(on);
+              // Turning it on with nothing stored would read as "no target" for
+              // this workspace; seed it from the app default so the visible
+              // target doesn't change out from under the user.
+              if (on && workspace.languageLevel === undefined) workspace.setWorkspaceTarget(appTarget);
+            }}
             onShowTour={() => {
               // Same prep as the palette command: the tour filters steps by
               // which data-tour anchors are mounted, so from the empty state
@@ -1933,8 +1990,23 @@ function App() {
           model is clear from the start. */}
       <FirstWorkspacePrompt
         open={showFirstWorkspace}
+        targetRuntime={appTarget}
         onCreate={handleFirstWorkspaceCreate}
       />
+
+      {/* Existing installs never saw the onboarding question, so they get it
+          once. Default stays "latest", so ignoring this changes nothing. */}
+      {showTargetPrompt && (
+        <TargetRuntimePrompt
+          initial={appTarget}
+          onDone={(level) => {
+            setAppTargetState(level);
+            writeAppTarget(level);
+            markTargetPrompted();
+            setShowTargetPrompt(false);
+          }}
+        />
+      )}
 
       {/* Unsaved-changes guard for workspace switch / new. */}
       <ConfirmDialog

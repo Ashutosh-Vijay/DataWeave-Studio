@@ -91,7 +91,7 @@ export function tally(node: DWTestNode | null): { passed: number; failed: number
 export interface UseTestRunnerReturn {
   result: SuiteRun;
   running: boolean;
-  runSuite: (req: Request) => Promise<SuiteRun>;
+  runSuite: (req: Request, languageLevel: string) => Promise<SuiteRun>;
   reset: () => void;
 }
 
@@ -99,7 +99,7 @@ export function useTestRunner(): UseTestRunnerReturn {
   const [result, setResult] = useState<SuiteRun>(EMPTY_RUN);
   const [running, setRunning] = useState(false);
 
-  const runSuite = useCallback(async (req: Request): Promise<SuiteRun> => {
+  const runSuite = useCallback(async (req: Request, languageLevel: string): Promise<SuiteRun> => {
     const suite = (req.testScript ?? '').trim();
     if (!suite) {
       const out = { ...EMPTY_RUN, error: 'There is no test suite in this request yet.' };
@@ -125,7 +125,7 @@ export function useTestRunner(): UseTestRunnerReturn {
         multipartPartsJson: null,
         // A suite is checked against the same target as the transform, so a
         // test cannot pass here using a function the target runtime lacks.
-        languageLevel: req.languageLevel || null,
+        languageLevel: languageLevel || null,
       });
 
       if (res.error) {

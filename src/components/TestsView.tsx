@@ -36,13 +36,15 @@ const STARTER = [
 
 interface TestsViewProps {
   request: Request;
+  /** Target runtime in force, so a suite is gated exactly like a Run is. */
+  languageLevel: string;
   onTestScriptChange: (script: string) => void;
 }
 
-export function TestsView({ request, onTestScriptChange }: TestsViewProps) {
+export function TestsView({ request, languageLevel, onTestScriptChange }: TestsViewProps) {
   const { result, running, runSuite } = useTestRunner();
 
-  const run = useCallback(() => { void runSuite(request); }, [runSuite, request]);
+  const run = useCallback(() => { void runSuite(request, languageLevel); }, [runSuite, request, languageLevel]);
   const hasSuite = !!(request.testScript ?? '').trim();
 
   return (

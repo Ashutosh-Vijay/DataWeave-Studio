@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { logoUrl } from '../assets';
 import { Icons } from './Icons';
+import { TARGETS } from '../targetRuntime';
 import { ConfirmDialog } from './ConfirmDialog';
 import { MIME_OPTIONS, MimeType } from '../types';
 import { notifyEditorFontChanged } from '../hooks/useEditorFont';
@@ -13,6 +14,12 @@ import { toast } from './Toast';
 type Section = 'appearance' | 'general' | 'runtime' | 'editor' | 'shortcuts' | 'advanced' | 'about';
 
 interface SettingsScreenProps {
+  /** App-wide default target runtime. '' = latest, no version gating. */
+  targetRuntime: string;
+  onTargetRuntimeChange: (level: string) => void;
+  /** Let each workspace carry its own target instead of using the app default. */
+  perWorkspaceTarget: boolean;
+  onPerWorkspaceTargetChange: (on: boolean) => void;
   open: boolean;
   onClose: () => void;
   appVersion: string;
@@ -32,7 +39,7 @@ interface SettingsScreenProps {
 const SECTIONS: { id: Section; label: string; icon: keyof typeof Icons; keywords: string[] }[] = [
   { id: 'appearance', label: 'Appearance', icon: 'Panel', keywords: ['theme', 'dark', 'light', 'dusk', 'paper', 'accent', 'color', 'layout', 'workbench', 'focus', 'playground', 'compact', 'density'] },
   { id: 'general',    label: 'General',    icon: 'Settings', keywords: ['startup', 'autosave', 'tour', 'updates', 'last workspace'] },
-  { id: 'runtime',    label: 'Runtime',    icon: 'Terminal', keywords: ['engine', 'restart', 'jvm', 'java', 'timeout', 'classpath', 'jar', 'mime', 'input format'] },
+  { id: 'runtime',    label: 'Runtime',    icon: 'Terminal', keywords: ['engine', 'restart', 'jvm', 'java', 'timeout', 'classpath', 'jar', 'mime', 'input format', 'target', 'mule', 'version', 'compatibility'] },
   { id: 'editor',     label: 'Editor',     icon: 'Braces', keywords: ['font', 'size', 'line height', 'tab', 'word wrap', 'bracket', 'minimap'] },
   { id: 'shortcuts',  label: 'Shortcuts',  icon: 'Command', keywords: ['keyboard', 'hotkey', 'binding'] },
   { id: 'advanced',   label: 'Advanced',   icon: 'Activity', keywords: ['data location', 'diagnostics', 'logging', 'reset', 'danger', 'delete'] },
@@ -52,6 +59,8 @@ export function SettingsScreen(props: SettingsScreenProps) {
     payloadMimeType, onPayloadMimeTypeChange,
     classpath, onClasspathChange,
     timeoutMs, onTimeoutMsChange,
+    targetRuntime, onTargetRuntimeChange,
+    perWorkspaceTarget, onPerWorkspaceTargetChange,
     onShowTour, onShowAbout, onRestartEngine } = props;
   const { isDark, pref, setPref, matchVsCode, setMatchVsCode, inVsCode } = useTheme();
   const [section, setSection] = useState<Section>('appearance');
@@ -145,6 +154,10 @@ export function SettingsScreen(props: SettingsScreenProps) {
             {section === 'general' && <GeneralPanel onShowTour={onShowTour} />}
             {section === 'runtime' && (
               <RuntimePanel
+                targetRuntime={targetRuntime}
+                onTargetRuntimeChange={onTargetRuntimeChange}
+                perWorkspaceTarget={perWorkspaceTarget}
+                onPerWorkspaceTargetChange={onPerWorkspaceTargetChange}
                 payloadMimeType={payloadMimeType}
                 onPayloadMimeTypeChange={onPayloadMimeTypeChange}
                 classpath={classpath}
@@ -450,11 +463,17 @@ function GeneralPanel({ onShowTour }: { onShowTour: () => void }) {
 }
 
 function RuntimePanel({
+  targetRuntime, onTargetRuntimeChange,
+  perWorkspaceTarget, onPerWorkspaceTargetChange,
   payloadMimeType, onPayloadMimeTypeChange,
   classpath, onClasspathChange,
   timeoutMs, onTimeoutMsChange,
   onRestartEngine,
 }: {
+  targetRuntime: string;
+  onTargetRuntimeChange: (level: string) => void;
+  perWorkspaceTarget: boolean;
+  onPerWorkspaceTargetChange: (on: boolean) => void;
   payloadMimeType: MimeType;
   onPayloadMimeTypeChange: (m: MimeType) => void;
   classpath: string[];
@@ -465,6 +484,36 @@ function RuntimePanel({
 }) {
   return (
     <SectionWrap title="Runtime" desc="DataWeave runtime execution settings">
+      <Group
+        title="Target runtime"
+        desc="The engine here is the newest DataWeave. If you deploy to an older Mule, target it and anything too new becomes an error here instead of failing on the server."
+      >
+        <SRow
+          label="Target"
+          desc="Applies to Run, the Tests panel, and the editor's diagnostics."
+        >
+          <div className="relative inline-flex">
+            <select
+              value={targetRuntime}
+              onChange={(e) => onTargetRuntimeChange(e.target.value)}
+              className="h-7 pl-2.5 pr-7 rounded-md bg-surface-2 border border-line text-[12.5px] text-content-secondary focus:outline-none focus:border-accent cursor-pointer appearance-none"
+              style={{ width: 180 }}
+            >
+              <option value="">Latest — no check</option>
+              {TARGETS.map((t) => (
+                <option key={t.level} value={t.level}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+        </SRow>
+        <SRow
+          label="Set it per workspace"
+          desc="Off, one target covers everything. On, each workspace carries its own and the value above is only the starting point."
+        >
+          <Toggle on={perWorkspaceTarget} onChange={onPerWorkspaceTargetChange} />
+        </SRow>
+      </Group>
+
       <Group title="DataWeave Engine">
         <SRow label="Restart engine" desc="Reload the DataWeave runtime. Use this if it stops responding or after changing the classpath.">
           <OutlineBtn onClick={onRestartEngine}><Icons.Zap size={11} /> Restart</OutlineBtn>
