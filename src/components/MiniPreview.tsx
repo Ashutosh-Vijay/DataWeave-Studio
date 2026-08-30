@@ -4,7 +4,7 @@ interface MiniPreviewProps {
 }
 
 /** Compact representation of the Workbench/Playground layouts — used in the
- * first-run picker and the Appearance settings layout cards. Not a live UI;
+ * Appearance settings layout cards. Not a live UI;
  * it's a structural mockup. Both layouts now read left→right as
  * Input/Context → Script → Output; Workbench adds the icon rail + sidebar. */
 export function MiniPreview({ variant, theme }: MiniPreviewProps) {

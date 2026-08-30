@@ -538,8 +538,8 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
             ) : (
               <div className="truncate">Saved inside the VS Code extension storage</div>
             )}
-            <div className="truncate" title="DataWeave runtime by MuleSoft/Salesforce, BSD-3-Clause License">
-              DW runtime by MuleSoft (BSD-3-Clause)
+            <div className="truncate" title="DataWeave runtime by MuleSoft/Salesforce, Apache License 2.0">
+              DW runtime by MuleSoft (Apache 2.0)
             </div>
           </div>
         </div>

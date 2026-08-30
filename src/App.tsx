@@ -69,7 +69,7 @@ import { CommandPalette, Command } from './components/CommandPalette';
 import { CompactLayout } from './components/CompactLayout';
 
 // Inlined helpers — used to be `import { shouldShowFirstRun, markFirstRunSeen }`
-// from FirstRunPicker etc. but that made the whole component bundle eager.
+// from a component module, but that made the whole bundle eager.
 const FIRST_RUN_KEY = 'dw.firstRun.seen';
 const FIRST_WORKSPACE_KEY = 'dw.firstWorkspace.seen';
 const TOUR_SEEN_KEY = 'dwstudio_tour_seen'; // matches WelcomeTour's own key — existing users keep state
@@ -251,7 +251,7 @@ function App() {
   // last launch (see the version-loading effect below).
   const [showWhatsNew, setShowWhatsNew] = useState(false);
   /** One-time prompt for the very first workspace. Surfaced only after the
-   *  theme/layout FirstRunPicker is dismissed (or skipped — for returning
+   *  WelcomeScreen is dismissed (or skipped — for returning
    *  users on a fresh install). */
   const [showFirstWorkspace, setShowFirstWorkspace] = useState(false);
   // Target runtime lives app-wide: "which Mule do I deploy to" is a fact about
@@ -1351,6 +1351,7 @@ function App() {
 
           {/* Pane switch — Script vs Tests. */}
           <div
+            data-tour="pane-switch"
             className="inline-flex gap-0.5 p-0.5 rounded-md border"
             style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}
             title="Switch between the script editor and the tests panel"
@@ -1384,6 +1385,7 @@ function App() {
               to match — so a script that runs here runs there. Applies to Run,
               the Tests panel, and the editor's own diagnostics. */}
           <select
+            data-tour="target-runtime"
             value={targetRuntime}
             onChange={(e) => setTargetRuntime(e.target.value)}
             className="h-7 px-2 rounded-md bg-surface-2 border text-[11.5px] focus:outline-none focus:border-accent cursor-pointer"

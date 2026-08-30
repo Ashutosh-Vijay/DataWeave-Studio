@@ -45,21 +45,24 @@ const ICONS = {
   cookbook: svg(<><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>),
   secure: svg(<><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></>),
   offline: svg(<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></>),
+  target: svg(<><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><path d="M12 1v4M12 19v4M1 12h4M19 12h4" /></>),
+  tests: svg(<><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3" /><path d="M8 16h8" /></>),
+  lsp: svg(<><polyline points="7 8 3 12 7 16" /><polyline points="17 8 21 12 17 16" /><line x1="14" y1="5" x2="10" y2="19" /></>),
 };
 
 const BENTO = [
-  { key: 'mcp', tag: 'NEW', title: 'MCP Server', desc: 'Expose the engine to Claude, Cursor & Copilot so an agent can run and self-correct scripts.', icon: ICONS.mcp },
-  { key: 'logs', tag: 'NEW', title: 'Logs panel', desc: 'Your script’s log() calls surface under the output — inspect intermediate values mid-transform.', icon: ICONS.logs },
-  { key: 'modules', tag: 'NEW', title: 'Module library', desc: 'Save reusable .dwl modules once, then import them from any script.', icon: ICONS.modules },
-  { key: 'ref', title: '309 functions', desc: 'Autocomplete, hover docs & inline errors from the official DataWeave reference.', icon: ICONS.ref },
+  { key: 'target', tag: 'NEW', title: 'Target your Mule', desc: 'Check scripts against the runtime you deploy to — a function your Mule lacks fails here, not on the server.', icon: ICONS.target },
+  { key: 'tests', tag: 'NEW', title: 'Unit tests', desc: 'Real dw::test suites, run by the bundled engine, with the engine’s own failure messages and line numbers.', icon: ICONS.tests },
+  { key: 'lsp', tag: 'NEW', title: 'Real IDE editing', desc: 'MuleSoft’s own language service: type-aware completion, go-to-definition, rename, outline and quick fixes.', icon: ICONS.lsp },
+  { key: 'mcp', title: 'Local server', desc: 'Expose the engine to Claude, Cursor & Copilot so an agent can run and self-correct scripts.', icon: ICONS.mcp },
   { key: 'flow', title: 'Message flows', desc: 'Chain transforms into a pipeline with the visual Message Flow designer.', icon: ICONS.flow },
+  { key: 'ref', title: '309 functions', desc: 'The full DataWeave standard library, searchable, with signatures and runnable examples.', icon: ICONS.ref },
   { key: 'java', title: 'Java tester', desc: 'Compile the Java classes your Mule app calls and run them against a payload.', icon: ICONS.java },
-  { key: 'cookbook', title: 'Cookbook', desc: 'A searchable library of ready-to-run recipes — load one and tweak it.', icon: ICONS.cookbook },
   { key: 'secure', title: 'Secure properties', desc: 'Encrypt & decrypt ${secure::key} values with the built-in crypto tool.', icon: ICONS.secure },
   { key: 'offline', title: '100% offline', desc: 'No telemetry, no account, no network. Your payloads never leave the machine.', icon: ICONS.offline },
 ];
 
-const CHIPS = ['DataWeave 2.12 runtime', 'Bundled JVM', 'JSON · XML · CSV · YAML', 'cURL import', 'Dusk / Paper themes', 'Cross-platform'];
+const CHIPS = ['DataWeave 2.12 runtime', 'Bundled JVM', 'JSON · XML · CSV · YAML', 'cURL import', 'OpenAPI import', 'Share links', 'Cross-platform'];
 
 function useReducedMotion(): boolean {
   const [reduce, setReduce] = useState(() => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);

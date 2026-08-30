@@ -290,7 +290,7 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
             className="mt-[18px] text-[10px] leading-[1.6]"
             style={{ color: 'var(--content-faint)' }}
           >
-            DataWeave runtime by MuleSoft / Salesforce, BSD-3-Clause License. Not
+            DataWeave runtime by MuleSoft / Salesforce, Apache License 2.0. Not
             affiliated with, endorsed by, or sponsored by MuleSoft or Salesforce.
           </div>
         </div>

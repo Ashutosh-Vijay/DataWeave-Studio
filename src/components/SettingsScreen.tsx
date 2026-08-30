@@ -782,7 +782,7 @@ function AboutPanel({ appVersion, onOpenAbout }: { appVersion: string; onOpenAbo
         View full details →
       </button>
       <div className="text-[11px] text-content-faint mt-2 text-center max-w-[400px] leading-relaxed">
-        Built on the DataWeave runtime by MuleSoft/Salesforce (BSD-3-Clause).
+        Built on the DataWeave runtime by MuleSoft/Salesforce (Apache 2.0).
         <br />Made with Tauri + React.
       </div>
     </div>
