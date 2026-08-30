@@ -14,6 +14,8 @@ export interface DWCompletionContext {
   namedInputs?: { name: string; content: string; mimeType: string }[];
   configYaml?: string;
   secureConfigYaml?: string;
+  /** Target runtime, e.g. "2.4" for Mule 4.4. Empty = the engine's own version. */
+  languageLevel?: string;
 }
 
 interface DWCompletion {
@@ -650,6 +652,7 @@ export function registerDWCompletionProvider(
           ctx && /json/i.test(ctx.payloadMimeType || '') ? ctx.payload || '' : '',
           monaco,
           range,
+          ctx?.languageLevel || '',
         );
         if (engineItems) return { suggestions: engineItems };
       }

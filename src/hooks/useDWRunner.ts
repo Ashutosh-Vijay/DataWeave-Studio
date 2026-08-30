@@ -41,6 +41,7 @@ interface UseDWRunnerReturn {
     timeoutMs?: number,
     multipartPartsJson?: string,
     modulesJson?: string,
+    languageLevel?: string,
   ) => Promise<void>;
   cancel: () => Promise<void>;
   restartEngine: () => Promise<void>;
@@ -110,6 +111,7 @@ export function useDWRunner(): UseDWRunnerReturn {
       timeoutMs?: number,
       multipartPartsJson?: string,
       modulesJson?: string,
+      languageLevel?: string,
     ) => {
       if (runningRef.current) return; // prevent double-clicks
 
@@ -148,6 +150,7 @@ export function useDWRunner(): UseDWRunnerReturn {
           timeoutMs: timeoutMs ?? 0,
           multipartPartsJson: multipartPartsJson ?? null,
           modulesJson: modulesJson ?? null,
+          languageLevel: languageLevel || null,
           // Always trace: the engine only emits when the script calls log(), so
           // there's no cost for scripts that don't — and it powers the Logs panel.
           trace: true,

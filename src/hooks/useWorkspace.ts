@@ -117,6 +117,8 @@ interface UseWorkspaceReturn {
   setTimeoutMs: (ms: number) => void;
   /** Replace this request's dw::test suite. */
   setTestScript: (script: string) => void;
+  /** Target runtime to validate against, e.g. "2.4". Empty = no gating. */
+  setLanguageLevel: (level: string) => void;
 
   // Request collection management
   addRequest: (name?: string) => void;
@@ -197,6 +199,7 @@ export function useWorkspace(): UseWorkspaceReturn {
   const setClasspath = useCallback((cp: string[]) => updateActive((r) => ({ ...r, classpath: cp })), [updateActive]);
   const setTimeoutMs = useCallback((ms: number) => updateActive((r) => ({ ...r, timeoutMs: ms })), [updateActive]);
   const setTestScript = useCallback((testScript: string) => updateActive((r) => ({ ...r, testScript })), [updateActive]);
+  const setLanguageLevel = useCallback((languageLevel: string) => updateActive((r) => ({ ...r, languageLevel })), [updateActive]);
 
   const setNodeLabel = useCallback((label: string) => {
     // Switching role: stash the current script for this request+label,
@@ -418,6 +421,7 @@ export function useWorkspace(): UseWorkspaceReturn {
     setClasspath,
     setTimeoutMs,
     setTestScript,
+    setLanguageLevel,
 
     addRequest,
     removeRequest,

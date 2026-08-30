@@ -328,6 +328,7 @@ function App() {
     namedInputs: r.namedInputs,
     nodeLabel: r.nodeLabel,
     queryTemplate: r.queryTemplate,
+    languageLevel: r.languageLevel,
     // File-backed parts hold a local path that means nothing to the recipient;
     // only in-memory parts can travel. unshareableItems() warns about the rest.
     multipartParts: (r.multipartParts || [])
@@ -423,6 +424,7 @@ function App() {
             mimeType: isValidMimeType(n.mimeType) ? n.mimeType : 'application/json',
           })),
           queryTemplate: r.queryTemplate || '',
+          languageLevel: r.languageLevel || undefined,
           classpath: [],
           multipartParts: (r.multipartParts || []).map((mp) => ({
             name: mp.name, value: mp.value, contentType: mp.contentType, isFile: false,
@@ -917,8 +919,9 @@ function App() {
       workspace.timeoutMs,
       multipartPartsJson,
       modulesJson,
+      workspace.request.languageLevel,
     );
-  }, [workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, workspace.payloadFilePath, workspace.classpath, workspace.timeoutMs, workspace.multipartParts, modules, runner, encryptionKey]);
+  }, [workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, workspace.payloadFilePath, workspace.classpath, workspace.timeoutMs, workspace.multipartParts, workspace.request.languageLevel, modules, runner, encryptionKey]);
 
   // Keep refs in sync for auto-run (avoids stale closures and infinite loops)
   handleRunRef.current = handleRun;
@@ -1305,8 +1308,7 @@ function App() {
 
           <div className="w-px h-4 bg-line mx-1" />
 
-          {/* Pane switch — Script vs Tests. Test count badge appears when
-              the active request has at least one test. */}
+          {/* Pane switch — Script vs Tests. */}
           <div
             className="inline-flex gap-0.5 p-0.5 rounded-md border"
             style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}
@@ -1332,6 +1334,29 @@ function App() {
               );
             })}
           </div>
+
+          <div className="w-px h-4 bg-line mx-1" />
+
+          {/* Target runtime. Off by default. When set, the engine rejects
+              standard-library functions and language features newer than that
+              Mule version, and reverts its version-dependent runtime behaviour
+              to match — so a script that runs here runs there. Applies to Run,
+              the Tests panel, and the editor's own diagnostics. */}
+          <select
+            value={workspace.request.languageLevel || ''}
+            onChange={(e) => workspace.setLanguageLevel(e.target.value)}
+            className="h-7 px-2 rounded-md bg-surface-2 border text-[11.5px] focus:outline-none focus:border-accent cursor-pointer"
+            style={{
+              borderColor: workspace.request.languageLevel ? 'var(--accent-border)' : 'var(--line)',
+              color: workspace.request.languageLevel ? 'var(--accent)' : 'var(--content-faint)',
+            }}
+            title="Check this script against an older Mule runtime. Anything newer than the target becomes an error instead of failing later on the server."
+          >
+            <option value="">Target: latest</option>
+            {[11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((n) => (
+              <option key={n} value={`2.${n}`}>Mule 4.{n} · DW 2.{n}</option>
+            ))}
+          </select>
 
           <div className="w-px h-4 bg-line mx-1" />
 
@@ -1579,6 +1604,7 @@ function App() {
                   payload={workspace.payload}
                   payloadMimeType={workspace.payloadMimeType}
                   contextData={contextDataMemo}
+                  languageLevel={workspace.request.languageLevel}
                   onCursorChange={publishCursor}
                 />
               }
@@ -1729,6 +1755,7 @@ function App() {
                       payloadMimeType={workspace.payloadMimeType}
                       headerLabel={isQueryMode ? 'Parameters (DataWeave 2.0)' : undefined}
                       contextData={contextDataMemo}
+                      languageLevel={workspace.request.languageLevel}
                       onCursorChange={publishCursor}
                     />
                     </div>

@@ -45,6 +45,7 @@ async function ask<T>(
   script: string,
   offset: number,
   payload: string,
+  languageLevel: string,
 ): Promise<T | null> {
   // No runtime check on purpose. `invoke` bridges to whichever host is running,
   // and an unimplemented command just rejects — which the catch turns into the
@@ -53,7 +54,7 @@ async function ask<T>(
   if (inFlight) return null;
   inFlight = true;
   try {
-    return await invoke<T>('dw_tooling', { kind, script, offset, payload });
+    return await invoke<T>('dw_tooling', { kind, script, offset, payload, languageLevel });
   } catch {
     return null; // engine cold, restarting, host doesn't implement it, or the script doesn't parse
   } finally {
@@ -75,10 +76,11 @@ async function askNow<T>(
   script: string,
   offset: number,
   payload: string,
+  languageLevel: string,
   extra?: Record<string, unknown>,
 ): Promise<T | null> {
   try {
-    return await invoke<T>('dw_tooling', { kind, script, offset, payload, ...extra });
+    return await invoke<T>('dw_tooling', { kind, script, offset, payload, languageLevel, ...extra });
   } catch {
     return null;
   }
@@ -159,13 +161,18 @@ export function registerEngineLanguageFeatures(
     return ctx.payload || '';
   };
 
+  // Target runtime for the editor, so completion and diagnostics agree with
+  // what a Run would accept. Changing it invalidates the engine's editor cache,
+  // so it is read per query rather than pushed on every keystroke.
+  const levelOf = () => getContext()?.languageLevel || '';
+
   const hover = monaco.languages.registerHoverProvider('dataweave', {
     async provideHover(model, position) {
       const res = await ask<{ type?: string | null; doc?: string }>(
         'hover',
         model.getValue(),
         offsetOf(model, position),
-        payloadOf(),
+        payloadOf(), levelOf(),
       );
       if (!res?.type) return null;
       const contents: Monaco.IMarkdownString[] = [{ value: '```dataweave\n' + res.type + '\n```' }];
@@ -182,7 +189,7 @@ export function registerEngineLanguageFeatures(
         'signature',
         model.getValue(),
         offsetOf(model, position),
-        payloadOf(),
+        payloadOf(), levelOf(),
       );
       if (!res?.name || !res.signatures?.length) return null;
       return {
@@ -207,7 +214,7 @@ export function registerEngineLanguageFeatures(
         'definition',
         model.getValue(),
         offsetOf(model, position),
-        payloadOf(),
+        payloadOf(), levelOf(),
       );
       const out: Monaco.languages.Location[] = [];
       for (const link of res?.links ?? []) {
@@ -224,7 +231,7 @@ export function registerEngineLanguageFeatures(
         'references',
         model.getValue(),
         offsetOf(model, position),
-        payloadOf(),
+        payloadOf(), levelOf(),
       );
       const out: Monaco.languages.Location[] = [];
       for (const ref of res?.references ?? []) {
@@ -244,7 +251,7 @@ export function registerEngineLanguageFeatures(
         'rename',
         model.getValue(),
         offsetOf(model, position),
-        payloadOf(),
+        payloadOf(), levelOf(),
         { newName },
       );
       const edits: Monaco.languages.IWorkspaceTextEdit[] = [];
@@ -270,7 +277,7 @@ export function registerEngineLanguageFeatures(
     async provideDocumentSymbols(model) {
       const res = await askNow<{
         symbols?: { name: string; kind: number; location: EngineLoc; container?: string }[];
-      }>('documentSymbol', model.getValue(), 0, payloadOf());
+      }>('documentSymbol', model.getValue(), 0, payloadOf(), levelOf());
       const out: Monaco.languages.DocumentSymbol[] = [];
       for (const sym of res?.symbols ?? []) {
         const range = rangeOf(model, sym.location);
@@ -296,7 +303,7 @@ export function registerEngineLanguageFeatures(
         'folding',
         model.getValue(),
         0,
-        payloadOf(),
+        payloadOf(), levelOf(),
       );
       const out: Monaco.languages.FoldingRange[] = [];
       for (const region of res?.regions ?? []) {
@@ -395,7 +402,7 @@ export function registerEngineLanguageFeatures(
       if (req.op === 'docs') {
         const lineStart = model.getOffsetAt({ lineNumber: req.line, column: 1 });
         const lineEnd = lineStart + model.getLineLength(req.line);
-        const res = await askNow<{ docs?: string | null }>('scaffoldDocs', req.script, lineStart, payloadOf(), {
+        const res = await askNow<{ docs?: string | null }>('scaffoldDocs', req.script, lineStart, payloadOf(), levelOf(), {
           start: lineStart,
           end: lineEnd,
         });
@@ -433,11 +440,11 @@ export function registerEngineLanguageFeatures(
 
       const res =
         req.op === 'quickfix'
-          ? await askNow<{ script?: string }>('applyQuickFix', req.script, 0, payloadOf(), {
+          ? await askNow<{ script?: string }>('applyQuickFix', req.script, 0, payloadOf(), levelOf(), {
               messageIndex: req.messageIndex,
               fixIndex: req.fixIndex,
             })
-          : await askNow<{ script?: string }>('refactor', req.script, 0, payloadOf(), {
+          : await askNow<{ script?: string }>('refactor', req.script, 0, payloadOf(), levelOf(), {
               refactor: req.refactor,
               start: req.start,
               end: req.end,
@@ -504,7 +511,8 @@ export function attachEngineDiagnostics(
   monaco: typeof Monaco,
   editor: Monaco.editor.IStandaloneCodeEditor,
   getPayload: () => string,
-): Monaco.IDisposable {
+  getLevel: () => string,
+): { dispose(): void; refresh(): void } {
   const OWNER = 'dataweave-engine';
   let timer: ReturnType<typeof setTimeout> | null = null;
   let disposed = false;
@@ -515,7 +523,7 @@ export function attachEngineDiagnostics(
     if (!model || disposed) return;
     const mine = ++generation;
     const script = model.getValue();
-    const res = await askNow<{ messages?: EngineMessage[] }>('typeCheck', script, 0, getPayload());
+    const res = await askNow<{ messages?: EngineMessage[] }>('typeCheck', script, 0, getPayload(), getLevel());
     // The user kept typing while we were waiting — that answer is about a
     // script that no longer exists.
     if (disposed || mine !== generation || model.isDisposed()) return;
@@ -557,6 +565,11 @@ export function attachEngineDiagnostics(
   schedule();
 
   return {
+    /** Re-check without an edit. The check normally rides on content changes,
+     *  so changing the target runtime would otherwise leave the last version's
+     *  squiggles up until the next keystroke — the editor silently disagreeing
+     *  with what Run would do. */
+    refresh: schedule,
     dispose() {
       disposed = true;
       if (timer) clearTimeout(timer);
@@ -586,12 +599,14 @@ export async function engineFieldSuggestions(
   payload: string,
   monaco: typeof Monaco,
   range: Monaco.IRange,
+  languageLevel: string,
 ): Promise<Monaco.languages.CompletionItem[] | null> {
   const res = await ask<{ items?: EngineSuggestion[]; replacementStart?: number; replacementEnd?: number }>(
     'completion',
     script,
     offset,
     payload,
+    languageLevel,
   );
   if (!res?.items?.length) return null;
 

@@ -123,6 +123,9 @@ export function useTestRunner(): UseTestRunnerReturn {
         classpath: req.classpath,
         timeoutMs: req.timeoutMs ?? 30000,
         multipartPartsJson: null,
+        // A suite is checked against the same target as the transform, so a
+        // test cannot pass here using a function the target runtime lacks.
+        languageLevel: req.languageLevel || null,
       });
 
       if (res.error) {

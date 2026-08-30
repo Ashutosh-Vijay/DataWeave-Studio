@@ -39,6 +39,9 @@ export interface ShareRequest {
   /** Transform / Salesforce Query / DB Query — changes how the request runs. */
   nodeLabel?: string;
   queryTemplate?: string;
+  /** Target runtime, e.g. "2.4". Travels so "this breaks on Mule 4.4" is
+   *  reproducible by whoever opens the link, not just describable. */
+  languageLevel?: string;
 }
 
 export interface ShareSnapshot extends ShareRequest {
@@ -95,6 +98,7 @@ function compactRequest<T extends ShareRequest>(req: T): T {
   // 'Transform' is the default role; only carry it when it differs.
   if (req.nodeLabel && req.nodeLabel !== 'Transform') out.nodeLabel = req.nodeLabel;
   if (req.queryTemplate && req.queryTemplate.trim()) out.queryTemplate = req.queryTemplate;
+  if (req.languageLevel) out.languageLevel = req.languageLevel;
   const keep = <R extends { key?: string; name?: string }>(rows?: R[]) =>
     (rows || []).filter((r) => (r.key ?? r.name ?? '').trim() !== '');
   if (keep(req.vars).length) out.vars = keep(req.vars);

@@ -53,6 +53,8 @@ interface ScriptEditorProps {
     configYaml?: string;
     secureConfigYaml?: string;
   };
+  /** Target runtime for completion + diagnostics, e.g. "2.4". Empty = latest. */
+  languageLevel?: string;
   onCursorChange?: (line: number, col: number) => void;
   /** Stable identifier for THIS script. When set, @monaco-editor/react keeps
    *  a separate ITextModel per path and preserves its undo/redo history
@@ -75,7 +77,7 @@ export interface ScriptEditorHandle {
 // `code`/`payload`/`contextData`/etc. actually change (shallow compare).
 // Callers MUST stabilize object/function props for the memo to be effective.
 export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProps>(function ScriptEditor(
-  { code, onChange, onRun, errorLine, headerLabel, payload, payloadMimeType, contextData, onCursorChange, modelPath },
+  { code, onChange, onRun, errorLine, headerLabel, payload, payloadMimeType, contextData, languageLevel, onCursorChange, modelPath },
   ref,
 ) {
   const monaco = useMonaco();
@@ -201,7 +203,7 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
   }), []);
 
   const codeActionDisposableRef = useRef<any>(null);
-  const diagnosticsRef = useRef<{ dispose(): void } | null>(null);
+  const diagnosticsRef = useRef<{ dispose(): void; refresh(): void } | null>(null);
   useEffect(() => () => diagnosticsRef.current?.dispose(), []);
   const contextRef = useRef<DWCompletionContext>({
     payload: '',
@@ -225,8 +227,13 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
       namedInputs: contextData?.namedInputs || [],
       configYaml: contextData?.configYaml || '',
       secureConfigYaml: contextData?.secureConfigYaml || '',
+      languageLevel: languageLevel || '',
     };
-  }, [payload, payloadMimeType, contextData]);
+  }, [payload, payloadMimeType, contextData, languageLevel]);
+
+  // The target runtime changes what counts as an error, but no text changed, so
+  // nothing would re-check on its own.
+  useEffect(() => { diagnosticsRef.current?.refresh(); }, [languageLevel]);
 
   // Define theme + register language BEFORE the editor mounts (no race condition)
   const handleBeforeMount: BeforeMount = useCallback((monacoInstance) => {
@@ -391,7 +398,7 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
       // Non-JSON payloads can't be turned into a type, and passing one anyway
       // makes the checker report the whole script against an unknown input.
       return /json/i.test(ctx.payloadMimeType || '') ? ctx.payload || '' : '';
-    });
+    }, () => contextRef.current.languageLevel || '');
   };
 
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;

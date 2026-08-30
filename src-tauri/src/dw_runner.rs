@@ -327,9 +327,12 @@ pub async fn run_dataweave(
     multipart_parts_json: Option<String>,
     modules_json: Option<String>,
     trace: Option<bool>,
+    language_level: Option<String>,
 ) -> Result<RunResult, String> {
     let start_time = Instant::now();
     let trace = trace.unwrap_or(false);
+    // Target runtime, e.g. "2.4" for Mule 4.4. Empty = the engine's own 2.11.
+    let language_level = language_level.unwrap_or_default();
 
     // Custom `.dwl` module libraries so `import x from MyModule` resolves. The
     // server writes each to a classpath dir keyed by a content hash and compiles
@@ -494,6 +497,7 @@ pub async fn run_dataweave(
                 compile_only: false,
                 modules: &modules,
                 trace,
+                language_level: &language_level,
             },
         )
     });
@@ -678,6 +682,7 @@ pub fn dw_tooling(
     payload: Option<String>,
     classpath: Option<Vec<String>>,
     new_name: Option<String>,
+    language_level: Option<String>,
 ) -> Result<serde_json::Value, String> {
     crate::dw_server::tooling(
         &app,
@@ -687,6 +692,7 @@ pub fn dw_tooling(
         payload.as_deref().unwrap_or(""),
         &classpath.unwrap_or_default(),
         new_name.as_deref().unwrap_or(""),
+        language_level.as_deref().unwrap_or(""),
     )
 }
 
@@ -790,6 +796,7 @@ pub async fn warm_dataweave_script(
                 compile_only: true,
                 modules: &[],
                 trace: false,
+                language_level: "",
             },
         ) {
             log::warn!("Warm compile failed: {}", e);

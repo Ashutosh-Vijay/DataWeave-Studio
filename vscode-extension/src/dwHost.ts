@@ -180,6 +180,9 @@ interface DwRequest {
   payload?: string;
   /** Trace mode: capture the script's `log(...)` output into the response. */
   trace?: boolean;
+  /** Target runtime to validate against, e.g. "2.4" for Mule 4.4. Omitted means
+   *  the engine's own version, i.e. no version gating. */
+  languageLevel?: string;
 }
 
 export class DwServer {
@@ -612,6 +615,8 @@ export interface RunArgs {
   modulesJson?: string | null;
   /** Trace mode: capture the script's `log(...)` output. */
   trace?: boolean;
+  /** Target Mule runtime, e.g. "2.4". Empty/omitted = no version gating. */
+  languageLevel?: string;
 }
 
 interface MultipartPartData {
@@ -772,6 +777,7 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
           compileOnly: false,
           modules: modules.length ? modules : undefined,
           trace: args.trace || undefined,
+          languageLevel: args.languageLevel || undefined,
         },
         timeout
       );
@@ -850,6 +856,7 @@ export async function toolingQuery(
   offset: number,
   payload: string,
   newName?: string,
+  languageLevel?: string,
 ): Promise<unknown> {
   const resp = await server.run(
     {
@@ -858,6 +865,7 @@ export async function toolingQuery(
       offset,
       payload,
       newName,
+      languageLevel,
       script,
       payloadPath: '',
       payloadMime: 'application/json',

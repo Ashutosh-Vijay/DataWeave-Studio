@@ -10,6 +10,8 @@ import org.mule.weave.v2.model.service.{
 import org.mule.weave.v2.parser.ast.variables.NameIdentifier
 import org.mule.weave.v2.parser.location.WeaveLocation
 import org.mule.weave.v2.runtime._
+import org.mule.weave.v2.utils.DataWeaveVersion
+import org.mule.weave.v2.versioncheck.SVersion
 import org.mule.weave.v2.sdk.ClassLoaderWeaveResourceResolver
 import org.mule.weave.v2.editor.{WeaveToolingService, SimpleVirtualFileSystem, SpecificModuleResourceResolver, ImplicitInput, WeaveTextDocument, WeaveDocumentToolingService, ValidationMessage}
 import org.mule.weave.v2.completion.{Template, LiteralElement, PlaceHolderElement, ChoicePlaceHolderElement, EndPlaceHolderElement}
@@ -227,15 +229,19 @@ object DwServer {
       // keyed on mimeByName.keys, but that caused misses when the splash
       // primer compiled with [payload] only while the actual run sent
       // [payload, attributes] — even though the script texts were identical.
-      val cacheKey = script + " " + outputMime + moduleCacheSuffix
+      val target = languageLevelOf(req)
+      // The target runtime belongs in the key: the same script compiled at 2.11
+      // and at 2.4 are different programs, and the 2.4 one may not compile.
+      val cacheKey = script + " " + outputMime + moduleCacheSuffix +
+        target.map(" @" + _.toString).getOrElse("")
       val compiled: DataWeaveScript = CompileCache.get(cacheKey).getOrElse {
-        val c = compileEngine.compileWith(
-          compileEngine.newConfig()
-            .withScript(script)
-            .withInputs(inputTypes)
-            .withNameIdentifier(NameIdentifier("main"))
-            .withDefaultOutputType(outputMime)
-        )
+        val cfg = compileEngine.newConfig()
+          .withScript(script)
+          .withInputs(inputTypes)
+          .withNameIdentifier(NameIdentifier("main"))
+          .withDefaultOutputType(outputMime)
+        target.foreach(v => cfg.withLanguageVersion(v))
+        val c = compileEngine.compileWith(cfg)
         CompileCache.put(cacheKey, c)
         c
       }
@@ -275,6 +281,29 @@ object DwServer {
   }
 
   // ── Cached IDE tooling service ──────────────────────────────────────────────
+  /** The target runtime a request asks to be checked against, e.g. "2.4" for
+   *  Mule 4.4. None means the engine's own version, i.e. no gating at all.
+   *
+   *  Setting this on the compile config does two things at once: the compiler
+   *  rejects stdlib functions newer than the target (every function in the
+   *  bundled stdlib carries an @Since annotation) along with language features
+   *  gated at 2.3/2.5/2.8, and the runtime's registered behaviour changes flip
+   *  back to how that version behaved. The second half is easy to miss --
+   *  `[3, "a", true] orderBy $` fails with InvalidComparisonException at 2.11
+   *  but InvalidBooleanException at 2.9, from this setting alone. */
+  private def languageLevelOf(req: JsonObject): Option[DataWeaveVersion] = {
+    val raw = req.getString("languageLevel", "")
+    if (raw == null || raw.trim.isEmpty) None
+    else raw.trim.split('.') match {
+      // DataWeaveVersion(String) throws on anything that is not "major.minor",
+      // and this value arrives from the UI, so parse it rather than trust it.
+      case Array(maj, min, _*) if maj.nonEmpty && min.nonEmpty &&
+        maj.forall(_.isDigit) && min.forall(_.isDigit) =>
+        Some(DataWeaveVersion(maj.toInt, min.toInt))
+      case _ => None
+    }
+  }
+
   // Built once and reused. Constructing a WeaveToolingService loads every
   // DataWeave module from the classpath, which dominates the cost of a query.
   private var toolingVfsRef: SimpleVirtualFileSystem = _
@@ -437,6 +466,12 @@ object DwServer {
     }
 
     val (vfs, service) = toolingService()
+    // Gate the editor on the same target the run path uses, so completion and
+    // diagnostics agree with what a Run would actually accept. This no-ops when
+    // the value is unchanged; a real change invalidates every cached editor and
+    // module (~250ms to rebuild), which is fine for a picker the user moves by
+    // hand but would be ruinous per keystroke.
+    service.updateLanguageLevel(languageLevelOf(req).map(v => SVersion(v.major, v.minor, 0)))
     // Mutating the cached VFS instead of rebuilding the service is the whole
     // point: construction reloads every module (~250ms), the query itself is
     // single-digit ms. The service caches editors per URL and invalidates them

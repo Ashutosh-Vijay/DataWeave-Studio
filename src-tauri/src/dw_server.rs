@@ -84,6 +84,10 @@ struct DwRequest<'a> {
     /// Trace mode: capture the script's `log(...)` output into the response.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     trace: bool,
+    /// Target runtime to check against, e.g. "2.4" for Mule 4.4. Empty means
+    /// the engine's own version, i.e. no version gating.
+    #[serde(skip_serializing_if = "str::is_empty")]
+    language_level: &'a str,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -120,6 +124,8 @@ pub struct DwRunArgs<'a> {
     pub compile_only: bool,
     pub modules: &'a [DwModule],
     pub trace: bool,
+    /// Target runtime, e.g. "2.4". Empty = no gating.
+    pub language_level: &'a str,
 }
 
 /// Resolve the bundled dwstudio-server.jar path from Tauri resources.
@@ -478,6 +484,7 @@ fn run_once(app: &AppHandle, args: &DwRunArgs) -> Result<DwResponse, RunErr> {
         compile_only: args.compile_only,
         modules: args.modules,
         trace: args.trace,
+        language_level: args.language_level,
     };
     let line = serde_json::to_string(&req)
         .map_err(|e| RunErr::Other(format!("Failed to serialize request: {}", e)))?;
@@ -565,6 +572,7 @@ pub fn tooling(
     payload: &str,
     classpath: &[String],
     new_name: &str,
+    language_level: &str,
 ) -> Result<serde_json::Value, String> {
     let state = app.state::<DwServerState>();
     let id = state.next_id.fetch_add(1, Ordering::Relaxed);
@@ -572,6 +580,7 @@ pub fn tooling(
         "id": id, "op": "tooling", "kind": kind,
         "script": script, "offset": offset, "payload": payload,
         "classpath": classpath, "newName": new_name,
+        "languageLevel": language_level,
     })
     .to_string();
 

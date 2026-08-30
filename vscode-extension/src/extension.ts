@@ -353,6 +353,7 @@ async function handleInvoke(
         Number(args.offset ?? 0),
         String(args.payload ?? ''),
         args.newName === undefined ? undefined : String(args.newName),
+        args.languageLevel ? String(args.languageLevel) : undefined,
       );
     case 'dw_format':
       // getServer, not `server` — the latter is null until something has

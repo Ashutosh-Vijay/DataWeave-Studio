@@ -95,6 +95,15 @@ export interface Request {
   context: ContextState;
   /** A `dw::test` suite for this request. Empty until the user writes one. */
   testScript?: string;
+  /**
+   * Target DataWeave runtime, e.g. `"2.4"` for Mule 4.4. Undefined or empty
+   * means the engine's own version (2.11) with no version gating.
+   *
+   * When set, the engine rejects standard-library functions and language
+   * features newer than the target, and reverts its registered runtime
+   * behaviour changes to how that version behaved.
+   */
+  languageLevel?: string;
   /** @deprecated Legacy snapshot tests — preserved on round-trip, never read. */
   tests: TestCase[];
 }
