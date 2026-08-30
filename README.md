@@ -490,7 +490,21 @@ licenses/                   # Third-party licenses
 
 ## Third-Party Licenses
 
-This application embeds the [DataWeave runtime](https://github.com/mulesoft/data-weave) and core modules by MuleSoft/Salesforce, licensed under the BSD 3-Clause License. See [licenses/DATAWEAVE-CLI-LICENSE.txt](licenses/DATAWEAVE-CLI-LICENSE.txt).
+This application embeds the DataWeave engine published by MuleSoft/Salesforce to
+`repository.mulesoft.org` — `parser`, `runtime`, `core-modules`, `java-module`,
+`yaml-module`, `tooling-api` and related modules, pinned at `2.11.0-20251023`. Those
+artifacts declare the **Apache License 2.0**; the licence text is in
+[licenses/DATAWEAVE-ENGINE-LICENSE.txt](licenses/DATAWEAVE-ENGINE-LICENSE.txt) and the
+bundled attribution notices in
+[licenses/DATAWEAVE-ENGINE-NOTICE.txt](licenses/DATAWEAVE-ENGINE-NOTICE.txt).
+
+`excel-module`, which backs `application/xlsx` payloads, declares MuleSoft's Main
+Services Agreement rather than an open-source licence.
+
+The function reference, format options and cookbook are generated from
+[`mulesoft/docs-dataweave`](https://github.com/mulesoft/docs-dataweave) (BSD 3-Clause) —
+see [licenses/docs-dataweave-LICENSE.txt](licenses/docs-dataweave-LICENSE.txt) and
+[licenses/mulesoft-cookbook-LICENSE.txt](licenses/mulesoft-cookbook-LICENSE.txt).
 
 DataWeave Studio is not affiliated with, endorsed by, or sponsored by MuleSoft or Salesforce.
 DataWeave, Mule, MuleSoft and Anypoint are trademarks of their respective owners, used here

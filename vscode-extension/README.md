@@ -65,4 +65,4 @@ Bugs and ideas: [GitHub issues](https://github.com/Ashutosh-Vijay/DataWeave-Stud
 
 ---
 
-Embeds the [DataWeave runtime](https://github.com/mulesoft/data-weave) by MuleSoft / Salesforce (BSD-3-Clause). DataWeave Studio is not affiliated with, endorsed by, or sponsored by MuleSoft or Salesforce.
+Embeds the DataWeave engine published by MuleSoft / Salesforce, pinned at `2.11.0-20251023` (Apache License 2.0; `excel-module`, which backs xlsx payloads, is under MuleSoft's Main Services Agreement). DataWeave Studio is not affiliated with, endorsed by, or sponsored by MuleSoft or Salesforce.
