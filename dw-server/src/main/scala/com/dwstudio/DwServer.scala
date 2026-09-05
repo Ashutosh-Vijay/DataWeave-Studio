@@ -8,6 +8,7 @@ import org.mule.weave.v2.model.service.{
   UrlSourceProviderResolverService
 }
 import org.mule.weave.v2.parser.ast.variables.NameIdentifier
+import org.mule.weave.v2.parser.phase.ParsingContext
 import org.mule.weave.v2.parser.location.WeaveLocation
 import org.mule.weave.v2.runtime._
 import org.mule.weave.v2.utils.DataWeaveVersion
@@ -394,14 +395,33 @@ object DwServer {
   private def toolingService(): (SimpleVirtualFileSystem, WeaveToolingService) = synchronized {
     if (toolingServiceRef == null) {
       toolingVfsRef = SimpleVirtualFileSystem(scala.collection.immutable.Map("/main.dwl" -> ""))
-      toolingServiceRef = WeaveToolingService(
+      toolingServiceRef = new WeaveToolingService(
         toolingVfsRef,
         DataFormatDescriptorProvider(Array.empty[DataFormatDescriptor]),
         // Same classpath resolver the runtime engine uses. Without it dw::Core
         // is out of scope: completion drops from 97 suggestions to 2, and field
         // selection returns nothing at all.
         Array(SpecificModuleResourceResolver("dw", ClassLoaderWeaveResourceResolver.apply())),
-      )
+      ) {
+        /** Turn on the engine's cryptographic taint analysis.
+         *
+         *  `hashWith` and `HMACBinary` declare their algorithm parameter as
+         *  `@CryptographicSink` in the bundled stdlib, and a compilation phase
+         *  follows what reaches it. It ships switched off, and the only switch
+         *  is on the ParsingContext — which the service builds for itself, one
+         *  per document. This factory method is the hook.
+         *
+         *  Only algorithms that are broken for every purpose are listed. SHA-1
+         *  is deliberately absent: it is `hashWith`'s own default and still the
+         *  right answer for a checksum, so banning it would fire on correct
+         *  code far more often than on a real mistake. */
+        override def createParsingContext(nameIdentifier: NameIdentifier): ParsingContext = {
+          val ctx = super.createParsingContext(nameIdentifier)
+          ctx.enableCryptoTaintAnalysis()
+          ctx.setCryptoInsecureAlgorithms(Array("MD5", "MD2", "MD4", "HmacMD5"))
+          ctx
+        }
+      }
     }
     (toolingVfsRef, toolingServiceRef)
   }
@@ -503,12 +523,41 @@ object DwServer {
       ambient.exists(n => msg.startsWith("Unable to resolve reference of: `" + n + "`"))
   }
 
+  /** The message as the editor should show it.
+   *
+   *  The crypto phase's own text names the algorithm and then quotes the
+   *  *stdlib's* declaration of `hashWith` as the "source of violation", which
+   *  reads as if the problem were in dw::Crypto rather than in the line the
+   *  marker is on. Say what happened and what to do instead. */
+  private def messageText(vm: ValidationMessage): String = {
+    val raw = vm.message.message
+    if (vm.message.getClass.getSimpleName != "CryptographicInsecureDocumentError") return raw
+    val marker = "algorithm \""
+    val from = raw.indexOf(marker)
+    if (from < 0) return raw
+    val rest = raw.substring(from + marker.length)
+    val algo = rest.substring(0, math.max(rest.indexOf('"'), 0))
+    "Insecure hash algorithm \"" + algo + "\" — broken against collision attacks. " +
+      "Use SHA-256 or stronger unless you are matching a legacy system."
+  }
+
   /** Errors then warnings, noise removed - the ONE ordering shared by typeCheck,
    *  quickFixes and applyQuickFix, so an index means the same thing in all three. */
   private def visibleMessages(doc: WeaveDocumentToolingService, hasPayloadType: Boolean): Seq[(ValidationMessage, String)] = {
     val msgs = doc.typeCheck()
     val all = msgs.errorMessage.toSeq.map(m => (m, "error")) ++ msgs.warningMessage.toSeq.map(m => (m, "warning"))
-    all.filterNot { case (vm, _) => isCheckerNoise(vm.message.message, hasPayloadType) }
+    all
+      .filterNot { case (vm, _) => isCheckerNoise(vm.message.message, hasPayloadType) }
+      // The crypto taint phase has two verdicts and reports both down the error
+      // channel. Keep the definite one — "you passed the literal MD5" — and drop
+      // the speculative one, which fires whenever the algorithm is a variable
+      // and so would flag every script that picks its algorithm at runtime.
+      .filterNot { case (vm, _) => vm.message.getClass.getSimpleName == "CryptographicInsecureDocumentWarning" }
+      // ...and it is advice, not a compile failure: the script runs either way,
+      // so it should not sit in the editor looking like a syntax error.
+      .map { case (vm, sev) =>
+        if (vm.message.getClass.getSimpleName == "CryptographicInsecureDocumentError") (vm, "warning") else (vm, sev)
+      }
   }
 
   /** Does this text parse at all? Used to tell a good quick-fix result from one
@@ -968,7 +1017,7 @@ object DwServer {
             val o = new JsonObject()
             o.add("severity", sev)
             o.add("location", locJson(vm.location))
-            o.add("message", vm.message.message)
+            o.add("message", messageText(vm))
             o.add("code", vm.message.getClass.getSimpleName)
             // Ask for fixes rather than reading vm.quickFix: getQuickFix
             // SYNTHESISES them for common shapes (an unresolved reference gets
@@ -1134,7 +1183,7 @@ object DwServer {
               val o = new JsonObject()
               o.add("severity", sev)
               o.add("location", locJson(vm.location))
-              o.add("message", vm.message.message)
+              o.add("message", messageText(vm))
               o.add("code", vm.message.getClass.getSimpleName)
               arr.add(o)
             }

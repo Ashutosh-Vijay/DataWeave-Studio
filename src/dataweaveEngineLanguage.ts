@@ -654,7 +654,13 @@ export function attachEngineDiagnostics(
         source: 'DataWeave',
         // An unused import is dead weight rather than a mistake; Monaco greys it
         // out instead of underlining it, which is the usual editor convention.
-        tags: m.code === 'UnusedImportModule' ? [monaco.MarkerTag.Unnecessary] : undefined,
+        // Two message classes mean that: a whole module nobody uses, and one
+        // unused name inside `import a, b from x`. Matching only the first left
+        // the second underlined like an error.
+        tags:
+          m.code === 'UnusedImportModule' || m.code === 'UnusedImportElement'
+            ? [monaco.MarkerTag.Unnecessary]
+            : undefined,
         ...range,
       });
     }
