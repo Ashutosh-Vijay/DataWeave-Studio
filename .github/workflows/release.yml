@@ -134,10 +134,15 @@ jobs:
             - **macOS**: `.dmg` (Apple Silicon and Intel)
             - **Linux**: `.AppImage`, `.deb`, or `.rpm`
 
-            Fully self-contained — bundles the DataWeave 2.11 runtime and a
+            Fully self-contained — bundles the DataWeave 2.12 runtime and a
             minimal JRE 17. No system Java required. See
             [SECURITY.md](https://github.com/Ashutosh-Vijay/DataWeave-Studio/blob/main/SECURITY.md)
             for data-handling / network details.
+
+            ### On Windows, prefer the Microsoft Store
+            [Get it from the Store](https://apps.microsoft.com/detail/9NWD4L4J7D92) —
+            Microsoft signs that build, so there is no SmartScreen prompt and no
+            Smart App Control block. The notes below apply to the direct downloads only.
 
             ### Opening an unsigned build
             The app isn't code-signed yet, so your OS warns on first launch — it's safe.

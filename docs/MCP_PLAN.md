@@ -11,7 +11,7 @@ an agent can write a DataWeave script, **run it locally to validate it, read the
 real error, fix it, and only then hand the user a tested script** — collapsing
 the copy→paste→error→copy loop to zero.
 
-The whole value prop of this product is *execution* (real DataWeave 2.11 without
+The whole value prop of this product is *execution* (real DataWeave 2.12 without
 Anypoint). MCP's whole purpose is *letting a model execute things*. The fit is the
 point.
 

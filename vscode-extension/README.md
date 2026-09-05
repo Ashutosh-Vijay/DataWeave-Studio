@@ -1,6 +1,6 @@
 # DataWeave Studio for VS Code
 
-The real DataWeave 2.11 engine, inside VS Code. Write a script, drop a payload, hit Run — results in about 20 milliseconds.
+The real DataWeave 2.12 engine, inside VS Code. Write a script, drop a payload, hit Run — results in about 20 milliseconds.
 
 No Anypoint Studio. No Maven project, no `pom.xml`, no scenario files to hand-write. Java ships inside the extension. Install, open the playground, start transforming.
 
@@ -42,7 +42,7 @@ And because it runs MuleSoft's actual DataWeave runtime — not a reimplementati
 
 ## Requirements
 
-None. The DataWeave 2.11 runtime and a Java 17 runtime are bundled inside the extension and run fully offline. Nothing to install, and nothing touches your system Java, `JAVA_HOME`, or `PATH` — safe alongside Anypoint Studio's Java 8.
+None. The DataWeave 2.12 runtime and a Java 17 runtime are bundled inside the extension and run fully offline. Nothing to install, and nothing touches your system Java, `JAVA_HOME`, or `PATH` — safe alongside Anypoint Studio's Java 8.
 
 Works on **Windows**, **macOS** (Apple Silicon and Intel), and **Linux** — the Marketplace picks the right build for your machine automatically.
 
@@ -65,4 +65,4 @@ Bugs and ideas: [GitHub issues](https://github.com/Ashutosh-Vijay/DataWeave-Stud
 
 ---
 
-Embeds the DataWeave engine published by MuleSoft / Salesforce, pinned at `2.11.0-20251023` (Apache License 2.0; `excel-module`, which backs xlsx payloads, is under MuleSoft's Main Services Agreement). DataWeave Studio is not affiliated with, endorsed by, or sponsored by MuleSoft or Salesforce.
+Embeds the DataWeave engine published by MuleSoft / Salesforce, pinned at `2.12.2-20260715` (Apache License 2.0; `excel-module`, which backs xlsx payloads, is under MuleSoft's Main Services Agreement). DataWeave Studio is not affiliated with, endorsed by, or sponsored by MuleSoft or Salesforce.

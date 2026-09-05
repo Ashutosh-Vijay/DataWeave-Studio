@@ -258,6 +258,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           <Icons.Secure size={18} />
         </button>
         <button
+          data-tour="rail-config-crypto"
           onClick={onOpenConfigCrypto}
           title="Config encryption — encrypt or decrypt every value in a config file at once"
           aria-label="Config encryption"

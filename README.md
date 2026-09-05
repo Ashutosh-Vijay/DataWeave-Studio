@@ -542,7 +542,7 @@ licenses/                   # Third-party licenses
 
 This application embeds the DataWeave engine published by MuleSoft/Salesforce to
 `repository.mulesoft.org` — `parser`, `runtime`, `core-modules`, `java-module`,
-`yaml-module`, `tooling-api` and related modules, pinned at `2.11.0-20251023`. Those
+`yaml-module`, `tooling-api` and related modules, pinned at `2.12.2-20260715`. Those
 artifacts declare the **Apache License 2.0**; the licence text is in
 [licenses/DATAWEAVE-ENGINE-LICENSE.txt](licenses/DATAWEAVE-ENGINE-LICENSE.txt) and the
 bundled attribution notices in

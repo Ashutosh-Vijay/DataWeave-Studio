@@ -14,20 +14,31 @@ interface Release { version: string; date: string; headline: string; highlights:
 // extension (1.x) ship on their own version numbers and cadence — keeping them
 // separate means a release that only touches one runtime never shows stale notes
 // in the other. Each list is newest-first; the dialog/toast pick by runtime.
-const V25_HIGHLIGHTS: Highlight[] = [
-  { title: 'The editor knows your data’s shape', desc: 'Typing “payload.” now lists the fields your payload actually has — and inside a map, the lambda’s parameter resolves to the element type, so “item.” suggests that element’s own fields. Hover shows inferred types and signature help shows which argument you’re on. This comes from the DataWeave language service inside the bundled engine, the same one Anypoint Studio uses, so the types are the engine’s truth rather than a guess made from your sample.' },
-  { title: 'Run scripts from anything — no endpoint to deploy', desc: 'The Local Server now answers plain HTTP as well as MCP. POST a script and a payload to /run and get the output back; send a rows array and one script runs over every row. That turns “test this transform against a month of production data” into a Python loop instead of publishing an API to exercise it. The engine compiles once and caches, so the first row costs about a second and the rest run in milliseconds.' },
-  { title: 'Format now uses the real DataWeave formatter', desc: 'Alt+Shift+F ran a generic re-indent that did nothing to a script written on one line. It now calls the engine’s own formatter — the same one Anypoint Studio uses — which restructures the whole script. Payloads get a Format button too, for JSON and XML.' },
-  { title: 'Share links survive a blocked domain', desc: 'Copy share code — no link copies just the dws1… blob, so a share still works when a corporate filter blocks the site the link points at. Sharing is also findable now: a button in the top bar and a Share group in the command palette, rather than one item in a menu nobody opened.' },
-  { title: 'Smaller things that were quietly wrong', desc: 'cURL import mirrors the input format for CSV and multipart instead of always emitting JSON. p(‘key’) tolerates the lowercase “import p from mule” that legacy projects are full of. Brackets and quotes auto-close in the vars and headers fields. A blocked jar download says your network blocked it instead of “not a valid JAR”. And in VS Code, the black scrollbars and the swallowed first keystroke after a drag-select are both fixed.' },
+const V30_HIGHLIGHTS: Highlight[] = [
+  { title: 'A real debugger', tag: 'NEW', only: 'desktop',
+    desc: 'Click the gutter beside a line number to set a breakpoint and press Debug. The script stops there and you get the call stack, every variable in scope, step over / into / out, and a box to evaluate any expression against the paused frame. It is the engine’s own debugger, running in-process — no port to open, no second process to attach.' },
+  { title: 'Every value, without a single log()', tag: 'NEW',
+    desc: 'A Trace panel under the output lists what each expression in your script evaluated to, in source order; click a row to jump to it. A map body that ran 500 times is one row with a count rather than 500 rows, and a script that fails shows everything it worked out before the throw. It replaces wrapping an expression in log() and then having to take it back out — and it is on by default.' },
+  { title: 'Tests you can actually trust', tag: 'NEW',
+    desc: 'The snapshot runner is gone. In its place are real dw::test suites — the same framework MuleSoft ships — with named assertions, the engine’s own failure messages and the line that failed. The old runner only ever answered “did the output change”, and went stale the moment a transform legitimately changed.' },
+  { title: 'Check against the Mule you actually deploy to', tag: 'NEW',
+    desc: 'Point Studio at your runtime — Mule 4.1 through 4.12 — and anything newer stops being a surprise on the server. A 2.10 function on a 4.4 runtime now fails here, in the editor, with the version that introduced it. It gates the compiler and the runtime’s own version-dependent behaviour, not just a lint, and it applies to Run, the Tests panel and the editor’s diagnostics alike.' },
+  { title: 'Encrypt a whole config, not one value at a time', tag: 'NEW',
+    desc: 'A new page takes a YAML or .properties config and encrypts every value at once, or decrypts one so you can read it. Values already written as ![…] are left alone rather than encrypted twice, comments and layout survive untouched, and every field is listed with what will happen to it before anything runs.' },
+  { title: 'The editor caught up with the engine',
+    desc: 'Diagnostics now come with fixes you can apply, colouring comes from the parsed syntax tree instead of text patterns, and hovers render the real documentation — they had been showing raw AsciiDoc markup. Studio can generate a doc comment from a function’s signature, generate realistic sample data from a declared type, and it warns when a script hashes with MD5 or leaves a log() behind.' },
+  { title: 'DataWeave 2.12, and 52 functions nobody documented',
+    desc: 'The bundled engine moves to 2.12 and the reference was regenerated against it. Beyond that, the reference now covers the modules MuleSoft’s own docs leave out entirely — all 25 dw::test::Asserts matchers, the file module, protobuf — read from the doc comments inside the engine itself. 309 functions to 361.' },
+  { title: 'Less in the way',
+    desc: 'Run follows the pane you are in, so pressing it with the Tests panel open runs the suite instead of silently running the script. Debug is a toggle rather than a start button with a stop hidden elsewhere. The target runtime moved to the status bar and auto-run and trace moved into a caret beside Run, which took five controls out of the top bar. And the engine now says why it failed to start instead of sitting at 85%.' },
 ];
 
 const DESKTOP_RELEASES: Release[] = [
-  { version: '2.5.0', date: 'August 2026', headline: 'Type-aware, and scriptable', highlights: V25_HIGHLIGHTS },
+  { version: '3.0.0', date: 'September 2026', headline: 'Stop guessing what your script did', highlights: V30_HIGHLIGHTS },
 ];
 
 const VSCODE_RELEASES: Release[] = [
-  { version: '1.5.0', date: 'August 2026', headline: 'Type-aware, and scriptable', highlights: V25_HIGHLIGHTS },
+  { version: '2.0.0', date: 'September 2026', headline: 'Stop guessing what your script did', highlights: V30_HIGHLIGHTS },
 ];
 
 // The running build picks its own track.

@@ -1,6 +1,6 @@
 # Local HTTP API
 
-DataWeave Studio runs the real DataWeave 2.11 engine on your machine. When the
+DataWeave Studio runs the real DataWeave 2.12 engine on your machine. When the
 local server is running, that engine is reachable over plain HTTP — so a shell
 script, a Python driver, or a CI job can run transforms without deploying
 anything.

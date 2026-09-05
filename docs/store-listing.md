@@ -18,7 +18,7 @@ engine built in. Free, offline, no Anypoint Studio required.
 ## Description
 
 DataWeave Studio is a local workbench for DataWeave 2.0. It runs the real MuleSoft
-DataWeave 2.11 engine on your own machine, so you get authentic output and authentic
+DataWeave 2.12 engine on your own machine, so you get authentic output and authentic
 error messages - not an approximation - without booting Anypoint Studio or creating a
 Maven project.
 
@@ -157,7 +157,7 @@ sponsored by MuleSoft or Salesforce. DataWeave, Mule, MuleSoft and Anypoint are
 trademarks of their respective owners.
 
 ## Key features (short bullets for the listing form)
-1. Runs the real MuleSoft DataWeave 2.11 engine locally
+1. Runs the real MuleSoft DataWeave 2.12 engine locally
 2. Works fully offline — no account, no telemetry, no cloud
 3. Results in milliseconds, with inline error line and column
 4. JSON, XML, CSV, YAML, Excel, multipart and more

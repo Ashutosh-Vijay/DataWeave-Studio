@@ -7,7 +7,7 @@ WHY THIS EXISTS
     Testing a transform against production-shaped data normally means
     publishing an API just to exercise it. But the engine is already running
     locally — DataWeave Studio exposes it on loopback, so a script can feed it
-    directly. Crucially this is the REAL DataWeave 2.11 engine running the exact
+    directly. Crucially this is the REAL DataWeave 2.12 engine running the exact
     .dwl you will ship, not a Python reimplementation that drifts from it.
 
 SETUP

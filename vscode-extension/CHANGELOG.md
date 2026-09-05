@@ -2,6 +2,18 @@
 
 All notable changes to DataWeave Studio for VS Code.
 
+## 2.0.0 — 2026-09-05
+
+**Stop guessing what your script did.**
+
+- **Every value, without a single `log()`.** A Trace panel under the output lists what each expression in your script evaluated to, in source order — click a row to jump to it. A `map` body that ran 500 times is one row with a count rather than 500 rows, and a script that fails shows everything it worked out before the throw. It replaces wrapping an expression in `log()` and then having to take it back out, and it is on by default. (The step debugger this shares its machinery with is desktop-only for now.)
+- **Tests you can actually trust.** The snapshot runner is gone. In its place are real `dw::test` suites — the same framework MuleSoft ships — with named assertions, the engine's own failure messages and the line that failed. The old runner only ever answered "did the output change", and went stale the moment a transform legitimately changed. Run follows the pane you are in, so pressing Run with the Tests panel open runs the suite.
+- **Check against the Mule you actually deploy to.** Point Studio at your runtime — Mule 4.1 through 4.12 — and anything newer stops being a surprise on the server. A 2.10 function on a 4.4 runtime now fails in the editor, naming the version that introduced it. It gates the compiler *and* the runtime's version-dependent behaviour, not just a lint, and it applies to Run, the Tests panel and diagnostics alike. Asked once on first run; changeable from the status bar or Settings → Runtime.
+- **Encrypt a whole config, not one value at a time.** A new page takes a YAML or `.properties` config and encrypts every value at once, or decrypts one so you can read it. Values already written as `![…]` are left alone rather than encrypted twice, comments and layout survive untouched, and every field is listed with what will happen to it before anything runs.
+- **The editor caught up with the engine.** Diagnostics now come with fixes you can apply; colouring comes from the parsed syntax tree instead of text patterns; hovers render real documentation instead of the raw AsciiDoc markup they had been leaking. Studio can generate a doc comment from a function's signature and realistic sample data from a declared type, and it warns when a script hashes with MD5 or leaves a `log()` behind.
+- **DataWeave 2.12, and 52 functions nobody documented.** The bundled engine moves to 2.12 and the reference was regenerated against it. The reference now also covers the modules MuleSoft's own docs leave out entirely — all 25 `dw::test::Asserts` matchers, the file module, protobuf — read from the doc comments inside the engine itself. 309 functions to 361.
+- **Less in the way.** The target runtime moved to the status bar and auto-run and trace moved into a caret beside Run, taking several controls out of the top bar. Auto-run is on by default. Pasting into a config or module editor no longer reindents what you pasted.
+
 ## 1.5.0 — 2026-08-26
 
 **Type-aware, and scriptable.**

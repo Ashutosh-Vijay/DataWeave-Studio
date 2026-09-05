@@ -242,9 +242,11 @@ function App() {
   const { toggle, isDark } = useTheme();
   const [outputFormat, setOutputFormat] = useState<'json' | 'xml' | 'raw'>('json');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  // Auto-run persists across sessions (the header Auto button / ⌘⇧R toggle it).
+  // Auto-run persists across sessions (Run's caret menu / ⌘⇧R toggle it). On by
+  // default: a live preview as you type is what the app is for, and anyone who
+  // turned it off already has '0' stored, so their choice survives.
   const [autoRun, setAutoRun] = useState(() => {
-    try { return localStorage.getItem('dw.autoRun') === '1'; } catch { return false; }
+    try { return (localStorage.getItem('dw.autoRun') ?? '1') === '1'; } catch { return true; }
   });
   useEffect(() => {
     try { localStorage.setItem('dw.autoRun', autoRun ? '1' : '0'); } catch { /* ignore */ }
@@ -298,10 +300,19 @@ function App() {
   // a property of what you're currently investigating, not of the transform.
   const dbg = useDebugger();
   const [breakpoints, setBreakpoints] = useState<number[]>([]);
-  // Value trace: record what every expression evaluated to on the next Run. Off
-  // by default — it forces a fresh compile and full materialization, so it is
-  // slower than a normal run and shouldn't be the default cost of pressing Run.
-  const [valueTrace, setValueTrace] = useState(false);
+  // Value trace: record what every expression evaluated to on the next Run.
+  //
+  // On by default. It costs a fresh compile and full materialization, so it is
+  // not free — measured on a 200-item map, 11ms becomes 67ms — but at that size
+  // it is still imperceptible, and seeing every intermediate value without
+  // asking is worth far more than the milliseconds. Persisted like auto-run, so
+  // turning it off sticks.
+  const [valueTrace, setValueTrace] = useState(() => {
+    try { return (localStorage.getItem('dw.valueTrace') ?? '1') === '1'; } catch { return true; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('dw.valueTrace', valueTrace ? '1' : '0'); } catch { /* ignore */ }
+  }, [valueTrace]);
   const toggleBreakpoint = useCallback((line: number) => {
     setBreakpoints((prev) => (prev.includes(line) ? prev.filter((l) => l !== line) : [...prev, line].sort((a, b) => a - b)));
   }, []);
@@ -1493,6 +1504,7 @@ function App() {
           {/* Debug is a toggle, not a start button with a stop hidden inside the
               panel. Press it to attach, press it again to detach. */}
           <button
+            data-tour="debug"
             onClick={() => { if (dbg.active) void dbg.stop(); else void handleDebug(); }}
             disabled={!dbg.active && (!runner.isWarmedUp || runner.isRunning)}
             className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] font-medium border transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
