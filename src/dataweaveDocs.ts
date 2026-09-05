@@ -1,5 +1,8 @@
 // AUTO-GENERATED from mulesoft/docs-dataweave@v2.12. Do not edit by hand.
 // Re-run scripts/extract-dw-docs.mjs to refresh.
+// Modules the docs repo does not cover (asserts, tests, filesystem, ndjson,
+// protobuf) come from the engine jar's own doc comments, added by
+// scripts/extract-dw-bundled-docs.mjs.
 
 export interface FnExample { source: string; output: string; }
 export interface FnOverload {
@@ -252,6 +255,22 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
           {
             "source": "%dw 2.0\nimport * from dw::util::Math\noutput application/json\n---\n{\n  \"acos0\": acos(0),\n  \"acos13\": acos(0.13),\n  \"acos-1\": acos(-1),\n  \"acos1\": acos(1),\n  \"acos1.1\": acos(1.1)\n}",
             "output": "{\n   \"acos0\": 1.5707963267948966,\n   \"acos13\": 1.440427347091751,\n   \"acos-1\": 3.141592653589793,\n   \"acos1\": 0.0,\n   \"acos1.1\": null\n }"
+          }
+        ]
+      }
+    ]
+  },
+  "anyof": {
+    "name": "anyOf",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "anyOf(matchers: Array<Matcher<Any>>): Matcher<Any>",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that the value satisfies at least one of the given matchers",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n\"A Text\" must anyOf(beObject(), beString())",
+            "output": ""
           }
         ]
       }
@@ -565,6 +584,22 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       }
     ]
   },
+  "basenameof": {
+    "name": "baseNameOf",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "baseNameOf(path: Path): String",
+        "description": "`import * from dw::io::file::FileSystem`\n\nReturns the base name of this file",
+        "examples": [
+          {
+            "source": "%dw 2.0\noutput application/json\n---\ndw::io::file::FileSystem::baseNameOf(\"/tmp/a/test.json\")",
+            "output": "\"test\""
+          }
+        ]
+      }
+    ]
+  },
   "basetypeof": {
     "name": "baseTypeOf",
     "overloads": [
@@ -576,6 +611,190 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
           {
             "source": "%dw 2.0\nimport * from dw::core::Types\ntype AType = String {format: \"YYYY-MM-dd\"}\noutput application/json\n---\n{\n   a: baseTypeOf(AType)\n}",
             "output": "{\n  \"a\": \"String\"\n}"
+          }
+        ]
+      }
+    ]
+  },
+  "bearray": {
+    "name": "beArray",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "beArray(): Matcher",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that a given value is of type Array",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n[1, 4, 7] must beArray()",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
+  "beblank": {
+    "name": "beBlank",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "beBlank(): Matcher<String | Null>",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that the String value is blank",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n\"  \" must beBlank()",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
+  "beboolean": {
+    "name": "beBoolean",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "beBoolean(): Matcher",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that a given value is of type Boolean",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\ntrue must beBoolean()",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
+  "beempty": {
+    "name": "beEmpty",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "beEmpty(): Matcher<String | Object | Array | Null>",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that the value (String, Object or Array) is empty",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n[] must beEmpty()",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
+  "begreaterthan": {
+    "name": "beGreaterThan",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "beGreaterThan(expected: Comparable, inclusive: Boolean = false): Matcher<Comparable>",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that the asserted Comparable value is greater than the given one\n\n Can be equal to when using the _inclusive_ argument",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n3 must beGreaterThan(2)",
+            "output": ""
+          },
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n3 must beGreaterThan(2, true)",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
+  "belowerthan": {
+    "name": "beLowerThan",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "beLowerThan(expected: Comparable, inclusive: Boolean = false): Matcher<Comparable>",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that the asserted Comparable value is lower than the given one\n\nCan be equal to when using the _inclusive_ argument",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n1 must beLowerThan(2)",
+            "output": ""
+          },
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n1 must beLowerThan(2, true)",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
+  "benull": {
+    "name": "beNull",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "beNull(): Matcher",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that a given value is of type Null",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\nnull must beNull()",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
+  "benumber": {
+    "name": "beNumber",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "beNumber(): Matcher",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that a given value is of type Number",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n123 must beNumber()",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
+  "beobject": {
+    "name": "beObject",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "beObject(): Matcher",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that a given value is of type Object",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n{ name : \"Lionel\", lastName: \"Messi\"} must beObject()",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
+  "beoneof": {
+    "name": "beOneOf",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "beOneOf(expected:Array<Any>): Matcher",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that the value is contained in the given Array",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n1 must beOneOf([1, \"A Text\", true])",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
+  "bestring": {
+    "name": "beString",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "beString(): Matcher",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that a given value is of type String",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n\"A Text\" must beString()",
+            "output": ""
           }
         ]
       }
@@ -787,6 +1006,33 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       }
     ]
   },
+  "contain": {
+    "name": "contain",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "contain(expected:String): Matcher<String>",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that the asserted String contains the given String",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n\"A Text\" must contain(\"ex\")",
+            "output": ""
+          }
+        ]
+      },
+      {
+        "module": "asserts",
+        "signature": "contain(expected: Any): Matcher<Array<Any>>",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that the asserted Array contains the given value",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n[1, \"A Text\", true] must contain(1)",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
   "contains": {
     "name": "contains",
     "overloads": [
@@ -840,6 +1086,38 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
         "signature": "contains(text: Null, matcher: Any): false",
         "description": "Helper function that enables `contains` to work with a `null` value.\n\n_Introduced in DataWeave version 2.4.0._",
         "examples": []
+      }
+    ]
+  },
+  "contentof": {
+    "name": "contentOf",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "contentOf(path: Path): Binary",
+        "description": "`import * from dw::io::file::FileSystem`\n\nReturns the content of the given path",
+        "examples": [
+          {
+            "source": "%dw 2.0\noutput application/json\n---\ncontentOf(\"/tmp/foo/bar.txt\") as String {encoding: \"UTF-8\"}",
+            "output": "\"Hello\""
+          }
+        ]
+      }
+    ]
+  },
+  "copyto": {
+    "name": "copyTo",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "copyTo(binary: Binary, path: Path): Number",
+        "description": "`import * from dw::io::file::FileSystem`\n\nCopies the specified binary into the given path.",
+        "examples": [
+          {
+            "source": "%dw 2.0\noutput application/json\n---\ncopyTo( \"Hello\" as Binary {encoding: \"UTF-8\"}, \"/tmp/foo/bar.txt\")",
+            "output": "5"
+          }
+        ]
       }
     ]
   },
@@ -1163,6 +1441,22 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       }
     ]
   },
+  "describedby": {
+    "name": "describedBy",
+    "overloads": [
+      {
+        "module": "tests",
+        "signature": "describedBy(suite: String, testsToRun: Array<() -> TestResult> ): TestResult",
+        "description": "`import * from dw::test::Tests`\n\nDefines a new test suite with the list of test cases.",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport * from dw::test::Tests\n ---\n\n \"Matcher api\" describedBy [\n     \"It should support nested matching\" in  do {\n         var payload = {}\n         ---\n         payload must [\n             beObject(),\n             $.foo must [\n                 beNull()\n             ]\n         ]\n     },\n]",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
   "diff": {
     "name": "diff",
     "overloads": [
@@ -1344,6 +1638,22 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       }
     ]
   },
+  "eachitem": {
+    "name": "eachItem",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "eachItem(matcher: Matcher<Any>): Matcher<Array<Any>>",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that each item of the array satisfies the given matcher",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n[1,2,3] must eachItem(beNumber())",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
   "encodeuri": {
     "name": "encodeURI",
     "overloads": [
@@ -1395,6 +1705,22 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
         "signature": "endsWith(text: Null, suffix: Any): false",
         "description": "Helper function that enables `endsWith` to work with a `null` value.\n\n_Introduced in DataWeave version 2.4.0._",
         "examples": []
+      }
+    ]
+  },
+  "endwith": {
+    "name": "endWith",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "endWith(expected:String): Matcher<String>",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that the asserted String ends with the given String",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n\"A Text\" must endWith(\"xt\")",
+            "output": ""
+          }
+        ]
       }
     ]
   },
@@ -1468,6 +1794,38 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       }
     ]
   },
+  "equalto": {
+    "name": "equalTo",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "equalTo(expected: Any, equalToConfig: {unordered?: Boolean} = {}): Matcher<Any>",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that a value is equal to another one",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n(1 + 2) must equalTo(3)",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
+  "equaltoresource": {
+    "name": "equalToResource",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "equalToResource(resourceName: String, contentType: String = \"application/dw\", readerProperties: Object = {}): Matcher<Any>",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that the given value is equal to the content of a resource file\n\nThe resource file must belong to the classpath",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n{ name: \"Lionel\", lastName: \"Messi\" } must equalToResource(\"user.json\", \"application/json\")",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
   "eval": {
     "name": "eval",
     "overloads": [
@@ -1481,6 +1839,28 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
             "output": "{\n  \"execute_ok\": {\n    \"success\": true,\n    \"value\": \"{\\n  a: 1\\n}\",\n    \"mimeType\": \"application/dw\",\n    \"encoding\": \"UTF-8\",\n    \"logs\": [\n\n    ]\n  },\n  \"logs\": {\n    \"m\": [\n      \"1\"\n    ],\n    \"l\": [\n      \"INFO\"\n    ]\n  },\n  \"grant\": {\n    \"success\": false,\n    \"message\": \"The given required permissions: `Resource` are not being granted for this execution.\\nTrace:\\n  at readUrl (Unknown)\\n  at main::main (line: 1, column: 5)\",\n    \"location\": {\n      \"start\": {\n        \"index\": 0,\n        \"line\": 0,\n        \"column\": 0\n      },\n      \"end\": {\n        \"index\": 0,\n        \"line\": 0,\n        \"column\": 0\n      },\n      \"content\": \"Unknown location\"\n    },\n    \"stack\": [\n      \"readUrl (anonymous:0:0)\",\n      \"main (main:1:5)\"\n    ],\n    \"logs\": [\n\n    ]\n  },\n  \"library\": {\n    \"success\": true,\n    \"value\": 3,\n    \"logs\": [\n\n    ]\n  },\n  \"timeout\": true,\n  \"execFail\": {\n    \"success\": false,\n    \"message\": \"My Bad\\nTrace:\\n  at fail (Unknown)\\n  at main::main (line: 1, column: 1)\",\n    \"location\": {\n      \"start\": {\n        \"index\": 0,\n        \"line\": 0,\n        \"column\": 0\n      },\n      \"end\": {\n        \"index\": 0,\n        \"line\": 0,\n        \"column\": 0\n      },\n      \"content\": \"Unknown location\"\n    },\n    \"stack\": [\n      \"fail (anonymous:0:0)\",\n      \"main (main:1:1)\"\n    ],\n    \"logs\": [\n\n    ]\n  },\n  \"parseFail\": {\n    \"success\": false,\n    \"message\": \"Invalid input \\\"1 + \\\", expected parameter or parenEnd (line 1, column 2):\\n\\n\\n1| (1 + \\n    ^^^^\\nLocation:\\nmain (line: 1, column:2)\",\n    \"location\": {\n      \"start\": {\n        \"index\": 0,\n        \"line\": 1,\n        \"column\": 2\n      },\n      \"end\": {\n        \"index\": 4,\n        \"line\": 1,\n        \"column\": 6\n      },\n      \"content\": \"\\n1| (1 + \\n    ^^^^\"\n    },\n    \"logs\": [\n\n    ]\n  },\n  \"writerFail\": {\n    \"success\": true,\n    \"value\": 2,\n    \"logs\": [\n\n    ]\n  },\n  \"defaultOutput\": {\n    \"success\": true,\n    \"value\": {\n      \"name\": \"Mariano\",\n      \"lastName\": \"achaval\"\n    },\n    \"logs\": [\n\n    ]\n  },\n  \"onExceptionFail\": false,\n  \"customLogger\": {\n    \"success\": true,\n    \"value\": 1234,\n    \"logs\": [\n\n    ]\n  }\n}"
           }
         ]
+      }
+    ]
+  },
+  "evalpath": {
+    "name": "evalPath",
+    "overloads": [
+      {
+        "module": "tests",
+        "signature": "evalPath(dwlFilePath: String, context: Object, mimeType: String) : Any",
+        "description": "`import * from dw::test::Tests`\n\nRuns a specific mapping with the given context and mimetype.",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport * from dw::test::Tests\nimport * from dw::test::Asserts\n---\n\"Test MyMapping\" describedBy [\n    \"Assert SimpleScenario\" in do {\n        evalPath(\"MyMapping.dwl\", inputsFrom(\"MyMapping/SimpleScenario\"), \"application/json\" ) must\n                  equalTo(outputFrom(\"MyMapping/SimpleScenario\"))\n    }\n ]",
+            "output": ""
+          }
+        ]
+      },
+      {
+        "module": "tests",
+        "signature": "evalPath(testUrl: {content: String, url: String}, context: Object, mimeType: String): Any",
+        "description": "`import * from dw::test::Tests`\n\nEvals a test with a given input values as a context and using the specified mimeType as default one when not specified in the file",
+        "examples": []
       }
     ]
   },
@@ -1579,6 +1959,38 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
         "signature": "everyEntry(list: Null, condition: (Nothing, Nothing) -> Boolean): Boolean",
         "description": "Helper function that enables `everyEntry` to work with a `null` value.\n\n_Introduced in DataWeave version 2.3.0._",
         "examples": []
+      }
+    ]
+  },
+  "exists": {
+    "name": "exists",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "exists(path: Path):Boolean",
+        "description": "`import * from dw::io::file::FileSystem`\n\nReturns true if the file exits",
+        "examples": [
+          {
+            "source": "%dw 2.0\noutput application/json\n---\ndw::io::file::FileSystem::exists(\"/tmp\")",
+            "output": "true"
+          }
+        ]
+      }
+    ]
+  },
+  "extensionof": {
+    "name": "extensionOf",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "extensionOf(path: Path): String | Null",
+        "description": "`import * from dw::io::file::FileSystem`\n\nReturns the extension of the file with the dot.",
+        "examples": [
+          {
+            "source": "%dw 2.0\noutput application/json\n---\n%dw 2.0\n import * from dw::io::file::FileSystem\n output application/json\n ---\n {\n   a: extensionOf(path(\"/tmp\",\"foo.txt\")),\n   b: extensionOf(path(\"/tmp\",\"foo.html\")),\n   c: extensionOf(path(\"/tmp\",\"foo.json\")),\n   d: extensionOf(tmp()) //Directory should return null\n }",
+            "output": "{\n   \"a\": \".txt\",\n   \"b\": \".html\",\n   \"c\": \".json\",\n   \"d\": null\n }"
+          }
+        ]
       }
     ]
   },
@@ -2242,6 +2654,70 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       }
     ]
   },
+  "haveitem": {
+    "name": "haveItem",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "haveItem(matcher: Matcher<Any>): Matcher<Array<Any>>",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that at least one item of the array satisfies the given matcher",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n[1, true, \"a text\"] must haveItem(beNumber())",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
+  "havekey": {
+    "name": "haveKey",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "haveKey(keyName: String): Matcher<Object>",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that the Object has the given key",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n{ name: \"Lionel\", lastName: \"Messi\" } must haveKey(\"name\")",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
+  "havesize": {
+    "name": "haveSize",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "haveSize(expectedSize: Number): Matcher<Array | String | Object | Null>",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that the array has the given size",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n[1, 4, 7] must haveSize(3)",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
+  "havevalue": {
+    "name": "haveValue",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "haveValue(value: Any): Matcher<Object>",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that the Object has the given value",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n{ name: \"Lionel\", lastName: \"Messi\" } must haveValue(\"Messi\")",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
   "hmacbinary": {
     "name": "HMACBinary",
     "overloads": [
@@ -2274,6 +2750,17 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       }
     ]
   },
+  "home": {
+    "name": "home",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "home(): Path",
+        "description": "`import * from dw::io::file::FileSystem`\n\nReturns the Path value of the home directory.",
+        "examples": []
+      }
+    ]
+  },
   "hours": {
     "name": "hours",
     "overloads": [
@@ -2285,6 +2772,55 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
           {
             "source": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\n{\n   nextHour: |2020-10-05T20:22:34.385Z| + hours(1),\n   previousHour: |2020-10-05T20:22:34.385Z| - hours(1),\n   threeHoursLater: |20:22| + hours(3),\n   addDecimalInput: |20:22| + hours(3.5),\n   decimalInputAsPeriod : hours(4.555),\n   fourHourPeriod : hours(4),\n   addNegativeValue: hours(-1) + hours(2)\n}",
             "output": "{\n   \"nextHour\": \"2020-10-05T21:22:34.385Z\",\n   \"previousHour\": \"2020-10-05T19:22:34.385Z\",\n   \"threeHoursLater\": \"23:22:00\",\n   \"addDecimalInput\": \"23:52:00\",\n   \"decimalInputAsPeriod\": \"PT4H33M18S\",\n   \"fourHourPeriod\": \"PT4H\",\n   \"addNegativeValue\": 3600\n}"
+          }
+        ]
+      }
+    ]
+  },
+  "in": {
+    "name": "in",
+    "overloads": [
+      {
+        "module": "tests",
+        "signature": "in<Ctx <: Object>(testSetup: { config: TestConfig<Ctx>, testName: String }, test: (c: Ctx) -> MatcherResult): TestResult",
+        "description": "`import * from dw::test::Tests`\n\nDefines a new test case inside a test suite with its relevant context.\nIntended to be used in combination with withConfig",
+        "examples": [
+          {
+            "source": "var config = {\n  setup: () -> { contextString: \"context\" },\n  teardown: () -> {}\n}\n---\n\"It should generate context for following tests\" withConfig config in do {\n  $.contextString must beString()\n }",
+            "output": ""
+          }
+        ]
+      },
+      {
+        "module": "tests",
+        "signature": "in<Ctx <: Object>(testSetup: { config: TestConfig<Ctx>, testName: String }, test: Array<(c: Ctx) -> MatcherResult>): TestResult",
+        "description": "`import * from dw::test::Tests`\n\nDefines multiple new test cases inside a test suite that share the same context.\nIntended to be used in combination with withConfig",
+        "examples": [
+          {
+            "source": "var config = {\n  setup: () -> { contextString: \"context\" },\n  teardown: () -> {}\n}\n---\n\"It should generate context for following tests\" withConfig config in  [\n  do { $.contextString must beString() },\n  do { $.otherContext must equalTo(3) }\n]",
+            "output": ""
+          }
+        ]
+      },
+      {
+        "module": "tests",
+        "signature": "in<T>(testName: String, testCases: (Null) -> MatcherResult): TestResult",
+        "description": "`import * from dw::test::Tests`\n\nDefines a new test case inside a test suite with a single assertion.",
+        "examples": [
+          {
+            "source": "\"It should support nested matching\" in  do {\n   \"foo\" must beString()\n}",
+            "output": ""
+          }
+        ]
+      },
+      {
+        "module": "tests",
+        "signature": "in(testName: String, callback: Array<(Null) -> MatcherResult>): TestResult",
+        "description": "`import * from dw::test::Tests`\n\nDefines a new test case with multiple assertions",
+        "examples": [
+          {
+            "source": "\"It should support multiple root cases\" in do {\n     var payload = {}\n     var flowVar = {a: 123}\n     ---\n    [\n        payload must beObject(),\n        flowVar must [\n             beObject(),\n             $.a must equalTo(123)\n          ]\n      ]\n }",
+            "output": ""
           }
         ]
       }
@@ -2368,6 +2904,17 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
         "module": "arrays",
         "signature": "indexWhere(array: Null, condition: (item: Nothing) -> Any): Null",
         "description": "Helper function that enables `indexWhere` to work with a `null` value.\n\n_Introduced in DataWeave version 2.4.0._",
+        "examples": []
+      }
+    ]
+  },
+  "inputsfrom": {
+    "name": "inputsFrom",
+    "overloads": [
+      {
+        "module": "tests",
+        "signature": "inputsFrom(dir: String): {_?: Any}",
+        "description": "`import * from dw::test::Tests`\n\nBuilds an object with all the inputs to be used as context for a specific mapping.",
         "examples": []
       }
     ]
@@ -3268,6 +3815,17 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       }
     ]
   },
+  "kindof": {
+    "name": "kindOf",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "kindOf(path: Path): FileKind | Null",
+        "description": "`import * from dw::io::file::FileSystem`\n\nReturns the file type. \"File\" or \"Folder\" or null if it doesn't exits",
+        "examples": []
+      }
+    ]
+  },
   "last": {
     "name": "last",
     "overloads": [
@@ -3624,6 +4182,33 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       }
     ]
   },
+  "ls": {
+    "name": "ls",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "ls(folder: Path): Array<Path>",
+        "description": "`import * from dw::io::file::FileSystem`\n\nReturns the list child file path",
+        "examples": [
+          {
+            "source": "%dw 2.0\noutput application/json\n---\n  ls(\"/tmp\")",
+            "output": "[\"/tmp/foo.txt\",\"/tmp/dw-input-buffer-0.tmp\",\"/tmp/dw-output-buffer-0.tmp\"]"
+          }
+        ]
+      },
+      {
+        "module": "filesystem",
+        "signature": "ls(folder: Path, filterExpr: Regex): Array<Path>",
+        "description": "`import * from dw::io::file::FileSystem`\n\nReturn the list of child elements of the specified path. That matches the specified regex pattern",
+        "examples": [
+          {
+            "source": "%dw 2.0\noutput application/json\n---\n  ls(\"/tmp\", /dw/)",
+            "output": "[\"/tmp/dw-input-buffer-0.tmp\",\"/tmp/dw-output-buffer-0.tmp\"]"
+          }
+        ]
+      }
+    ]
+  },
   "map": {
     "name": "map",
     "overloads": [
@@ -3906,6 +4491,22 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       }
     ]
   },
+  "mimetypeof": {
+    "name": "mimeTypeOf",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "mimeTypeOf(path: Path): String | Null",
+        "description": "`import * from dw::io::file::FileSystem`\n\nTries to guess the mimeType of the given Path",
+        "examples": [
+          {
+            "source": "%dw 2.0\noutput application/json\n---\ndw::io::file::FileSystem::mimeTypeOf(\"/tmp/test.json\")",
+            "output": "\"application/json\""
+          }
+        ]
+      }
+    ]
+  },
   "min": {
     "name": "min",
     "overloads": [
@@ -3958,6 +4559,22 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       }
     ]
   },
+  "mkdir": {
+    "name": "mkdir",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "mkdir(path: Path): Path | Null",
+        "description": "`import * from dw::io::file::FileSystem`\n\nCreates the a folder in the given path. And returns the path.",
+        "examples": [
+          {
+            "source": "%dw 2.0\noutput application/json\n---\nmkdir(\"/tmp/a\")",
+            "output": "\"/tmp/a\""
+          }
+        ]
+      }
+    ]
+  },
   "mod": {
     "name": "mod",
     "overloads": [
@@ -3985,6 +4602,33 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
           {
             "source": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\n{\n  nextMonth: |2020-10-05T20:22:34.385Z| + months(1),\n  fourMonthPeriod : months(4),\n  addNegativeValue: months(-1) + months(2)\n}",
             "output": "{\n  \"nextMonth\": \"2020-11-05T20:22:34.385Z\",\n  \"fourMonthPeriod\": \"P4M\",\n  \"addNegativeValue\": 1\n}"
+          }
+        ]
+      }
+    ]
+  },
+  "must": {
+    "name": "must",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "must<T>(value: T, matchExpressions: Array<(value:T) -> Matcher<T> | MatcherResult | Boolean>): MatcherResult",
+        "description": "`import * from dw::test::Asserts`\n\nThis function allows to assert a value with with a list of Matcher or Expressions",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\npayload must [\n    beObject(),\n    $.foo is Null\n]",
+            "output": ""
+          }
+        ]
+      },
+      {
+        "module": "asserts",
+        "signature": "must<T>(value: T, matcher: (value: T) -> Matcher<T> | Boolean): MatcherResult",
+        "description": "`import * from dw::test::Asserts`\n\nThis function allows to assert a value with a Matcher of Expressions",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\npayload must beObject()",
+            "output": ""
           }
         ]
       }
@@ -4066,6 +4710,38 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
           {
             "source": "%dw 2.0\nimport * from dw::util::Tree\nvar myObject =  {\n     user: [{\n         name: \"mariano\",\n         lastName: \"achaval\",\n         friends: [\n             {\n                 name: \"julian\"\n             },\n             {\n                 name: \"tom\"\n             }\n         ]\n     },\n     {\n         name: \"leandro\",\n         lastName: \"shokida\",\n         friends: [\n             {\n                 name: \"peter\"\n             },\n             {\n                 name: \"robert\"\n             }\n         ]\n\n     }\n     ]\n }\noutput application/json\n---\n{\n    mariano : myObject nodeExists ((value, path) -> path[-1].selector == \"name\" and value == \"mariano\"),\n    julian : myObject nodeExists ((value, path) -> path[-1].selector == \"name\" and value == \"julian\"),\n    tom : myObject nodeExists ($$[-1].selector == \"name\" and $ == \"tom\"),\n    leandro : myObject nodeExists ($$[-1].selector == \"name\" and $ ==  \"leandro\"),\n    peter : myObject nodeExists ($$[-1].selector == \"name\" and $ == \"peter\"),\n    wrongField: myObject nodeExists ($$[-1].selector == \"wrongField\"),\n    teo: myObject nodeExists ($$[-1].selector == \"name\" and $ == \"teo\")\n}",
             "output": "{\n  \"mariano\": true,\n  \"julian\": true,\n  \"tom\": true,\n  \"leandro\": true,\n  \"peter\": true,\n  \"wrongField\": false,\n  \"teo\": false\n}"
+          }
+        ]
+      }
+    ]
+  },
+  "notbe": {
+    "name": "notBe",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "notBe<T>(matcher: Matcher<T>): Matcher<T>",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that the value doesn't satisfy the given matcher",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n1 must notBe(equalTo(2))",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
+  "notbenull": {
+    "name": "notBeNull",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "notBeNull(): Matcher",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that a given value isn't of type Null",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n\"A Text\" must notBeNull()",
+            "output": ""
           }
         ]
       }
@@ -4240,6 +4916,17 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       }
     ]
   },
+  "outputfrom": {
+    "name": "outputFrom",
+    "overloads": [
+      {
+        "module": "tests",
+        "signature": "outputFrom(dir: String)",
+        "description": "`import * from dw::test::Tests`\n\nReturns the result of reading the expected output",
+        "examples": []
+      }
+    ]
+  },
   "p": {
     "name": "p",
     "overloads": [
@@ -4251,6 +4938,38 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
           {
             "source": "<flow name=\"simple\">\n <logger level=\"INFO\" doc:name=\"Logger\"\n   message=\"#[Mule::p('http.port')]\"/>\n</flow>",
             "output": ""
+          }
+        ]
+      }
+    ]
+  },
+  "pack": {
+    "name": "pack",
+    "overloads": [
+      {
+        "module": "protobuf",
+        "signature": "pack(msg: Any,  messageType: String, descriptorUrl: String): { type_url : String, value : Binary }",
+        "description": "`import * from protobuf::Any`\n\nThe `pack` function serializes an object and returns it as a Protobuf Any message.\nIt needs the `messageType` and the `descriptorUrl` in order to properly pack the message,\nwhich can be of `Any` value.",
+        "examples": [
+          {
+            "source": "syntax = \"proto3\";\n\npackage engine.anyPacking;\n\nimport \"google/protobuf/any.proto\";\n\nmessage Payload {\n  bool flag = 1;\n  google.protobuf.Any load = 2;\n}\n\nmessage Range {\n  int32 from = 1;\n  int32 to = 2;\n}",
+            "output": "output application/x-protobuf messageType='engine.anyPacking.Payload',descriptorUrl=\"example.dsc\"\nimport unpack from protobuf::Any\n\n---\n{\n  flag: true,\n  load: pack({from: 1, to: 3}, 'engine.anyPacking.Range', \"descriptors/test.dsc\")\n}"
+          }
+        ]
+      }
+    ]
+  },
+  "parentof": {
+    "name": "parentOf",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "parentOf(path: Path): String | Null",
+        "description": "`import * from dw::io::file::FileSystem`\n\nReturns the path to the parent folder of a given file.",
+        "examples": [
+          {
+            "source": "%dw 2.0\noutput application/json\nimport parentOf from dw::io::file::FileSystem\n---\nparentOf(\"tmp/someDir/someFile.txt\")",
+            "output": "\"tmp/someDir\""
           }
         ]
       }
@@ -4291,6 +5010,55 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
         "signature": "partition(array: Null, condition: (item: Nothing) -> Any): Null",
         "description": "Helper function that enables `partition` to work with a `null` value.\n\n_Introduced in DataWeave version 2.4.0._",
         "examples": []
+      }
+    ]
+  },
+  "path": {
+    "name": "path",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "path(basePath: Path, part: String): Path",
+        "description": "`import * from dw::io::file::FileSystem`\n\nCreates a valid path with the specified parts",
+        "examples": [
+          {
+            "source": "%dw 2.0\noutput application/json\n---\npath(\"/tmp/a\",\"b\")",
+            "output": "\"/tmp/a/b\""
+          }
+        ]
+      },
+      {
+        "module": "filesystem",
+        "signature": "path(basePath: Path, part: String, part2: String): Path",
+        "description": "`import * from dw::io::file::FileSystem`\n\nCreates a valid Path with the specified parts",
+        "examples": [
+          {
+            "source": "%dw 2.0\noutput application/json\n---\npath(\"/tmp\", \"a\",\"b\")",
+            "output": "\"/tmp/a/b\""
+          }
+        ]
+      },
+      {
+        "module": "filesystem",
+        "signature": "path(basePath: Path, part: String, part2: String, part3: String): Path",
+        "description": "`import * from dw::io::file::FileSystem`\n\nCreates a valid Path with the specified parts",
+        "examples": [
+          {
+            "source": "%dw 2.0\noutput application/json\n---\npath(\"/tmp\", \"a\",\"b\",\"c\")",
+            "output": "\"/tmp/a/b/c\""
+          }
+        ]
+      },
+      {
+        "module": "filesystem",
+        "signature": "path(basePath: Path, parts: Array<String>): Path",
+        "description": "`import * from dw::io::file::FileSystem`\n\nCreates a valid Path with the specified parts",
+        "examples": [
+          {
+            "source": "%dw 2.0\noutput application/json\n---\npath(\"/tmp\", [\"a\",\"b\",\"c\"])",
+            "output": "\"/tmp/a/b/c\""
+          }
+        ]
       }
     ]
   },
@@ -4712,6 +5480,22 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       }
     ]
   },
+  "rm": {
+    "name": "rm",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "rm(path: Path):Boolean",
+        "description": "`import * from dw::io::file::FileSystem`\n\nRemoves the file at the given location. Returns true if the file or folder was removed.\n\nIf the path is a file it will delete everything recursively.",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport rm from dw::io::file::FileSystem\noutput application/json\n---\nrm(\"/home/dw/toRemove\")",
+            "output": "true"
+          }
+        ]
+      }
+    ]
+  },
   "round": {
     "name": "round",
     "overloads": [
@@ -4797,6 +5581,22 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
           {
             "source": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\n{\n  nextSecond: |2020-10-05T20:22:34.385Z| + seconds(1),\n  previousSecond: |2020-10-05T20:22:34.385Z| - seconds(1),\n  decimalInputPeriod: seconds(4.555),\n  wholeNumberInputPeriod: seconds(4),\n  addNegativeValue: seconds(-1) + seconds(2)\n}",
             "output": "{\n  \"nextSecond\": \"2020-10-05T20:22:35.385Z\",\n  \"previousSecond\": \"2020-10-05T20:22:33.385Z\",\n  \"decimalInputPeriod\": \"PT4.555S\",\n  \"wholeNumberInputPeriod\": \"PT4S\",\n  \"addNegativeValue\": 1\n}"
+          }
+        ]
+      }
+    ]
+  },
+  "separator": {
+    "name": "separator",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "separator(): String",
+        "description": "`import * from dw::io::file::FileSystem`\n\nReturns the system-dependent default name-separator character, represented as a string for convenience.",
+        "examples": [
+          {
+            "source": "%dw 2.0\noutput application/json\nimport separator from dw::io::file::FileSystem\n---\n// Will return \"/\" for Unix-based systems, and \"\\\" for Windows-based systems.\nseparator()",
+            "output": "\"/\""
           }
         ]
       }
@@ -5182,6 +5982,22 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       }
     ]
   },
+  "startwith": {
+    "name": "startWith",
+    "overloads": [
+      {
+        "module": "asserts",
+        "signature": "startWith(expected:String): Matcher<String>",
+        "description": "`import * from dw::test::Asserts`\n\nValidates that the asserted String starts with the given String",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport dw::tests::Asserts\n---\n\"A Text\" must startWith(\"A\")",
+            "output": ""
+          }
+        ]
+      }
+    ]
+  },
   "substring": {
     "name": "substring",
     "overloads": [
@@ -5485,6 +6301,17 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
         "module": "timer",
         "signature": "time<T>(valueToMeasure: () -> T): TimeMeasurement<T>",
         "description": "Executes the input function and returns a `TimeMeasurement` object that\ncontains the start and end time for the execution of that function, as well\nthe result of the function.",
+        "examples": []
+      }
+    ]
+  },
+  "tmp": {
+    "name": "tmp",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "tmp(): Path",
+        "description": "`import * from dw::io::file::FileSystem`\n\nReturns the Path value of the tmp directory.",
         "examples": []
       }
     ]
@@ -6149,6 +6976,22 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       }
     ]
   },
+  "tourl": {
+    "name": "toUrl",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "toUrl(path: Path): String",
+        "description": "`import * from dw::io::file::FileSystem`\n\nTransform the specified file path into a valid Url",
+        "examples": [
+          {
+            "source": "%dw 2.0\noutput application/json\n---\ntoUrl( \"/tmp/Application Test\")",
+            "output": "\"file:/tmp/Application%20Test\""
+          }
+        ]
+      }
+    ]
+  },
   "trim": {
     "name": "trim",
     "overloads": [
@@ -6249,6 +7092,22 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       }
     ]
   },
+  "unpack": {
+    "name": "unpack",
+    "overloads": [
+      {
+        "module": "protobuf",
+        "signature": "unpack(msg: { type_url : String, value : Binary }, descriptorUrl: String): Any",
+        "description": "`import * from protobuf::Any`\n\nThe `unpack` function unpacks a Protobuf Any into an actual DataWeave object.\nIn order to do this, it needs the url for the compiled descriptor where the Any `type_url`\nwill be found.",
+        "examples": [
+          {
+            "source": "syntax = \"proto3\";\n\npackage engine.anyPacking;\n\nimport \"google/protobuf/any.proto\";\n\nmessage Payload {\n  bool flag = 1;\n  google.protobuf.Any load = 2;\n}\n\nmessage Range {\n  int32 from = 1;\n  int32 to = 2;\n}",
+            "output": "input in0 application/x-protobuf messageType='engine.anyPacking.Payload',descriptorUrl=\"example.dsc\"\noutput json\nimport unpack from protobuf::Any\n\n---\nunpack(in0.load, \"example.dsc\")"
+          }
+        ]
+      }
+    ]
+  },
   "unwrap": {
     "name": "unwrap",
     "overloads": [
@@ -6286,6 +7145,22 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
           {
             "source": "%dw 2.0\noutput application/json\n---\nunzip([ [0,\"a\"], [1,\"a\",\"foo\"], [2], [3,\"a\"] ])",
             "output": "[0,1,2,3]"
+          }
+        ]
+      }
+    ]
+  },
+  "unzipto": {
+    "name": "unzipTo",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "unzipTo(zipPath: Path, targetDirectory: Path): Path",
+        "description": "`import * from dw::io::file::FileSystem`\n\nUnzips the specified file into the given directory",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport * from dw::io::file::FileSystem\noutput application/json\n---\nfileToUnzip unzipTo path(tmp(), \"dw_io_test\" ,\"outputZip\")",
+            "output": "\"/tmp/dw_io_test/outputZip\""
           }
         ]
       }
@@ -6480,6 +7355,17 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       }
     ]
   },
+  "wd": {
+    "name": "wd",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "wd(): Path",
+        "description": "`import * from dw::io::file::FileSystem`\n\nReturns the Path value of the working directory.",
+        "examples": []
+      }
+    ]
+  },
   "with": {
     "name": "with",
     "overloads": [
@@ -6491,6 +7377,22 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
           {
             "source": "%dw 2.0\noutput application/json\n---\n{ \"ssn\" : \"987-65-4321\" replace /[0-9]/ with(\"x\") }",
             "output": "{ \"ssn\": \"xxx-xx-xxxx\" }"
+          }
+        ]
+      }
+    ]
+  },
+  "withconfig": {
+    "name": "withConfig",
+    "overloads": [
+      {
+        "module": "tests",
+        "signature": "withConfig<Ctx <: Object>(testName: String, config: TestConfig<Ctx>)",
+        "description": "`import * from dw::test::Tests`\n\nGenerates configuration for a test(s) that needs setup/teardown stages. Intended for it to used in combination with\nthe `in` function.",
+        "examples": [
+          {
+            "source": "var config = {\n  setup: () -> { contextString: \"context\", otherContext: 3 },\n  teardown: () -> {}\n}\n---\n\"It should generate context for following tests\" withConfig config in  [\n  do { $.contextString must beString() },\n  do { $.otherContext must equalTo(3) }\n]",
+            "output": ""
           }
         ]
       }
@@ -6683,6 +7585,22 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
           {
             "source": "%dw 2.0\noutput application/json\n---\n{\n  \"a\" : [0, 1, 2, 3] zip [\"a\", \"b\", \"c\", \"d\"],\n  \"b\" : [0, 1, 2, 3] zip [\"a\"],\n  \"c\" : [0, 1, 2, 3] zip [\"a\", \"b\"],\n  \"d\" : [0, 1, 2] zip [\"a\", \"b\", \"c\", \"d\"]\n}",
             "output": "{\n  \"a\": [\n    [0,\"a\"],\n    [1,\"b\"],\n    [2,\"c\"],\n    [3,\"d\"]\n    ],\n  \"b\": [\n    [0,\"a\"]\n  ],\n  \"c\": [\n    [0,\"a\"],\n    [1,\"b\"]\n  ],\n  \"d\": [\n    [0,\"a\"],\n    [1,\"b\"],\n    [2,\"c\"]\n  ]\n}"
+          }
+        ]
+      }
+    ]
+  },
+  "zipinto": {
+    "name": "zipInto",
+    "overloads": [
+      {
+        "module": "filesystem",
+        "signature": "zipInto(paths: Array<Path>, zipPath: Path): Path",
+        "description": "`import * from dw::io::file::FileSystem`\n\nZips the specified collection of files into the given zip path.",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport * from dw::io::file::FileSystem\noutput application/json\n---\n[path(tmp(),\"dw_io_test\")] zipInto path(tmp(),\"outputZip.zip\")",
+            "output": "\"/tmp/outputZip.zip\""
           }
         ]
       }

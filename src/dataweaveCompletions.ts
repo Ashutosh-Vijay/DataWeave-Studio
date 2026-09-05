@@ -979,7 +979,7 @@ export function registerDWCompletionProvider(
         };
       });
 
-      // --- DW_FUNCTIONS completions (309 functions from MuleSoft docs) ---
+      // --- DW_FUNCTIONS completions (the bundled function reference) ---
       // Add any function from the auto-generated docs that isn't already
       // in the hand-tuned static list. Parses the signature to build
       // proper insertText with parentheses and param placeholders.

@@ -1,10 +1,10 @@
 /**
- * Lazy loader for the 371KB DW_FUNCTIONS reference. Only fetched on first
+ * Lazy loader for the ~400KB DW_FUNCTIONS reference. Only fetched on first
  * use — completion provider hits it when the user starts typing, hover
  * provider hits it on first hover, FunctionBrowser hits it on open.
  *
  * Keeps it out of the main bundle so first paint doesn't have to parse
- * 371KB of static documentation.
+ * ~400KB of static documentation.
  */
 import type { DW_FUNCTIONS, FnDoc, FnOverload } from './dataweaveDocs';
 

@@ -3,7 +3,10 @@
 //
 //   npm run docs:refresh
 //
-//   src/dataweaveDocs.ts     — function reference   (extract-dw-docs.mjs)
+//   src/dataweaveDocs.ts     — function reference   (extract-dw-docs.mjs), plus
+//                              the modules only the jar documents — asserts,
+//                              tests, filesystem, protobuf
+//                                              (extract-dw-bundled-docs.mjs)
 //   src/dataweaveFormats.ts  — format read/write options (extract-dw-formats.mjs)
 //   src/cookbookOfficialRecipes.ts — official cookbook (extract-dw-cookbook.mjs)
 //
@@ -43,6 +46,11 @@ if (existsSync(DIR)) {
 
 console.log('\n==> Function reference');
 run(`node scripts/extract-dw-docs.mjs ${DIR}/modules/ROOT/pages`);
+// Must run after the docs extractor: it merges into the same file, and only
+// fills in what the docs repo has nothing to say about.
+console.log('\n==> Bundled-only modules (read from the engine jar)');
+run('node scripts/extract-dw-bundled-docs.mjs');
+
 console.log('\n==> Format options');
 run('node scripts/extract-dw-formats.mjs');
 console.log('\nDone. Review the diff in src/dataweaveDocs.ts + src/dataweaveFormats.ts.');
