@@ -646,8 +646,15 @@ export function attachEngineDiagnostics(
       const range = rangeOf(model, m.location);
       if (!range) continue;
       markers.push({
+        // A hint is a faint underline with no entry in the problems gutter —
+        // the right weight for "you probably meant to take this out", which is
+        // advice about deliberate code rather than a mistake.
         severity:
-          m.severity === 'error' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
+          m.severity === 'error'
+            ? monaco.MarkerSeverity.Error
+            : m.severity === 'hint'
+              ? monaco.MarkerSeverity.Hint
+              : monaco.MarkerSeverity.Warning,
         message: m.message,
         // Surfaces as the rule id beside the message, the way a linter does.
         code: m.code,

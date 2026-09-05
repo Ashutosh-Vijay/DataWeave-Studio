@@ -586,7 +586,13 @@ object DwServer {
       // ...and it is advice, not a compile failure: the script runs either way,
       // so it should not sit in the editor looking like a syntax error.
       .map { case (vm, sev) =>
-        if (vm.message.getClass.getSimpleName == "CryptographicInsecureDocumentError") (vm, "warning") else (vm, sev)
+        vm.message.getClass.getSimpleName match {
+          case "CryptographicInsecureDocumentError" => (vm, "warning")
+          // Logging on purpose is legitimate, so this is a hint: a faint
+          // underline with a quick fix, not a squiggle demanding attention.
+          case "LeftoverLog"                        => (vm, "hint")
+          case _                                    => (vm, sev)
+        }
       }
   }
 
