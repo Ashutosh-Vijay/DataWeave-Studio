@@ -38,6 +38,25 @@ interface EngineSignature {
   doc?: string;
 }
 
+/** The token types the engine actually emits (LSP names). Order is the legend:
+ *  the encoded token stream refers to these by index, so it must not be
+ *  reordered without the theme rules following. */
+const SEMANTIC_TOKEN_TYPES = [
+  'namespace', 'type', 'typeParameter', 'parameter',
+  'property', 'decorator', 'function', 'string', 'number',
+];
+const SEMANTIC_TOKEN_MODIFIERS = ['declaration'];
+
+/** One semantic token, positioned 1-based as the engine reports positions. */
+interface EngineSemanticToken {
+  type: string;
+  line: number;
+  column: number;
+  length: number;
+  /** Comma-separated, e.g. "declaration". Absent when there are none. */
+  modifiers?: string;
+}
+
 /** One suggestion as the engine reports it. */
 interface EngineSuggestion {
   label: string;
@@ -240,6 +259,58 @@ export function registerEngineLanguageFeatures(
         dispose: () => {},
       };
     },
+  });
+
+  // ── Semantic colouring ────────────────────────────────────────────────────
+  // The Monarch tokenizer matches text patterns, so it cannot tell a function
+  // call from any other identifier, or an object key from a variable. The
+  // engine parsed the script, so it can. These tokens layer over the Monarch
+  // ones; anything the engine doesn't classify keeps its existing colour.
+
+  const semanticTokens = monaco.languages.registerDocumentSemanticTokensProvider('dataweave', {
+    getLegend: () => ({ tokenTypes: SEMANTIC_TOKEN_TYPES, tokenModifiers: SEMANTIC_TOKEN_MODIFIERS }),
+
+    async provideDocumentSemanticTokens(model) {
+      const res = await ask<{ tokens?: EngineSemanticToken[] }>(
+        'semanticTokens',
+        model.getValue(),
+        0,
+        payloadOf(), levelOf(),
+      );
+      const tokens = res?.tokens;
+      if (!tokens?.length) return { data: new Uint32Array(0) };
+
+      // Monaco wants them in document order, encoded as deltas from the
+      // previous token. The engine emits in AST traversal order, which is not
+      // the same thing.
+      const sorted = tokens
+        .filter((t) => SEMANTIC_TOKEN_TYPES.includes(t.type))
+        .sort((a, b) => (a.line - b.line) || (a.column - b.column));
+
+      const data = new Uint32Array(sorted.length * 5);
+      let prevLine = 0;
+      let prevCol = 0;
+      sorted.forEach((t, i) => {
+        const line = t.line - 1;      // engine is 1-based, Monaco is 0-based
+        const col = t.column - 1;
+        const deltaLine = line - prevLine;
+        const deltaCol = deltaLine === 0 ? col - prevCol : col;
+        let modifiers = 0;
+        for (const m of (t.modifiers ?? '').split(',')) {
+          const idx = SEMANTIC_TOKEN_MODIFIERS.indexOf(m);
+          if (idx >= 0) modifiers |= 1 << idx;
+        }
+        data.set(
+          [deltaLine, deltaCol, t.length, SEMANTIC_TOKEN_TYPES.indexOf(t.type), modifiers],
+          i * 5,
+        );
+        prevLine = line;
+        prevCol = col;
+      });
+      return { data };
+    },
+
+    releaseDocumentSemanticTokens() { /* no result ids — every pass is a full one */ },
   });
 
   // ── Navigation ────────────────────────────────────────────────────────────
@@ -511,6 +582,7 @@ export function registerEngineLanguageFeatures(
   return {
     dispose() {
       hover.dispose();
+      semanticTokens.dispose();
       signature.dispose();
       definition.dispose();
       references.dispose();

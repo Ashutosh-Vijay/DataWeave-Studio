@@ -645,6 +645,28 @@ object DwServer {
           }
           payload.add("symbols", arr)
 
+        // Semantic tokens: colouring driven by the parsed AST rather than by
+        // pattern-matching text. The engine knows a bare identifier is a
+        // function call, a parameter, a property or a type reference; a regex
+        // tokenizer can only guess.
+        case "semanticTokens" =>
+          val arr = new com.eclipsesource.json.JsonArray()
+          doc.semanticTokens().foreach { t =>
+            val loc = t.location
+            // Monaco has no multi-line token, so anything spanning lines is
+            // dropped rather than mis-highlighted.
+            if (loc.startPosition.line == loc.endPosition.line) {
+              val o = new JsonObject()
+              o.add("type", t.tokenType)
+              o.add("line", loc.startPosition.line)
+              o.add("column", loc.startPosition.column)
+              o.add("length", loc.endPosition.column - loc.startPosition.column)
+              if (t.tokenModifiers.nonEmpty) o.add("modifiers", t.tokenModifiers.mkString(","))
+              arr.add(o)
+            }
+          }
+          payload.add("tokens", arr)
+
         case "folding" =>
           val arr = new com.eclipsesource.json.JsonArray()
           doc.foldingRegions().foreach { fr =>

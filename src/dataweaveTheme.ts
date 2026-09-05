@@ -62,6 +62,9 @@ export function defineDataWeaveTheme(monaco: typeof Monaco) {
   const stringFg = isLight ? '1F6537' : '88D4A4';
   const numberFg = isLight ? '8E6224' : 'E2B36F';
   const typeFg = isLight ? '3D3B36' : 'DDD3BE';
+  // Function calls. The app's cyan is fine on the dark surface but washes out
+  // on Paper's near-white, so light mode gets a darker teal.
+  const functionFg = isLight ? '0E6F87' : '4EBEDE';
 
   // Syntax token colors. VS Code does NOT expose raw TextMate token colors to
   // webviews, so when adopting the editor theme we map DataWeave tokens to the
@@ -74,6 +77,7 @@ export function defineDataWeaveTheme(monaco: typeof Monaco) {
   const rd = (expr: string) => readColorHex(probe, ctx, expr);
 
   let keywordC = violet, operatorC = violet, propertyC = violet;
+  let functionC = functionFg;
   let stringC = stringFg, numberC = numberFg, typeC = typeFg, secureC = numberFg;
   let bracket1 = violet, bracket2 = cyan, bracket3 = numberFg;
   if (adopt) {
@@ -87,6 +91,7 @@ export function defineDataWeaveTheme(monaco: typeof Monaco) {
     bracket1  = rd('var(--vscode-editorBracketHighlight-foreground1, var(--violet))');
     bracket2  = rd('var(--vscode-editorBracketHighlight-foreground2, var(--cyan))');
     bracket3  = rd(`var(--vscode-editorBracketHighlight-foreground3, #${numberFg})`);
+    functionC = distinct(rd(`var(--vscode-symbolIcon-functionForeground, var(--vscode-symbolIcon-methodForeground, #${functionFg}))`), functionFg);
   }
 
   document.body.removeChild(probe);
@@ -121,6 +126,19 @@ export function defineDataWeaveTheme(monaco: typeof Monaco) {
         { token: 'variable.property.dataweave',   foreground: propertyC },
         { token: 'variable.secure',               foreground: secureC },
         { token: 'variable.secure.dataweave',     foreground: secureC },
+
+        // Semantic tokens, from the engine's parsed AST (see
+        // registerDocumentSemanticTokensProvider). Deliberately restrained:
+        // only the classifications a text tokenizer genuinely cannot make get
+        // their own colour, and everything else reuses a colour already in the
+        // palette so the editor doesn't turn into a rainbow.
+        { token: 'function',                      foreground: functionC },
+        { token: 'property',                      foreground: propertyC },
+        { token: 'parameter',                     foreground: content, fontStyle: 'italic' },
+        { token: 'type',                          foreground: typeC },
+        { token: 'typeParameter',                 foreground: typeC, fontStyle: 'italic' },
+        { token: 'namespace',                     foreground: typeC },
+        { token: 'decorator',                     foreground: numberC },
       ],
       colors: {
         'editor.background':                  '#' + surface,

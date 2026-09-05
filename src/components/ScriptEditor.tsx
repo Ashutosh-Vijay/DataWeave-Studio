@@ -466,6 +466,11 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
             // containing block (transform/will-change/etc.).
             fixedOverflowWidgets: true,
             overflowWidgetsDomNode: getOverflowWidgetsDomNode(),
+            // Colour from the engine's parsed AST, not just the text tokenizer.
+            // Monaco defaults this to 'configuredByTheme', and a standalone
+            // theme has no way to declare it in this version's typings — so it
+            // is turned on here explicitly.
+            'semanticHighlighting.enabled': true,
             scrollBeyondLastLine: false,
             glyphMargin: true,
             suggestOnTriggerCharacters: true,
