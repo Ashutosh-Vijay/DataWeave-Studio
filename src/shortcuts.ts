@@ -19,7 +19,7 @@ export const SHORTCUT_GROUPS: { title: string; items: Shortcut[] }[] = [
   {
     title: 'Run & execute',
     items: [
-      { keys: ['⌘', '↵'], label: 'Run transform' },
+      { keys: ['⌘', '↵'], label: 'Run — the script, or the test suite when the Tests pane is open' },
       { keys: ['⌘', '⇧', 'R'], label: 'Toggle auto-run' },
       // Only claimed while a run is in flight — otherwise ⌘. is Quick fix.
       { keys: ['⌘', '.'], label: 'Cancel run (while running)' },

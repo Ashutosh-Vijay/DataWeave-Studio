@@ -35,6 +35,9 @@ interface SettingsScreenProps {
   onShowTour: () => void;
   onShowAbout: () => void;
   onRestartEngine: () => void;
+  /** Section to land on. Set when something specific sent the user here — the
+   *  status bar's target chip opens straight onto Runtime. */
+  initialSection?: Section;
 }
 
 const SECTIONS: { id: Section; label: string; icon: keyof typeof Icons; keywords: string[] }[] = [
@@ -64,7 +67,12 @@ export function SettingsScreen(props: SettingsScreenProps) {
     perWorkspaceTarget, onPerWorkspaceTargetChange,
     onShowTour, onShowAbout, onRestartEngine } = props;
   const { isDark, pref, setPref, matchVsCode, setMatchVsCode, inVsCode } = useTheme();
-  const [section, setSection] = useState<Section>('appearance');
+  const [section, setSection] = useState<Section>(props.initialSection ?? 'appearance');
+  // A later open with a different target section has to move — the state is
+  // already initialised by then.
+  useEffect(() => {
+    if (isOpen && props.initialSection) setSection(props.initialSection);
+  }, [isOpen, props.initialSection]);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
@@ -509,7 +517,7 @@ function RuntimePanel({
         </SRow>
         <SRow
           label="Set it per workspace"
-          desc="Off, one target covers everything. On, each workspace carries its own and the value above is only the starting point."
+          desc="Off, one target covers everything. On, each workspace carries its own, and the picker above edits this workspace's."
         >
           <Toggle on={perWorkspaceTarget} onChange={onPerWorkspaceTargetChange} />
         </SRow>

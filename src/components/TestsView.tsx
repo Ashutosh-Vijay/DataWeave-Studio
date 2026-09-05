@@ -16,7 +16,6 @@
  * what it tests inline or imports from the Module library. The empty state says
  * so, because that is the first thing anyone hits.
  */
-import { useCallback } from 'react';
 import { MiniEditor } from './MiniEditor';
 import { Icons } from './Icons';
 import { Request } from '../types';
@@ -36,15 +35,15 @@ const STARTER = [
 
 interface TestsViewProps {
   request: Request;
-  /** Target runtime in force, so a suite is gated exactly like a Run is. */
-  languageLevel: string;
   onTestScriptChange: (script: string) => void;
+  /** The suite runner lives in App so the header's Run button drives it too —
+   *  the panel's own button and ⌘↵ are then the same action, not two. */
+  result: ReturnType<typeof useTestRunner>['result'];
+  running: boolean;
+  onRun: () => void;
 }
 
-export function TestsView({ request, languageLevel, onTestScriptChange }: TestsViewProps) {
-  const { result, running, runSuite } = useTestRunner();
-
-  const run = useCallback(() => { void runSuite(request, languageLevel); }, [runSuite, request, languageLevel]);
+export function TestsView({ request, onTestScriptChange, result, running, onRun }: TestsViewProps) {
   const hasSuite = !!(request.testScript ?? '').trim();
 
   return (
@@ -71,7 +70,7 @@ export function TestsView({ request, languageLevel, onTestScriptChange }: TestsV
         )}
 
         <button
-          onClick={run}
+          onClick={onRun}
           disabled={running || !hasSuite}
           className="inline-flex items-center gap-1.5 h-[21px] px-2.5 rounded text-[11px] font-medium cursor-pointer"
           style={{

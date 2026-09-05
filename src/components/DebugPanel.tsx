@@ -44,7 +44,9 @@ export function DebugPanel({ dbg }: { dbg: UseDebuggerReturn }) {
         <StepButton label="Step over" icon={<span style={{ fontSize: 11 }}>↷</span>} onClick={dbg.stepOver} disabled={!paused || busy} />
         <StepButton label="Step into" icon={<span style={{ fontSize: 11 }}>↓</span>} onClick={dbg.stepInto} disabled={!paused || busy} />
         <StepButton label="Step out" icon={<span style={{ fontSize: 11 }}>↑</span>} onClick={dbg.stepOut} disabled={!paused || busy} />
-        <StepButton label="Stop" icon={<Icons.X size={11} />} onClick={dbg.stop} disabled={busy} />
+        {/* No Stop here: the header's Debug button is a toggle, so stopping is
+            where starting was. A cross tucked in beside the step controls was
+            easy to miss, and easy to mistake for "close this panel". */}
       </div>
 
       <div className="flex-1 overflow-auto" style={{ padding: '10px 12px' }}>

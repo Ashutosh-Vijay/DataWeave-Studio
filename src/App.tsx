@@ -39,6 +39,7 @@ const FlowDesigner = lazy(() =>
 import { OpenWorkspaceDialog } from './components/OpenWorkspaceDialog';
 import { shareUrl, encodeShare, decodeShare, isShareTooLong, unshareableItems, type ShareRequest } from './shareLink';
 import { TestsView } from './components/TestsView';
+import { useTestRunner } from './hooks/useTestRunner';
 import { FirstWorkspacePrompt } from './components/FirstWorkspacePrompt';
 import { TargetRuntimePrompt } from './components/TargetRuntimePrompt';
 import { DebugPanel } from './components/DebugPanel';
@@ -183,11 +184,17 @@ function StatusBar({
   appVersion,
   dwVersion,
   workspaceFile,
+  targetLabel,
+  onOpenSettings,
 }: {
   isReady: boolean;
   appVersion: string;
   dwVersion?: string;
   workspaceFile?: string;
+  /** The target runtime in force, or undefined when running against the
+   *  engine's own version. */
+  targetLabel?: string;
+  onOpenSettings: () => void;
 }) {
   return (
     <div
@@ -199,7 +206,21 @@ function StatusBar({
       >
         <Icons.Dot size={8} /> {isReady ? 'Ready' : 'Warming up'}
       </span>
-      {dwVersion && <span>DW {dwVersion}</span>}
+      {/* The target picker used to sit in the header, which is a wide control
+          for something you set once. Down here it is out of the way but still
+          answers "what am I compiling against" at a glance, and clicking it
+          goes to where it is changed. */}
+      <button
+        data-tour="target-runtime"
+        onClick={onOpenSettings}
+        className="font-mono cursor-pointer hover:underline"
+        style={{ color: targetLabel ? 'var(--accent)' : 'var(--content-faint)' }}
+        title={targetLabel
+          ? `Compiling against ${targetLabel}. Anything newer fails here instead of on the server. Click to change.`
+          : 'Compiling against the bundled engine, with no version gating. Click to target a specific Mule runtime.'}
+      >
+        {targetLabel ?? (dwVersion ? `DW ${dwVersion}` : 'DW')}
+      </button>
       {workspaceFile && <span className="truncate max-w-[280px]">{workspaceFile}</span>}
       <span className="flex-1" />
       <CursorIndicator />
@@ -213,6 +234,10 @@ function StatusBar({
 function App() {
   const workspace = useWorkspace();
   const runner = useDWRunner();
+  // The suite runner lives here rather than inside TestsView so the header's
+  // Run button can drive it. Pressing the big green Run while looking at the
+  // Tests panel used to run the script instead, with no visible effect.
+  const tests = useTestRunner();
   const { toggle, isDark } = useTheme();
   const [outputFormat, setOutputFormat] = useState<'json' | 'xml' | 'raw'>('json');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -235,6 +260,10 @@ function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
+  const [runMenuOpen, setRunMenuOpen] = useState(false);
+  /** Which Settings section to open on. Reset to undefined by the normal
+   *  Settings button so it doesn't stick after a targeted open. */
+  const [settingsSection, setSettingsSection] = useState<'runtime' | undefined>(undefined);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [referenceOpen, setReferenceOpen] = useState(false);
   const [recipesOpen, setRecipesOpen] = useState(false);
@@ -978,7 +1007,7 @@ function App() {
     return { resolvedScript, resolvedPayload, attributesJson, varsJson, namedInputsJson, multipartPartsJson, modulesJson };
   }, [workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, workspace.payloadFilePath, workspace.multipartParts, modules, encryptionKey]);
 
-  const handleRun = useCallback(async () => {
+  const handleRunScript = useCallback(async () => {
     const r = await resolveRunInputs();
     await runner.run(
       r.resolvedScript,
@@ -996,6 +1025,17 @@ function App() {
       valueTrace,
     );
   }, [resolveRunInputs, workspace.payloadMimeType, workspace.payloadFilePath, workspace.classpath, workspace.timeoutMs, targetRuntime, valueTrace, runner]);
+
+  /** What Run does depends on what you are looking at: the script in the Script
+   *  pane, the suite in the Tests pane. ⌘↵ and the Tests panel's own button both
+   *  come through here, so there is one Run, not two that disagree. */
+  const handleRun = useCallback(() => {
+    if (viewMode === 'tests') {
+      void tests.runSuite(workspace.request, targetRuntime);
+    } else {
+      void handleRunScript();
+    }
+  }, [viewMode, tests, workspace.request, targetRuntime, handleRunScript]);
 
   /** Same inputs as Run, but the engine attaches the debugger and parks on the
    *  first breakpoint instead of running straight through. */
@@ -1183,7 +1223,10 @@ function App() {
     };
   }, [autoRun, workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs]);
 
-  const canRun = runner.isWarmedUp && !runner.isRunning;
+  const inTests = viewMode === 'tests';
+  const hasSuite = !!(workspace.request.testScript ?? '').trim();
+  const busyNow = inTests ? tests.running : runner.isRunning;
+  const canRun = runner.isWarmedUp && !busyNow && (!inTests || hasSuite);
   const isQueryMode = workspace.nodeLabel === 'Salesforce Query' || workspace.nodeLabel === 'DB Query';
   const queryLanguage = workspace.nodeLabel === 'Salesforce Query' ? 'SOQL' : 'SQL';
 
@@ -1202,7 +1245,7 @@ function App() {
   const nodeLabelColors = NODE_LABEL_COLORS[workspace.nodeLabel] || NODE_LABEL_COLORS.Transform;
 
   const paletteCommands: Command[] = [
-    { id: 'run', label: 'Run script', shortcut: '⌘↵', group: 'Run', run: () => { if (canRun) handleRun(); } },
+    { id: 'run', label: viewMode === 'tests' ? 'Run test suite' : 'Run script', shortcut: '⌘↵', group: 'Run', run: () => { if (canRun) handleRun(); } },
     { id: 'trace', label: valueTrace ? 'Turn off value trace' : 'Trace every expression on the next run', group: 'Run', run: () => setValueTrace(!valueTrace) },
     { id: 'auto', label: autoRun ? 'Disable auto-run' : 'Enable auto-run', shortcut: '⌘⇧R', group: 'Run', run: () => setAutoRun(!autoRun) },
     { id: 'save', label: 'Save workspace', shortcut: '⌘S', group: 'Workspace', run: () => { beginTransforming(); handleSave(); } },
@@ -1400,7 +1443,7 @@ function App() {
             )}
           </div>
 
-          <IconBtn title="Settings (⌘,)" onClick={() => setSettingsOpen(true)}>
+          <IconBtn title="Settings (⌘,)" onClick={() => { setSettingsSection(undefined); setSettingsOpen(true); }}>
             <Icons.Settings size={15} />
           </IconBtn>
 
@@ -1436,34 +1479,6 @@ function App() {
 
           <div className="w-px h-4 bg-line mx-1" />
 
-          {/* Target runtime. Off by default. When set, the engine rejects
-              standard-library functions and language features newer than that
-              Mule version, and reverts its version-dependent runtime behaviour
-              to match — so a script that runs here runs there. Applies to Run,
-              the Tests panel, and the editor's own diagnostics. */}
-          <select
-            data-tour="target-runtime"
-            value={targetRuntime}
-            onChange={(e) => setTargetRuntime(e.target.value)}
-            className="h-7 px-2 rounded-md bg-surface-2 border text-[11.5px] focus:outline-none focus:border-accent cursor-pointer"
-            style={{
-              borderColor: targetRuntime ? 'var(--accent-border)' : 'var(--line)',
-              color: targetRuntime ? 'var(--accent)' : 'var(--content-faint)',
-            }}
-            title={
-              perWorkspaceTarget
-                ? 'Target runtime for this workspace. Anything newer than it becomes an error here instead of failing later on the server.'
-                : 'Target runtime for every workspace. Anything newer than it becomes an error here instead of failing later on the server. Settings → Runtime can make this per-workspace.'
-            }
-          >
-            <option value="">Target: latest</option>
-            {TARGETS.map((t) => (
-              <option key={t.level} value={t.level}>{t.label}</option>
-            ))}
-          </select>
-
-          <div className="w-px h-4 bg-line mx-1" />
-
           {!runner.isWarmedUp && (
             <div className="flex items-center gap-1.5 text-[11px] text-accent mr-1">
               <div className="w-3 h-3 rounded-full border-2 border-t-transparent border-accent animate-spin" />
@@ -1471,64 +1486,109 @@ function App() {
             </div>
           )}
 
+          {/* Debug is a toggle, not a start button with a stop hidden inside the
+              panel. Press it to attach, press it again to detach. */}
           <button
-            onClick={() => { if (!autoRun) introFeature('autorun'); setAutoRun(!autoRun); }}
-            data-tour="run-controls"
-            className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] font-medium border transition-colors cursor-pointer ${
-              autoRun
+            onClick={() => { if (dbg.active) void dbg.stop(); else void handleDebug(); }}
+            disabled={!dbg.active && (!runner.isWarmedUp || runner.isRunning)}
+            className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] font-medium border transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+              dbg.active
                 ? 'bg-accent-dim border-accent-border text-accent'
                 : 'bg-transparent border-line text-content-faint hover:border-line-secondary hover:text-content-secondary'
             }`}
-            title="Auto-run: re-execute after 1.5s of inactivity"
-          >
-            <Icons.Zap size={12} /> Auto
-          </button>
-          <button
-            onClick={() => setValueTrace(!valueTrace)}
-            className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] font-medium border transition-colors cursor-pointer ${
-              valueTrace
-                ? 'bg-accent-dim border-accent-border text-accent'
-                : 'bg-transparent border-line text-content-faint hover:border-line-secondary hover:text-content-secondary'
-            }`}
-            title="Trace: record what every expression evaluated to on the next run. No log() calls needed."
-          >
-            <Icons.List size={12} /> Trace
-          </button>
-          <button
-            onClick={handleDebug}
-            disabled={!canRun || dbg.state.status === 'running' || dbg.state.status === 'paused'}
-            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] font-medium border transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ borderColor: breakpoints.length ? 'var(--accent-border)' : 'var(--line)', color: breakpoints.length ? 'var(--accent)' : 'var(--content-faint)', background: 'transparent' }}
-            title={breakpoints.length
-              ? `Debug — stops at ${breakpoints.length} breakpoint${breakpoints.length > 1 ? 's' : ''}. Click the gutter to add more.`
-              : 'Debug — click the gutter beside a line number to set a breakpoint first'}
+            style={!dbg.active && breakpoints.length
+              ? { borderColor: 'var(--accent-border)', color: 'var(--accent)' }
+              : undefined}
+            title={dbg.active
+              ? 'Stop debugging'
+              : breakpoints.length
+                ? `Debug — stops at ${breakpoints.length} breakpoint${breakpoints.length > 1 ? 's' : ''}. Click the gutter to add more.`
+                : 'Debug — click the gutter beside a line number to set a breakpoint first'}
           >
             <Icons.Activity size={12} /> Debug
           </button>
-          <button
-            onClick={handleRun}
-            disabled={!canRun}
-            className="inline-flex items-center gap-1.5 h-7 pl-2.5 pr-3 rounded-md text-[12.5px] font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
-            style={{
-              background: 'var(--accent)',
-              color: 'var(--accent-ink)',
-            }}
-            onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = 'var(--accent-hover)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--accent)'; }}
-            title="Run (Ctrl+Enter)"
-          >
-            <Icons.Play size={11} />
-            {runner.isRunning ? 'Running…' : 'Run'}
-            <span
-              className="font-mono text-[10px] px-1 py-0.5 rounded ml-0.5"
-              style={{
-                background: 'color-mix(in oklch, var(--accent-ink) 20%, transparent)',
-                color: 'color-mix(in oklch, var(--accent-ink) 80%, transparent)',
-              }}
+
+          {/* Run, with its two modifiers behind the caret. They were full-width
+              buttons of their own, which is a lot of permanent furniture for
+              settings you change once; the dot says when one is on. */}
+          <div className="relative inline-flex" data-tour="run-controls">
+            <button
+              onClick={handleRun}
+              disabled={!canRun}
+              className="inline-flex items-center gap-1.5 h-7 pl-2.5 pr-3 rounded-l-md text-[12.5px] font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+              style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+              onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = 'var(--accent-hover)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--accent)'; }}
+              title={inTests
+                ? (hasSuite ? 'Run this test suite (Ctrl+Enter)' : 'Write a suite first')
+                : 'Run (Ctrl+Enter)'}
             >
-              ⌘↵
-            </span>
-          </button>
+              <Icons.Play size={11} />
+              {busyNow ? 'Running…' : inTests ? 'Run tests' : 'Run'}
+              <span
+                className="font-mono text-[10px] px-1 py-0.5 rounded ml-0.5"
+                style={{
+                  background: 'color-mix(in oklch, var(--accent-ink) 20%, transparent)',
+                  color: 'color-mix(in oklch, var(--accent-ink) 80%, transparent)',
+                }}
+              >
+                ⌘↵
+              </span>
+            </button>
+            <button
+              onClick={() => setRunMenuOpen((o) => !o)}
+              className="relative inline-flex items-center justify-center w-6 h-7 rounded-r-md cursor-pointer transition-colors"
+              style={{
+                background: 'var(--accent)',
+                color: 'var(--accent-ink)',
+                borderLeft: '1px solid color-mix(in oklch, var(--accent-ink) 22%, transparent)',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-hover)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--accent)'; }}
+              title="Run options"
+            >
+              <Icons.ChevronDown size={11} />
+              {(autoRun || valueTrace) && (
+                <span
+                  className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full"
+                  style={{ background: 'var(--accent-ink)' }}
+                />
+              )}
+            </button>
+            {runMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setRunMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 z-50 w-[268px] py-1 rounded-lg border border-line bg-surface shadow-2xl">
+                  {([
+                    ['Auto-run after edits', 'Re-runs 1.5s after you stop typing.', autoRun,
+                      () => { if (!autoRun) introFeature('autorun'); setAutoRun(!autoRun); }],
+                    ['Trace every expression', 'Shows what each expression evaluated to. No log() calls needed.', valueTrace,
+                      () => setValueTrace(!valueTrace)],
+                  ] as const).map(([label, desc, on, toggleIt]) => (
+                    <button
+                      key={label}
+                      onClick={toggleIt}
+                      className="w-full text-left px-3 py-1.5 flex items-start gap-2 hover:bg-surface-2 cursor-pointer transition-colors"
+                    >
+                      <span
+                        className="mt-[3px] w-3 h-3 shrink-0 rounded-[3px] border grid place-items-center"
+                        style={{
+                          borderColor: on ? 'var(--accent)' : 'var(--line-secondary)',
+                          background: on ? 'var(--accent)' : 'transparent',
+                        }}
+                      >
+                        {on && <Icons.Dot size={7} />}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-[12.5px] text-content-secondary">{label}</span>
+                        <span className="block text-[10.5px] text-content-ghost leading-snug">{desc}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
         <WindowControls />
       </header>
@@ -1638,7 +1698,7 @@ function App() {
           onOpenModules={() => { introFeature('modules'); setModulesOpen(true); }}
           onOpenMcp={() => { introFeature('mcp'); setMcpOpen(true); }}
           mcpRunning={mcpRunning}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={() => { setSettingsSection(undefined); setSettingsOpen(true); }}
           onOpenReference={() => { introFeature('reference'); setReferenceOpen(true); }}
           onOpenRecipes={() => { introFeature('cookbook'); setRecipesOpen(true); }}
           collapsed={sidebarCollapsed}
@@ -1706,8 +1766,10 @@ function App() {
           <main className="flex-1 overflow-hidden bg-bg flex">
             <TestsView
               request={workspace.request}
-              languageLevel={targetRuntime}
               onTestScriptChange={workspace.setTestScript}
+              result={tests.result}
+              running={tests.running}
+              onRun={handleRun}
             />
           </main>
         ) : isCompact ? (
@@ -1939,6 +2001,8 @@ function App() {
         appVersion={appVersion}
         dwVersion={runner.engineVersion}
         workspaceFile={workspace.currentFile || undefined}
+        targetLabel={targetRuntime ? TARGETS.find((t) => t.level === targetRuntime)?.label : undefined}
+        onOpenSettings={() => { setSettingsSection('runtime'); setSettingsOpen(true); }}
       />
 
       {/* About dialog */}
@@ -2016,8 +2080,14 @@ function App() {
             onClasspathChange={workspace.setClasspath}
             timeoutMs={workspace.timeoutMs}
             onTimeoutMsChange={workspace.setTimeoutMs}
-            targetRuntime={appTarget}
-            onTargetRuntimeChange={(level) => { setAppTargetState(level); writeAppTarget(level); }}
+            // Settings is now the only picker (the header select is gone), so it
+            // has to edit whichever target is actually in force — the
+            // workspace's when the override is on, the app-wide one otherwise.
+            // Passing appTarget here would have left a per-workspace target
+            // with nothing that could change it.
+            initialSection={settingsSection}
+            targetRuntime={targetRuntime}
+            onTargetRuntimeChange={setTargetRuntime}
             perWorkspaceTarget={perWorkspaceTarget}
             onPerWorkspaceTargetChange={(on) => {
               setPerWorkspaceTargetState(on);
