@@ -154,25 +154,16 @@ object DwServer {
       val compileOnly: Boolean =
         if (req.get("compileOnly") != null) req.get("compileOnly").asBoolean() else false
 
-      // `output application/java` produces a JVM object that has no text
-      // representation — the official Playground sidesteps this by rendering
-      // the result as JSON instead. Mirror that: rewrite the directive to
-      // application/json before compilation so the JSON writer emits text.
-      // The user sees the same readable JSON the Playground shows.
+      // The script is compiled exactly as written. `output application/java`
+      // is handled after compilation instead (see `renderAs` below): the engine
+      // is asked what the script declared and the writer is overridden, rather
+      // than rewriting the user's source before the engine ever sees it.
       //
-      // Previous regex required end-of-line right after `application/java`.
-      // That bypasses the rewrite for forms like
-      //     output application/java class="com.example.Order"
-      //     output application/java ---
-      // and silently produces an empty ByteArrayOutputStream (Java writer
-      // ran but emitted no text). Be permissive: swallow ALL trailing
-      // properties / whitespace on the same line up to EOL or the `---`
-      // separator, so the JSON writer kicks in regardless of what the user
-      // tacked on after `application/java`.
-      val script = rawScript.replaceAll(
-        "(?m)^(\\s*output\\s+)application/java(?:[^\\r\\n-]|-(?!-))*",
-        "$1application/json"
-      )
+      // This replaces a regex that had already needed one fix — it missed
+      // `output application/java class="com.example.Order"` and silently
+      // produced empty output — and it can't drift again, because the engine
+      // is now the thing parsing the directive.
+      val script = rawScript
 
       // Hot-add any user-provided JARs to the classloader so `import java!...`
       // can resolve classes from them. Idempotent — only new paths get added.
@@ -254,12 +245,27 @@ object DwServer {
         // Trace mode captures `log(...)` output for intermediate inspection.
         val trace: Boolean = if (req.get("trace") != null) req.get("trace").asBoolean() else false
         val out = new ByteArrayOutputStream()
+
+        // A Java-typed result is a JVM object with no text form, so the writer
+        // emits nothing at all. The official Playground shows JSON in that
+        // case; match it. Asking the compiled script what it declared beats
+        // pattern-matching the source: it catches every spelling of the
+        // directive, trailing properties and all.
+        val declared = compiled.getDeclaredOutputMimeType
+        val renderAs: String =
+          if (declared.isPresent && declared.get().startsWith("application/java")) "application/json"
+          else null
+
         if (trace) {
           val logger = new CapturingLogger()
-          compiled.write(bindings, makeServiceManager(logger), Some(out))
+          val sm = makeServiceManager(logger)
+          if (renderAs != null) compiled.write(bindings, sm, renderAs, Some(out))
+          else compiled.write(bindings, sm, Some(out))
           successResponse(id, out.toString("UTF-8"), started, logger.messages.toList)
         } else {
-          compiled.write(bindings, makeServiceManager(), Some(out))
+          val sm = makeServiceManager()
+          if (renderAs != null) compiled.write(bindings, sm, renderAs, Some(out))
+          else compiled.write(bindings, sm, Some(out))
           successResponse(id, out.toString("UTF-8"), started)
         }
       }
