@@ -60,6 +60,7 @@ interface SidebarProps {
   onOpenReference: () => void;
   onOpenRecipes: () => void;
   onOpenSecure: () => void;
+  onOpenConfigCrypto: () => void;
   onOpenCompare: () => void;
   onOpenFlowDesigner: () => void;
   onOpenJavaTester: () => void;
@@ -160,7 +161,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const {
     projectName, onProjectNameChange, currentFile, isDirty,
     onNew, onSave, onLoad, onDelete, listWorkspaces,
-    onOpenCurlImport, onInsertSnippet, onOpenSecure, onOpenCompare, onOpenFlowDesigner, onOpenJavaTester, onOpenOpenApi, onOpenModules, onOpenMcp, mcpRunning, onOpenSettings,
+    onOpenCurlImport, onInsertSnippet, onOpenSecure, onOpenConfigCrypto, onOpenCompare, onOpenFlowDesigner, onOpenJavaTester, onOpenOpenApi, onOpenModules, onOpenMcp, mcpRunning, onOpenSettings,
     onOpenReference, onOpenRecipes,
     collapsed, onToggleCollapse,
     requests, activeRequestId, onSelectRequest, onAddRequest, onRenameRequest, onRemoveRequest, onDuplicateRequest,
@@ -255,6 +256,14 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
         >
           <Icons.Secure size={18} />
+        </button>
+        <button
+          onClick={onOpenConfigCrypto}
+          title="Config encryption — encrypt or decrypt every value in a config file at once"
+          aria-label="Config encryption"
+          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
+        >
+          <Icons.Key size={18} />
         </button>
         <button
           data-tour="rail-ref"

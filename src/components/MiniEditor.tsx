@@ -34,10 +34,15 @@ interface MiniEditorProps {
   height?: number | string;
   readOnly?: boolean;
   placeholder?: string;
+  /** Keep pasted text exactly as pasted: no reformat, no re-indent, no bracket
+   *  or quote completion. For a document whose whitespace carries meaning and
+   *  which the user is only passing through — a YAML config, say — the editor's
+   *  helpfulness is corruption. */
+  verbatim?: boolean;
 }
 
 export const MiniEditor = memo(function MiniEditor({
-  value, onChange, language = 'json', height = 200, readOnly = false,
+  value, onChange, language = 'json', height = 200, readOnly = false, verbatim = false,
 }: MiniEditorProps) {
   const { isDark } = useTheme();
   const editorFont = useEditorFont();
@@ -136,12 +141,12 @@ export const MiniEditor = memo(function MiniEditor({
           // acceptSuggestionOnEnter flows in from ...editorFont (Settings > Editor);
           // default 'off' so Enter breaks a line. Same rationale as ScriptEditor.
           snippetSuggestions: 'top',
-          autoClosingBrackets: 'beforeWhitespace',
-          autoClosingQuotes: 'beforeWhitespace',
-          autoSurround: 'languageDefined',
-          autoIndent: 'full',
-          formatOnPaste: true,
-          formatOnType: true,
+          autoClosingBrackets: verbatim ? 'never' : 'beforeWhitespace',
+          autoClosingQuotes: verbatim ? 'never' : 'beforeWhitespace',
+          autoSurround: verbatim ? 'never' : 'languageDefined',
+          autoIndent: verbatim ? 'none' : 'full',
+          formatOnPaste: !verbatim,
+          formatOnType: !verbatim,
           bracketPairColorization: { enabled: true },
           scrollbar: { alwaysConsumeMouseWheel: false, verticalScrollbarSize: 8 },
           readOnly,

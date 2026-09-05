@@ -54,6 +54,7 @@ import { QueryEditor } from './components/QueryEditor';
 const AboutDialog = lazy(() => import('./components/AboutDialog').then((m) => ({ default: m.AboutDialog })));
 const FeedbackDialog = lazy(() => import('./components/FeedbackDialog').then((m) => ({ default: m.FeedbackDialog })));
 const SecurePropertiesTool = lazy(() => import('./components/SecurePropertiesTool').then((m) => ({ default: m.SecurePropertiesTool })));
+const ConfigCryptoPanel = lazy(() => import('./components/ConfigCryptoPanel').then((m) => ({ default: m.ConfigCryptoPanel })));
 const CompareTool = lazy(() => import('./components/CompareTool').then((m) => ({ default: m.CompareTool })));
 const WelcomeTour = lazy(() => import('./components/WelcomeTour').then((m) => ({ default: m.WelcomeTour })));
 const ShortcutsDialog = lazy(() => import('./components/ShortcutsDialog').then((m) => ({ default: m.ShortcutsDialog })));
@@ -255,6 +256,7 @@ function App() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [secureToolOpen, setSecureToolOpen] = useState(false);
+  const [configCryptoOpen, setConfigCryptoOpen] = useState(false);
   const [compareToolOpen, setCompareToolOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -1281,6 +1283,7 @@ function App() {
     { id: 'flow', label: 'Open Message Flow designer', group: 'Tools', run: () => setFlowDesignerOpen(true) },
     { id: 'java', label: 'Open Java tester', group: 'Tools', run: () => setJavaTesterOpen(true) },
     { id: 'modules', label: 'Open Module library', group: 'Tools', run: () => setModulesOpen(true) },
+    { id: 'config-crypto', label: 'Encrypt or decrypt a config file', group: 'Tools', run: () => setConfigCryptoOpen(true) },
     { id: 'mcp', label: 'Open Local Server', hint: 'MCP for AI agents · HTTP for scripts', group: 'Tools', run: () => setMcpOpen(true) },
     { id: 'secure', label: 'Open Secure Properties tool', shortcut: '⌘⇧E', group: 'Tools', run: () => setSecureToolOpen(true) },
     { id: 'compare', label: 'Open Compare tool', group: 'Tools', run: () => setCompareToolOpen(true) },
@@ -1422,6 +1425,7 @@ function App() {
                     ['Module library', () => setModulesOpen(true)],
                     ['Local Server', () => setMcpOpen(true)],
                     ['Secure Properties tool', () => setSecureToolOpen(true)],
+                    ['Config encryption', () => setConfigCryptoOpen(true)],
                     ['Compare tool', () => setCompareToolOpen(true)],
                     ['Import cURL', handleOpenImport],
                     ['OpenAPI / Swagger reader', () => { introFeature('openapi'); setOpenApiOpen(true); }],
@@ -1691,6 +1695,7 @@ function App() {
           onOpenCurlImport={handleOpenImport}
           onInsertSnippet={(body) => scriptEditorRef.current?.insertSnippet(body)}
           onOpenSecure={() => { introFeature('secure'); setSecureToolOpen(true); }}
+          onOpenConfigCrypto={() => setConfigCryptoOpen(true)}
           onOpenCompare={() => { introFeature('compare'); setCompareToolOpen(true); }}
           onOpenFlowDesigner={() => { introFeature('flow'); setFlowDesignerOpen(true); }}
           onOpenJavaTester={() => { introFeature('java'); setJavaTesterOpen(true); }}
@@ -2023,6 +2028,13 @@ function App() {
       {secureToolOpen && (
         <Suspense fallback={null}>
           <SecurePropertiesTool open={secureToolOpen} onClose={() => setSecureToolOpen(false)} />
+        </Suspense>
+      )}
+
+      {/* Config encryption — the same crypto, over a whole config file. */}
+      {configCryptoOpen && (
+        <Suspense fallback={null}>
+          <ConfigCryptoPanel open={configCryptoOpen} onClose={() => setConfigCryptoOpen(false)} />
         </Suspense>
       )}
 
