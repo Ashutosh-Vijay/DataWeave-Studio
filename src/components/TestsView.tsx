@@ -35,15 +35,15 @@ const STARTER = [
 
 interface TestsViewProps {
   request: Request;
-  onTestScriptChange: (script: string) => void;
+  onSuiteChange: (script: string) => void;
   /** The suite runner lives in App, so the header's Run button drives it while
    *  this pane is open. That is the only way to run a suite. */
   result: ReturnType<typeof useTestRunner>['result'];
   running: boolean;
 }
 
-export function TestsView({ request, onTestScriptChange, result, running }: TestsViewProps) {
-  const hasSuite = !!(request.testScript ?? '').trim();
+export function TestsView({ request, onSuiteChange, result, running }: TestsViewProps) {
+  const hasSuite = !!(request.script ?? '').trim();
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -81,13 +81,13 @@ export function TestsView({ request, onTestScriptChange, result, running }: Test
         <div className="flex flex-col overflow-hidden" style={{ flex: '1 1 55%', minWidth: 0 }}>
           {hasSuite ? (
             <MiniEditor
-              value={request.testScript ?? ''}
-              onChange={onTestScriptChange}
+              value={request.script ?? ''}
+              onChange={onSuiteChange}
               language="dataweave"
               height="100%"
             />
           ) : (
-            <EmptyState onInsert={() => onTestScriptChange(STARTER)} />
+            <EmptyState onInsert={() => onSuiteChange(STARTER)} />
           )}
         </div>
 

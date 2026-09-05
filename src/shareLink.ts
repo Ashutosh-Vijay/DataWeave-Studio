@@ -21,10 +21,18 @@ export const SHARE_PREFIX = 'dws1.';
 /** Where a shared link points. The page just hands the fragment to the app. */
 export const SHARE_BASE_URL = 'https://ashutosh-vijay.dev/dataweave/s';
 
-/** One request's worth of shareable state. */
+/** One entry's worth of shareable state. */
 export interface ShareRequest {
-  /** Request name, when the link carries a whole workspace. */
+  /** Entry name, when the link carries a whole workspace. */
   label?: string;
+  /**
+   * `test` when this entry is a dw::test suite rather than a transform. Absent
+   * means a transform, so every link written before suites existed still reads
+   * correctly. The recipient — the app or the web preview — needs this to know
+   * whether it is looking at something to run against a payload or a suite to
+   * run assertions from.
+   */
+  kind?: 'script' | 'test';
   script: string;
   payload: string;
   payloadMime: string;
@@ -88,6 +96,15 @@ function fromBase64Url(s: string): Uint8Array {
 
 /** Drop empty collections so a simple snapshot stays a short link. */
 function compactRequest<T extends ShareRequest>(req: T): T {
+  // A suite brings its own fixtures through assertions, so the payload, the
+  // context and the request role are all noise in a shared suite — and noise
+  // that costs URL length.
+  if (req.kind === 'test') {
+    const suite = { script: req.script, payload: '', payloadMime: 'application/json', kind: 'test' } as T;
+    if (req.label) suite.label = req.label;
+    if (req.languageLevel) suite.languageLevel = req.languageLevel;
+    return suite;
+  }
   const out = {
     script: req.script,
     payload: req.payload,

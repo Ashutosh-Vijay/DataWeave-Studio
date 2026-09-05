@@ -82,6 +82,20 @@ export interface TestCase {
 export interface Request {
   id: string;
   name: string;
+  /**
+   * What this item IS, which decides everything about how it is edited and run.
+   *
+   * `script` — a transform: `script` is DataWeave, run against `payload` and
+   * `context`, debuggable, traceable.
+   * `test` — a `dw::test` suite: `script` is the suite, and payload/context/
+   * named inputs are meaningless (a suite supplies its own fixtures).
+   *
+   * Tests used to live as a `testScript` FIELD on a script request, which meant
+   * one list entry secretly held two documents — and no way to tell whether ⌘S,
+   * Run or Share were acting on the transform or the suite. They are separate
+   * entries now. Absent means `script`, so files written before this still load.
+   */
+  kind?: RequestKind;
   script: string;
   payload: string;
   payloadMimeType: MimeType;
@@ -93,7 +107,11 @@ export interface Request {
   payloadFilePath?: string;
   multipartParts: MultipartPart[];
   context: ContextState;
-  /** A `dw::test` suite for this request. Empty until the user writes one. */
+  /**
+   * @deprecated A suite that used to hang off a script request. Migrated into a
+   * `kind: 'test'` entry of its own on load; carried through save so a file
+   * opened by an older build does not lose the suite.
+   */
   testScript?: string;
   /** @deprecated Legacy snapshot tests — preserved on round-trip, never read. */
   tests: TestCase[];
@@ -104,6 +122,8 @@ export interface Request {
  * message flow that pipelines them. Legacy v1 files (with `singleTransform`)
  * are auto-migrated by the Rust backend on load.
  */
+export type RequestKind = 'script' | 'test';
+
 export interface WorkspaceFile {
   version: string;
   projectName: string;

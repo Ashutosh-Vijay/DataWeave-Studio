@@ -113,6 +113,12 @@ pub struct TestCase {
 pub struct Request {
     pub id: String,
     pub name: String,
+    /// "script" (a transform) or "test" (a dw::test suite). Absent on every
+    /// workspace written before suites became entries of their own, and the UI
+    /// reads that as "script" — so this must round-trip, or reopening a saved
+    /// workspace would turn every suite back into a transform.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
     pub script: String,
     pub payload: String,
     pub payload_mime_type: String,
@@ -235,6 +241,7 @@ fn migrate_legacy(legacy: LegacyWorkspaceFile) -> WorkspaceFile {
     let request_id = format!("req-{}", uuid_like_id());
     let request = Request {
         id: request_id.clone(),
+        kind: None,
         name: if legacy.project_name.is_empty() {
             "Request".into()
         } else {
@@ -359,6 +366,7 @@ pub fn save_workspace(app: AppHandle, workspace: WorkspaceFile) -> Result<String
         let id = format!("req-{}", uuid_like_id());
         ws.requests.push(Request {
             id: id.clone(),
+            kind: None,
             name: "Request".into(),
             script: "%dw 2.0\noutput application/json\n---\npayload".into(),
             payload: "{}".into(),

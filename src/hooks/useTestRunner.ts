@@ -100,9 +100,12 @@ export function useTestRunner(): UseTestRunnerReturn {
   const [running, setRunning] = useState(false);
 
   const runSuite = useCallback(async (req: Request, languageLevel: string): Promise<SuiteRun> => {
-    const suite = (req.testScript ?? '').trim();
+    // A test entry keeps its suite in `script`, like every other entry keeps
+    // its source there. `testScript` is only read for a workspace saved before
+    // tests became entries of their own.
+    const suite = ((req.kind === 'test' ? req.script : req.testScript) ?? '').trim();
     if (!suite) {
-      const out = { ...EMPTY_RUN, error: 'There is no test suite in this request yet.' };
+      const out = { ...EMPTY_RUN, error: 'There is nothing in this suite yet.' };
       setResult(out);
       return out;
     }
@@ -110,10 +113,10 @@ export function useTestRunner(): UseTestRunnerReturn {
     setRunning(true);
     try {
       const res = await invoke<RunResult>('run_dataweave', {
-        script: req.testScript,
-        // A suite drives its own inputs through assertions, but the request's
+        script: suite,
+        // A suite drives its own inputs through assertions, but the entry's
         // payload is still passed so a suite CAN reference `payload` if the
-        // author wants to exercise the same fixture the transform uses.
+        // author wants to exercise the same fixture a transform uses.
         payload: req.payload,
         payloadMimeType: req.payloadMimeType,
         attributesJson: '{}',

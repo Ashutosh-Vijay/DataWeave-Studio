@@ -254,7 +254,10 @@ function App() {
   /** Pane switch — 'script' shows the editor splits, 'tests' shows the
    *  per-request Tests panel. Per-workspace state, not per-request, so the
    *  user's view sticks when they switch between requests. */
-  const [viewMode, setViewMode] = useState<'script' | 'tests'>('script');
+  /** What the main area shows. Not a mode the user toggles any more — it is
+   *  simply what the selected entry IS. Picking a suite in the sidebar shows
+   *  the suite; picking a transform shows the transform. */
+  const viewMode: 'script' | 'tests' = workspace.request.kind === 'test' ? 'tests' : 'script';
   const [aboutOpen, setAboutOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [secureToolOpen, setSecureToolOpen] = useState(false);
@@ -318,7 +321,6 @@ function App() {
   }, []);
   /** Clicking a trace row jumps the script editor to the expression it came from. */
   const revealScriptLine = useCallback((line: number, column: number) => {
-    setViewMode('script');
     scriptEditorRef.current?.revealLine(line, column);
   }, []);
 
@@ -404,6 +406,7 @@ function App() {
   /** One request → the shareable subset of its state. */
   const requestToShare = useCallback((r: typeof workspace.request): ShareRequest => ({
     label: r.name,
+    kind: r.kind === 'test' ? 'test' : undefined,
     script: r.script,
     payload: r.payload,
     payloadMime: r.payloadMimeType,
@@ -455,13 +458,15 @@ function App() {
       const what = codeOnly ? 'code' : 'link';
       toast({
         title: whole
-          ? `${codeOnly ? 'Code' : 'Link'} copied — ${workspace.requests.length} requests`
-          : `Share ${what} copied`,
+          ? `${codeOnly ? 'Code' : 'Link'} copied — ${workspace.requests.length} entries`
+          : `Share ${what} copied — ${active.kind === 'test' ? 'test suite' : 'script'}`,
         message: missing.length
           ? `Note: ${[...new Set(missing)].join(', ')} can’t travel in a ${what} — send the file separately.`
           : codeOnly
             ? 'Paste it into Import → From share link. No URL, so it survives networks that block the site.'
-            : 'Script, payload, vars and headers are all inside the link — the data stays in the link, never on a server.',
+            : active.kind === 'test'
+              ? 'The suite travels inside the link itself — nothing is uploaded to a server.'
+              : 'Script, payload, vars and headers are all inside the link — the data stays in the link, never on a server.',
         variant: missing.length ? 'warn' : 'success',
       });
     } catch {
@@ -479,6 +484,20 @@ function App() {
       const snap = decodeShare(text);
       beginTransforming();
       if (snap.name) workspace.setProjectName(snap.name);
+
+      // A shared suite is a suite. Dropping it into the active transform would
+      // overwrite someone's script with test code, so it arrives as its own
+      // entry — which is the whole point of them being separate.
+      if (snap.kind === 'test' && !(snap.requests && snap.requests.length > 1)) {
+        workspace.addRequest(snap.label || 'Shared tests', 'test', snap.script);
+        toast({
+          title: 'Opened a shared test suite',
+          message: 'Added to Tests in this workspace. Run it with ⌘↵.',
+          variant: 'success',
+        });
+        return;
+      }
+
       workspace.setScript(snap.script);
       workspace.setPayload(snap.payload);
       if (isValidMimeType(snap.payloadMime)) workspace.setPayloadMimeType(snap.payloadMime);
@@ -500,7 +519,8 @@ function App() {
       if (snap.requests && snap.requests.length > 1) {
         const mk = (r: typeof snap.requests[number], i: number) => ({
           id: `req-share-${Date.now().toString(16)}-${i}`,
-          name: r.label || `Request ${i + 1}`,
+          name: r.label || (r.kind === 'test' ? `Tests ${i + 1}` : `Request ${i + 1}`),
+          kind: (r.kind === 'test' ? 'test' : 'script') as 'script' | 'test',
           script: r.script,
           payload: r.payload,
           payloadMimeType: isValidMimeType(r.payloadMime) ? r.payloadMime : 'application/json',
@@ -533,9 +553,13 @@ function App() {
           requests: snap.requests.map(mk),
           languageLevel: snap.languageLevel,
         });
+        const suites = snap.requests.filter((r) => r.kind === 'test').length;
+        const scripts = snap.requests.length - suites;
         toast({
           title: `Opened shared workspace`,
-          message: `${snap.requests.length} requests restored.`
+          message: `${scripts} script${scripts === 1 ? '' : 's'}`
+            + (suites ? ` and ${suites} test suite${suites === 1 ? '' : 's'}` : '')
+            + ' restored.'
             + (snap.languageLevel && !perWorkspaceTarget
               ? ` Shared targeting ${labelFor(snap.languageLevel)} — turn on per-workspace targets in Settings → Runtime to use it.`
               : ''),
@@ -1054,7 +1078,6 @@ function App() {
    *  first breakpoint instead of running straight through. */
   const handleDebug = useCallback(async () => {
     const r = await resolveRunInputs();
-    setViewMode('script');
     await dbg.start({
       script: r.resolvedScript,
       payload: r.resolvedPayload,
@@ -1222,9 +1245,13 @@ function App() {
     return () => { alive = false; clearInterval(iv); };
   }, []);
 
-  // Auto-run with 1.5s debounce — only fires when inputs change
+  // Auto-run with 1.5s debounce — only fires when inputs change.
+  //
+  // Scripts only. A suite is not a live preview: it compiles and runs every
+  // assertion, and firing that a second after each keystroke would turn writing
+  // a test into a stutter. Run it when you mean to (⌘↵).
   useEffect(() => {
-    if (!autoRun) return;
+    if (!autoRun || viewMode === 'tests') return;
     if (autoRunTimerRef.current) clearTimeout(autoRunTimerRef.current);
     autoRunTimerRef.current = setTimeout(() => {
       if (canRunRef.current) {
@@ -1234,10 +1261,13 @@ function App() {
     return () => {
       if (autoRunTimerRef.current) clearTimeout(autoRunTimerRef.current);
     };
-  }, [autoRun, workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs]);
+  }, [autoRun, viewMode, workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs]);
 
   const inTests = viewMode === 'tests';
-  const hasSuite = !!(workspace.request.testScript ?? '').trim();
+  // A test entry keeps its suite in `script`, like every entry keeps its source
+  // there. Reading the old `testScript` field here left Run permanently
+  // disabled on a suite, which looked like the button doing nothing.
+  const hasSuite = !!(workspace.request.script ?? '').trim();
   const busyNow = inTests ? tests.running : runner.isRunning;
   const canRun = runner.isWarmedUp && !busyNow && (!inTests || hasSuite);
   const isQueryMode = workspace.nodeLabel === 'Salesforce Query' || workspace.nodeLabel === 'DB Query';
@@ -1268,8 +1298,8 @@ function App() {
     // Creating a share link used to live only in the breadcrumb menu, which is
     // where nobody found it. Sharing is a Share group of its own so ⌘K > "share"
     // surfaces all three actions together.
-    { id: 'share-request', label: 'Copy share link — this request', hint: 'Script, payload, vars & headers in one URL', group: 'Share', run: handleCopyShareLink },
-    { id: 'share-workspace', label: 'Copy share link — whole workspace', hint: 'Every request in this workspace', group: 'Share', run: handleCopyWorkspaceShareLink },
+    { id: 'share-request', label: viewMode === 'tests' ? 'Copy share link — this test suite' : 'Copy share link — this script', hint: viewMode === 'tests' ? 'The suite, in one URL' : 'Script, payload, vars & headers in one URL', group: 'Share', run: handleCopyShareLink },
+    { id: 'share-workspace', label: 'Copy share link — whole workspace', hint: 'Every script and suite in this workspace', group: 'Share', run: handleCopyWorkspaceShareLink },
     { id: 'share-code', label: 'Copy share code — no link', hint: 'For networks that block the site', group: 'Share', run: handleCopyShareCode },
     { id: 'share-open', label: 'Open from share link…', shortcut: '⌘⇧I', group: 'Share', run: handleOpenShareLink },
     { id: 'import-playground', label: 'Import from Playground zip…', group: 'Workspace', run: handleImportPlayground },
@@ -1374,7 +1404,9 @@ function App() {
               the current request; ⌘K → "share" has the whole-workspace variant. */}
           <span data-tour="share" className="inline-flex">
           <IconBtn
-            title="Copy a share link for this request (⌘K → “share” for more)"
+            title={workspace.request.kind === 'test'
+              ? 'Copy a share link for this test suite (⌘K → “share” for more)'
+              : 'Copy a share link for this script (⌘K → “share” for more)'}
             onClick={handleCopyShareLink}
           >
             <Icons.Share size={15} />
@@ -1463,34 +1495,6 @@ function App() {
           </IconBtn>
 
           <div className="w-px h-4 bg-line mx-1" />
-
-          {/* Pane switch — Script vs Tests. */}
-          <div
-            data-tour="pane-switch"
-            className="inline-flex gap-0.5 p-0.5 rounded-md border"
-            style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}
-            title="Switch between the script editor and the tests panel"
-          >
-            {(['script', 'tests'] as const).map((m) => {
-              const active = viewMode === m;
-              const isTests = m === 'tests';
-              return (
-                <button
-                  key={m}
-                  onClick={() => setViewMode(m)}
-                  className="inline-flex items-center gap-1.5 h-5 px-2.5 rounded text-[11px] cursor-pointer transition-colors"
-                  style={{
-                    background: active ? 'var(--surface)' : 'transparent',
-                    color: active ? 'var(--content)' : 'var(--content-faint)',
-                    fontWeight: active ? 600 : 500,
-                  }}
-                >
-                  {isTests ? <Icons.Activity size={10} /> : <Icons.Braces size={10} />}
-                  {isTests ? 'Tests' : 'Script'}
-                </button>
-              );
-            })}
-          </div>
 
           <div className="w-px h-4 bg-line mx-1" />
 
@@ -1707,7 +1711,7 @@ function App() {
           requests={workspace.requests}
           activeRequestId={workspace.activeRequestId}
           onSelectRequest={workspace.selectRequest}
-          onAddRequest={() => workspace.addRequest()}
+          onAddRequest={(kind) => workspace.addRequest(undefined, kind)}
           onRenameRequest={workspace.renameRequest}
           onRemoveRequest={workspace.removeRequest}
           onDuplicateRequest={workspace.duplicateRequest}
@@ -1790,7 +1794,7 @@ function App() {
           <main className="flex-1 overflow-hidden bg-bg flex">
             <TestsView
               request={workspace.request}
-              onTestScriptChange={workspace.setTestScript}
+              onSuiteChange={workspace.setScript}
               result={tests.result}
               running={tests.running}
             />

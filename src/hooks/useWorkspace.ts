@@ -7,6 +7,7 @@ import {
   NamedInput,
   MultipartPart,
   Request,
+  RequestKind,
 } from '../types';
 
 // ===========================================================================
@@ -57,10 +58,25 @@ function genId(prefix: string): string {
   return `${prefix}-${ms}${rand}`;
 }
 
+/** The suite a new test starts from — the shape of a dw::test file, with one
+ *  assertion that passes, so Run does something on the first press. */
+const DEFAULT_SUITE = [
+  '%dw 2.0',
+  'import * from dw::test::Tests',
+  'import * from dw::test::Asserts',
+  '---',
+  '"my transform" describedBy [',
+  '    "adds correctly" in do {',
+  '        (1 + 1) must equalTo(2)',
+  '    },',
+  ']',
+].join('\n');
+
 function blankRequest(name = 'Request'): Request {
   return {
     id: genId('req'),
     name,
+    kind: 'script',
     script: DEFAULT_SCRIPT,
     payload: DEFAULT_PAYLOAD,
     payloadMimeType: 'application/json',
@@ -74,6 +90,32 @@ function blankRequest(name = 'Request'): Request {
     context: { ...DEFAULT_CONTEXT },
     tests: [],
   };
+}
+
+/** A test entry. Payload and context are left at their defaults and never
+ *  shown: a dw::test suite supplies its own fixtures. */
+function blankTest(name = 'Tests'): Request {
+  return { ...blankRequest(name), id: genId('test'), kind: 'test', script: DEFAULT_SUITE };
+}
+
+/**
+ * Pull suites that used to live in `testScript` out into entries of their own.
+ *
+ * Runs on every load, so a workspace saved before tests were separate opens
+ * with its suite intact and visible in the list rather than hidden inside a
+ * script entry. Idempotent: `testScript` is cleared as it is migrated, and a
+ * file with none passes through untouched.
+ */
+function migrateEmbeddedTests(reqs: Request[]): Request[] {
+  const out: Request[] = [];
+  for (const r of reqs) {
+    const suite = (r.testScript ?? '').trim();
+    out.push(suite ? { ...r, kind: r.kind ?? 'script', testScript: undefined } : { ...r, kind: r.kind ?? 'script' });
+    if (suite) {
+      out.push({ ...blankTest(`${r.name} tests`), script: r.testScript as string });
+    }
+  }
+  return out;
 }
 
 interface UseWorkspaceReturn {
@@ -120,10 +162,9 @@ interface UseWorkspaceReturn {
   setClasspath: (cp: string[]) => void;
   setTimeoutMs: (ms: number) => void;
   /** Replace this request's dw::test suite. */
-  setTestScript: (script: string) => void;
 
   // Request collection management
-  addRequest: (name?: string) => void;
+  addRequest: (name?: string, kind?: RequestKind, script?: string) => void;
   removeRequest: (id: string) => void;
   renameRequest: (id: string, name: string) => void;
   selectRequest: (id: string) => void;
@@ -202,7 +243,6 @@ export function useWorkspace(): UseWorkspaceReturn {
   const setQueryTemplate = useCallback((q: string) => updateActive((r) => ({ ...r, queryTemplate: q })), [updateActive]);
   const setClasspath = useCallback((cp: string[]) => updateActive((r) => ({ ...r, classpath: cp })), [updateActive]);
   const setTimeoutMs = useCallback((ms: number) => updateActive((r) => ({ ...r, timeoutMs: ms })), [updateActive]);
-  const setTestScript = useCallback((testScript: string) => updateActive((r) => ({ ...r, testScript })), [updateActive]);
 
   const setNodeLabel = useCallback((label: string) => {
     // Switching role: stash the current script for this request+label,
@@ -220,8 +260,15 @@ export function useWorkspace(): UseWorkspaceReturn {
   }, [activeRequestId]);
 
   // ── Request-collection management ────────────────────────────────────
-  const addRequest = useCallback((name = 'New request') => {
-    const req = blankRequest(name);
+  /** `script` seeds the new entry's source. It has to be passed in rather than
+   *  set afterwards: every per-entry setter writes to whatever was active when
+   *  the render closed over it, so a `setScript` straight after this would land
+   *  on the PREVIOUS entry. */
+  const addRequest = useCallback((name?: string, kind: RequestKind = 'script', script?: string) => {
+    const base = kind === 'test'
+      ? blankTest(name ?? 'New tests')
+      : blankRequest(name ?? 'New request');
+    const req = script === undefined ? base : { ...base, script };
     setRequests((prev) => [...prev, req]);
     setActiveRequestId(req.id);
     setIsDirty(true);
@@ -229,7 +276,10 @@ export function useWorkspace(): UseWorkspaceReturn {
 
   const removeRequest = useCallback((id: string) => {
     setRequests((prev) => {
-      if (prev.length <= 1) return prev; // never let a workspace go empty
+      // A workspace always keeps at least one SCRIPT; tests can all be deleted.
+      const target = prev.find((r) => r.id === id);
+      const scripts = prev.filter((r) => (r.kind ?? 'script') === 'script');
+      if (target && (target.kind ?? 'script') === 'script' && scripts.length <= 1) return prev;
       const next = prev.filter((r) => r.id !== id);
       // If we removed the active one, pick a neighbor.
       if (id === activeRequestId) {
@@ -298,7 +348,9 @@ export function useWorkspace(): UseWorkspaceReturn {
   const loadWorkspace = useCallback(async (filename: string) => {
     const ws = await invoke<WorkspaceFile>('load_workspace', { filename });
     scriptsByLabel.current = new Map();
-    const reqs = ws.requests && ws.requests.length > 0 ? ws.requests : [blankRequest()];
+    const reqs = migrateEmbeddedTests(
+      ws.requests && ws.requests.length > 0 ? ws.requests : [blankRequest()],
+    );
     // Seed the per-(request, label) script cache from the loaded data so
     // role-switching remembers what was on disk.
     for (const r of reqs) {
@@ -429,7 +481,6 @@ export function useWorkspace(): UseWorkspaceReturn {
     setQueryTemplate,
     setClasspath,
     setTimeoutMs,
-    setTestScript,
 
     addRequest,
     removeRequest,

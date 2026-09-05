@@ -75,10 +75,10 @@ interface SidebarProps {
   // Active workspace's requests — drives the in-line request list at the
   // top of the Workspaces tab so users can browse + switch + add without
   // a separate tab strip elsewhere.
-  requests: { id: string; name: string; nodeLabel?: string }[];
+  requests: { id: string; name: string; nodeLabel?: string; kind?: 'script' | 'test' }[];
   activeRequestId: string;
   onSelectRequest: (id: string) => void;
-  onAddRequest: () => void;
+  onAddRequest: (kind: 'script' | 'test') => void;
   onRenameRequest: (id: string, name: string) => void;
   onRemoveRequest: (id: string) => void;
   onDuplicateRequest: (id: string) => void;
@@ -433,43 +433,64 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                   </button>
                 </div>
 
-                {/* === Requests in this workspace === */}
-                <div className="px-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="text-[10px] uppercase tracking-[0.5px] font-semibold flex-1"
-                      style={{ color: 'var(--content-faint)' }}
-                    >
-                      Requests · {requests.length}
-                    </span>
-                    <button
-                      onClick={onAddRequest}
-                      title="New request in this workspace"
-                      className="w-5 h-5 rounded inline-flex items-center justify-center cursor-pointer hover:bg-surface-2"
-                      style={{ color: 'var(--content-faint)' }}
-                    >
-                      <Icons.Plus size={11} />
-                    </button>
-                  </div>
-                  <div className="space-y-0.5">
-                    {requests.map((r) => (
-                      <RequestNode
-                        key={r.id}
-                        name={r.name}
-                        nodeLabel={r.nodeLabel}
-                        active={r.id === activeRequestId}
-                        canRemove={requests.length > 1}
-                        onClick={() => onSelectRequest(r.id)}
-                        onRename={(next) => {
-                          onRenameRequest(r.id, next);
-                          toast({ title: 'Request renamed', message: next, variant: 'success' });
-                        }}
-                        onDuplicate={() => onDuplicateRequest(r.id)}
-                        onRemove={() => onRemoveRequest(r.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
+                {/* === What is in this workspace ===
+                    Transforms and suites are separate lists, because they are
+                    separate documents: clicking one is what decides whether
+                    Run, Share and the editor are acting on a transform or on a
+                    suite. They used to be one list where a suite hid inside a
+                    transform, and nothing on screen said which you had. */}
+                {([
+                  ['script', 'Scripts', 'New script in this workspace'],
+                  ['test', 'Tests', 'New dw::test suite in this workspace'],
+                ] as const).map(([kind, heading, addTitle]) => {
+                  const rows = requests.filter((r) => (r.kind ?? 'script') === kind);
+                  return (
+                    <div key={kind} className="px-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="text-[10px] uppercase tracking-[0.5px] font-semibold flex-1"
+                          style={{ color: 'var(--content-faint)' }}
+                        >
+                          {heading} · {rows.length}
+                        </span>
+                        <button
+                          onClick={() => onAddRequest(kind)}
+                          title={addTitle}
+                          className="w-5 h-5 rounded inline-flex items-center justify-center cursor-pointer hover:bg-surface-2"
+                          style={{ color: 'var(--content-faint)' }}
+                        >
+                          <Icons.Plus size={11} />
+                        </button>
+                      </div>
+                      {rows.length === 0 ? (
+                        <div className="text-[11px] py-1 px-1 leading-relaxed" style={{ color: 'var(--content-faint)' }}>
+                          No suites yet — add one to write <span className="font-mono">dw::test</span> assertions.
+                        </div>
+                      ) : (
+                        <div className="space-y-0.5">
+                          {rows.map((r) => (
+                            <RequestNode
+                              key={r.id}
+                              name={r.name}
+                              nodeLabel={kind === 'test' ? 'dw::test' : r.nodeLabel}
+                              active={r.id === activeRequestId}
+                              // The workspace always keeps one script; suites are
+                              // free to be deleted down to none.
+                              canRemove={kind === 'test' || rows.length > 1}
+                              onClick={() => onSelectRequest(r.id)}
+                              onRename={(next) => {
+                                onRenameRequest(r.id, next);
+                                toast({ title: kind === 'test' ? 'Suite renamed' : 'Script renamed', message: next, variant: 'success' });
+                              }}
+                              onDuplicate={() => onDuplicateRequest(r.id)}
+                              onRemove={() => onRemoveRequest(r.id)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
 
                 {/* === Saved workspaces (the current one included, highlighted) === */}
                 <div className="px-1 pt-1 space-y-1">
