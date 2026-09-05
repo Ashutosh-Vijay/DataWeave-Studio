@@ -14,6 +14,8 @@ import org.mule.weave.v2.utils.DataWeaveVersion
 import org.mule.weave.v2.versioncheck.SVersion
 import org.mule.weave.v2.version.DataWeaveRuntimeVersion
 import org.mule.weave.v2.scaffolding.{ScaffoldingService, ScaffoldingConfiguration}
+import org.mule.weave.v2.debugger.{DebuggerFrame, DebuggerValue, WeaveBreakpoint}
+import org.mule.weave.v2.interpreted.debugger.server.WeaveDebuggerExecutor
 import org.mule.weave.v2.sdk.ClassLoaderWeaveResourceResolver
 import org.mule.weave.v2.editor.{WeaveToolingService, SimpleVirtualFileSystem, SpecificModuleResourceResolver, ImplicitInput, WeaveTextDocument, WeaveDocumentToolingService, ValidationMessage}
 import org.mule.weave.v2.completion.{Template, LiteralElement, PlaceHolderElement, ChoicePlaceHolderElement, EndPlaceHolderElement}
@@ -138,6 +140,13 @@ object DwServer {
         return successResponse(id, formatScript(rawScript), started)
       }
 
+      // op=debug: everything except `start`. These only read or poke session
+      // state, so they answer immediately — which is the whole point of running
+      // the script on a worker thread.
+      if (req.getString("op", "run") == "debug" && req.getString("action", "") != "start") {
+        return debugResponse(id, req, started)
+      }
+
       // op=tooling: the engine's own IDE language service — type-aware completion,
       // hover, signature help, type-of, go-to-definition, rename and type checking.
       // Same WeaveToolingService the formatter uses, so nothing new is constructed.
@@ -182,13 +191,22 @@ object DwServer {
       // engine picks the right reader (JSON/XML/CSV/...) at parse time.
       val mimeByName = scala.collection.mutable.LinkedHashMap[String, String]()
 
+      // A debug run reads each input twice: once when the debugger snapshots
+      // the frame's variables for the UI, and once when the script itself uses
+      // it. A file-backed binding is a stream, so the snapshot consumed it and
+      // the script then saw an empty payload — `double(payload.n)` failed with
+      // Null on a payload that had just been displayed as {"n": 21}. Binding
+      // the bytes instead makes the input re-readable.
+      val debugRun = req.getString("op", "run") == "debug"
+
       def addInput(name: String, path: String, mime: String): Unit = {
         if (path != null && path.nonEmpty) {
           val f = new File(path)
           if (f.exists()) {
             // The (name, File, mime) overload gives DW a stream-compatible
             // source — required for application/json/xml/csv readers.
-            bindings.addBinding(name, f, mime)
+            if (debugRun) bindings.addBinding(name, Files.readAllBytes(f.toPath), mime)
+            else bindings.addBinding(name, f, mime)
             mimeByName(name) = mime
           }
         }
@@ -222,6 +240,13 @@ object DwServer {
       // keyed on mimeByName.keys, but that caused misses when the splash
       // primer compiled with [payload] only while the actual run sent
       // [payload, attributes] — even though the script texts were identical.
+      // op=debug + action=start forks here: it needs the bindings built above,
+      // but must compile fresh (the cached script is shared, and there is no
+      // public way to take an execution listener back off one).
+      if (req.getString("op", "run") == "debug") {
+        return startDebugRun(id, started, compileEngine, script, inputTypes, outputMime, bindings, mimeByName.keys.toSet, req)
+      }
+
       val target = languageLevelOf(req)
       // The target runtime belongs in the key: the same script compiled at 2.11
       // and at 2.4 are different programs, and the 2.4 one may not compile.
@@ -454,6 +479,162 @@ object DwServer {
       case re(head, tail) => head + tail
       case _              => line
     }
+  }
+
+  // ── Debugger ──────────────────────────────────────────────────────────────
+  // One session at a time; the UI debugs one script.
+  private var debugSession: DwDebugSession = _
+
+  /** Compile fresh, attach the debugger, and run on a worker thread.
+   *
+   *  Fresh because `addExecutionListener` mutates the compiled script and
+   *  `DataWeaveScript` has no public way to remove one — a cached script that
+   *  picked up a debug listener would keep pausing on ordinary runs.
+   *
+   *  The thread is what keeps the protocol simple: the engine pauses by parking
+   *  the executing thread, so the stdio loop has to be somewhere else. */
+  private def startDebugRun(
+    id: Int,
+    started: Long,
+    compileEngine: DataWeaveScriptingEngine,
+    script: String,
+    inputTypes: Array[InputType],
+    outputMime: String,
+    bindings: ScriptingBindings,
+    inputNames: Set[String],
+    req: JsonObject): String = {
+    try {
+      if (debugSession != null) debugSession.stop()
+
+      val session = new DwDebugSession()
+      // The input names are exactly the bindings built above; the executor must
+      // not walk those while snapshotting (see NonConsumingDebuggerExecutor).
+      val executor = new NonConsumingDebuggerExecutor(session, inputNames)
+      session.start(executor)
+
+      if (req.get("breakpoints") != null && req.get("breakpoints").isArray) {
+        val arr = req.get("breakpoints").asArray()
+        var i = 0
+        while (i < arr.size()) {
+          // "main" is the resource name the run path compiles under, and what
+          // the engine reports on every location.
+          session.breakpoints.addBreakpoint(WeaveBreakpoint(arr.get(i).asInt(), "main"))
+          i += 1
+        }
+      }
+
+      val compiled = compileEngine.compileWith(
+        compileEngine.newConfig()
+          .withScript(script)
+          .withInputs(inputTypes)
+          .withNameIdentifier(NameIdentifier("main"))
+          .withDefaultOutputType(outputMime))
+
+      compiled.addExecutionListener(executor)
+      // Without this the interpreter can hand back lazy values, and a variables
+      // panel showing unevaluated thunks is worse than showing nothing.
+      compiled.materializeValues(true)
+
+      debugSession = session
+
+      val worker = new Thread(new Runnable {
+        override def run(): Unit = {
+          val out = new ByteArrayOutputStream()
+          try {
+            compiled.write(bindings, makeServiceManager(), Some(out))
+            session.output = out.toString("UTF-8")
+          } catch {
+            case t: Throwable =>
+              session.error = t.getClass.getSimpleName + ": " + Option(t.getMessage).getOrElse("")
+          } finally {
+            session.paused = false
+            session.finished = true
+          }
+        }
+      }, "dw-debug")
+      worker.setDaemon(true)
+      worker.start()
+
+      successResponse(id, "started", started)
+    } catch {
+      case t: Throwable =>
+        errorResponse(id, t.getClass.getSimpleName + ": " + Option(t.getMessage).getOrElse(""), started)
+    }
+  }
+
+  /** State reads and step commands. Every one returns immediately. */
+  private def debugResponse(id: Int, req: JsonObject, started: Long): String = {
+    val action = req.getString("action", "state")
+    val session = debugSession
+    if (session == null) {
+      val payload = new JsonObject()
+      payload.add("status", "idle")
+      return successResponse(id, payload.toString, started)
+    }
+
+    action match {
+      case "resume"   => session.resume()
+      case "stepOver" => session.stepOver()
+      case "stepInto" => session.stepInto()
+      case "stepOut"  => session.stepOut()
+      case "stop"     => session.stop()
+      case _          => // "state" and "evaluate" read only
+    }
+
+    val payload = new JsonObject()
+
+    if (action == "evaluate") {
+      val expr = req.getString("expression", "")
+      val frameIndex = if (req.get("frameIndex") == null) -1 else req.get("frameIndex").asInt()
+      payload.add("result", session.evaluate(expr, frameIndex))
+    }
+
+    // A step command releases the worker, which may re-pause within microseconds.
+    // Give it a moment so the caller usually gets the new position in the same
+    // round trip instead of having to poll for it.
+    if (action == "resume" || action == "stepOver" || action == "stepInto" || action == "stepOut") {
+      val deadline = System.currentTimeMillis() + 2000
+      while (!session.paused && !session.finished && System.currentTimeMillis() < deadline) {
+        Thread.sleep(2)
+      }
+    }
+
+    payload.add("status", if (session.finished) "finished" else if (session.paused) "paused" else "running")
+    if (session.finished) {
+      if (session.error != null) payload.add("error", session.error)
+      else if (session.output != null) payload.add("output", session.output)
+    }
+    if (session.paused) {
+      payload.add("line", session.stoppedLine)
+      payload.add("column", session.stoppedColumn)
+      payload.add("reason", session.stopReason)
+      payload.add("frames", framesJson(session.frames))
+    }
+    successResponse(id, payload.toString, started)
+  }
+
+  /** Frames outermost-first, each with its variables rendered for display.
+   *  DebuggerValue is a sealed ADT whose toString is already the readable form,
+   *  so the panel gets a name/type/value triple without walking the tree. */
+  private def framesJson(frames: Array[DebuggerFrame]): com.eclipsesource.json.JsonArray = {
+    val arr = new com.eclipsesource.json.JsonArray()
+    frames.foreach { f =>
+      val o = new JsonObject()
+      o.add("id", f.id)
+      f.name.foreach(n => o.add("name", n))
+      o.add("line", f.startPosition.line)
+      val vars = new com.eclipsesource.json.JsonArray()
+      f.values.foreach { case (name, value) =>
+        val v = new JsonObject()
+        v.add("name", name)
+        v.add("type", value.typeName())
+        v.add("value", String.valueOf(value))
+        vars.add(v)
+      }
+      o.add("variables", vars)
+      arr.add(o)
+    }
+    arr
   }
 
   private def toolingResponse(id: Int, req: JsonObject, started: Long): String = {
