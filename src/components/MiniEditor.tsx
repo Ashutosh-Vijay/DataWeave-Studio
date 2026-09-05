@@ -5,24 +5,13 @@
  */
 
 import Editor, { useMonaco, BeforeMount } from '@monaco-editor/react';
-import { configureEditor } from '../editorInit';
+import { configureEditor, getOverflowWidgetsRoot } from '../editorInit';
 import { useEffect, useCallback, memo } from 'react';
 import { dwTokensProvider } from '../dataweaveGrammar';
 import { ensureDWEditorProviders } from '../dataweaveCompletions';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';
-
-let _overflowNode: HTMLDivElement | null = null;
-function getOverflowNode(): HTMLDivElement {
-  if (!_overflowNode) {
-    _overflowNode = document.createElement('div');
-    _overflowNode.className = 'monaco-editor monaco-overflow-widgets-root';
-    Object.assign(_overflowNode.style, { position: 'absolute', zIndex: '99999', top: '0', left: '0' });
-    document.body.appendChild(_overflowNode);
-  }
-  return _overflowNode;
-}
 
 // Track whether we've already done global Monaco setup (language registration, etc.)
 let globalSetupDone = false;
@@ -131,7 +120,7 @@ export const MiniEditor = memo(function MiniEditor({
           lineDecorationsWidth: 4,
           folding: false,
           fixedOverflowWidgets: true,
-          overflowWidgetsDomNode: getOverflowNode(),
+          overflowWidgetsDomNode: getOverflowWidgetsRoot(),
           wordWrap: 'on',
           scrollBeyondLastLine: false,
           glyphMargin: false,

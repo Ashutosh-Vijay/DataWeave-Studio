@@ -1,6 +1,6 @@
 import Editor, { useMonaco, BeforeMount } from '@monaco-editor/react';
 import { useEffect, useRef, useCallback, useState, useMemo, forwardRef, useImperativeHandle, memo } from 'react';
-import { configureEditor } from '../editorInit';
+import { configureEditor, getOverflowWidgetsRoot } from '../editorInit';
 import { attachEngineDiagnostics } from '../dataweaveEngineLanguage';
 import { Icons } from './Icons';
 import { migrateDW1to2, type MigrationChange } from '../dwMigrate';
@@ -12,30 +12,6 @@ import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME 
 import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';
 import { invoke } from '../bridge';
-
-// Lazy-init a singleton DOM node attached directly to document.body for
-// Monaco's overflow widgets (hover popovers, completion menus). Attaching
-// here escapes any ancestor that creates a containing block (transform,
-// will-change, etc.) which otherwise clips the popovers.
-//
-// IMPORTANT: must carry the `monaco-editor` class so Monaco's theme CSS
-// (background colors, text colors) cascades into the widgets. Without it
-// the popovers render with no background and unreadable text. We append
-// the active theme class too so dark/light theming applies correctly.
-let _overflowDomNode: HTMLDivElement | null = null;
-function getOverflowWidgetsDomNode(): HTMLDivElement {
-  if (typeof document === 'undefined') return null as unknown as HTMLDivElement;
-  if (!_overflowDomNode) {
-    _overflowDomNode = document.createElement('div');
-    _overflowDomNode.className = 'monaco-editor monaco-overflow-widgets-root';
-    _overflowDomNode.style.position = 'absolute';
-    _overflowDomNode.style.zIndex = '99999';
-    _overflowDomNode.style.top = '0';
-    _overflowDomNode.style.left = '0';
-    document.body.appendChild(_overflowDomNode);
-  }
-  return _overflowDomNode;
-}
 
 interface ScriptEditorProps {
   code: string;
@@ -352,7 +328,7 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
     apply();
     // Mirror the active theme class on the body-attached overflow widgets
     // node so hover/suggest popovers pick up the right background colors.
-    const overflowNode = _overflowDomNode;
+    const overflowNode = getOverflowWidgetsRoot();
     if (overflowNode) {
       overflowNode.classList.remove(
         `vs-theme-${DATAWEAVE_THEME_NAME}`,
@@ -517,7 +493,7 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
             // to <body>, so they aren't clipped by any ancestor's overflow or
             // containing block (transform/will-change/etc.).
             fixedOverflowWidgets: true,
-            overflowWidgetsDomNode: getOverflowWidgetsDomNode(),
+            overflowWidgetsDomNode: getOverflowWidgetsRoot(),
             // Colour from the engine's parsed AST, not just the text tokenizer.
             // Monaco defaults this to 'configuredByTheme', and a standalone
             // theme has no way to declare it in this version's typings — so it

@@ -1,4 +1,33 @@
 /**
+ * The one <body>-level node every Monaco editor renders its overflow widgets
+ * into (hover cards, the suggest list, the rename box).
+ *
+ * It lives on <body> so widgets escape any ancestor that clips them. It is a
+ * SINGLE shared node on purpose: ScriptEditor and MiniEditor used to make one
+ * each, and step 5 below found "the" root with `document.querySelector`, which
+ * returns whichever was created first. So a rename started in a MiniEditor —
+ * the Tests pane, a Flow node, the module library — rendered into root B while
+ * the key forwarding listened on root A, and Enter did nothing at all. One node
+ * means the widget and the listener can never be on different ones.
+ */
+let overflowRoot: HTMLDivElement | null = null;
+export function getOverflowWidgetsRoot(): HTMLDivElement {
+  if (typeof document === 'undefined') return null as unknown as HTMLDivElement;
+  if (!overflowRoot) {
+    overflowRoot = document.createElement('div');
+    // The `monaco-editor` class matters: Monaco's theme CSS is scoped to it, and
+    // without it the popovers render with no background and unreadable text.
+    overflowRoot.className = 'monaco-editor monaco-overflow-widgets-root';
+    overflowRoot.style.position = 'absolute';
+    overflowRoot.style.zIndex = '99999';
+    overflowRoot.style.top = '0';
+    overflowRoot.style.left = '0';
+    document.body.appendChild(overflowRoot);
+  }
+  return overflowRoot;
+}
+
+/**
  * Shared post-mount initialization for every Monaco editor in the app.
  *
  * Currently does four things:
@@ -130,9 +159,9 @@ export function configureEditor(editor: unknown): void {
   // even though the rename provider underneath it was fine. Re-dispatching on
   // the editor node puts the event back where the keybinding service can see
   // it. The clone lands outside the overflow root, so it cannot re-enter here.
-  const overflowRoot = document.querySelector('.monaco-overflow-widgets-root');
+  const widgetsRoot = getOverflowWidgetsRoot();
   const editorNode = ed.getDomNode?.();
-  if (overflowRoot && editorNode) {
+  if (widgetsRoot && editorNode) {
     const forwardKey = (e: Event) => {
       const ev = e as KeyboardEvent;
       if (ev.key !== 'Enter' && ev.key !== 'Escape') return;
@@ -161,8 +190,8 @@ export function configureEditor(editor: unknown): void {
         ev.stopPropagation();
       }
     };
-    overflowRoot.addEventListener('keydown', forwardKey, true);
-    ed.onDidDispose?.(() => overflowRoot.removeEventListener('keydown', forwardKey, true));
+    widgetsRoot.addEventListener('keydown', forwardKey, true);
+    ed.onDidDispose?.(() => widgetsRoot.removeEventListener('keydown', forwardKey, true));
   }
 
   // 4. Re-trigger suggest on backspace within a word.
