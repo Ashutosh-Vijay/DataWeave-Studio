@@ -19,7 +19,8 @@ import * as os from 'os';
 import * as crypto from 'crypto';
 import { execFile } from 'child_process';
 import * as httpApi from './httpApi';
-import { DwServer, resolveJava, resolveServerJar, runDataweave, warmDataweave, pickJava, javaFailureMessage, RunArgs, WarmArgs, formatDataweave, toolingQuery} from './dwHost';
+import { DwServer, resolveJava, resolveServerJar, runDataweave, warmDataweave, pickJava, javaFailureMessage, RunArgs, WarmArgs, formatDataweave,
+  debugDataweave, toolingQuery} from './dwHost';
 import * as ws from './workspaceStore';
 import * as jarStore from './jarStore';
 import * as moduleStore from './moduleStore';
@@ -361,6 +362,16 @@ async function handleInvoke(
         args.languageLevel ? String(args.languageLevel) : undefined,
         args.mimeType ? String(args.mimeType) : undefined,
         args.repeat === undefined ? undefined : Number(args.repeat),
+      );
+    // The debugger drives the same engine over the same stdio channel as a run;
+    // there is no separate protocol. Without this the Debug button in the
+    // shared UI would throw "unknown command" in VS Code only.
+    case 'dw_debug':
+      return debugDataweave(
+        await getServer(extensionRoot),
+        String(args.action ?? 'state'),
+        String(args.expression ?? ''),
+        Number(args.frameIndex ?? -1),
       );
     case 'dw_format':
       // getServer, not `server` — the latter is null until something has

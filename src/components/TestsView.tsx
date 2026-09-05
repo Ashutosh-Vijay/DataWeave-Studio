@@ -36,14 +36,13 @@ const STARTER = [
 interface TestsViewProps {
   request: Request;
   onTestScriptChange: (script: string) => void;
-  /** The suite runner lives in App so the header's Run button drives it too —
-   *  the panel's own button and ⌘↵ are then the same action, not two. */
+  /** The suite runner lives in App, so the header's Run button drives it while
+   *  this pane is open. That is the only way to run a suite. */
   result: ReturnType<typeof useTestRunner>['result'];
   running: boolean;
-  onRun: () => void;
 }
 
-export function TestsView({ request, onTestScriptChange, result, running, onRun }: TestsViewProps) {
+export function TestsView({ request, onTestScriptChange, result, running }: TestsViewProps) {
   const hasSuite = !!(request.testScript ?? '').trim();
 
   return (
@@ -69,20 +68,12 @@ export function TestsView({ request, onTestScriptChange, result, running, onRun 
           </div>
         )}
 
-        <button
-          onClick={onRun}
-          disabled={running || !hasSuite}
-          className="inline-flex items-center gap-1.5 h-[21px] px-2.5 rounded text-[11px] font-medium cursor-pointer"
-          style={{
-            border: '1px solid var(--line)',
-            background: 'var(--surface)',
-            color: hasSuite ? 'var(--content-secondary)' : 'var(--content-ghost)',
-            opacity: running ? 0.6 : 1,
-          }}
-          title={hasSuite ? 'Run this suite' : 'Write a suite first'}
-        >
-          {running ? 'Running…' : 'Run tests'}
-        </button>
+        {/* No Run button here. The header's Run button runs this suite while the
+            Tests pane is open, so a second one beside it was the same action
+            twice — and the small one was easy to mistake for the only one. */}
+        {running && (
+          <span className="text-[10.5px] font-mono" style={{ color: 'var(--content-ghost)' }}>Running…</span>
+        )}
       </div>
 
       <div className="flex-1 flex overflow-hidden">

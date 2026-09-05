@@ -1786,7 +1786,6 @@ function App() {
               onTestScriptChange={workspace.setTestScript}
               result={tests.result}
               running={tests.running}
-              onRun={handleRun}
             />
           </main>
         ) : isCompact ? (

@@ -184,7 +184,14 @@ interface DwRequest {
   modules?: { name: string; content: string }[];
   /** "run" (default) or "format" — format runs the engine's IDE formatter and
    *  returns the pretty-printed script in `output`. */
-  op?: 'run' | 'format' | 'tooling';
+  op?: 'run' | 'format' | 'tooling' | 'debug';
+  /** op=debug: 'start' begins a session; everything else drives the one running. */
+  action?: string;
+  /** op=debug, action=evaluate: the expression to evaluate in the paused frame. */
+  expression?: string;
+  frameIndex?: number;
+  /** op=debug, action=start: 1-based lines to break on. */
+  breakpoints?: number[];
   /** op=tooling, kind=rename: the identifier to rename to. */
   newName?: string;
   /** op=tooling, kind=sampleData: output format and array repeat count. */
@@ -652,6 +659,10 @@ export interface RunArgs {
   trace?: boolean;
   /** Record what every expression evaluated to, without any `log()` calls. */
   valueTrace?: boolean;
+  /** Start a debug session instead of running straight through. */
+  debug?: boolean;
+  /** 1-based lines to break on. Only meaningful with `debug`. */
+  debugBreakpoints?: number[];
   /** Target Mule runtime, e.g. "2.4". Empty/omitted = no version gating. */
   languageLevel?: string;
 }
@@ -768,11 +779,12 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
         ? args.payloadFilePath
         : writeTemp(runDir, 'payload.dat', effectivePayload);
 
-    // A value-trace run executes the script verbatim: buildFullScript inserts
-    // `input` declarations that shift every line below them, and every trace row
-    // carries a line number the editor has to be able to highlight. The engine
-    // gets its input types from the request, so the declarations aren't needed.
-    const fullScript = args.valueTrace
+    // A value-trace or debug run executes the script verbatim: buildFullScript
+    // inserts `input` declarations that shift every line below them, so a
+    // breakpoint set on editor line 6 would land on a different statement and
+    // every trace row would point at the wrong line. The engine gets its input
+    // types from the request, so the declarations aren't needed.
+    const fullScript = args.valueTrace || args.debug
       ? args.script
       : buildFullScript(args.script, payloadMime, hasAttributes, hasVars, namedInputs);
     const lineOffset = Math.max(
@@ -816,6 +828,9 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
           trace: args.trace || undefined,
           valueTrace: args.valueTrace || undefined,
           languageLevel: args.languageLevel || undefined,
+          op: args.debug ? 'debug' : undefined,
+          action: args.debug ? 'start' : undefined,
+          breakpoints: args.debug ? (args.debugBreakpoints ?? []) : undefined,
         },
         timeout
       );
@@ -866,6 +881,38 @@ function writeTemp(dir: string, name: string, content: string): string {
   const p = path.join(dir, name);
   fs.writeFileSync(p, content);
   return p;
+}
+
+/**
+ * Drive a running debug session. Mirrors dw_server::debug_command.
+ *
+ * Every command answers immediately, because the engine pauses by parking the
+ * thread executing the script and the server runs that on a worker — so the
+ * stdio loop is never the thing that is blocked. The session state comes back
+ * as a JSON document carried inside `output`.
+ */
+export async function debugDataweave(
+  server: DwServer,
+  action: string,
+  expression = '',
+  frameIndex = -1,
+): Promise<unknown> {
+  const resp = await server.run(
+    {
+      op: 'debug',
+      action,
+      expression,
+      frameIndex,
+      script: '',
+      payloadPath: '',
+      payloadMime: 'application/json',
+      namedInputs: [],
+      outputMime: 'application/json',
+    },
+    20000,
+  );
+  if (!resp.ok) throw new Error(resp.error ?? 'Debug command failed');
+  return resp.output ? JSON.parse(resp.output) : null;
 }
 
 /** Pretty-print a script via the engine's IDE formatter (op=format). Returns the
