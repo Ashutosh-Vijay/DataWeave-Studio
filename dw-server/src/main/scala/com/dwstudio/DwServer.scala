@@ -543,6 +543,36 @@ object DwServer {
 
   /** Errors then warnings, noise removed - the ONE ordering shared by typeCheck,
    *  quickFixes and applyQuickFix, so an index means the same thing in all three. */
+  /** A hover-sized version of a function's documentation.
+   *
+   *  The stdlib's doc comments are thorough: `map` carries four worked examples
+   *  and renders to 2,700 characters, which as a hover popover is a wall of
+   *  text you have to scroll past to see the parameter you came for. Keep the
+   *  signature, the description, the parameter table and the first example, and
+   *  say how many were left behind.
+   *
+   *  Done on the rendered markdown rather than through `WeaveDocParser`: the
+   *  headings are produced by AsciiDocMigrator from the six literal keywords
+   *  the doc grammar recognises, so they are as reliable as the parse tree, and
+   *  the parser silently degrades to the raw string when the grammar fails —
+   *  which here would mean quietly falling back to the untrimmed wall. */
+  private def hoverSizedDoc(markdown: String): String = {
+    val marker = "\n### Example"
+    val first = markdown.indexOf(marker)
+    if (first < 0) return markdown
+    val second = markdown.indexOf(marker, first + marker.length)
+    if (second < 0) return markdown
+    var remaining = 0
+    var at = second
+    while (at >= 0) {
+      remaining += 1
+      at = markdown.indexOf(marker, at + marker.length)
+    }
+    markdown.substring(0, second).trim +
+      "\n\n_" + remaining + " more example" + (if (remaining == 1) "" else "s") +
+      " in the function reference._"
+  }
+
   private def visibleMessages(doc: WeaveDocumentToolingService, hasPayloadType: Boolean): Seq[(ValidationMessage, String)] = {
     val msgs = doc.typeCheck()
     val all = msgs.errorMessage.toSeq.map(m => (m, "error")) ++ msgs.warningMessage.toSeq.map(m => (m, "warning"))
@@ -836,11 +866,24 @@ object DwServer {
           }
           payload.add("items", arr)
 
+        // The `/** ... */` comment at the top of a module. The parser binds a
+        // doc comment at index 0 to the document node itself, which is how
+        // module-level documentation works; the engine strips the `*` gutter
+        // and converts the AsciiDoc, both of which a regex here would get
+        // subtly wrong.
+        case "moduleDoc" =>
+          doc.documentation() match {
+            case Some(d) =>
+              payload.add("doc", d.markdownDoc())
+              d.parseDoc().smallDescription.foreach(sd => payload.add("summary", sd.trim))
+            case None => payload.add("doc", Json.NULL)
+          }
+
         case "hover" =>
           doc.hoverResult(offset) match {
             case Some(h) =>
               payload.add("type", h.resultType.toString)
-              h.markdownDocs.foreach(d => payload.add("doc", d))
+              h.markdownDocs.foreach(d => payload.add("doc", hoverSizedDoc(d)))
             case None => payload.add("type", Json.NULL)
           }
 
@@ -862,7 +905,7 @@ object DwServer {
                 }
                 o.add("parameters", params)
                 o.add("active", sd.active)
-                sd.docAsMarkdown().foreach(d => o.add("doc", d))
+                sd.docAsMarkdown().foreach(d => o.add("doc", hoverSizedDoc(d)))
                 arr.add(o)
               }
               payload.add("signatures", arr)

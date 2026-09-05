@@ -18,19 +18,25 @@ import { Icons } from './Icons';
 import { WindowControls } from './WindowControls';
 import { MiniEditor } from './MiniEditor';
 import { ConfirmDialog } from './ConfirmDialog';
+import { invoke } from '../bridge';
 
 export interface DwModule {
   name: string;
   content: string;
 }
 
-const SAMPLE_MODULE = `%dw 2.0
-/** Reusable helpers — import these from any script. */
+// The header doc comment goes ABOVE `%dw 2.0`, not below it. A doc comment
+// binds to the next thing after it, so one placed under the header documents
+// `greet` instead of the module, and the library shows no description.
+const SAMPLE_MODULE = `/**
+ * Reusable helpers — import these from any script.
+ */
+%dw 2.0
 
 fun greet(name: String): String = "Hello, " ++ name ++ "!"
 
 fun toSlug(text: String): String =
-  lower(text) replace /\\s+/ with "-"
+  lower(text) replace /\\\\s+/ with "-"
 `;
 
 const isValidName = (n: string) => /^[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)*$/.test(n);
@@ -47,6 +53,30 @@ export function ModulesPanel({
   onChange: (modules: DwModule[]) => void;
 }) {
   const [selected, setSelected] = useState(0);
+  // Each module's own header doc, read by the engine rather than pattern-matched
+  // here: it strips the `*` gutter and converts the AsciiDoc the doc comments
+  // are written in. Keyed by name, refreshed whenever the panel opens or a
+  // module's source changes.
+  const [summaries, setSummaries] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      const next: Record<string, string> = {};
+      for (const m of modules) {
+        try {
+          const res = await invoke<{ summary?: string }>('dw_tooling', {
+            kind: 'moduleDoc',
+            script: m.content,
+            offset: 0,
+          });
+          if (res?.summary) next[m.name] = res.summary;
+        } catch { /* engine cold - names alone are still usable */ }
+      }
+      if (!cancelled) setSummaries(next);
+    })();
+    return () => { cancelled = true; };
+  }, [open, modules]);
 
   useEffect(() => {
     // Skip Escapes Monaco already handled (suggest/find widget dismiss).
@@ -129,6 +159,9 @@ export function ModulesPanel({
                 <Icons.Braces size={11} />
                 <div className="flex-1 min-w-0">
                   <div className={`text-[11px] font-mono truncate ${i === selected ? 'text-content' : 'text-content-secondary'}`} title={m.name}>{m.name || '(unnamed)'}</div>
+                  {summaries[m.name] && (
+                    <div className="text-[10px] text-content-ghost truncate" title={summaries[m.name]}>{summaries[m.name]}</div>
+                  )}
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); setPendingDelete(i); }}
@@ -165,6 +198,15 @@ export function ModulesPanel({
                 {dupName && <span className="text-[10.5px] text-err">Duplicate name</span>}
                 {badName && !dupName && <span className="text-[10.5px] text-err">Letters/digits/_, packages with ::</span>}
               </div>
+              {summaries[active.name] ? (
+                <div className="shrink-0 px-3.5 py-1.5 border-b border-line-subtle text-[11px] text-content-secondary">
+                  {summaries[active.name]}
+                </div>
+              ) : (
+                <div className="shrink-0 px-3.5 py-1.5 border-b border-line-subtle text-[10.5px] text-content-ghost">
+                  No description. Put a <span className="font-mono text-content-faint">{'/** ... */'}</span> comment at the very top of the file, above <span className="font-mono text-content-faint">%dw 2.0</span>, and it shows here and in the list.
+                </div>
+              )}
               <div className="flex-1 min-h-0">
                 <MiniEditor value={active.content} onChange={(v) => updateActive({ content: v })} language="dataweave" height="100%" />
               </div>
