@@ -93,6 +93,16 @@ struct DwRequest<'a> {
     /// the engine's own version, i.e. no version gating.
     #[serde(skip_serializing_if = "str::is_empty")]
     language_level: &'a str,
+    /// Set to "debug" to start a debug session instead of running. The server
+    /// then attaches the debugger, runs on a worker thread and answers
+    /// immediately; progress is read back with `debug_command`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    op: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    action: Option<&'a str>,
+    /// 1-based lines to break on.
+    #[serde(skip_serializing_if = "<[u32]>::is_empty")]
+    breakpoints: &'a [u32],
 }
 
 #[derive(Serialize, Deserialize)]
@@ -131,6 +141,10 @@ pub struct DwRunArgs<'a> {
     pub trace: bool,
     /// Target runtime, e.g. "2.4". Empty = no gating.
     pub language_level: &'a str,
+    /// Start a debug session rather than a normal run.
+    pub debug: bool,
+    /// Lines to break on. Only meaningful with `debug`.
+    pub breakpoints: &'a [u32],
 }
 
 /// Resolve the bundled dwstudio-server.jar path from Tauri resources.
@@ -499,6 +513,9 @@ fn run_once(app: &AppHandle, args: &DwRunArgs) -> Result<DwResponse, RunErr> {
         modules: args.modules,
         trace: args.trace,
         language_level: args.language_level,
+        op: if args.debug { Some("debug") } else { None },
+        action: if args.debug { Some("start") } else { None },
+        breakpoints: args.breakpoints,
     };
     let line = serde_json::to_string(&req)
         .map_err(|e| RunErr::Other(format!("Failed to serialize request: {}", e)))?;
@@ -571,6 +588,54 @@ pub fn format(app: &AppHandle, script: &str) -> Result<String, String> {
         Ok(v.get("output").and_then(|s| s.as_str()).unwrap_or("").to_string())
     } else {
         Err(v.get("error").and_then(|s| s.as_str()).unwrap_or("format failed").to_string())
+    }
+}
+
+/// Drive a debug session that is already running (`op=debug`). Everything
+/// except `start` lands here: state, resume, the three step commands, evaluate
+/// and stop. Each returns immediately — the script is paused on its own thread
+/// inside the JVM, so the stdio loop is free.
+pub fn debug_command(
+    app: &AppHandle,
+    action: &str,
+    expression: &str,
+    frame_index: i64,
+) -> Result<serde_json::Value, String> {
+    let state = app.state::<DwServerState>();
+    let id = state.next_id.fetch_add(1, Ordering::Relaxed);
+    let req = serde_json::json!({
+        "id": id, "op": "debug", "action": action,
+        "expression": expression, "frameIndex": frame_index,
+    })
+    .to_string();
+
+    let mut guard = state.inner.lock().unwrap_or_else(|e| e.into_inner());
+    let inner = guard
+        .as_mut()
+        .ok_or_else(|| "DataWeave server not running".to_string())?;
+    inner.stdin.write_all(req.as_bytes()).map_err(|e| format!("Failed to write to server: {}", e))?;
+    inner.stdin.write_all(b"
+").map_err(|e| format!("Failed to write to server: {}", e))?;
+    inner.stdin.flush().map_err(|e| format!("Failed to flush stdin: {}", e))?;
+
+    let mut resp_bytes: Vec<u8> = Vec::new();
+    inner
+        .stdout
+        .read_until(b'\n', &mut resp_bytes)
+        .map_err(|e| format!("Failed to read from server: {}", e))?;
+    if resp_bytes.is_empty() {
+        return Err("DataWeave server closed unexpectedly.".into());
+    }
+    let resp_line = String::from_utf8_lossy(&resp_bytes);
+    let v: serde_json::Value = serde_json::from_str(&resp_line)
+        .map_err(|e| format!("Bad debug response: {} (line: {})", e, resp_line.trim()))?;
+    if !v.get("ok").and_then(|b| b.as_bool()).unwrap_or(false) {
+        return Err(v.get("error").and_then(|s| s.as_str()).unwrap_or("debug failed").to_string());
+    }
+    // The session state is a JSON document carried as a string in `output`.
+    match v.get("output").and_then(|o| o.as_str()) {
+        Some(out) => serde_json::from_str(out).map_err(|e| format!("Bad debug payload: {}", e)),
+        None => Ok(serde_json::Value::Null),
     }
 }
 

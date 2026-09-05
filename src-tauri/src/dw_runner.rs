@@ -335,9 +335,19 @@ pub async fn run_dataweave(
     modules_json: Option<String>,
     trace: Option<bool>,
     language_level: Option<String>,
+    // debug: start a debug session instead of running. The engine attaches the
+    // debugger, runs on its own thread and answers straight away; the UI then
+    // drives it with `dw_debug`.
+    debug: Option<bool>,
+    debug_breakpoints: Option<Vec<u32>>,
 ) -> Result<RunResult, String> {
     let start_time = Instant::now();
     let trace = trace.unwrap_or(false);
+    // A debug run is an ordinary run with a listener attached, so it goes down
+    // this same path — that keeps one implementation of payload/attributes/vars
+    // temp-file preparation rather than a second, drifting copy.
+    let debug = debug.unwrap_or(false);
+    let debug_breakpoints = debug_breakpoints.unwrap_or_default();
     // Target runtime, e.g. "2.4" for Mule 4.4. Empty = the engine's own 2.12.
     let language_level = language_level.unwrap_or_default();
 
@@ -426,7 +436,22 @@ pub async fn run_dataweave(
     } else {
         payload_mime_type.clone()
     };
-    let full_script = build_full_script(&script, &script_mime, has_attributes, has_vars, &named_inputs);
+    // A debug run executes the user's script verbatim. build_full_script inserts
+    // `input <name> <mime>` declarations after the %dw line (or before `---`),
+    // which shifts every line below the insertion point — so a breakpoint set on
+    // editor line 6 would land on a different statement, and the paused line
+    // reported back would not match the editor either.
+    //
+    // The declarations are not actually required: the server derives its input
+    // types from the request's payload/attributes/vars entries and passes them
+    // via `withInputs`, so `payload` resolves without them. Skipping the
+    // rewrite keeps editor and engine line numbers identical, which is the only
+    // way breakpoints can be trusted.
+    let full_script = if debug {
+        script.clone()
+    } else {
+        build_full_script(&script, &script_mime, has_attributes, has_vars, &named_inputs)
+    };
     // Offset = lines we prepended / inserted. The DW CLI reports errors against
     // the merged script; we remap line numbers back to the user's view.
     let line_offset: i64 = (full_script.lines().count() as i64)
@@ -505,6 +530,8 @@ pub async fn run_dataweave(
                 modules: &modules,
                 trace,
                 language_level: &language_level,
+                debug,
+                breakpoints: &debug_breakpoints,
             },
         )
     });
@@ -707,6 +734,22 @@ pub fn dw_tooling(
     )
 }
 
+/// Drive a running debug session: state, resume, stepOver/In/Out, evaluate, stop.
+#[tauri::command]
+pub fn dw_debug(
+    app: tauri::AppHandle,
+    action: String,
+    expression: Option<String>,
+    frame_index: Option<i64>,
+) -> Result<serde_json::Value, String> {
+    crate::dw_server::debug_command(
+        &app,
+        &action,
+        expression.as_deref().unwrap_or(""),
+        frame_index.unwrap_or(-1),
+    )
+}
+
 #[tauri::command]
 pub fn restart_engine(app: AppHandle) -> Result<(), String> {
     {
@@ -808,6 +851,8 @@ pub async fn warm_dataweave_script(
                 modules: &[],
                 trace: false,
                 language_level: "",
+                debug: false,
+                breakpoints: &[],
             },
         ) {
             log::warn!("Warm compile failed: {}", e);

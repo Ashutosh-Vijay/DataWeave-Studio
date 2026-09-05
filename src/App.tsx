@@ -41,6 +41,8 @@ import { shareUrl, encodeShare, decodeShare, isShareTooLong, unshareableItems, t
 import { TestsView } from './components/TestsView';
 import { FirstWorkspacePrompt } from './components/FirstWorkspacePrompt';
 import { TargetRuntimePrompt } from './components/TargetRuntimePrompt';
+import { DebugPanel } from './components/DebugPanel';
+import { useDebugger } from './hooks/useDebugger';
 import { PayloadTabs } from './components/PayloadTabs';
 import { OutputPane } from './components/OutputPane';
 import { ContextPanel } from './components/ContextPanel';
@@ -260,6 +262,14 @@ function App() {
   const [appTarget, setAppTargetState] = useState(readAppTarget);
   const [perWorkspaceTarget, setPerWorkspaceTargetState] = useState(readPerWorkspace);
   const [showTargetPrompt, setShowTargetPrompt] = useState(false);
+
+  // Debugger. Breakpoints live here rather than in the workspace file: they are
+  // a property of what you're currently investigating, not of the transform.
+  const dbg = useDebugger();
+  const [breakpoints, setBreakpoints] = useState<number[]>([]);
+  const toggleBreakpoint = useCallback((line: number) => {
+    setBreakpoints((prev) => (prev.includes(line) ? prev.filter((l) => l !== line) : [...prev, line].sort((a, b) => a - b)));
+  }, []);
 
   /** The target actually in force: the workspace's when the override is on and
    *  it has one, else the app-wide setting. */
@@ -901,7 +911,15 @@ function App() {
     void invoke('save_modules', { json: JSON.stringify(next) }).catch(() => { /* best-effort */ });
   }, []);
 
-  const handleRun = useCallback(async () => {
+  /**
+   * Everything an execution needs, resolved: `p()` rewritten, `${key}` and
+   * `${secure::key}` substituted, expression-typed vars evaluated against the
+   * real message, multipart and module payloads serialised.
+   *
+   * Shared by Run and Debug so a debug session executes exactly what a run
+   * would — the alternative is two copies of this that drift.
+   */
+  const resolveRunInputs = useCallback(async () => {
     const { configYaml, secureConfigYaml } = workspace.context;
 
     const attributesJson = buildAttributesJson(
@@ -948,21 +966,45 @@ function App() {
 
     const modulesJson = modules.length > 0 ? JSON.stringify(modules) : undefined;
 
+    return { resolvedScript, resolvedPayload, attributesJson, varsJson, namedInputsJson, multipartPartsJson, modulesJson };
+  }, [workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, workspace.payloadFilePath, workspace.multipartParts, modules, encryptionKey]);
+
+  const handleRun = useCallback(async () => {
+    const r = await resolveRunInputs();
     await runner.run(
-      resolvedScript,
-      resolvedPayload,
+      r.resolvedScript,
+      r.resolvedPayload,
       workspace.payloadMimeType,
-      attributesJson,
-      varsJson,
-      namedInputsJson,
+      r.attributesJson,
+      r.varsJson,
+      r.namedInputsJson,
       workspace.payloadFilePath,
       workspace.classpath,
       workspace.timeoutMs,
-      multipartPartsJson,
-      modulesJson,
+      r.multipartPartsJson,
+      r.modulesJson,
       targetRuntime,
     );
-  }, [workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, workspace.payloadFilePath, workspace.classpath, workspace.timeoutMs, workspace.multipartParts, targetRuntime, modules, runner, encryptionKey]);
+  }, [resolveRunInputs, workspace.payloadMimeType, workspace.payloadFilePath, workspace.classpath, workspace.timeoutMs, targetRuntime, runner]);
+
+  /** Same inputs as Run, but the engine attaches the debugger and parks on the
+   *  first breakpoint instead of running straight through. */
+  const handleDebug = useCallback(async () => {
+    const r = await resolveRunInputs();
+    setViewMode('script');
+    await dbg.start({
+      script: r.resolvedScript,
+      payload: r.resolvedPayload,
+      payloadMimeType: workspace.payloadMimeType,
+      attributesJson: r.attributesJson,
+      varsJson: r.varsJson,
+      namedInputsJson: r.namedInputsJson,
+      payloadFilePath: workspace.payloadFilePath,
+      classpath: workspace.classpath,
+      modulesJson: r.modulesJson,
+      breakpoints,
+    });
+  }, [resolveRunInputs, workspace.payloadMimeType, workspace.payloadFilePath, workspace.classpath, breakpoints, dbg]);
 
   // Keep refs in sync for auto-run (avoids stale closures and infinite loops)
   handleRunRef.current = handleRun;
@@ -1431,6 +1473,17 @@ function App() {
             <Icons.Zap size={12} /> Auto
           </button>
           <button
+            onClick={handleDebug}
+            disabled={!canRun || dbg.state.status === 'running' || dbg.state.status === 'paused'}
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] font-medium border transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ borderColor: breakpoints.length ? 'var(--accent-border)' : 'var(--line)', color: breakpoints.length ? 'var(--accent)' : 'var(--content-faint)', background: 'transparent' }}
+            title={breakpoints.length
+              ? `Debug — stops at ${breakpoints.length} breakpoint${breakpoints.length > 1 ? 's' : ''}. Click the gutter to add more.`
+              : 'Debug — click the gutter beside a line number to set a breakpoint first'}
+          >
+            <Icons.Activity size={12} /> Debug
+          </button>
+          <button
             onClick={handleRun}
             disabled={!canRun}
             className="inline-flex items-center gap-1.5 h-7 pl-2.5 pr-3 rounded-md text-[12.5px] font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
@@ -1657,6 +1710,9 @@ function App() {
                   payloadMimeType={workspace.payloadMimeType}
                   contextData={contextDataMemo}
                   languageLevel={targetRuntime}
+                  breakpoints={breakpoints}
+                  onToggleBreakpoint={toggleBreakpoint}
+                  pausedLine={dbg.state.status === 'paused' ? dbg.state.line ?? null : null}
                   onCursorChange={publishCursor}
                 />
               }
@@ -1683,7 +1739,7 @@ function App() {
                   onEncryptionKeyChange={setEncryptionKey}
                 />
               }
-              outputPane={
+              outputPane={dbg.active ? <DebugPanel dbg={dbg} /> : (
                 <OutputPane
                   output={runner.output}
                   error={runner.error}
@@ -1699,7 +1755,7 @@ function App() {
                   scriptSource={workspace.script}
                   onCancel={runner.cancel}
                 />
-              }
+              )}
             />
           </main>
         ) : (
@@ -1810,6 +1866,9 @@ function App() {
                       headerLabel={isQueryMode ? 'Parameters (DataWeave 2.0)' : undefined}
                       contextData={contextDataMemo}
                       languageLevel={targetRuntime}
+                      breakpoints={breakpoints}
+                      onToggleBreakpoint={toggleBreakpoint}
+                      pausedLine={dbg.state.status === 'paused' ? dbg.state.line ?? null : null}
                       onCursorChange={publishCursor}
                     />
                     </div>
@@ -1824,6 +1883,7 @@ function App() {
 
             {/* Right: Output */}
             <Panel defaultSize={32} minSize={15} data-tour="output">
+              {dbg.active ? <DebugPanel dbg={dbg} /> : (
               <OutputPane
                 output={runner.output}
                 error={runner.error}
@@ -1839,6 +1899,7 @@ function App() {
                 scriptSource={workspace.script}
                 onCancel={runner.cancel}
               />
+              )}
             </Panel>
 
           </PanelGroup>

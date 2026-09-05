@@ -350,3 +350,43 @@ html[data-vscode-theme-kind^="vscode-high-contrast"] { color-scheme: dark; }
   50% { transform: translateY(-5px) translateX(-5px); opacity: 0.8; }
   75% { transform: translateY(-15px) translateX(3px); opacity: 1; }
 }
+
+/* ── Editor gutter decorations ─────────────────────────────────────────────
+   Monaco applies these class names to glyph-margin and line decorations. The
+   error pair was being applied with no styles defined anywhere, so the error
+   glyph and its line highlight have never actually been visible. */
+.error-glyph {
+  background: var(--err);
+  border-radius: 50%;
+  width: 8px !important;
+  height: 8px;
+  margin-left: 5px;
+  margin-top: 6px;
+}
+.error-line-highlight {
+  background: color-mix(in oklch, var(--err) 12%, transparent);
+}
+
+/* Breakpoints. Clickable target is the whole margin cell, so the dot is drawn
+   with a background rather than a child element. */
+.dw-breakpoint {
+  background: var(--err);
+  border-radius: 50%;
+  width: 10px !important;
+  height: 10px;
+  margin-left: 4px;
+  margin-top: 5px;
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--err) 25%, transparent);
+}
+/* Where execution is parked right now. */
+.dw-paused-glyph {
+  background: var(--accent);
+  border-radius: 2px;
+  width: 10px !important;
+  height: 10px;
+  margin-left: 4px;
+  margin-top: 5px;
+}
+.dw-paused-line {
+  background: color-mix(in oklch, var(--accent) 16%, transparent);
+}

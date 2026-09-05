@@ -606,6 +606,8 @@ impl DwTools {
             modules_json,      // custom .dwl modules (safe-mode scanned above)
             input.trace,       // trace mode — capture log(...) output
             None,              // target runtime — not exposed over MCP yet
+            None,              // debug — agents run, they don't step
+            None,
         )
         .await
         .map_err(|e| rmcp::ErrorData::internal_error(e, None))?;
@@ -1261,7 +1263,7 @@ pub async fn run_batch(
             row.attributes.as_ref().map(|v| v.to_string()).unwrap_or_else(|| "{}".into()),
             row.vars.as_ref().map(|v| v.to_string()).unwrap_or_else(|| "{}".into()),
             "[]".to_string(),
-            None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None, None, None,
         )
         .await;
         let execution_time_ms = started.elapsed().as_millis();

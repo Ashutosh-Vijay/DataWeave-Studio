@@ -55,6 +55,12 @@ interface ScriptEditorProps {
   };
   /** Target runtime for completion + diagnostics, e.g. "2.4". Empty = latest. */
   languageLevel?: string;
+  /** Lines with a breakpoint, 1-based. Rendered in the glyph margin. */
+  breakpoints?: number[];
+  /** Clicking the glyph margin toggles the line. Omit to disable breakpoints. */
+  onToggleBreakpoint?: (line: number) => void;
+  /** Where the debugger is currently parked, if anywhere. */
+  pausedLine?: number | null;
   onCursorChange?: (line: number, col: number) => void;
   /** Stable identifier for THIS script. When set, @monaco-editor/react keeps
    *  a separate ITextModel per path and preserves its undo/redo history
@@ -77,7 +83,8 @@ export interface ScriptEditorHandle {
 // `code`/`payload`/`contextData`/etc. actually change (shallow compare).
 // Callers MUST stabilize object/function props for the memo to be effective.
 export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProps>(function ScriptEditor(
-  { code, onChange, onRun, errorLine, headerLabel, payload, payloadMimeType, contextData, languageLevel, onCursorChange, modelPath },
+  { code, onChange, onRun, errorLine, headerLabel, payload, payloadMimeType, contextData, languageLevel,
+    breakpoints, onToggleBreakpoint, pausedLine, onCursorChange, modelPath },
   ref,
 ) {
   const monaco = useMonaco();
@@ -129,6 +136,13 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
   };
 
   const decorationsRef = useRef<string[]>([]);
+  // Kept apart from the error decorations so a run's error highlight and the
+  // debugger's breakpoints don't overwrite one another.
+  const debugDecorationsRef = useRef<string[]>([]);
+  // The click handler is installed once at mount, so it reads the latest
+  // callback through a ref rather than capturing the first one.
+  const toggleBreakpointRef = useRef(onToggleBreakpoint);
+  toggleBreakpointRef.current = onToggleBreakpoint;
 
   const onRunRef = useRef(onRun);
   onRunRef.current = onRun;
@@ -342,6 +356,24 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
     return () => window.removeEventListener('dw:accent-changed', apply);
   }, [isDark, monaco]);
 
+  // Breakpoints and the paused line.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || !monaco) return;
+    const decorations = (breakpoints ?? []).map((line) => ({
+      range: new monaco.Range(line, 1, line, 1),
+      options: { isWholeLine: false, glyphMarginClassName: 'dw-breakpoint', glyphMarginHoverMessage: { value: 'Breakpoint' } },
+    }));
+    if (pausedLine && pausedLine > 0) {
+      decorations.push({
+        range: new monaco.Range(pausedLine, 1, pausedLine, 1),
+        options: { isWholeLine: true, className: 'dw-paused-line', glyphMarginClassName: 'dw-paused-glyph' } as any,
+      } as any);
+      editor.revealLineInCenterIfOutsideViewport(pausedLine);
+    }
+    debugDecorationsRef.current = editor.deltaDecorations(debugDecorationsRef.current, decorations);
+  }, [breakpoints, pausedLine, monaco]);
+
   // Highlight error line when it changes
   useEffect(() => {
     const editor = editorRef.current;
@@ -374,6 +406,16 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
 
   const handleEditorDidMount = (editor: any, monacoInstance: any) => {
     editorRef.current = editor;
+
+    // Toggle a breakpoint by clicking the gutter, the way every other editor
+    // does it. Monaco reports the margin as its own target type, so this can't
+    // be confused with a click on the code itself.
+    editor.onMouseDown((e: any) => {
+      const GLYPH_MARGIN = monacoInstance.editor.MouseTargetType.GUTTER_GLYPH_MARGIN;
+      if (e.target?.type === GLYPH_MARGIN && e.target.position) {
+        toggleBreakpointRef.current?.(e.target.position.lineNumber);
+      }
+    });
     // The engine-backed providers aren't handed a model when they need the
     // payload context, so tell them which editor is live.
     setActiveDWModel(editor.getModel());
