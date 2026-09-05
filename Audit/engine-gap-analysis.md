@@ -6,6 +6,28 @@ A source-level audit of the bundled DataWeave engine (**2.12.2-20260715**, extra
 
 ---
 
+## 1b. Status (updated 2026-09-05)
+
+All thirteen have now been acted on. What shipped, and where this report was wrong:
+
+| # | Outcome |
+|---|---|
+| 1, 4 | `markdownDocs` / `markdownDocumentation` / `docAsMarkdown` wired. Hovers are now trimmed to the first example as well — `map` rendered 2,700 characters. |
+| 2, 10 | Sample data from a declared type, with the parse check this report asked for. |
+| 3 | `semanticTokens()` — about an hour, not the 2-3 days estimated. |
+| 5 | 52 functions added to the reference from the jar's own doc comments (asserts, tests, filesystem, protobuf) via `scripts/extract-dw-bundled-docs.mjs`. Note the premise was half wrong: the engine's language service already answered hovers for these, because it reads the same doc comments. Only the browsable reference was short. |
+| 6 | Non-blocking value trace, on a `WeaveExecutionListener`. Rows keyed by source span rather than execution, so a map over 500 items is one row with a count. |
+| 7 | `getDeclaredOutputMimeType` replaced the regex. |
+| 8 | `documentation()` — the Module library shows each module's own header doc. **The comment must sit above `%dw 2.0`**; below it, it documents the first function instead. |
+| 9 | Not built as specified, and it should not be: #1 already delivered the parameter table and highlighted code blocks that #9 promised. What was left was length, so hovers are trimmed instead. `WeaveDocParser` remains unused. |
+| 11 | **Reachability confirmed** — the shade plugin merges service files, and the built jar lists all three providers. First rule: a `log(...)` left in the script, reported as a hint with an unwrap fix. |
+| 12 | **Reachability confirmed** — `createParsingContext` is public and overridable, and `copyElements` carries the crypto flags to every child context. It is real taint analysis: `var algo = "MD5"` used three lines later is flagged at the call site. Only MD5/MD2/MD4/HmacMD5 are banned, and the speculative half (non-literal algorithm) is dropped as too noisy. |
+| 13 | Built, in one session. The TCP shape is not load-bearing: the executor parks the *executing* thread, so a worker thread and ordinary request/response is enough. §6's "weeks, ruled out" was wrong. |
+
+**Treat the effort estimates in the table below as unreliable.** They were derived from reading structure rather than trying anything, and they were wrong in both directions.
+
+---
+
 ## 2. Bottom line
 
 - **The single highest-value change in this whole audit is one expression.** Studio pipes raw AsciiDoc into a Monaco *markdown* hover, so `=== Parameters`, `|===`, `----` and `[%header, cols="1,3"]` leak literally into every hover — for the user's own functions *and* all 309 stdlib functions. `HoverMessage.markdownDocs` already exists and already runs the engine's own AsciiDoc→Markdown converter.

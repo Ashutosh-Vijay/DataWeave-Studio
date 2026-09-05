@@ -36,7 +36,7 @@ const SAMPLE_MODULE = `/**
 fun greet(name: String): String = "Hello, " ++ name ++ "!"
 
 fun toSlug(text: String): String =
-  lower(text) replace /\\\\s+/ with "-"
+  lower(text) replace /\\s+/ with "-"
 `;
 
 const isValidName = (n: string) => /^[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)*$/.test(n);
