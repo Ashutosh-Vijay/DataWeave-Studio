@@ -149,6 +149,23 @@ interface DwResponse {
   executionTimeMs: number;
   /** Captured `log(...)` output when the request set `trace`. */
   logs?: string[];
+  /** One row per expression when the request set `valueTrace`. */
+  trace?: TraceRow[];
+}
+
+/** What one expression in the script evaluated to, from the engine's execution
+ *  listener. Mirrors dw_server::TraceRow. */
+export interface TraceRow {
+  line: number;
+  column: number;
+  endLine: number;
+  endColumn: number;
+  expression: string;
+  kind: string;
+  type: string;
+  value: string;
+  count: number;
+  error?: string;
 }
 
 interface DwRequest {
@@ -183,6 +200,8 @@ interface DwRequest {
   payload?: string;
   /** Trace mode: capture the script's `log(...)` output into the response. */
   trace?: boolean;
+  /** Record what every expression evaluated to. Forces a fresh compile server-side. */
+  valueTrace?: boolean;
   /** Target runtime to validate against, e.g. "2.4" for Mule 4.4. Omitted means
    *  the engine's own version, i.e. no version gating. */
   languageLevel?: string;
@@ -611,6 +630,8 @@ export interface RunResult {
   error_column: number | null;
   /** Captured `log(...)` output when trace mode is on (null otherwise). */
   logs?: string[] | null;
+  /** Per-expression values when `valueTrace` was requested (null otherwise). */
+  trace?: TraceRow[] | null;
 }
 
 export interface RunArgs {
@@ -629,6 +650,8 @@ export interface RunArgs {
   modulesJson?: string | null;
   /** Trace mode: capture the script's `log(...)` output. */
   trace?: boolean;
+  /** Record what every expression evaluated to, without any `log()` calls. */
+  valueTrace?: boolean;
   /** Target Mule runtime, e.g. "2.4". Empty/omitted = no version gating. */
   languageLevel?: string;
 }
@@ -745,13 +768,13 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
         ? args.payloadFilePath
         : writeTemp(runDir, 'payload.dat', effectivePayload);
 
-    const fullScript = buildFullScript(
-      args.script,
-      payloadMime,
-      hasAttributes,
-      hasVars,
-      namedInputs
-    );
+    // A value-trace run executes the script verbatim: buildFullScript inserts
+    // `input` declarations that shift every line below them, and every trace row
+    // carries a line number the editor has to be able to highlight. The engine
+    // gets its input types from the request, so the declarations aren't needed.
+    const fullScript = args.valueTrace
+      ? args.script
+      : buildFullScript(args.script, payloadMime, hasAttributes, hasVars, namedInputs);
     const lineOffset = Math.max(
       0,
       fullScript.split('\n').length - args.script.split('\n').length
@@ -791,6 +814,7 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
           compileOnly: false,
           modules: modules.length ? modules : undefined,
           trace: args.trace || undefined,
+          valueTrace: args.valueTrace || undefined,
           languageLevel: args.languageLevel || undefined,
         },
         timeout
@@ -819,6 +843,7 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
         error_line: null,
         error_column: null,
         logs: resp.logs ?? null,
+        trace: resp.trace ?? null,
       };
     }
     const shifted = shiftStderrLines(resp.error ?? '(no error message)', lineOffset);
@@ -830,6 +855,7 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
       error_line: line,
       error_column: col,
       logs: resp.logs ?? null,
+      trace: resp.trace ?? null,
     };
   } finally {
     fs.rmSync(runDir, { recursive: true, force: true });

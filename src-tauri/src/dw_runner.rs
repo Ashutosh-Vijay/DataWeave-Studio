@@ -18,6 +18,9 @@ pub struct RunResult {
     /// Captured `log(...)` output when trace mode is on (None otherwise).
     #[serde(default)]
     pub logs: Option<Vec<String>>,
+    /// One row per expression when value tracing was requested.
+    #[serde(default)]
+    pub trace: Option<Vec<crate::dw_server::TraceRow>>,
 }
 
 /// Managed state to track warm-up status and any errors
@@ -340,6 +343,9 @@ pub async fn run_dataweave(
     // drives it with `dw_debug`.
     debug: Option<bool>,
     debug_breakpoints: Option<Vec<u32>>,
+    // value_trace: record what every expression evaluated to. Costs a fresh
+    // compile and forces materialization, so it is opt-in per run.
+    value_trace: Option<bool>,
 ) -> Result<RunResult, String> {
     let start_time = Instant::now();
     let trace = trace.unwrap_or(false);
@@ -348,6 +354,7 @@ pub async fn run_dataweave(
     // temp-file preparation rather than a second, drifting copy.
     let debug = debug.unwrap_or(false);
     let debug_breakpoints = debug_breakpoints.unwrap_or_default();
+    let value_trace = value_trace.unwrap_or(false);
     // Target runtime, e.g. "2.4" for Mule 4.4. Empty = the engine's own 2.12.
     let language_level = language_level.unwrap_or_default();
 
@@ -447,7 +454,10 @@ pub async fn run_dataweave(
     // via `withInputs`, so `payload` resolves without them. Skipping the
     // rewrite keeps editor and engine line numbers identical, which is the only
     // way breakpoints can be trusted.
-    let full_script = if debug {
+    //
+    // A value-trace run needs the same thing for the same reason: every row it
+    // reports carries a line number the editor has to be able to highlight.
+    let full_script = if debug || value_trace {
         script.clone()
     } else {
         build_full_script(&script, &script_mime, has_attributes, has_vars, &named_inputs)
@@ -532,6 +542,7 @@ pub async fn run_dataweave(
                 language_level: &language_level,
                 debug,
                 breakpoints: &debug_breakpoints,
+                value_trace,
             },
         )
     });
@@ -561,6 +572,7 @@ pub async fn run_dataweave(
                     error_line: None,
                     error_column: None,
                     logs: None,
+                    trace: None,
                 });
             }
         }
@@ -585,6 +597,7 @@ pub async fn run_dataweave(
             error_line: None,
             error_column: None,
             logs: None,
+            trace: None,
         });
     }
 
@@ -603,6 +616,7 @@ pub async fn run_dataweave(
                     error_line: None,
                     error_column: None,
                     logs: resp.logs,
+                    trace: resp.trace,
                 })
             } else {
                 let raw = resp.error.unwrap_or_else(|| "(no error message)".into());
@@ -615,6 +629,7 @@ pub async fn run_dataweave(
                     error_line,
                     error_column,
                     logs: resp.logs,
+                    trace: resp.trace,
                 })
             }
         }
@@ -625,6 +640,7 @@ pub async fn run_dataweave(
             error_line: None,
             error_column: None,
             logs: None,
+            trace: None,
         }),
     }
 }
@@ -852,6 +868,7 @@ pub async fn warm_dataweave_script(
                 trace: false,
                 language_level: "",
                 debug: false,
+                value_trace: false,
                 breakpoints: &[],
             },
         ) {

@@ -248,21 +248,35 @@ object DwServer {
       }
 
       val target = languageLevelOf(req)
-      // The target runtime belongs in the key: the same script compiled at 2.11
-      // and at 2.4 are different programs, and the 2.4 one may not compile.
-      val cacheKey = script + " " + outputMime + moduleCacheSuffix +
-        target.map(" @" + _.toString).getOrElse("")
-      val compiled: DataWeaveScript = CompileCache.get(cacheKey).getOrElse {
+
+      // Value trace records every expression's result as the script runs. It
+      // attaches an execution listener, and `DataWeaveScript` has no public way
+      // to take one back off, so a traced run must never go through the shared
+      // cache in either direction: it compiles fresh and drops the script after.
+      val valueTrace: Boolean =
+        if (req.get("valueTrace") != null) req.get("valueTrace").asBoolean() else false
+
+      def compileFresh(): DataWeaveScript = {
         val cfg = compileEngine.newConfig()
           .withScript(script)
           .withInputs(inputTypes)
           .withNameIdentifier(NameIdentifier("main"))
           .withDefaultOutputType(outputMime)
         target.foreach(v => cfg.withLanguageVersion(v))
-        val c = compileEngine.compileWith(cfg)
-        CompileCache.put(cacheKey, c)
-        c
+        compileEngine.compileWith(cfg)
       }
+
+      // The target runtime belongs in the key: the same script compiled at 2.11
+      // and at 2.4 are different programs, and the 2.4 one may not compile.
+      val cacheKey = script + " " + outputMime + moduleCacheSuffix +
+        target.map(" @" + _.toString).getOrElse("")
+      val compiled: DataWeaveScript =
+        if (valueTrace) compileFresh()
+        else CompileCache.get(cacheKey).getOrElse {
+          val c = compileFresh()
+          CompileCache.put(cacheKey, c)
+          c
+        }
 
       if (compileOnly) {
         successResponse(id, "", started)
@@ -281,7 +295,42 @@ object DwServer {
           if (declared.isPresent && declared.get().startsWith("application/java")) "application/json"
           else null
 
-        if (trace) {
+        if (valueTrace) {
+          val listener = new TraceListener(script, "main", 400)
+          compiled.addExecutionListener(listener)
+          // Without this the interpreter can hand back lazy values. Snapshotting
+          // one would force it at the wrong moment, and on a reader-backed input
+          // walking it is destructive (see NonConsumingDebuggerExecutor); a
+          // materialized result is safe to read twice.
+          compiled.materializeValues(true)
+
+          val logger = new CapturingLogger()
+          val sm = makeServiceManager(logger)
+          var failure: String = null
+          try {
+            if (renderAs != null) compiled.write(bindings, sm, renderAs, Some(out))
+            else compiled.write(bindings, sm, Some(out))
+          } catch {
+            case t: Throwable =>
+              failure = t.getClass.getSimpleName + ": " + Option(t.getMessage).getOrElse("")
+          }
+          // A trace run that fails is the interesting one: the rows recorded up
+          // to the throw are exactly what the user is looking for, so the error
+          // travels back alongside them rather than instead of them.
+          val r = new JsonObject()
+          r.add("id", id)
+          r.add("ok", failure == null)
+          r.add("output", out.toString("UTF-8"))
+          if (failure == null) r.add("error", Json.NULL) else r.add("error", failure)
+          r.add("executionTimeMs", System.currentTimeMillis() - started)
+          if (logger.messages.nonEmpty) {
+            val arr = new com.eclipsesource.json.JsonArray()
+            logger.messages.foreach(arr.add)
+            r.add("logs", arr)
+          }
+          r.add("trace", traceJson(listener))
+          r.toString
+        } else if (trace) {
           val logger = new CapturingLogger()
           val sm = makeServiceManager(logger)
           if (renderAs != null) compiled.write(bindings, sm, renderAs, Some(out))
@@ -632,6 +681,40 @@ object DwServer {
         vars.add(v)
       }
       o.add("variables", vars)
+      arr.add(o)
+    }
+    arr
+  }
+
+  /** Trace rows, in source order, each carrying the expression as written so
+   *  the panel can show `expression -> value` without re-reading the script. */
+  private def traceJson(listener: TraceListener): com.eclipsesource.json.JsonArray = {
+    val arr = new com.eclipsesource.json.JsonArray()
+    listener.entries.foreach { row =>
+      val o = new JsonObject()
+      o.add("line", row.line)
+      o.add("column", row.column)
+      o.add("endLine", row.endLine)
+      o.add("endColumn", row.endColumn)
+      o.add("expression", row.expression)
+      o.add("kind", row.kind)
+      o.add("type", row.typeName)
+      o.add("value", row.value)
+      o.add("count", row.count)
+      if (row.error != null) o.add("error", row.error)
+      arr.add(o)
+    }
+    if (listener.truncated) {
+      val o = new JsonObject()
+      o.add("line", 0)
+      o.add("column", 0)
+      o.add("endLine", 0)
+      o.add("endColumn", 0)
+      o.add("expression", "")
+      o.add("kind", "Truncated")
+      o.add("type", "")
+      o.add("value", "This script has more expressions than the trace records. Showing the first 400.")
+      o.add("count", 0)
       arr.add(o)
     }
     arr

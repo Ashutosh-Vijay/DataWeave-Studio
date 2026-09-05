@@ -2,6 +2,24 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { invoke } from '../bridge';
 import { toast } from '../components/Toast';
 
+/** What one expression in the script evaluated to, recorded by the engine's
+ *  execution listener during a traced run. */
+export interface TraceRow {
+  line: number;
+  column: number;
+  endLine: number;
+  endColumn: number;
+  /** The expression as written, whitespace flattened. */
+  expression: string;
+  /** The AST node class behind it, e.g. "BinaryOp", "UnaryFunctionCall". */
+  kind: string;
+  type: string;
+  value: string;
+  /** How many times this expression ran — 200 for a map body over 200 items. */
+  count: number;
+  error?: string;
+}
+
 interface RunResult {
   output: string;
   error: string | null;
@@ -9,6 +27,7 @@ interface RunResult {
   error_line: number | null;
   error_column: number | null;
   logs?: string[] | null;
+  trace?: TraceRow[] | null;
 }
 
 interface WarmupStatus {
@@ -27,6 +46,8 @@ interface UseDWRunnerReturn {
   errorColumn: number | null;
   /** Captured `log(...)` output from the last run (empty if the script logged nothing). */
   logs: string[];
+  /** Per-expression values from the last run, when it was run with `valueTrace`. */
+  trace: TraceRow[];
   isRunning: boolean;
   executionTimeMs: number | undefined;
   isWarmedUp: boolean;
@@ -46,6 +67,7 @@ interface UseDWRunnerReturn {
     multipartPartsJson?: string,
     modulesJson?: string,
     languageLevel?: string,
+    valueTrace?: boolean,
   ) => Promise<void>;
   cancel: () => Promise<void>;
   restartEngine: () => Promise<void>;
@@ -62,6 +84,7 @@ export function useDWRunner(): UseDWRunnerReturn {
   const [engineError, setEngineError] = useState<string | null>(null);
   const [engineVersion, setEngineVersion] = useState<string | undefined>(undefined);
   const [logs, setLogs] = useState<string[]>([]);
+  const [trace, setTrace] = useState<TraceRow[]>([]);
   const pollGenRef = useRef(0);
   const runningRef = useRef(false);
   /** Result of the engine's startup encoding self-check, and whether we've
@@ -118,6 +141,7 @@ export function useDWRunner(): UseDWRunnerReturn {
       multipartPartsJson?: string,
       modulesJson?: string,
       languageLevel?: string,
+      valueTrace?: boolean,
     ) => {
       if (runningRef.current) return; // prevent double-clicks
 
@@ -141,6 +165,7 @@ export function useDWRunner(): UseDWRunnerReturn {
       setErrorColumn(null);
       setOutput('');
       setLogs([]);
+      setTrace([]);
       setExecutionTimeMs(undefined);
 
       try {
@@ -160,6 +185,10 @@ export function useDWRunner(): UseDWRunnerReturn {
           // Always trace: the engine only emits when the script calls log(), so
           // there's no cost for scripts that don't — and it powers the Logs panel.
           trace: true,
+          // Separate from `trace` above: that captures log() calls, this records
+          // every expression's value. It costs a fresh compile and forces
+          // materialization, so it only goes on when the user asks for it.
+          valueTrace: valueTrace ?? false,
         });
 
         if (result.error) {
@@ -169,6 +198,7 @@ export function useDWRunner(): UseDWRunnerReturn {
         }
         if (result.output) setOutput(result.output);
         setLogs(result.logs ?? []);
+        setTrace(result.trace ?? []);
         setExecutionTimeMs(result.execution_time_ms);
       } catch (e: unknown) {
         setError(String(e));
@@ -214,6 +244,7 @@ export function useDWRunner(): UseDWRunnerReturn {
     errorLine,
     errorColumn,
     logs,
+    trace,
     isRunning,
     executionTimeMs,
     isWarmedUp,

@@ -74,6 +74,9 @@ export interface ScriptEditorHandle {
   focus: () => void;
   insertSnippet: (text: string) => void;
   insertAtCursor: (text: string) => void;
+  /** Scroll to a 1-based line/column and put the cursor there. Used by the
+   *  trace panel, where every row points at a span in this script. */
+  revealLine: (line: number, column?: number) => void;
 }
 
 // migrateDW1to2 + MigrationChange live in ../dwMigrate.ts (unit-tested there).
@@ -182,6 +185,13 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
         .catch(reindent);
     },
     focus: () => editorRef.current?.focus(),
+    revealLine: (line: number, column = 1) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      editor.revealLineInCenterIfOutsideViewport(line);
+      editor.setPosition({ lineNumber: line, column });
+      editor.focus();
+    },
     insertAtCursor: (text: string) => {
       const editor = editorRef.current;
       if (!editor) return;

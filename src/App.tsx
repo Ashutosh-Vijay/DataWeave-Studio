@@ -267,8 +267,17 @@ function App() {
   // a property of what you're currently investigating, not of the transform.
   const dbg = useDebugger();
   const [breakpoints, setBreakpoints] = useState<number[]>([]);
+  // Value trace: record what every expression evaluated to on the next Run. Off
+  // by default — it forces a fresh compile and full materialization, so it is
+  // slower than a normal run and shouldn't be the default cost of pressing Run.
+  const [valueTrace, setValueTrace] = useState(false);
   const toggleBreakpoint = useCallback((line: number) => {
     setBreakpoints((prev) => (prev.includes(line) ? prev.filter((l) => l !== line) : [...prev, line].sort((a, b) => a - b)));
+  }, []);
+  /** Clicking a trace row jumps the script editor to the expression it came from. */
+  const revealScriptLine = useCallback((line: number, column: number) => {
+    setViewMode('script');
+    scriptEditorRef.current?.revealLine(line, column);
   }, []);
 
   /** The target actually in force: the workspace's when the override is on and
@@ -984,8 +993,9 @@ function App() {
       r.multipartPartsJson,
       r.modulesJson,
       targetRuntime,
+      valueTrace,
     );
-  }, [resolveRunInputs, workspace.payloadMimeType, workspace.payloadFilePath, workspace.classpath, workspace.timeoutMs, targetRuntime, runner]);
+  }, [resolveRunInputs, workspace.payloadMimeType, workspace.payloadFilePath, workspace.classpath, workspace.timeoutMs, targetRuntime, valueTrace, runner]);
 
   /** Same inputs as Run, but the engine attaches the debugger and parks on the
    *  first breakpoint instead of running straight through. */
@@ -1193,6 +1203,7 @@ function App() {
 
   const paletteCommands: Command[] = [
     { id: 'run', label: 'Run script', shortcut: '⌘↵', group: 'Run', run: () => { if (canRun) handleRun(); } },
+    { id: 'trace', label: valueTrace ? 'Turn off value trace' : 'Trace every expression on the next run', group: 'Run', run: () => setValueTrace(!valueTrace) },
     { id: 'auto', label: autoRun ? 'Disable auto-run' : 'Enable auto-run', shortcut: '⌘⇧R', group: 'Run', run: () => setAutoRun(!autoRun) },
     { id: 'save', label: 'Save workspace', shortcut: '⌘S', group: 'Workspace', run: () => { beginTransforming(); handleSave(); } },
     { id: 'new', label: 'New workspace', shortcut: '⌘N', group: 'Workspace', run: guardedNew },
@@ -1473,6 +1484,17 @@ function App() {
             <Icons.Zap size={12} /> Auto
           </button>
           <button
+            onClick={() => setValueTrace(!valueTrace)}
+            className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] font-medium border transition-colors cursor-pointer ${
+              valueTrace
+                ? 'bg-accent-dim border-accent-border text-accent'
+                : 'bg-transparent border-line text-content-faint hover:border-line-secondary hover:text-content-secondary'
+            }`}
+            title="Trace: record what every expression evaluated to on the next run. No log() calls needed."
+          >
+            <Icons.List size={12} /> Trace
+          </button>
+          <button
             onClick={handleDebug}
             disabled={!canRun || dbg.state.status === 'running' || dbg.state.status === 'paused'}
             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11.5px] font-medium border transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1747,6 +1769,8 @@ function App() {
                   executionTimeMs={runner.executionTimeMs}
                   errorLine={runner.errorLine}
                   logs={runner.logs}
+                  trace={runner.trace}
+                  onRevealLine={revealScriptLine}
                   outputFormat={outputFormat}
                   onFormatChange={setOutputFormat}
                   queryResult={queryResult}
@@ -1891,6 +1915,8 @@ function App() {
                 executionTimeMs={runner.executionTimeMs}
                 errorLine={runner.errorLine}
                 logs={runner.logs}
+                trace={runner.trace}
+                onRevealLine={revealScriptLine}
                 outputFormat={outputFormat}
                 onFormatChange={setOutputFormat}
                 queryResult={queryResult}

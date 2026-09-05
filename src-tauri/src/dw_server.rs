@@ -103,6 +103,10 @@ struct DwRequest<'a> {
     /// 1-based lines to break on.
     #[serde(skip_serializing_if = "<[u32]>::is_empty")]
     breakpoints: &'a [u32],
+    /// Record what every expression evaluated to. Forces a fresh compile on the
+    /// server, so it is off unless the user asked for it.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    value_trace: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -125,6 +129,28 @@ pub struct DwResponse {
     /// Captured `log(...)` output when the request set `trace`.
     #[serde(default)]
     pub logs: Option<Vec<String>>,
+    /// One row per expression when the request set `value_trace`.
+    #[serde(default)]
+    pub trace: Option<Vec<TraceRow>>,
+}
+
+/// What one expression in the script evaluated to, as recorded by the engine's
+/// execution listener. `count` is how many times that expression ran.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TraceRow {
+    pub line: u32,
+    pub column: u32,
+    pub end_line: u32,
+    pub end_column: u32,
+    pub expression: String,
+    pub kind: String,
+    #[serde(rename = "type")]
+    pub type_name: String,
+    pub value: String,
+    pub count: u32,
+    #[serde(default)]
+    pub error: Option<String>,
 }
 
 pub struct DwRunArgs<'a> {
@@ -145,6 +171,8 @@ pub struct DwRunArgs<'a> {
     pub debug: bool,
     /// Lines to break on. Only meaningful with `debug`.
     pub breakpoints: &'a [u32],
+    /// Record every expression's value during the run.
+    pub value_trace: bool,
 }
 
 /// Resolve the bundled dwstudio-server.jar path from Tauri resources.
@@ -516,6 +544,7 @@ fn run_once(app: &AppHandle, args: &DwRunArgs) -> Result<DwResponse, RunErr> {
         op: if args.debug { Some("debug") } else { None },
         action: if args.debug { Some("start") } else { None },
         breakpoints: args.breakpoints,
+        value_trace: args.value_trace,
     };
     let line = serde_json::to_string(&req)
         .map_err(|e| RunErr::Other(format!("Failed to serialize request: {}", e)))?;

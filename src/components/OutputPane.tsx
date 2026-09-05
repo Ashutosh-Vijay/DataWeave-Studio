@@ -8,6 +8,7 @@ import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';
 import { Icons } from './Icons';
 import { matchErrorHint, categoryLabel } from '../dataweaveErrorHints';
+import type { TraceRow } from '../hooks/useDWRunner';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
@@ -26,6 +27,10 @@ interface OutputPaneProps {
   errorLine?: number | null;
   /** Captured `log(...)` output from the run — shown in a collapsible Logs panel. */
   logs?: string[];
+  /** Per-expression values from a traced run — shown in a collapsible Trace panel. */
+  trace?: TraceRow[];
+  /** Jump the script editor to a line. Enables click-through on trace rows. */
+  onRevealLine?: (line: number, column: number) => void;
   outputFormat: 'json' | 'xml' | 'raw';
   onFormatChange: (format: 'json' | 'xml' | 'raw') => void;
   queryResult?: QueryResult | null;
@@ -100,6 +105,8 @@ export const OutputPane = memo(function OutputPane({
   executionTimeMs,
   errorLine,
   logs,
+  trace,
+  onRevealLine,
   outputFormat,
   onFormatChange,
   queryResult,
@@ -336,11 +343,74 @@ export const OutputPane = memo(function OutputPane({
         )}
       </div>
 
+      {/* Trace panel — what every expression evaluated to, when the run was traced. */}
+      {trace && trace.length > 0 && !isRunning && <TracePanel trace={trace} onRevealLine={onRevealLine} />}
+
       {/* Logs panel — captured `log(...)` output, shown only when the script logged. */}
       {logs && logs.length > 0 && !isRunning && <LogsPanel logs={logs} />}
     </div>
   );
 });
+
+/** What every expression in the script evaluated to, in source order.
+ *
+ *  This is the answer to "what is actually in there" without wrapping anything
+ *  in `log()`: the engine reports each node as it executes and the rows land
+ *  here. A row that ran more than once (a map body, say) shows the first value
+ *  and a count — the alternative is one row per item, which for a 500-row
+ *  payload is not a panel anyone can read. */
+function TracePanel({ trace, onRevealLine }: { trace: TraceRow[]; onRevealLine?: (line: number, column: number) => void }) {
+  const [open, setOpen] = useState(true);
+  const failed = trace.filter((r) => r.error).length;
+  return (
+    <div className="shrink-0 border-t border-line bg-surface" style={{ maxHeight: '45%', display: 'flex', flexDirection: 'column' }}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="shrink-0 flex items-center gap-2 px-3.5 h-7 text-[10.5px] uppercase tracking-[0.6px] font-semibold text-content-faint hover:text-content-secondary cursor-pointer"
+      >
+        <svg width="9" height="9" viewBox="0 0 10 10" fill="currentColor" className={`transition-transform ${open ? 'rotate-90' : ''}`}>
+          <path d="M3 1l5 4-5 4V1z" />
+        </svg>
+        Trace
+        <span className="inline-flex items-center justify-center min-w-[16px] h-[15px] px-1 rounded-full font-mono text-[9.5px] text-accent" style={{ background: 'var(--accent-dim)' }}>
+          {trace.length}
+        </span>
+        <span className="text-content-ghost normal-case tracking-normal font-normal">
+          {failed > 0 ? 'every expression — red is where it broke' : 'every expression, as it ran'}
+        </span>
+      </button>
+      {open && (
+        <div className="overflow-auto pb-2">
+          <table className="w-full text-[11.5px] font-mono border-collapse">
+            <tbody>
+              {trace.map((r, i) => (
+                <tr
+                  key={i}
+                  onClick={() => { if (r.line > 0) onRevealLine?.(r.line, r.column); }}
+                  className={onRevealLine && r.line > 0 ? 'cursor-pointer hover:bg-surface-2' : ''}
+                  style={{ borderTop: i === 0 ? 'none' : '1px solid var(--line-subtle)' }}
+                >
+                  <td className="align-top pl-3.5 pr-2 py-1 text-right tabular-nums whitespace-nowrap" style={{ color: 'var(--content-ghost)', width: '1%' }}>
+                    {r.line > 0 ? r.line : ''}
+                  </td>
+                  <td className="align-top pr-3 py-1 break-all" style={{ color: 'var(--content-secondary)', width: '38%' }}>
+                    {r.expression}
+                  </td>
+                  <td className="align-top pr-2 py-1 break-all" style={{ color: r.error ? 'var(--err)' : 'var(--accent)' }}>
+                    {r.error ?? r.value}
+                  </td>
+                  <td className="align-top pr-3.5 py-1 text-right whitespace-nowrap" style={{ color: 'var(--content-ghost)', width: '1%' }}>
+                    {r.count > 1 ? `×${r.count}` : ''}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Collapsible panel showing captured `log(...)` output from the run. Sits below
  *  the output editor so you can inspect intermediate pipeline values inline. */
