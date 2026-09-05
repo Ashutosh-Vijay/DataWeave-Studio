@@ -352,29 +352,73 @@ export function registerEngineLanguageFeatures(
     },
   });
 
+  /** A single unqualified name — what a rename is allowed to replace.
+   *
+   *  The engine answers a rename inside `dw::test::Asserts` with ONE reference
+   *  whose span is the WHOLE module identifier. Writing the new name over that
+   *  span turned `import * from dw::test::Asserts` into `import * from testy` —
+   *  it looked like rename had eaten the rest of the line, because it had.
+   *  Renaming a module you import is not a refactor anyone can perform anyway;
+   *  the module belongs to the engine. */
+  const isPlainIdentifier = (text: string) => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(text);
+
+  /** Ask the engine what a rename here would touch. Shared by the pre-flight
+   *  check and the edit itself so the two can never disagree. */
+  const renameTargets = async (model: Monaco.editor.ITextModel, position: Monaco.Position, newName: string) => {
+    const res = await askNow<{ references?: { name: string; location: EngineLoc }[] }>(
+      'rename',
+      model.getValue(),
+      offsetOf(model, position),
+      payloadOf(), levelOf(),
+      { newName },
+    );
+    const out: { range: Monaco.IRange; text: string }[] = [];
+    for (const ref of res?.references ?? []) {
+      const range = rangeOf(model, ref.location);
+      if (range) out.push({ range, text: model.getValueInRange(range) });
+    }
+    return out;
+  };
+
   const rename = monaco.languages.registerRenameProvider('dataweave', {
+    /** Refuse before the box opens rather than after the damage.
+     *
+     *  Without this, F2 inside a string literal or on an imported module opened
+     *  an input, took a new name, and then either did nothing or rewrote
+     *  something the user did not mean. Monaco shows the reason in place of the
+     *  box, so "this can't be renamed" arrives before any typing. */
+    async resolveRenameLocation(model, position) {
+      const targets = await renameTargets(model, position, 'placeholder');
+      const at = offsetOf(model, position);
+      const hit = targets.find((t) => {
+        const start = model.getOffsetAt({ lineNumber: t.range.startLineNumber, column: t.range.startColumn });
+        const end = model.getOffsetAt({ lineNumber: t.range.endLineNumber, column: t.range.endColumn });
+        return at >= start && at <= end;
+      });
+      if (!hit) {
+        return { text: '', range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column), rejectReason: 'Only names you declare can be renamed — not text, keys or imported modules.' };
+      }
+      if (!isPlainIdentifier(hit.text)) {
+        return { text: '', range: hit.range, rejectReason: `\`${hit.text}\` comes from an import — rename only works on names declared in this script.` };
+      }
+      return { text: hit.text, range: hit.range };
+    },
+
     async provideRenameEdits(model, position, newName) {
       // The engine resolves the symbol through its scope graph, so a name that
       // is shadowed in an inner scope is correctly left alone — which is the
       // whole reason to ask it instead of running a find-and-replace.
-      const res = await askNow<{ references?: { name: string; location: EngineLoc }[] }>(
-        'rename',
-        model.getValue(),
-        offsetOf(model, position),
-        payloadOf(), levelOf(),
-        { newName },
-      );
-      const edits: Monaco.languages.IWorkspaceTextEdit[] = [];
-      for (const ref of res?.references ?? []) {
-        const range = rangeOf(model, ref.location);
-        if (range) {
-          edits.push({
-            resource: model.uri,
-            textEdit: { range, text: newName },
-            versionId: model.getVersionId(),
-          });
-        }
-      }
+      const targets = await renameTargets(model, position, newName);
+      // Belt and braces: resolveRenameLocation already refused the qualified
+      // cases, but an edit that would overwrite anything other than a bare name
+      // must never be applied.
+      const edits: Monaco.languages.IWorkspaceTextEdit[] = targets
+        .filter((t) => isPlainIdentifier(t.text))
+        .map((t) => ({
+          resource: model.uri,
+          textEdit: { range: t.range, text: newName },
+          versionId: model.getVersionId(),
+        }));
       if (!edits.length) {
         return { edits: [], rejectReason: 'Nothing here can be renamed.' };
       }
