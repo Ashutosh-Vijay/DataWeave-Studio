@@ -201,6 +201,13 @@ Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA
 - Canvas zoom (Ctrl+scroll or +/- buttons)
 - Saved with workspace
 
+### Sample data
+No input to test against? Generate one. If your script declares types, the
+**Generate** button in the input pane builds a realistic payload from any of
+them — the engine's own generator is field-name aware, so `email` gets a
+plausible address, `phone` a formatted number, `creditCard` a valid-shaped PAN
+and a `DateTime` a real timestamp. Preview it, re-roll it, then apply it.
+
 ### Target runtime
 The engine bundled here is DataWeave 2.12 (Mule 4.12). If you deploy somewhere
 older, a script can work here and fail there — `logInfo` needs 2.10, the `update`

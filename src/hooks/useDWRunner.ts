@@ -16,6 +16,8 @@ interface WarmupStatus {
   error: string | null;
   /** False when the engine failed its startup non-ASCII round-trip check. */
   encodingOk?: boolean;
+  /** Version the engine reported at startup, e.g. "2.12.2-20260715". */
+  weaveVersion?: string | null;
 }
 
 interface UseDWRunnerReturn {
@@ -29,6 +31,8 @@ interface UseDWRunnerReturn {
   executionTimeMs: number | undefined;
   isWarmedUp: boolean;
   engineError: string | null;
+  /** The running engine's own version. Undefined until it has started. */
+  engineVersion?: string;
   run: (
     script: string,
     payload: string,
@@ -56,6 +60,7 @@ export function useDWRunner(): UseDWRunnerReturn {
   const [executionTimeMs, setExecutionTimeMs] = useState<number | undefined>(undefined);
   const [isWarmedUp, setIsWarmedUp] = useState(false);
   const [engineError, setEngineError] = useState<string | null>(null);
+  const [engineVersion, setEngineVersion] = useState<string | undefined>(undefined);
   const [logs, setLogs] = useState<string[]>([]);
   const pollGenRef = useRef(0);
   const runningRef = useRef(false);
@@ -93,6 +98,7 @@ export function useDWRunner(): UseDWRunnerReturn {
         // English data is unaffected and shouldn't be shown a scary startup
         // error. `run` raises it only if they actually send non-ASCII text.
         encodingOkRef.current = status.encodingOk !== false;
+        if (status.weaveVersion) setEngineVersion(status.weaveVersion);
       }
     })();
     return () => { ++pollGenRef.current; }; // stop polling on unmount
@@ -212,6 +218,7 @@ export function useDWRunner(): UseDWRunnerReturn {
     executionTimeMs,
     isWarmedUp,
     engineError,
+    engineVersion,
     run,
     cancel,
     restartEngine,

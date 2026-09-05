@@ -87,6 +87,9 @@ pub struct WarmupStatus {
     /// output would come back corrupted, so the UI warns instead of pretending
     /// the result is trustworthy.
     pub encoding_ok: bool,
+    /// Version string the engine reported at startup, e.g. "2.12.2-20260715".
+    /// None until the handshake lands.
+    pub weave_version: Option<String>,
 }
 
 #[tauri::command]
@@ -100,6 +103,10 @@ pub fn get_warmup_status(state: tauri::State<'_, WarmupState>) -> WarmupStatus {
         ready: *state.ready.lock().unwrap_or_else(|e| e.into_inner()),
         error: state.error.lock().unwrap_or_else(|e| e.into_inner()).clone(),
         encoding_ok: crate::dw_server::ENCODING_OK.load(std::sync::atomic::Ordering::Relaxed),
+        weave_version: crate::dw_server::WEAVE_VERSION
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone(),
     }
 }
 
@@ -683,6 +690,8 @@ pub fn dw_tooling(
     classpath: Option<Vec<String>>,
     new_name: Option<String>,
     language_level: Option<String>,
+    mime_type: Option<String>,
+    repeat: Option<i64>,
 ) -> Result<serde_json::Value, String> {
     crate::dw_server::tooling(
         &app,
@@ -693,6 +702,8 @@ pub fn dw_tooling(
         &classpath.unwrap_or_default(),
         new_name.as_deref().unwrap_or(""),
         language_level.as_deref().unwrap_or(""),
+        mime_type.as_deref().unwrap_or("application/json"),
+        repeat.unwrap_or(1),
     )
 }
 

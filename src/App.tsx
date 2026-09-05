@@ -197,7 +197,7 @@ function StatusBar({
       >
         <Icons.Dot size={8} /> {isReady ? 'Ready' : 'Warming up'}
       </span>
-      <span>DW {dwVersion || '2.12.0'}</span>
+      {dwVersion && <span>DW {dwVersion}</span>}
       {workspaceFile && <span className="truncate max-w-[280px]">{workspaceFile}</span>}
       <span className="flex-1" />
       <CursorIndicator />
@@ -1662,6 +1662,7 @@ function App() {
               }
               payloadPane={
                 <PayloadTabs
+                  script={workspace.script}
                   payload={workspace.payload}
                   onPayloadChange={handlePayloadChange}
                   payloadMimeType={workspace.payloadMimeType}
@@ -1713,6 +1714,7 @@ function App() {
                 <Panel defaultSize={55} minSize={20}>
                   <div className="h-full pb-1" data-tour="payload">
                     <PayloadTabs
+                      script={workspace.script}
                       payload={workspace.payload}
                       onPayloadChange={handlePayloadChange}
                       payloadMimeType={workspace.payloadMimeType}
@@ -1848,6 +1850,7 @@ function App() {
       <StatusBar
         isReady={runner.isWarmedUp}
         appVersion={appVersion}
+        dwVersion={runner.engineVersion}
         workspaceFile={workspace.currentFile || undefined}
       />
 

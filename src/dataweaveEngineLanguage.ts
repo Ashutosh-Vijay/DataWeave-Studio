@@ -23,6 +23,21 @@ import type * as Monaco from 'monaco-editor';
 import { invoke } from './bridge';
 import type { DWCompletionContext } from './dataweaveCompletions';
 
+/** One parameter of one signature overload, as the engine reports it. */
+interface EngineSignatureParam {
+  name: string;
+  type: string;
+  active: boolean;
+}
+
+/** One overload. The engine sends the parts; the label is assembled here so the
+ *  parameter highlight ranges and the text can't disagree. */
+interface EngineSignature {
+  parameters: EngineSignatureParam[];
+  active: boolean;
+  doc?: string;
+}
+
 /** One suggestion as the engine reports it. */
 interface EngineSuggestion {
   label: string;
@@ -185,17 +200,41 @@ export function registerEngineLanguageFeatures(
     signatureHelpTriggerCharacters: ['(', ','],
 
     async provideSignatureHelp(model, position) {
-      const res = await ask<{ name?: string | null; activeParameter?: number; signatures?: string[] }>(
+      const res = await ask<{ name?: string | null; activeParameter?: number; signatures?: EngineSignature[] }>(
         'signature',
         model.getValue(),
         offsetOf(model, position),
         payloadOf(), levelOf(),
       );
       if (!res?.name || !res.signatures?.length) return null;
+
+      const name = res.name;
+      const signatures = res.signatures.map((sg) => {
+        const parts = (sg.parameters ?? []).map((p) => `${p.name}: ${p.type}`);
+        const label = `${name}(${parts.join(', ')})`;
+        // Monaco bolds the active parameter by character range into `label`,
+        // so the ranges are measured against the string just built rather
+        // than recomputed from the parts.
+        const parameters: Monaco.languages.ParameterInformation[] = [];
+        let from = label.indexOf('(') + 1;
+        for (const part of parts) {
+          const start = label.indexOf(part, from);
+          if (start < 0) break;
+          parameters.push({ label: [start, start + part.length] });
+          from = start + part.length;
+        }
+        return {
+          label,
+          parameters,
+          documentation: sg.doc ? { value: sg.doc } : undefined,
+        };
+      });
+
+      const activeIdx = res.signatures.findIndex((s) => s.active);
       return {
         value: {
-          signatures: res.signatures.map((label) => ({ label, parameters: [] })),
-          activeSignature: 0,
+          signatures,
+          activeSignature: activeIdx >= 0 ? activeIdx : 0,
           activeParameter: res.activeParameter ?? 0,
         },
         dispose: () => {},

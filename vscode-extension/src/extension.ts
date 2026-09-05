@@ -320,7 +320,12 @@ async function handleInvoke(
     case 'is_warmed_up':
       return server?.isWarmed() ?? false;
     case 'get_warmup_status':
-      return { ready: server?.isWarmed() ?? false, error: warmupError, encodingOk: server?.isEncodingOk() ?? true };
+      return {
+        ready: server?.isWarmed() ?? false,
+        error: warmupError,
+        encodingOk: server?.isEncodingOk() ?? true,
+        weaveVersion: server?.getWeaveVersion(),
+      };
     case 'warm_dataweave_script': {
       const srv = await getServer(extensionRoot);
       await warmDataweave(srv, args as unknown as WarmArgs);
@@ -354,6 +359,8 @@ async function handleInvoke(
         String(args.payload ?? ''),
         args.newName === undefined ? undefined : String(args.newName),
         args.languageLevel ? String(args.languageLevel) : undefined,
+        args.mimeType ? String(args.mimeType) : undefined,
+        args.repeat === undefined ? undefined : Number(args.repeat),
       );
     case 'dw_format':
       // getServer, not `server` — the latter is null until something has

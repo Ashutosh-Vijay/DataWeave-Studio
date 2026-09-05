@@ -170,6 +170,9 @@ interface DwRequest {
   op?: 'run' | 'format' | 'tooling';
   /** op=tooling, kind=rename: the identifier to rename to. */
   newName?: string;
+  /** op=tooling, kind=sampleData: output format and array repeat count. */
+  mimeType?: string;
+  repeat?: number;
   /** op=tooling: which language-service query — completion | hover | signature |
    *  typeOf | typeCheck | definition | references | rename | documentSymbol |
    *  folding. */
@@ -205,8 +208,16 @@ export class DwServer {
    *  can't return non-ASCII text, so the UI warns instead of showing corrupt
    *  output. Matters most here: we may run on a system JRE of any version. */
   private encodingOk = true;
+  /** Version the engine reported at startup — the UI shows this rather than a
+   *  constant, which is how the displayed version drifted from the jar before. */
+  private weaveVersion: string | undefined;
 
   constructor(private javaBin: string, private jarPath: string) {}
+
+  /** The running engine's own version, once it has said. */
+  getWeaveVersion(): string | undefined {
+    return this.weaveVersion;
+  }
 
   isWarmed(): boolean {
     return this.warmed;
@@ -327,6 +338,9 @@ export class DwServer {
             if (line.includes('"ready"')) {
               ready = true;
               clearTimeout(startupTimer);
+              try {
+                this.weaveVersion = JSON.parse(line)?.weaveVersion || undefined;
+              } catch { /* handshake without a version — leave it unknown */ }
               // Prime + start keepalive, then mark started. The primer warms
               // the compiler's hot paths (parser, type checker, codegen, JSON
               // reader/writer) and caches the default-workspace script so a
@@ -857,6 +871,8 @@ export async function toolingQuery(
   payload: string,
   newName?: string,
   languageLevel?: string,
+  mimeType?: string,
+  repeat?: number,
 ): Promise<unknown> {
   const resp = await server.run(
     {
@@ -866,6 +882,8 @@ export async function toolingQuery(
       payload,
       newName,
       languageLevel,
+      mimeType,
+      repeat,
       script,
       payloadPath: '',
       payloadMime: 'application/json',

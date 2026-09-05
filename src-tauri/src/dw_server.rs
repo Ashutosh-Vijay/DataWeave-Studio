@@ -26,6 +26,11 @@ use crate::platform::{hide_console_window, strip_unc_prefix};
 /// be corrupted, instead of silently showing them wrong data.
 pub static ENCODING_OK: AtomicBool = AtomicBool::new(true);
 
+/// The engine's own reported version, taken from its `ready` handshake. The UI
+/// used to render a hardcoded constant, which silently drifted from the real
+/// jar; this way the status bar can only ever show what actually started.
+pub static WEAVE_VERSION: Mutex<Option<String>> = Mutex::new(None);
+
 /// Held in Tauri state. Process handles + a mutex around the pipe so
 /// concurrent calls from the UI queue serially through the server.
 pub struct DwServerState {
@@ -249,7 +254,16 @@ fn try_start_java(
     };
 
     match rx.recv_timeout(std::time::Duration::from_secs(90)) {
-        Ok((reader, line, true)) if line.contains("\"ready\"") => Ok((child, stdin, reader)),
+        Ok((reader, line, true)) if line.contains("\"ready\"") => {
+            // {"event":"ready","weaveVersion":"2.12.2-20260715"}
+            if let Some(v) = serde_json::from_str::<serde_json::Value>(line.trim())
+                .ok()
+                .and_then(|j| j.get("weaveVersion")?.as_str().map(str::to_string))
+            {
+                *WEAVE_VERSION.lock().unwrap_or_else(|e| e.into_inner()) = Some(v);
+            }
+            Ok((child, stdin, reader))
+        }
         Ok((_, line, _)) => {
             let _ = child.kill();
             let what = if line.trim().is_empty() {
@@ -573,6 +587,10 @@ pub fn tooling(
     classpath: &[String],
     new_name: &str,
     language_level: &str,
+    // kind=sampleData only: which format to render the sample in, and how many
+    // entries to put inside arrays.
+    mime_type: &str,
+    repeat: i64,
 ) -> Result<serde_json::Value, String> {
     let state = app.state::<DwServerState>();
     let id = state.next_id.fetch_add(1, Ordering::Relaxed);
@@ -581,6 +599,7 @@ pub fn tooling(
         "script": script, "offset": offset, "payload": payload,
         "classpath": classpath, "newName": new_name,
         "languageLevel": language_level,
+        "mimeType": mime_type, "repeat": repeat,
     })
     .to_string();
 

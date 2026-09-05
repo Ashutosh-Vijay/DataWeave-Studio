@@ -8,6 +8,7 @@ import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME 
 import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';
 import { canFormatPayload, formatPayload } from '../payloadFormat';
+import { SampleDataDialog } from './SampleDataDialog';
 import { toast } from './Toast';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
@@ -110,6 +111,8 @@ function mimeToLanguage(mime: string): string {
 
 
 interface PayloadTabsProps {
+  /** The current script — sample data is generated from the types it declares. */
+  script: string;
   payload: string;
   onPayloadChange: (val: string | undefined) => void;
   payloadMimeType: string;
@@ -123,6 +126,7 @@ interface PayloadTabsProps {
 }
 
 export const PayloadTabs = memo(function PayloadTabs({
+  script,
   payload,
   onPayloadChange,
   payloadMimeType,
@@ -135,6 +139,7 @@ export const PayloadTabs = memo(function PayloadTabs({
   onNamedInputsChange,
 }: PayloadTabsProps) {
   const [activeTab, setActiveTab] = useState(0); // 0 = payload
+  const [sampleOpen, setSampleOpen] = useState(false);
   const { isDark } = useTheme();
   const editorFont = useEditorFont();
   const monaco = useMonaco();
@@ -357,6 +362,17 @@ export const PayloadTabs = memo(function PayloadTabs({
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
+          )}
+          {/* Generate — realistic sample data from the types the script
+              declares. Text formats only; a generated .xlsx is meaningless. */}
+          {isPayloadTab && canFormatPayload(currentMime) && (
+            <button
+              onClick={() => setSampleOpen(true)}
+              className="h-6 inline-flex items-center text-[10.5px] text-content-faint hover:text-accent px-2 rounded-md border border-line hover:border-accent-border hover:bg-accent-dim transition-colors cursor-pointer"
+              title="Generate a realistic sample payload from a type your script declares"
+            >
+              Generate
+            </button>
           )}
           {/* Format — JSON and XML only, and only when there's something to
               format. Same treatment as Load file: text formats only. */}
@@ -639,6 +655,14 @@ export const PayloadTabs = memo(function PayloadTabs({
           />
         </div>
       )}
+
+      <SampleDataDialog
+        open={sampleOpen}
+        script={script}
+        mimeType={payloadMimeType}
+        onClose={() => setSampleOpen(false)}
+        onUse={(data) => onPayloadChange(data)}
+      />
     </div>
   );
 });

@@ -12,6 +12,8 @@ import org.mule.weave.v2.parser.location.WeaveLocation
 import org.mule.weave.v2.runtime._
 import org.mule.weave.v2.utils.DataWeaveVersion
 import org.mule.weave.v2.versioncheck.SVersion
+import org.mule.weave.v2.version.DataWeaveRuntimeVersion
+import org.mule.weave.v2.scaffolding.{ScaffoldingService, ScaffoldingConfiguration}
 import org.mule.weave.v2.sdk.ClassLoaderWeaveResourceResolver
 import org.mule.weave.v2.editor.{WeaveToolingService, SimpleVirtualFileSystem, SpecificModuleResourceResolver, ImplicitInput, WeaveTextDocument, WeaveDocumentToolingService, ValidationMessage}
 import org.mule.weave.v2.completion.{Template, LiteralElement, PlaceHolderElement, ChoicePlaceHolderElement, EndPlaceHolderElement}
@@ -97,7 +99,7 @@ object DwServer {
     // Tell the parent process we're ready to accept jobs.
     val ready = new JsonObject()
     ready.add("event", "ready")
-    ready.add("weaveVersion", "2.11.0")
+    ready.add("weaveVersion", DataWeaveRuntimeVersion.weaveVersion)
     println(ready.toString)
 
     val in = new java.io.BufferedReader(new java.io.InputStreamReader(System.in, StandardCharsets.UTF_8))
@@ -510,7 +512,7 @@ object DwServer {
             o.add("insertText", sg.insertText)
             o.add("itemType", sg.itemType)
             sg.wtype.foreach(t => o.add("type", t.toString))
-            sg.documentation.foreach(d => o.add("doc", d))
+            sg.markdownDocumentation().foreach(d => o.add("doc", d))
             arr.add(o)
           }
           payload.add("items", arr)
@@ -519,7 +521,7 @@ object DwServer {
           doc.hoverResult(offset) match {
             case Some(h) =>
               payload.add("type", h.resultType.toString)
-              h.documentation.foreach(d => payload.add("doc", d))
+              h.markdownDocs.foreach(d => payload.add("doc", d))
             case None => payload.add("type", Json.NULL)
           }
 
@@ -529,9 +531,56 @@ object DwServer {
               payload.add("name", sig.name)
               payload.add("activeParameter", sig.currentArgIndex)
               val arr = new com.eclipsesource.json.JsonArray()
-              sig.signatures.foreach(sd => arr.add(sd.toString))
+              sig.signatures.foreach { sd =>
+                val o = new JsonObject()
+                val params = new com.eclipsesource.json.JsonArray()
+                sd.parameters.foreach { prm =>
+                  val po = new JsonObject()
+                  po.add("name", prm.name)
+                  po.add("type", prm.wtype.toString)
+                  po.add("active", prm.active)
+                  params.add(po)
+                }
+                o.add("parameters", params)
+                o.add("active", sd.active)
+                sd.docAsMarkdown().foreach(d => o.add("doc", d))
+                arr.add(o)
+              }
               payload.add("signatures", arr)
             case None => payload.add("name", Json.NULL)
+          }
+
+        // Realistic sample data for a type. The engine ships a generator that
+        // is name-aware -- a field called `email` gets a real-looking address,
+        // `creditCard` a valid-format number -- and it returns a whole runnable
+        // script whose output IS the sample, so the caller just runs it through
+        // the normal path rather than us re-entering the engine here.
+        //
+        // With a selection, the type is whatever is selected; without one it is
+        // the script's own output type, which answers "what shape does this
+        // produce" without needing an input to run against.
+        case "sampleData" =>
+          val mime = req.getString("mimeType", "application/json")
+          val repeat = if (req.get("repeat") == null) 1 else req.get("repeat").asInt()
+          val endOffset = if (req.get("endOffset") == null) -1 else req.get("endOffset").asInt()
+          val wt: Option[WeaveType] =
+            if (endOffset > offset) Option(doc.typeOf(offset, endOffset))
+            else doc.typeOfMapping()
+          wt match {
+            case Some(t) =>
+              val generated = new ScaffoldingService()
+                .scaffold(t, mime, Map.empty[String, Any], ScaffoldingConfiguration(repeat))
+              // A type with nothing to generate (Array<Nothing>, an empty
+              // object) makes the scaffolder emit `[,` / `{,` — not valid DW.
+              // Better to say "nothing to generate" than hand back a script
+              // that fails to compile.
+              val broken = generated.contains("[,") || generated.contains("{,") ||
+                generated.split("---").lastOption.forall(_.trim.isEmpty)
+              if (broken) payload.add("script", Json.NULL)
+              else payload.add("script", generated.trim)
+              payload.add("type", t.toString)
+            case None =>
+              payload.add("script", Json.NULL)
           }
 
         case "typeGraph" =>
