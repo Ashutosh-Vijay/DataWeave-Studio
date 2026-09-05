@@ -9,6 +9,10 @@ interface AboutDialogProps {
   open: boolean;
   onClose: () => void;
   appVersion?: string;
+  /** What the running engine reports at startup, e.g. "2.12.2-20260715".
+   *  Read live rather than written here — a hardcoded number goes stale the
+   *  release after someone bumps the jar and forgets this file. */
+  dwVersion?: string;
   updateAvailable?: boolean;
   onUpdateInstalled?: () => void;
 }
@@ -21,7 +25,10 @@ type UpdateStatus = 'idle' | 'update-available' | 'checking' | 'up-to-date' | 'd
  * pull-quote section. The aim is: this is a free OSS thing made by one
  * person who cares, not corporate software.
  */
-export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpdateInstalled }: AboutDialogProps) {
+export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvailable, onUpdateInstalled }: AboutDialogProps) {
+  // "2.12.2-20260715" -> "2.12.2" for the stat, and "2.12" for the sentence.
+  const engine = (dwVersion ?? '').split('-')[0];
+  const engineMinor = engine.split('.').slice(0, 2).join('.');
   const backdropRef = useRef<HTMLDivElement>(null);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
   const [pct, setPct] = useState<number | null>(null);
@@ -161,7 +168,7 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
             className="mt-[18px] mb-0 text-[15px] leading-[1.55] max-w-[560px]"
             style={{ color: 'var(--content-muted)' }}
           >
-            The real DataWeave 2.12 engine, {isTauri ? 'in a desktop app' : 'right inside VS Code'}.
+            The real DataWeave {engineMinor || '2'} engine, {isTauri ? 'in a desktop app' : 'right inside VS Code'}.
             No Anypoint Studio, no browser tab, no signup. Write a script, drop a payload, hit Run.
           </p>
 
@@ -171,7 +178,7 @@ export function AboutDialog({ open, onClose, appVersion, updateAvailable, onUpda
           <div className="grid grid-cols-3 gap-x-7 gap-y-6">
             <Stat kicker="version" value={appVersion || '—'} sub="latest stable" valueAccent />
             <Stat kicker="license" value="MIT" sub="free forever" />
-            <Stat kicker="dw engine" value="2.12.0" sub="Apache 2.0 · MuleSoft" />
+            <Stat kicker="dw engine" value={engine || '—'} sub="Apache 2.0 · MuleSoft" />
             {isTauri ? (
               <Stat kicker="size" value="~87 MB" sub="installer · all bundled" />
             ) : (

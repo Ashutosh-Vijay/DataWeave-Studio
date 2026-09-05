@@ -1502,7 +1502,13 @@ function App() {
           )}
 
           {/* Debug is a toggle, not a start button with a stop hidden inside the
-              panel. Press it to attach, press it again to detach. */}
+              panel. Press it to attach, press it again to detach.
+
+              Hidden in the Tests pane: the debugger runs the request's script,
+              which is not what you are looking at there, so pressing it did
+              something invisible and then stopped. A control that cannot do the
+              thing it names should not be on screen. */}
+          {!inTests && (
           <button
             data-tour="debug"
             onClick={() => { if (dbg.active) void dbg.stop(); else void handleDebug(); }}
@@ -1523,6 +1529,7 @@ function App() {
           >
             <Icons.Activity size={12} /> Debug
           </button>
+          )}
 
           {/* Run, with its two modifiers behind the caret. They were full-width
               buttons of their own, which is a lot of permanent furniture for
@@ -2024,7 +2031,7 @@ function App() {
       {/* About dialog */}
       {aboutOpen && (
         <Suspense fallback={null}>
-          <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} appVersion={appVersion} updateAvailable={updateAvailable} onUpdateInstalled={() => setUpdateAvailable(false)} />
+          <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} appVersion={appVersion} dwVersion={runner.engineVersion} updateAvailable={updateAvailable} onUpdateInstalled={() => setUpdateAvailable(false)} />
         </Suspense>
       )}
 

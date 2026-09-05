@@ -125,16 +125,33 @@ export function javaFailureMessage(tried: JavaProbe[]): string {
 /** Find dwstudio-server.jar - bundled in the extension when packaged, else the
  *  sibling desktop repo's resources during dev. */
 export function resolveServerJar(extensionRoot: string): string {
-  const candidates = [
+  return newestOf(
+    'dwstudio-server.jar',
     path.join(extensionRoot, 'resources', 'dw-server', 'dwstudio-server.jar'),
     path.join(extensionRoot, '..', 'src-tauri', 'resources', 'dw-server', 'dwstudio-server.jar'),
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
-  }
-  throw new Error(
-    `dwstudio-server.jar not found. Looked in:\n${candidates.join('\n')}`
   );
+}
+
+/**
+ * The newest of the candidate jars that exists.
+ *
+ * In a packaged .vsix only the bundled copy is present, so this is simply "use
+ * it". In a dev checkout BOTH exist, and taking the first one silently pinned
+ * the extension to whatever `npm run bundle:resources` last copied — a manual
+ * step that is easy to skip. The result is the worst kind of bug report: every
+ * engine-side feature of a release looks broken in VS Code and works on the
+ * desktop, because the extension is running a jar from weeks earlier.
+ * Preferring the newer file makes a fresh `mvn package` take effect at once.
+ */
+function newestOf(what: string, ...candidates: string[]): string {
+  let best: { path: string; mtime: number } | null = null;
+  for (const c of candidates) {
+    if (!fs.existsSync(c)) continue;
+    const mtime = fs.statSync(c).mtimeMs;
+    if (!best || mtime > best.mtime) best = { path: c, mtime };
+  }
+  if (best) return best.path;
+  throw new Error(`${what} not found. Looked in:\n${candidates.join('\n')}`);
 }
 
 // --- Long-lived server process ----------------------------------------------

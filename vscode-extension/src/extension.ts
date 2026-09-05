@@ -583,12 +583,17 @@ function securePropertiesInvoke(
 }
 
 function resolveSecurePropsJar(extensionRoot: string): string {
+  // Newest wins, for the same reason resolveServerJar does it: in a dev
+  // checkout both copies exist and the bundled one is only as fresh as the
+  // last manual `npm run bundle:resources`.
   const candidates = [
     path.join(extensionRoot, 'resources', 'secure-properties', 'secure-properties-tool.jar'),
     path.join(extensionRoot, '..', 'src-tauri', 'resources', 'secure-properties', 'secure-properties-tool.jar'),
-  ];
-  for (const c of candidates) if (fs.existsSync(c)) return c;
-  throw new Error(`secure-properties-tool.jar not found. Looked in:\n${candidates.join('\n')}`);
+  ].filter((c) => fs.existsSync(c));
+  if (!candidates.length) {
+    throw new Error('secure-properties-tool.jar not found in resources/ or ../src-tauri/resources/.');
+  }
+  return candidates.sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
 }
 
 export function deactivate() {
