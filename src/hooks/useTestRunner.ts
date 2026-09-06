@@ -18,6 +18,15 @@ import { Request } from '../types';
  * to the classpath at runtime: the file module registers native functions at
  * engine startup, and adding it late resolves the DWL modules while leaving the
  * natives missing ("Unable to find native module file").
+ *
+ * **A suite gets no payload.** It used to be handed the entry's, which was
+ * wrong three ways over. MuleSoft's own `dw::test::Tests` documentation writes
+ * every example as `var payload = {}` INSIDE the test — a line nobody would
+ * write if the framework bound one. The Tests view has no payload pane. And a
+ * share link deliberately drops it. A suite that leans on an ambient payload
+ * runs here and nowhere else: not in a build, not on a teammate's machine, not
+ * under MuleSoft's own runner. Fixtures belong in the suite, next to the
+ * assertions that read them.
  */
 
 interface RunResult {
@@ -54,11 +63,36 @@ export interface SuiteRun {
   error: string | null;
   /** Line the compile error points at, so the editor can mark it. */
   errorLine: number | null;
+  /**
+   * An explanation shown above a report that ran but failed for a reason the
+   * engine's message points at the wrong line for.
+   */
+  notice?: string;
 }
 
 export const EMPTY_RUN: SuiteRun = {
   root: null, passed: 0, failed: 0, timeMs: 0, error: null, errorLine: null,
 };
+
+/**
+ * Does this suite read an undeclared `payload`?
+ *
+ * Suites get no payload (see the note at the top), so one that reads it gets a
+ * null and then an error several lines away from the cause — `sum` called with
+ * Null, when the real problem is line 5. Worth naming.
+ *
+ * String literals and comments are blanked first, or a test NAMED "maps the
+ * payload correctly" would trip it. A `var payload = ...` of their own is
+ * MuleSoft's documented idiom and is fine, so it disarms the check.
+ */
+function readsUndeclaredPayload(suite: string): boolean {
+  const bare = suite
+    .replace(/"(?:[^"\\]|\\.)*"/g, '""')
+    .replace(/'(?:[^'\\]|\\.)*'/g, "''")
+    .replace(/\/\/.*$/gm, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '');
+  return /\bpayload\b/.test(bare) && !/\bvar\s+payload\b/.test(bare);
+}
 
 /** A test node is a leaf if it has no children; only leaves count toward pass/fail. */
 export function isLeaf(node: DWTestNode): boolean {
@@ -114,11 +148,11 @@ export function useTestRunner(): UseTestRunnerReturn {
     try {
       const res = await invoke<RunResult>('run_dataweave', {
         script: suite,
-        // A suite drives its own inputs through assertions, but the entry's
-        // payload is still passed so a suite CAN reference `payload` if the
-        // author wants to exercise the same fixture a transform uses.
-        payload: req.payload,
-        payloadMimeType: req.payloadMimeType,
+        // Not the entry's payload — see the note at the top of this file. The
+        // engine always binds something, so it gets an empty object rather than
+        // a fixture the suite could accidentally come to depend on.
+        payload: '{}',
+        payloadMimeType: 'application/json',
         attributesJson: '{}',
         varsJson: '{}',
         namedInputsJson: '[]',
@@ -132,9 +166,12 @@ export function useTestRunner(): UseTestRunnerReturn {
       });
 
       if (res.error) {
+        const hint = readsUndeclaredPayload(suite)
+          ? '\n\n— a suite has no `payload`. Define the data it needs inside the suite (`var lines = [...]`), the way dw::test\'s own examples do.'
+          : '';
         const out = {
           ...EMPTY_RUN,
-          error: res.error,
+          error: res.error + hint,
           errorLine: res.error_line,
           timeMs: res.execution_time_ms,
         };
@@ -156,8 +193,15 @@ export function useTestRunner(): UseTestRunnerReturn {
       }
 
       const { passed, failed } = tally(root);
+      // A suite reading `payload` compiles and runs — `payload` is bound to {}
+      // — so it fails INSIDE a test, and the engine points at the assertion
+      // rather than at the `payload.x` several lines above that produced the
+      // null. Say what actually went wrong.
       const out: SuiteRun = {
         root, passed, failed, timeMs: res.execution_time_ms, error: null, errorLine: null,
+        notice: failed > 0 && readsUndeclaredPayload(suite)
+          ? 'This suite reads `payload`, and a suite has no payload — it is bound to an empty object. Define the data the tests need inside the suite (`var lines = [...]`), the way dw::test\'s own examples do.'
+          : undefined,
       };
       setResult(out);
       return out;

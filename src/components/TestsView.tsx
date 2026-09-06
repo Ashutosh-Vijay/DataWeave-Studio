@@ -172,6 +172,15 @@ function Report({
 
   return (
     <div style={{ padding: '8px 4px 14px' }}>
+      {result.notice && (
+        <div style={{
+          margin: '0 10px 10px', padding: '8px 11px', borderRadius: 8, fontSize: 11, lineHeight: 1.55,
+          color: 'var(--warn)', background: 'color-mix(in oklch, var(--warn) 10%, transparent)',
+          border: '1px solid color-mix(in oklch, var(--warn) 28%, transparent)',
+        }}>
+          {result.notice}
+        </div>
+      )}
       <Node node={result.root} depth={0} />
     </div>
   );
