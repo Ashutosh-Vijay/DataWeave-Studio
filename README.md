@@ -23,6 +23,15 @@ Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor. Ships with a bu
 ![Script editor with 361-function autocomplete](docs/screenshots/auto_suggestion_on_typing_monaco_dark_mode.png)
 *Monaco editor with DataWeave syntax highlighting, 361-function autocomplete with signature hints, and live output*
 
+![Step debugger paused on a breakpoint](docs/screenshots/debugger_paused_dark_mode.png)
+*Step debugger — click the gutter to set a breakpoint, then read the call stack, every variable in scope, and evaluate any expression against the paused frame*
+
+![dw::test suite, five assertions passing](docs/screenshots/tests_suite_dark_mode.png)
+*Real `dw::test` suites — named assertions run against the bundled engine, with the engine's own failure messages and per-test timings*
+
+![Config encryption — two secrets encrypted, the rest untouched](docs/screenshots/config_encryption_dark_mode.png)
+*Config encryption — encrypt every secret in a YAML or .properties file at once; values already written as `![…]` are left alone and comments survive*
+
 ![Message Flow Designer — visual drag-and-drop canvas](docs/screenshots/message_flow_dark_mode.png)
 *Message Flow Designer — chain Set Payload, Transform, HTTP, Salesforce, and Database connectors with step-through debugging*
 

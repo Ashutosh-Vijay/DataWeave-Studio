@@ -58,6 +58,10 @@ Paste an `application.yaml` and a `secure-config.yaml` with `![encrypted]` value
 
 Autocomplete over all 361 functions with signature hints, typed against your actual payload's shape. Hover docs, go-to-definition, find-references, rename, outline, folding. Live diagnostics with fixes you can apply. Warnings when a script hashes with MD5 or leaves a `log()` behind. Formatting via the engine's own formatter, snippets, a searchable function reference, and DW 1.0 → 2.0 migration with a side-by-side diff.
 
+![Step debugger paused on a breakpoint](https://raw.githubusercontent.com/Ashutosh-Vijay/DataWeave-Studio/main/docs/screenshots/debugger_paused_dark_mode.png)
+
+![dw::test suite, five assertions passing](https://raw.githubusercontent.com/Ashutosh-Vijay/DataWeave-Studio/main/docs/screenshots/tests_suite_dark_mode.png)
+
 ![Message Flow designer with step-through debugging](https://raw.githubusercontent.com/Ashutosh-Vijay/DataWeave-Studio/main/docs/screenshots/message_flow_dark_mode.png)
 
 ## Give your AI assistant a real DataWeave engine
