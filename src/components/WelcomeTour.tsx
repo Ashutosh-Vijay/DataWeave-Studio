@@ -8,7 +8,7 @@
  * Same contract as before — App renders <WelcomeTour onComplete={…}/> off the
  * `showTour` flag; onComplete fires on Done or Skip.
  */
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 
 interface WelcomeTourProps {
   onComplete: () => void;
@@ -94,6 +94,13 @@ export function WelcomeTour({ onComplete }: WelcomeTourProps) {
   const [i, setI] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
   const [vp, setVp] = useState({ w: window.innerWidth, h: window.innerHeight });
+  // The callout's real height. It used to be assumed to be 180px, which is fine
+  // for a two-line step and wrong for a long one — the config-encryption step
+  // is over 300px, and half of it hung above the top of the window with its
+  // title cut off. Measured in a layout effect so the corrected position paints
+  // in the same frame rather than jumping.
+  const calloutRef = useRef<HTMLDivElement>(null);
+  const [calloutH, setCalloutH] = useState(0);
 
   const step = steps[i];
 
@@ -128,6 +135,11 @@ export function WelcomeTour({ onComplete }: WelcomeTourProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [next, back, onComplete]);
 
+  useLayoutEffect(() => {
+    const h = calloutRef.current?.offsetHeight ?? 0;
+    if (h && h !== calloutH) setCalloutH(h);
+  });
+
   if (!step || !rect) {
     // Nothing to anchor to — don't trap the user behind a blank scrim.
     return null;
@@ -145,7 +157,14 @@ export function WelcomeTour({ onComplete }: WelcomeTourProps) {
   else if (side === 'bottom') { left = cx; top = rect.top + rect.height + GAP; tx = '-50%'; }
   else { left = cx; top = rect.top - GAP; tx = '-50%'; ty = '-100%'; }
   if (side === 'bottom' || side === 'top') left = Math.max(MARGIN + CALLOUT_W / 2, Math.min(left, vp.w - MARGIN - CALLOUT_W / 2));
-  else top = Math.max(MARGIN + 90, Math.min(top, vp.h - MARGIN - 90));
+  // Keep the whole card on screen. `top` is the transform origin, so what has to
+  // stay inside the window depends on which way the card is anchored from it.
+  // When a card is taller than the window, Math.max wins and it pins to the top:
+  // losing the buttons off the bottom beats losing the title off the top.
+  const h = calloutH || 180;
+  if (side === 'right' || side === 'left') top = Math.max(MARGIN + h / 2, Math.min(top, vp.h - MARGIN - h / 2));
+  else if (side === 'bottom') top = Math.max(MARGIN, Math.min(top, vp.h - MARGIN - h));
+  else top = Math.max(MARGIN + h, Math.min(top, vp.h - MARGIN));
 
   const accent = 'var(--accent)';
   const isLast = i === steps.length - 1;
@@ -165,7 +184,7 @@ export function WelcomeTour({ onComplete }: WelcomeTourProps) {
       }} />
 
       {/* callout */}
-      <div key={i} style={{ position: 'fixed', left, top, width: CALLOUT_W, zIndex: 2, ['--tx' as string]: tx, ['--ty' as string]: ty, transform: `translate(${tx}, ${ty})`, animation: 'spPop .3s cubic-bezier(.2,.9,.3,1) both' }}>
+      <div key={i} ref={calloutRef} style={{ position: 'fixed', left, top, width: CALLOUT_W, zIndex: 2, ['--tx' as string]: tx, ['--ty' as string]: ty, transform: `translate(${tx}, ${ty})`, animation: 'spPop .3s cubic-bezier(.2,.9,.3,1) both' }}>
         <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '15px 16px 14px', boxShadow: '0 26px 70px rgba(0,0,0,.55)' }}>
           {/* header */}
           <div className="flex items-center" style={{ gap: 9, marginBottom: 11 }}>
