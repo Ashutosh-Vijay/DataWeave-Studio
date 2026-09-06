@@ -2,7 +2,7 @@
 
 A local IDE for DataWeave 2.0 — run, test, and debug transforms without Anypoint Studio. Available as a **desktop app** or a **VS Code extension**.
 
-> **Anypoint Studio is 2 GB. The playground container needs Docker Desktop, which most companies license commercially. The online playground means pasting production payloads into a website. MuleSoft's VS Code extension needs Java + Maven. DataWeave Studio bundles everything — desktop or extension — with the engine and a Java runtime built in, and never sends your data anywhere.**
+> **Almost nobody boots Anypoint Studio to check a four-line transform — they open the online playground, because it's one tab and it works. Then they hit its edges: nowhere to put `vars` or `attributes`, a payload too big for it, and the fact that it's a website you just pasted a production record into. The answers on offer are a 2 GB IDE, a Docker image most companies license commercially, a CLI, or MuleSoft's VS Code extension and its Java + Maven setup. DataWeave Studio is the playground with those edges removed — desktop or extension, engine and Java runtime built in, and your data never leaves the machine.**
 
 Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor. Ships with a bundled JRE 17 and the DataWeave runtime — no Java install required.
 
@@ -118,14 +118,15 @@ Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA
 | **Java required** | No (bundled JRE 17) | Yes (Java 8+ & Maven 3.6+) | No | Yes (bundled) |
 | **Visual flow designer** | Yes — drag-and-drop | No | No | Yes |
 | **cURL import** | Yes | No | No | No |
-| **Breakpoint debugging** | Flow-level step-through | Yes (full VS Code debugger) | No | Yes |
+| **Breakpoint debugging** | Yes — real DW breakpoints, call stack, watch, step in/over/out | Yes (full VS Code debugger) | No | Yes |
+| **Every expression's value** | Yes — Trace panel, no `log()` needed | No | No | No |
 | **Go to Definition / Rename** | Yes — engine language service | Yes (LSP) | No | Yes |
 | **Type inference** | Yes — engine language service | Yes (LSP) | No | Yes |
 | **Target an older Mule runtime** | Yes — set once, 4.1 to 4.12 | No | No | Per project |
 | **Autocomplete** | 361 functions + type-aware fields from your payload | LSP, type-aware | Basic suggestions | Full LSP |
 | **Context (vars, attrs, headers)** | UI — no files | Manual JSON scenario files | Partial | Full runtime |
 | **Config YAML (`${key}`)** | Yes | No | No | Yes (full runtime) |
-| **Secure config (`![encrypted]`)** | Yes — offline | No | No | Yes (full runtime) |
+| **Secure config (`![encrypted]`)** | Yes — offline, one value or a whole file | No | No | Yes (full runtime) |
 | **SOQL/SQL query rendering** | Yes | No | No | Yes (full runtime) |
 | **Testing** | Unit tests (`dw::test`), run in-app | Unit tests (`dw::test`) | No | MUnit |
 | **Multi-request workspaces** | Yes (Postman-style) | One mapping per file | No | Per-flow |
@@ -140,9 +141,12 @@ Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA
 | **Live preview** | Auto-run (toggle) | AutoPreview (opt-in) | Always on | No |
 | **Execution time display** | Yes (ms) | No | No | No |
 | **Cancel running script** | Yes | No | No | No |
+| **Share a whole setup as a link** | Yes — script, payload, vars, headers | No | No | No |
+| **MCP server for your AI assistant** | Yes — free, local, 9 tools | No | No | Vibes (subscription) |
+| **HTTP API to script it** | Yes — `POST /run`, loopback | No | No | No |
 | **Configurable timeout** | Yes | No | No | No |
 
-**In short:** Studio sits between the Playground and MuleSoft's VS Code extension. More powerful than the Playground (offline, testing, binary formats, real config). More convenient than MuleSoft's extension (no Java/Maven, no project scaffolding, everything in one window). Unique features like cURL import, Flow Designer, query modes, and secure properties that neither has. And it ships as its own VS Code extension too — same power, inside the editor.
+**In short:** it starts where the Playground does — open it and type — and keeps going where the Playground stops: real `vars` and `attributes` in a form, payloads off disk, offline secure properties, a step debugger, `dw::test` suites, and nothing leaving your machine. It gets there without MuleSoft's extension's Java + Maven setup or Studio's 2 GB. cURL import, the Flow Designer, share links and the MCP server are its own. And it ships as a VS Code extension too — same engine, inside the editor.
 
 ---
 
