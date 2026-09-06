@@ -58,7 +58,7 @@ const BENTO = [
   { key: 'share', title: 'Share as a link', desc: 'Script, payload, context and target compressed into a URL — nothing is uploaded, the data rides in the link.', icon: ICONS.share },
   { key: 'mcp', title: 'Local server', desc: 'Expose the engine to Claude, Cursor & Copilot so an agent can run and self-correct scripts.', icon: ICONS.mcp },
   { key: 'flow', title: 'Message flows', desc: 'Chain transforms into a pipeline with the visual Message Flow designer.', icon: ICONS.flow },
-  { key: 'ref', title: '309 functions', desc: 'The full DataWeave standard library, searchable, with signatures and runnable examples.', icon: ICONS.ref },
+  { key: 'ref', title: '361 functions', desc: 'The full DataWeave standard library, searchable, with signatures and runnable examples.', icon: ICONS.ref },
   { key: 'modules', title: 'Module library', desc: 'Save reusable .dwl modules once, then import them from any script.', icon: ICONS.modules },
   { key: 'cookbook', title: 'Cookbook', desc: 'A searchable library of ready-to-run recipes — load one and tweak it.', icon: ICONS.cookbook },
   { key: 'java', title: 'Java tester', desc: 'Compile the Java classes your Mule app calls and run them against a payload.', icon: ICONS.java },

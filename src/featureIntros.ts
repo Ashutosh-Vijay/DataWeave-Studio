@@ -47,7 +47,7 @@ export const FEATURE_INTROS: Record<string, FeatureIntro> = {
   },
   reference: {
     title: 'Function reference',
-    body: 'Browse all 309 DataWeave functions with signatures and worked examples. It’s the same reference that powers the editor’s autocomplete and hover docs.',
+    body: 'Browse all 361 DataWeave functions with signatures and worked examples. It’s the same reference that powers the editor’s autocomplete and hover docs.',
   },
   java: {
     title: 'Java tester',

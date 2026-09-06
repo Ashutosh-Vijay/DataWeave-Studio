@@ -36,7 +36,7 @@ no PATH changes.
 THE EDITOR
 
 • Monaco editor with DataWeave 2.0 syntax highlighting and bracket-pair colouring.
-• Autocomplete over all 309 DataWeave functions with signature hints, grouped by module.
+• Autocomplete over all 361 DataWeave functions with signature hints, grouped by module.
 • Suggestions drawn from your own data: payload fields, variables, attributes and config
   properties, so completions match what you actually loaded.
 • Reader and writer options for all 16 formats complete as you type - including the ones
