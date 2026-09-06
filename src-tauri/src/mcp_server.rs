@@ -101,6 +101,15 @@ struct RunInput {
     /// safe to insert anywhere) to see a pipeline stage without restructuring the output.
     #[serde(default)]
     trace: Option<bool>,
+    /// Value trace: when true, returns what EVERY expression in the script
+    /// evaluated to, as a table of `line:col  expression  =>  value`. Use this when
+    /// the script RUNS but the output is wrong: instead of guessing which stage of a
+    /// pipeline went wrong, read the actual intermediate values. It needs no `log(...)`
+    /// calls and no edits to the script. Repeated expressions (a map body over 500
+    /// items) collapse to one row with a count, showing the first value. Costs a
+    /// second compile and forces every lazy value, so leave it off for ordinary runs.
+    #[serde(default)]
+    value_trace: Option<bool>,
 }
 fn default_mime() -> String {
     "application/json".to_string()
@@ -118,6 +127,36 @@ struct MigrateInput {
 struct FormatInput {
     /// A DataWeave script to pretty-print / reformat.
     script: String,
+}
+
+/// Input for the `run_dataweave_tests` tool.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct TestInput {
+    /// A `dw::test` suite. Its body must be a single `describedBy` block, e.g.
+    /// `%dw 2.0\nimport * from dw::test::Tests\nimport * from dw::test::Asserts\n---\n"my suite" describedBy [\n  "adds up" in do { 1 + 1 must equalTo(2) }\n]`
+    suite: String,
+    /// Optional sample payload the suite can reference as `payload`, as a string.
+    #[serde(default)]
+    payload: Option<String>,
+    /// MIME type of `payload`. Default application/json.
+    #[serde(default)]
+    payload_mime_type: Option<String>,
+}
+
+/// Input for the `lint_dataweave` tool.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct LintInput {
+    /// The DataWeave script to check. A full script with a header is best; a bare
+    /// body is accepted and checked as `%dw 2.0` / `output application/json`.
+    script: String,
+    /// Optional sample payload. Supplying one lets the type checker resolve
+    /// `payload.field` references; without it, `payload` is exempted from
+    /// unresolved-reference errors rather than flooding the report with them.
+    #[serde(default)]
+    payload: Option<String>,
+    /// MIME type of `payload`. Default application/json.
+    #[serde(default)]
+    payload_mime_type: Option<String>,
 }
 
 /// Input for the `dw_function_reference` tool.
@@ -151,7 +190,17 @@ struct SecurePropsInput {
     /// "encrypt" (plaintext → `![base64]`) or "decrypt" (`![...]`/base64 → plaintext).
     operation: String,
     /// The value: plaintext to encrypt, or the ciphertext (inner base64 or full `![...]`) to decrypt.
-    value: String,
+    /// Omit this when using `values`.
+    #[serde(default)]
+    value: Option<String>,
+    /// A batch, as a JSON array of strings: `["hunter2","s3cret"]`. Results come back
+    /// in the same order, one per line. Use this for a whole config file: read the
+    /// file yourself, pass the values you decided are secrets, and paste the results
+    /// back. Values that are already in the target state (an `![...]` passed to
+    /// encrypt, a plaintext passed to decrypt) are returned unchanged rather than
+    /// double-processed.
+    #[serde(default)]
+    values: Option<String>,
     /// The MuleSoft secure-properties key (e.g. a 16/24/32-char AES key).
     key: String,
     /// Cipher: AES (default) | Blowfish | DES | DESede | RC2.
@@ -333,6 +382,37 @@ fn format_recipe(r: &serde_json::Value) -> String {
         g("name"), g("category"), g("difficulty"), g("description"),
         g("inputMime"), g("input"), g("script"), g("outputMime"), g("output"),
     )
+}
+
+/// Render one node of the engine's `dw::test` report, depth-first.
+///
+/// Only leaves are tests; a `describedBy` block reports its own status as "OK"
+/// whether or not the tests inside it passed, so pass/fail is counted from
+/// leaves alone (the app's runner learned this the same way).
+fn format_test_node(node: &serde_json::Value, depth: usize, out: &mut String, passed: &mut u32, failed: &mut u32) {
+    let name = node.get("name").and_then(|v| v.as_str()).unwrap_or("(unnamed)");
+    let status = node.get("status").and_then(|v| v.as_str()).unwrap_or("");
+    let kids = node.get("tests").and_then(|v| v.as_array());
+    let indent = "  ".repeat(depth);
+
+    match kids {
+        Some(k) if !k.is_empty() => {
+            out.push_str(&format!("{}{}\n", indent, name));
+            for child in k {
+                format_test_node(child, depth + 1, out, passed, failed);
+            }
+        }
+        _ => {
+            let ok = status == "OK";
+            if ok { *passed += 1 } else { *failed += 1 }
+            out.push_str(&format!("{}{} {}\n", indent, if ok { "PASS" } else { "FAIL" }, name));
+            if !ok {
+                if let Some(msg) = node.get("errorMessage").and_then(|v| v.as_str()) {
+                    out.push_str(&format!("{}     {}\n", indent, msg.replace('\n', &format!("\n{}     ", indent))));
+                }
+            }
+        }
+    }
 }
 
 /// Panel-set decryption settings for `![...]` secure values. Session-only — held
@@ -608,7 +688,7 @@ impl DwTools {
             None,              // target runtime — not exposed over MCP yet
             None,              // debug — agents run, they don't step
             None,
-            None,              // value trace — the agent gets log() output, not every node
+            input.value_trace, // value trace — every expression's real value
         )
         .await
         .map_err(|e| rmcp::ErrorData::internal_error(e, None))?;
@@ -618,6 +698,36 @@ impl DwTools {
         let trace_block = match &result.logs {
             Some(logs) if !logs.is_empty() => {
                 format!("\n\n--- trace (log output, {} line{}) ---\n{}", logs.len(), if logs.len() == 1 { "" } else { "s" }, logs.join("\n"))
+            }
+            _ => String::new(),
+        };
+
+        // Value trace: what each expression actually evaluated to. Rendered as a
+        // flat table rather than JSON — it is read by a model, and a JSON wrapper
+        // would cost tokens without adding meaning.
+        let value_trace_block = match &result.trace {
+            Some(rows) if !rows.is_empty() => {
+                let mut t = format!(
+                    "\n\n--- value trace ({} expression{}) ---",
+                    rows.len(),
+                    if rows.len() == 1 { "" } else { "s" }
+                );
+                for r in rows {
+                    let times = if r.count > 1 { format!(" x{}", r.count) } else { String::new() };
+                    // First line of the error only. The full exception, stack trace
+                    // and source excerpt are already in the ERROR block above, and
+                    // repeating all of it once per failed row buried the actual
+                    // values under kilobytes of duplicate text.
+                    let val = match &r.error {
+                        Some(e) => format!("!! {}", e.lines().next().unwrap_or(e)),
+                        None => r.value.clone(),
+                    };
+                    t.push_str(&format!(
+                        "\n{}:{}  {}  =>  ({}){} {}",
+                        r.line, r.column, r.expression, r.type_name, times, val
+                    ));
+                }
+                t
             }
             _ => String::new(),
         };
@@ -635,16 +745,164 @@ impl DwTools {
                 None => String::new(),
             };
             Ok(CallToolResult::error(vec![Content::text(format!(
-                "ERROR{}:\n{}{}",
-                loc, err, trace_block
+                "ERROR{}:\n{}{}{}",
+                loc, err, trace_block, value_trace_block
             ))]))
         } else {
-            Ok(CallToolResult::success(vec![Content::text(format!("{}{}", result.output, trace_block))]))
+            Ok(CallToolResult::success(vec![Content::text(format!(
+                "{}{}{}",
+                result.output, trace_block, value_trace_block
+            ))]))
         }
     }
 
     #[tool(
-        description = "Encrypt or decrypt a MuleSoft secure-properties value, byte-compatible with the Mule runtime (uses the official secure-properties-tool). Use `operation:\"encrypt\"` to turn a plaintext secret into the `![base64]` form you put in a secure config; use `operation:\"decrypt\"` to read one (accepts the inner base64 OR the full `![...]`). Default cipher is AES/CBC. This is pure local crypto — allowed in Safe mode."
+        description = "Run a `dw::test` suite on the local engine and report which assertions passed. Use this to PROVE a transform is right instead of eyeballing one sample: write a suite whose body is a `describedBy` block containing `in do { ... must ... }` tests, and this returns a pass/fail tree plus the failure message for anything that broke. `dw::test::Tests` and `dw::test::Asserts` are compiled into this engine, so just import them. Prefer this over validate_and_run_dataweave whenever the user asks for tests, or whenever a transform has edge cases worth pinning down."
+    )]
+    async fn run_dataweave_tests(
+        &self,
+        Parameters(input): Parameters<TestInput>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        let suite = input.suite.trim().to_string();
+        if suite.is_empty() {
+            return Ok(CallToolResult::error(vec![Content::text(
+                "`suite` is empty. Pass a dw::test suite whose body is a `describedBy` block.".to_string(),
+            )]));
+        }
+        // A suite is an ordinary script that happens to return a test report, so it
+        // goes through the same runner — and therefore the same Safe-mode gate.
+        if !self.advanced.load(Ordering::Relaxed) {
+            if let Some(reason) = safe_mode_block_reason(&suite) {
+                return Ok(CallToolResult::error(vec![Content::text(format!(
+                    "Safe mode rejected this suite: {} is not allowed here — it was NOT run.",
+                    reason
+                ))]));
+            }
+        }
+
+        self.requests.fetch_add(1, Ordering::Relaxed);
+        let state = self.app.state::<crate::dw_runner::RunState>();
+        let result = crate::dw_runner::run_dataweave(
+            self.app.clone(),
+            state,
+            suite,
+            input.payload.unwrap_or_else(|| "{}".to_string()),
+            input.payload_mime_type.unwrap_or_else(default_mime),
+            "{}".to_string(),
+            "{}".to_string(),
+            "[]".to_string(),
+            None, None, None, None, None, None, None, None, None, None,
+        )
+        .await
+        .map_err(|e| rmcp::ErrorData::internal_error(e, None))?;
+
+        if let Some(err) = result.error {
+            let loc = result
+                .error_line
+                .map(|l| format!(" (line {})", l))
+                .unwrap_or_default();
+            return Ok(CallToolResult::error(vec![Content::text(format!(
+                "The suite did not compile or run{}:\n{}",
+                loc, err
+            ))]));
+        }
+
+        let report: serde_json::Value = match serde_json::from_str(&result.output) {
+            Ok(v) => v,
+            Err(_) => {
+                return Ok(CallToolResult::error(vec![Content::text(format!(
+                    "The suite ran but did not return a test report — its body must be a `describedBy` block. It returned:\n{}",
+                    result.output
+                ))]))
+            }
+        };
+
+        let mut tree = String::new();
+        let (mut passed, mut failed) = (0u32, 0u32);
+        format_test_node(&report, 0, &mut tree, &mut passed, &mut failed);
+        let summary = format!(
+            "\n{} passed, {} failed in {}ms",
+            passed, failed, result.execution_time_ms
+        );
+        let text = format!("{}{}", tree, summary);
+        if failed > 0 {
+            Ok(CallToolResult::error(vec![Content::text(text)]))
+        } else {
+            Ok(CallToolResult::success(vec![Content::text(text)]))
+        }
+    }
+
+    #[tool(
+        description = "Check a DataWeave script WITHOUT running it — the engine's own type checker and linter. Reports undefined references, wrong argument counts, syntax errors, type mismatches, insecure hash algorithms (MD5/SHA-1), leftover log() calls and unused imports, each with a line/column and a rule id. Use this when you have no sample payload to run against, when reviewing a script someone else wrote, or as a fast first pass before validate_and_run_dataweave. A clean script returns nothing. This does NOT replace running: it cannot tell you the output is wrong, only that the code is."
+    )]
+    async fn lint_dataweave(
+        &self,
+        Parameters(input): Parameters<LintInput>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        // Type checking compiles the script, which is enough to load a Java class,
+        // so it goes through the same Safe-mode gate as a run.
+        if !self.advanced.load(Ordering::Relaxed) {
+            if let Some(reason) = safe_mode_block_reason(&input.script) {
+                return Ok(CallToolResult::error(vec![Content::text(format!(
+                    "Safe mode rejected this script: {} is not allowed here — it was NOT compiled.",
+                    reason
+                ))]));
+            }
+        }
+        self.requests.fetch_add(1, Ordering::Relaxed);
+        let payload = input.payload.unwrap_or_default();
+        let res = crate::dw_server::tooling(
+            &self.app,
+            "typeCheck",
+            &input.script,
+            0,
+            &payload,
+            &[],
+            "",
+            "",
+            &input.payload_mime_type.unwrap_or_else(default_mime),
+            1,
+        )
+        .map_err(|e| rmcp::ErrorData::internal_error(e, None))?;
+
+        let messages = res.get("messages").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        if messages.is_empty() {
+            return Ok(CallToolResult::success(vec![Content::text(
+                "No problems found.".to_string(),
+            )]));
+        }
+        let mut out = String::new();
+        for m in &messages {
+            let sev = m.get("severity").and_then(|v| v.as_str()).unwrap_or("error");
+            let code = m.get("code").and_then(|v| v.as_str()).unwrap_or("");
+            let text = m.get("message").and_then(|v| v.as_str()).unwrap_or("");
+            let line = m.get("location").and_then(|l| l.get("startLine")).and_then(|v| v.as_i64());
+            let col = m.get("location").and_then(|l| l.get("startColumn")).and_then(|v| v.as_i64());
+            let at = match (line, col) {
+                (Some(l), Some(c)) => format!("line {}, col {}", l, c),
+                (Some(l), None) => format!("line {}", l),
+                _ => "somewhere".to_string(),
+            };
+            out.push_str(&format!("[{}] {} — {} ({})\n", sev, at, text, code));
+            let fixes: Vec<String> = m
+                .get("quickFixes")
+                .and_then(|v| v.as_array())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|f| f.get("name").and_then(|v| v.as_str()).map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default();
+            if !fixes.is_empty() {
+                out.push_str(&format!("    available fixes: {}\n", fixes.join(", ")));
+            }
+        }
+        out.push_str(&format!("\n{} problem{} found.", messages.len(), if messages.len() == 1 { "" } else { "s" }));
+        Ok(CallToolResult::success(vec![Content::text(out)]))
+    }
+
+    #[tool(
+        description = "Encrypt or decrypt MuleSoft secure-properties values, byte-compatible with the Mule runtime (uses the official secure-properties-tool). `operation:\"encrypt\"` turns a plaintext secret into the `![base64]` form you put in a secure config; `operation:\"decrypt\"` reads one (accepts the inner base64 OR the full `![...]`). Pass `value` for one, or `values` (a JSON array) for a whole config file at once — for a file, read it yourself, pass the values you judge to be secrets, and write the results back in place; already-encrypted values passed to encrypt (and plaintext passed to decrypt) come back untouched, so re-running is safe. Default cipher is AES/CBC. Pure local crypto — allowed in Safe mode."
     )]
     async fn secure_properties(
         &self,
@@ -656,40 +914,72 @@ impl DwTools {
                 "`operation` must be \"encrypt\" or \"decrypt\".".to_string(),
             )]));
         }
-        // Be forgiving: for decrypt, accept the full `![...]` wrapper too.
-        let value = if op == "decrypt" {
-            let t = input.value.trim();
-            if t.starts_with("![") && t.ends_with(']') {
-                t[2..t.len() - 1].to_string()
-            } else {
-                input.value.clone()
-            }
-        } else {
-            input.value.clone()
+        // One value or a batch — a config file is the common case and calling this
+        // tool twelve times for one file is miserable for everyone.
+        let batch = input.values.as_deref().map_or(false, |j| !j.trim().is_empty() && j.trim() != "[]");
+        let items: Vec<String> = match input.values.as_deref() {
+            Some(j) if !j.trim().is_empty() && j.trim() != "[]" => match serde_json::from_str(j) {
+                Ok(v) => v,
+                Err(e) => {
+                    return Ok(CallToolResult::error(vec![Content::text(format!(
+                        "Invalid `values` JSON: {}. Expected an array of strings.",
+                        e
+                    ))]))
+                }
+            },
+            _ => match input.value.clone() {
+                Some(v) => vec![v],
+                None => {
+                    return Ok(CallToolResult::error(vec![Content::text(
+                        "Pass `value` (one string) or `values` (a JSON array of strings).".to_string(),
+                    )]))
+                }
+            },
         };
+
         let algorithm = input.algorithm.unwrap_or_else(|| "AES".to_string());
         let mode = input.mode.unwrap_or_else(|| "CBC".to_string());
         let use_random_iv = input.use_random_iv.unwrap_or(false);
         self.requests.fetch_add(1, Ordering::Relaxed);
-        match crate::secure_properties::secure_properties_invoke(
-            self.app.clone(),
-            op.clone(),
-            algorithm,
-            mode,
-            input.key,
-            value,
-            use_random_iv,
-        ) {
-            // encrypt → wrap in ![...] so the agent can paste it straight into a config.
-            Ok(out) => {
-                let text = if op == "encrypt" { format!("![{}]", out) } else { out };
-                Ok(CallToolResult::success(vec![Content::text(text)]))
+
+        let total = items.len();
+        let mut out_lines = Vec::with_capacity(total);
+        for raw in items {
+            let t = raw.trim();
+            let wrapped = t.len() > 3 && t.starts_with("![") && t.ends_with(']');
+            // Already in the target state — hand it back untouched. Double-encrypting
+            // is the classic way to make a config file unrecoverable. Only a batch
+            // skips unwrapped values on decrypt: a single `value` may legitimately be
+            // bare base64, which is what the one-at-a-time form has always accepted.
+            if (op == "encrypt" && wrapped) || (op == "decrypt" && batch && !wrapped) {
+                out_lines.push(raw);
+                continue;
             }
-            Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
-                "secure-properties {} failed (check key / algorithm / mode): {}",
-                op, e
-            ))])),
+            // Be forgiving: for decrypt, accept the full `![...]` wrapper too.
+            let value = if op == "decrypt" && wrapped { t[2..t.len() - 1].to_string() } else { raw.clone() };
+            match crate::secure_properties::secure_properties_invoke(
+                self.app.clone(),
+                op.clone(),
+                algorithm.clone(),
+                mode.clone(),
+                input.key.clone(),
+                value,
+                use_random_iv,
+            ) {
+                // encrypt → wrap in ![...] so it can be pasted straight into a config.
+                Ok(o) => out_lines.push(if op == "encrypt" { format!("![{}]", o) } else { o }),
+                Err(e) => {
+                    return Ok(CallToolResult::error(vec![Content::text(format!(
+                        "secure-properties {} failed on value {} of {} (check key / algorithm / mode): {}",
+                        op,
+                        out_lines.len() + 1,
+                        total,
+                        e
+                    ))]))
+                }
+            }
         }
+        Ok(CallToolResult::success(vec![Content::text(out_lines.join("\n"))]))
     }
 
     #[tool(
@@ -719,7 +1009,7 @@ impl DwTools {
     }
 
     #[tool(
-        description = "OFFLINE DataWeave 2.12 standard-library reference — 309 functions with exact signatures, descriptions, and runnable examples. Pass `name` for one function's full doc, `search` for a keyword match list, or no args to list every function name. Use THIS instead of recalling/ web-searching DW syntax — it's the authoritative signature source."
+        description = "OFFLINE DataWeave 2.12 standard-library reference — every function the bundled engine has, with exact signatures, descriptions, and runnable examples. Pass `name` for one function's full doc, `search` for a keyword match list, or no args to list every function name. Use THIS instead of recalling/ web-searching DW syntax — it's the authoritative signature source."
     )]
     async fn dw_function_reference(
         &self,
@@ -741,7 +1031,7 @@ impl DwTools {
             let nl = name.to_lowercase();
             let near: Vec<&str> = obj.keys().filter(|k| k.to_lowercase().contains(&nl)).map(|s| s.as_str()).take(40).collect();
             let msg = if near.is_empty() {
-                format!("No DataWeave function named '{}'. Use `search`, or omit args to list all 309.", name)
+                format!("No DataWeave function named '{}'. Use `search`, or omit args to list all.", name)
             } else {
                 format!("No exact match for '{}'. Closest names: {}", name, near.join(", "))
             };
@@ -775,7 +1065,7 @@ impl DwTools {
     }
 
     #[tool(
-        description = "OFFLINE DataWeave cookbook — 83 validated recipes (each runs cleanly on this engine) for common MuleSoft tasks: array/object/string transforms, XML/CSV, dates, error handling. Pass `id` for a full recipe (input + script + output), `search`/`category` to filter, or no args to list all. Great for grabbing a verified starting pattern before writing a complex transform."
+        description = "OFFLINE DataWeave cookbook — validated recipes (each runs cleanly on this engine) for common MuleSoft tasks: array/object/string transforms, XML/CSV, dates, error handling. Pass `id` for a full recipe (input + script + output), `search`/`category` to filter, or no args to list all. Great for grabbing a verified starting pattern before writing a complex transform."
     )]
     async fn dw_cookbook(
         &self,
@@ -870,9 +1160,16 @@ impl ServerHandler for DwTools {
                  names (common in XML/SOAP), compare `payload…*name` (all matches, as an array) against \
                  `payload…name` (first only) and confirm the count is what you expect.\n\
                  5. INSPECT INTERMEDIATE VALUES — when a transform compiles but the output looks wrong, set \
-                 `trace:true` and wrap any sub-expression in `log(\"label\", expr)` (it returns `expr` unchanged, so \
-                 insert it anywhere). The logged values come back in a trace block below the result — debug a \
-                 pipeline stage without restructuring the output.\n\n\
+                 `value_trace:true`. Every expression in the script comes back with what it actually evaluated \
+                 to, so you read the broken stage instead of guessing at it — no `log()` calls, no edits. \
+                 (`trace:true` is the narrower version: it captures only what your own `log(\"label\", expr)` \
+                 calls emit. Use it when you want a few labelled checkpoints rather than everything.)\n\
+                 6. PROVE IT WITH TESTS — when the user asks for tests, or a transform has edge cases worth \
+                 pinning down, write a `dw::test` suite and run it with `run_dataweave_tests`. One sample \
+                 output is evidence; a passing suite is proof.\n\
+                 7. NO PAYLOAD TO RUN AGAINST? — use `lint_dataweave`. It type-checks and lints without \
+                 executing, so you can still catch undefined references, wrong arity, bad hashes and syntax \
+                 errors in a script you cannot run.\n\n\
                  ## Writing the `script`\n\
                  - A bare body works: `payload map (x) -> x * 2` runs as `%dw 2.0` with `output application/json`.\n\
                  - For any non-JSON output you MUST write the header yourself: `%dw 2.0` / `output application/xml` / `---` / body.\n\

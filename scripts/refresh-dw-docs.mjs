@@ -53,4 +53,10 @@ run('node scripts/extract-dw-bundled-docs.mjs');
 
 console.log('\n==> Format options');
 run('node scripts/extract-dw-formats.mjs');
-console.log('\nDone. Review the diff in src/dataweaveDocs.ts + src/dataweaveFormats.ts.');
+
+// The MCP server reads its own JSON copies of the function reference and the
+// cookbook. Leaving this out of the refresh is how they drifted a full year
+// behind the app, so it is part of the refresh now, not a step to remember.
+console.log('\n==> MCP server resources');
+run('node scripts/genMcpResources.mjs');
+console.log('\nDone. Review the diff in src/dataweaveDocs.ts + src/dataweaveFormats.ts + src-tauri/resources/mcp/.');
