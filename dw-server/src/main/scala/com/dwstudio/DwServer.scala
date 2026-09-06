@@ -627,6 +627,34 @@ object DwServer {
    *
    *  The thread is what keeps the protocol simple: the engine pauses by parking
    *  the executing thread, so the stdio loop has to be somewhere else. */
+  /** A readable tail for a throwable that dies inside the interpreter.
+   *
+   *  A StackOverflowError carries no message and, because we catch it, the JVM
+   *  never prints its trace anywhere - stderr and the dev log stay empty, which
+   *  is exactly how long it took to notice. The frames themselves are also
+   *  useless raw: a thousand repeats of the same three calls. So consecutive
+   *  repeats collapse into `frame (xN)` and only the first 40 distinct ones are
+   *  kept, which is enough to name the cycle.
+   */
+  private def stackDigest(t: Throwable): String = {
+    val frames = t.getStackTrace
+    if (frames == null || frames.isEmpty) return ""
+    val sb = new StringBuilder
+    var i = 0
+    var kept = 0
+    while (i < frames.length && kept < 40) {
+      val f = frames(i).toString
+      var n = 1
+      while (i + n < frames.length && frames(i + n).toString == f) n += 1
+      sb.append("\n  at ").append(f)
+      if (n > 1) sb.append(" (x").append(n).append(")")
+      i += n
+      kept += 1
+    }
+    if (i < frames.length) sb.append("\n  ... ").append(frames.length - i).append(" more")
+    "\n" + sb.toString
+  }
+
   private def startDebugRun(
     id: Int,
     started: Long,
@@ -679,7 +707,7 @@ object DwServer {
             session.output = out.toString("UTF-8")
           } catch {
             case t: Throwable =>
-              session.error = t.getClass.getSimpleName + ": " + Option(t.getMessage).getOrElse("")
+              session.error = t.getClass.getSimpleName + ": " + Option(t.getMessage).getOrElse("") + stackDigest(t)
           } finally {
             session.paused = false
             session.finished = true

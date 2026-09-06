@@ -130,9 +130,35 @@ class DwDebugSession extends WeaveDebuggingSession {
 class NonConsumingDebuggerExecutor(session: WeaveDebuggingSession, inputNames: Set[String])
   extends WeaveDebuggerExecutor(session) {
 
+  /** True while this thread is building a frame snapshot.
+   *
+   *  Rendering a value can FORCE it, and forcing a lazy `var` executes a
+   *  ValueNode, which fires `preValueNodeExecution`, which calls `preExecution`,
+   *  which builds the frame map again, which renders the same still-unforced
+   *  var. 984 frames later the JVM gives up and the session dies with a
+   *  StackOverflowError carrying no message. Two `sizeOf(payload.lines)` in one
+   *  script was enough; hoisting them into a `var` made it more likely, not
+   *  less, because a `var` is exactly the lazy directive that re-enters.
+   *
+   *  The guard is RE-ENTRANCY, not identity. Skipping by variable name (what
+   *  `inputNames` does, and all this class had before) cannot help here: the
+   *  value that recurses is an ordinary local with an ordinary name. A nested
+   *  snapshot returns nothing and lets the outer one finish with the real,
+   *  now-forced values.
+   *
+   *  Per-thread because the debugged script runs on its own worker thread and
+   *  the session must not be affected by anything else in the JVM.
+   */
+  private val snapshotting = new ThreadLocal[java.lang.Boolean] {
+    override def initialValue(): java.lang.Boolean = java.lang.Boolean.FALSE
+  }
+
   override def toFrameValueMap(
     frame: Frame,
     values: IdentityHashMap[Value[_], DebuggerValue])(implicit ctx: ExecutionContext): Seq[(String, DebuggerValue)] = {
+    if (snapshotting.get()) return Seq.empty
+    snapshotting.set(java.lang.Boolean.TRUE)
+    try {
     val names = frame.moduleContext.variableTable.variableNames()
     frame.content.zipWithIndex.flatMap { valueWithIndex =>
       val value = valueWithIndex._1
@@ -147,6 +173,7 @@ class NonConsumingDebuggerExecutor(session: WeaveDebuggingSession, inputNames: S
         }
       }
     }
+    } finally snapshotting.set(java.lang.Boolean.FALSE)
   }
 }
 
