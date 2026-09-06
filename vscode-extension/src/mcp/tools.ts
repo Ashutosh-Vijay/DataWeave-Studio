@@ -1,6 +1,6 @@
 /**
  * MCP tool surface for DataWeave Studio (VS Code extension) — at parity with the
- * desktop's rmcp server (src-tauri/src/mcp_server.rs). Six tools, all backed by
+ * desktop's rmcp server (src-tauri/src/mcp_server.rs). Eight tools, all backed by
  * the SAME bundled DataWeave 2.12 engine via dwHost:
  *
  *   validate_and_run_dataweave · secure_properties · migrate_dw_1_to_2 ·
@@ -16,7 +16,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import yaml from 'js-yaml';
-import { DwServer, runDataweave, formatDataweave } from '../dwHost';
+import { DwServer, runDataweave, formatDataweave, toolingQuery } from '../dwHost';
 import { securePropertiesInvoke } from './secureProps';
 import { loadMcpJson } from './mcpResources';
 import { migrateDW1to2 } from './dwMigrate';
@@ -204,7 +204,8 @@ export function registerTools(
         namedInputs: z.string().optional().describe('Extra named inputs as a JSON array: [{"name":"account","mimeType":"application/json","content":"{...}"}]. Read in the script by name.'),
         multipart: z.string().optional().describe('multipart/form-data parts as a JSON array. Each: {name, contentType, filename, and one of value | contentBase64 (binary) | filePath (Advanced only)}. Read as payload.parts.<name>.content.'),
         modules: z.string().optional().describe('Custom DataWeave modules as a JSON array: [{"name":"MyModule","content":"%dw 2.0\\nfun greet(n)=..."}] so `import x from MyModule` resolves. Use :: in name for packages. Module bodies face the same Safe-mode gate.'),
-        trace: z.boolean().optional().describe('When true, captures the script\'s log(...) output and returns it below the result. Use it to INSPECT INTERMEDIATE VALUES — wrap any sub-expression in log("label", expr) (returns expr unchanged) to see a pipeline stage without restructuring the output.'),
+        trace: z.boolean().optional().describe('When true, captures the script\'s log(...) output and returns it below the result. Use it for a few labelled checkpoints; for everything, use valueTrace.'),
+        valueTrace: z.boolean().optional().describe('When true, returns what EVERY expression in the script evaluated to, as a table of `line:col  expression  =>  value`. Use this when the script RUNS but the output is wrong: read the actual intermediate values instead of guessing which stage broke. No log() calls and no edits to the script. Repeated expressions (a map body over 500 items) collapse to one row with a count. Costs a second compile, so leave it off for ordinary runs.'),
       },
       annotations: { readOnlyHint: !advanced, idempotentHint: true, openWorldHint: advanced },
     },
@@ -337,6 +338,7 @@ export function registerTools(
         multipartPartsJson: multipartJson ?? null,
         modulesJson: modulesJson ?? null,
         trace: a.trace === true,
+        valueTrace: a.valueTrace === true,
       });
 
       // Trace logs appended below the result so the agent can inspect intermediate
@@ -345,13 +347,27 @@ export function registerTools(
         ? `\n\n--- trace (log output, ${result.logs.length} line${result.logs.length === 1 ? '' : 's'}) ---\n${result.logs.join('\n')}`
         : '';
 
+      // Value trace: what each expression actually evaluated to. A flat table, not
+      // JSON — a model reads this, and a JSON wrapper would cost tokens without
+      // adding meaning. Errored rows keep only the FIRST LINE of the exception: the
+      // full stack is already in the ERROR block, and repeating it per row buried
+      // the values it is there to show.
+      const valueTraceBlock = result.trace && result.trace.length
+        ? `\n\n--- value trace (${result.trace.length} expression${result.trace.length === 1 ? '' : 's'}) ---\n` +
+          result.trace.map((r) => {
+            const times = r.count > 1 ? ` x${r.count}` : '';
+            const val = r.error ? `!! ${r.error.split('\n')[0]}` : r.value;
+            return `${r.line}:${r.column}  ${r.expression}  =>  (${r.type})${times} ${val}`;
+          }).join('\n')
+        : '';
+
       if (result.error) {
         const where = result.error_line != null
           ? ` (line ${result.error_line}${result.error_column != null ? `, col ${result.error_column}` : ''})`
           : '';
-        return err(`ERROR${where}:\n${result.error}${traceBlock}`);
+        return err(`ERROR${where}:\n${result.error}${traceBlock}${valueTraceBlock}`);
       }
-      return ok(result.output + traceBlock);
+      return ok(result.output + traceBlock + valueTraceBlock);
     },
   );
 
@@ -361,13 +377,17 @@ export function registerTools(
     {
       title: 'MuleSoft secure-properties encrypt/decrypt',
       description:
-        'Encrypt or decrypt a MuleSoft secure-properties value, byte-compatible with the Mule runtime (uses the ' +
+        'Encrypt or decrypt MuleSoft secure-properties values, byte-compatible with the Mule runtime (uses the ' +
         'official secure-properties-tool). operation:"encrypt" turns plaintext into the `![base64]` form for a ' +
         'secure config; operation:"decrypt" reads one (accepts the inner base64 OR the full `![...]`). Default ' +
-        'cipher AES/CBC. Pure local crypto — allowed in Safe mode.',
+        'cipher AES/CBC. Pass `value` for one, or `values` (a JSON array) for a whole config file at once — read ' +
+        'the file yourself, pass the values you judge to be secrets, and write the results back in place; ' +
+        'already-encrypted values passed to encrypt (and plaintext passed to decrypt) come back untouched, so ' +
+        're-running is safe. Pure local crypto — allowed in Safe mode.',
       inputSchema: {
         operation: z.string().describe('"encrypt" or "decrypt".'),
-        value: z.string().describe('Plaintext to encrypt, or ciphertext (inner base64 or full ![...]) to decrypt.'),
+        value: z.string().optional().describe('Plaintext to encrypt, or ciphertext (inner base64 or full ![...]) to decrypt. Omit when using `values`.'),
+        values: z.string().optional().describe('A batch, as a JSON array of strings: ["hunter2","s3cret"]. Results come back in the same order, one per line — one call for a whole config file.'),
         key: z.string().describe('The secure-properties key (e.g. a 16/24/32-char AES key).'),
         algorithm: z.string().optional().describe('AES (default) | Blowfish | DES | DESede | RC2.'),
         mode: z.string().optional().describe('CBC (default) | CFB | ECB | OFB.'),
@@ -378,17 +398,37 @@ export function registerTools(
     async (a) => {
       const op = String(a.operation ?? '').trim().toLowerCase();
       if (op !== 'encrypt' && op !== 'decrypt') return err('`operation` must be "encrypt" or "decrypt".');
-      let value = a.value as string;
-      if (op === 'decrypt') {
-        const t = value.trim();
-        if (t.startsWith('![') && t.endsWith(']')) value = t.slice(2, t.length - 1);
+
+      // One value or a batch — a config file is the common case, and calling this
+      // tool twelve times for one file is miserable for everyone.
+      let items: string[];
+      const batch = typeof a.values === 'string' && a.values.trim() !== '' && a.values.trim() !== '[]';
+      if (batch) {
+        try { items = JSON.parse(a.values as string) as string[]; }
+        catch (e) { return err(`Invalid \`values\` JSON: ${(e as Error).message}. Expected an array of strings.`); }
+      } else if (typeof a.value === 'string') {
+        items = [a.value];
+      } else {
+        return err('Pass `value` (one string) or `values` (a JSON array of strings).');
       }
-      try {
-        const out = await securePropertiesInvoke(extensionRoot, op, a.algorithm ?? 'AES', a.mode ?? 'CBC', a.key, value, a.useRandomIv ?? false);
-        return ok(op === 'encrypt' ? `![${out}]` : out);
-      } catch (e) {
-        return err(`secure-properties ${op} failed (check key / algorithm / mode): ${(e as Error).message}`);
+
+      const out: string[] = [];
+      for (const raw of items) {
+        const t = raw.trim();
+        const wrapped = t.length > 3 && t.startsWith('![') && t.endsWith(']');
+        // Already in the target state — hand it back untouched. Double-encrypting is
+        // the classic way to make a config file unrecoverable. Only a batch skips
+        // unwrapped values on decrypt: a single `value` may legitimately be bare base64.
+        if ((op === 'encrypt' && wrapped) || (op === 'decrypt' && batch && !wrapped)) { out.push(raw); continue; }
+        const value = op === 'decrypt' && wrapped ? t.slice(2, t.length - 1) : raw;
+        try {
+          const r = await securePropertiesInvoke(extensionRoot, op, a.algorithm ?? 'AES', a.mode ?? 'CBC', a.key, value, a.useRandomIv ?? false);
+          out.push(op === 'encrypt' ? `![${r}]` : r);
+        } catch (e) {
+          return err(`secure-properties ${op} failed on value ${out.length + 1} of ${items.length} (check key / algorithm / mode): ${(e as Error).message}`);
+        }
       }
+      return ok(out.join('\n'));
     },
   );
 
@@ -431,7 +471,7 @@ export function registerTools(
     {
       title: 'DataWeave function reference (offline)',
       description:
-        'OFFLINE DataWeave 2.12 standard-library reference — 309 functions with exact signatures, descriptions, ' +
+        'OFFLINE DataWeave 2.12 standard-library reference — every function the bundled engine has, with signatures, descriptions, ' +
         "and runnable examples. Pass `name` for one function's full doc, `search` for a keyword match list, or no " +
         'args to list every function name. Use THIS instead of recalling/web-searching DW syntax.',
       inputSchema: {
@@ -453,7 +493,7 @@ export function registerTools(
         const near = Object.keys(obj).filter((k) => k.toLowerCase().includes(nl)).slice(0, 40);
         return err(near.length
           ? `No exact match for '${name}'. Closest names: ${near.join(', ')}`
-          : `No DataWeave function named '${name}'. Use \`search\`, or omit args to list all 309.`);
+          : `No DataWeave function named '${name}'. Use \`search\`, or omit args to list all.`);
       }
       const search = a.search?.trim();
       if (search) {
@@ -479,7 +519,7 @@ export function registerTools(
     {
       title: 'DataWeave cookbook (offline)',
       description:
-        'OFFLINE DataWeave cookbook — 83 validated recipes (each runs cleanly on this engine) for common MuleSoft ' +
+        'OFFLINE DataWeave cookbook — validated recipes (each runs cleanly on this engine) for common MuleSoft ' +
         'tasks: array/object/string transforms, XML/CSV, dates, error handling. Pass `id` for a full recipe, ' +
         '`search`/`category` to filter, or no args to list all. Grab a verified starting pattern before writing a ' +
         'complex transform.',
@@ -510,6 +550,123 @@ export function registerTools(
         lines.push(`${g(r, 'id')} — ${g(r, 'name')} [${g(r, 'category')} · ${g(r, 'difficulty')}]`);
       }
       return ok(lines.length ? `${lines.length} recipe(s) (pass \`id\` for the full recipe):\n${lines.join('\n')}` : 'No recipes match. Omit args to list all.');
+    },
+  );
+  // 7) run_dataweave_tests ---------------------------------------------------
+  register(
+    'run_dataweave_tests',
+    {
+      title: 'Run a dw::test suite',
+      description:
+        'Run a `dw::test` suite on the local engine and report which assertions passed. Use this to PROVE a ' +
+        'transform is right instead of eyeballing one sample: write a suite whose body is a `describedBy` block ' +
+        'containing `in do { ... must ... }` tests, and this returns a pass/fail tree plus the failure message for ' +
+        'anything that broke. `dw::test::Tests` and `dw::test::Asserts` are compiled into this engine, so just ' +
+        'import them. Prefer this over validate_and_run_dataweave whenever the user asks for tests, or whenever a ' +
+        'transform has edge cases worth pinning down.',
+      inputSchema: {
+        suite: z.string().describe('A dw::test suite. Its body must be a single `describedBy` block.'),
+        payload: z.string().optional().describe('Optional sample payload the suite can reference as `payload`.'),
+        payloadMimeType: z.string().optional().describe('MIME type of payload. Default application/json.'),
+      },
+      annotations: { readOnlyHint: !advanced, idempotentHint: true, openWorldHint: advanced },
+    },
+    async (a) => {
+      const suite = String(a.suite ?? '').trim();
+      if (!suite) return err('`suite` is empty. Pass a dw::test suite whose body is a `describedBy` block.');
+      // A suite is an ordinary script that happens to return a test report, so it
+      // goes through the same runner — and therefore the same Safe-mode gate.
+      if (!advanced) {
+        const reason = safeModeBlockReason(suite);
+        if (reason) return err(`Safe mode rejected this suite: ${reason} is not allowed here — it was NOT run.`);
+      }
+      const result = await runDataweave(dw, {
+        script: suite,
+        payload: a.payload ?? '{}',
+        payloadMimeType: a.payloadMimeType ?? 'application/json',
+        attributesJson: '{}',
+        varsJson: '{}',
+        namedInputsJson: '[]',
+      });
+      if (result.error) {
+        const where = result.error_line != null ? ` (line ${result.error_line})` : '';
+        return err(`The suite did not compile or run${where}:\n${result.error}`);
+      }
+      let report: any;
+      try { report = JSON.parse(result.output); }
+      catch {
+        return err('The suite ran but did not return a test report — its body must be a `describedBy` block. It returned:\n' + result.output);
+      }
+      // Only leaves are tests. A `describedBy` block reports its own status as OK
+      // even when the tests inside it failed, so pass/fail is counted from leaves.
+      let passed = 0, failed = 0;
+      const lines: string[] = [];
+      const walk = (node: any, depth: number) => {
+        const indent = '  '.repeat(depth);
+        const name = String(node?.name ?? '(unnamed)');
+        const kids: any[] = Array.isArray(node?.tests) ? node.tests : [];
+        if (kids.length) {
+          lines.push(`${indent}${name}`);
+          for (const k of kids) walk(k, depth + 1);
+          return;
+        }
+        const isOk = node?.status === 'OK';
+        if (isOk) passed++; else failed++;
+        lines.push(`${indent}${isOk ? 'PASS' : 'FAIL'} ${name}`);
+        if (!isOk && node?.errorMessage) {
+          lines.push(`${indent}     ${String(node.errorMessage).split('\n').join(`\n${indent}     `)}`);
+        }
+      };
+      walk(report, 0);
+      const text = `${lines.join('\n')}\n${passed} passed, ${failed} failed in ${result.execution_time_ms}ms`;
+      return failed > 0 ? err(text) : ok(text);
+    },
+  );
+
+  // 8) lint_dataweave --------------------------------------------------------
+  register(
+    'lint_dataweave',
+    {
+      title: 'Type-check and lint DataWeave',
+      description:
+        "Check a DataWeave script WITHOUT running it — the engine's own type checker and linter. Reports " +
+        'undefined references, wrong argument counts, syntax errors, type mismatches, insecure hash algorithms ' +
+        '(MD5/SHA-1), leftover log() calls and unused imports, each with a line/column and a rule id. Use this when ' +
+        'you have no sample payload to run against, when reviewing a script someone else wrote, or as a fast first ' +
+        'pass before validate_and_run_dataweave. A clean script returns nothing. This does NOT replace running: it ' +
+        'cannot tell you the output is wrong, only that the code is.',
+      inputSchema: {
+        script: z.string().describe('The DataWeave script to check. A full script with a header is best; a bare body is accepted.'),
+        payload: z.string().optional().describe('Optional sample payload, so `payload.field` references can be resolved.'),
+        payloadMimeType: z.string().optional().describe('MIME type of payload. Default application/json.'),
+      },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async (a) => {
+      // Type checking compiles the script, which is enough to load a Java class,
+      // so it goes through the same Safe-mode gate as a run.
+      if (!advanced) {
+        const reason = safeModeBlockReason(a.script);
+        if (reason) return err(`Safe mode rejected this script: ${reason} is not allowed here — it was NOT compiled.`);
+      }
+      let res: any;
+      try {
+        res = await toolingQuery(dw, 'typeCheck', a.script, 0, a.payload ?? '', undefined, undefined, a.payloadMimeType ?? 'application/json', 1);
+      } catch (e) {
+        return err(`Type check failed: ${(e as Error).message}`);
+      }
+      const messages: any[] = Array.isArray(res?.messages) ? res.messages : [];
+      if (!messages.length) return ok('No problems found.');
+      const lines: string[] = [];
+      for (const m of messages) {
+        const line = m?.location?.startLine, col = m?.location?.startColumn;
+        const at = line != null ? (col != null ? `line ${line}, col ${col}` : `line ${line}`) : 'somewhere';
+        lines.push(`[${m?.severity ?? 'error'}] ${at} — ${m?.message ?? ''} (${m?.code ?? ''})`);
+        const fixes = (Array.isArray(m?.quickFixes) ? m.quickFixes : []).map((f: any) => f?.name).filter(Boolean);
+        if (fixes.length) lines.push(`    available fixes: ${fixes.join(', ')}`);
+      }
+      lines.push(`\n${messages.length} problem${messages.length === 1 ? '' : 's'} found.`);
+      return ok(lines.join('\n'));
     },
   );
 }

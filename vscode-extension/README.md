@@ -28,7 +28,7 @@ And because it runs MuleSoft's actual DataWeave runtime — not a reimplementati
 - **Real `dw::test` suites** — write named assertions, run them in-app against the bundled engine, and get the engine's own failure messages with the line each assertion failed on.
 - **Share a whole setup in one link** — copy a link carrying the script, payload, variables and headers, for one request or the entire workspace. The other person opens it and presses Run. The data rides in the part of the URL browsers never send to a server, so nothing is uploaded to create one — and if your network blocks the site, **Copy code only** works without a URL at all.
 - **cURL import** — paste any `curl` command (from Postman, browser devtools, a teammate); method, headers, params, and body fill themselves in, with a starter script generated to match.
-- **An editor that knows DataWeave** — syntax highlighting, autocomplete for all 309 functions with signature hints, hover docs, error markers on the failing line, formatting, snippets, and a built-in function reference browser.
+- **An editor that knows DataWeave** — syntax highlighting, autocomplete for all 361 functions with signature hints, hover docs, error markers on the failing line, formatting, snippets, and a built-in function reference browser.
 - **DW 1.0 → 2.0 migration** — paste a legacy script, get the converted version with a side-by-side diff.
 - **Multi-request workspaces** — group related transforms Postman-style, each with its own script, inputs, context, and tests.
 

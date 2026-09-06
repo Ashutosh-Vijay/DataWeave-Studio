@@ -502,11 +502,13 @@ output application/json
               {cardHead('Tools exposed', 'Capabilities the agent can call over the protocol.')}
               {[
                 { name: 'validate_and_run_dataweave', desc: 'Run a script + payload locally; returns output or the exact error & line. Supports attributes, vars, named inputs, config / secure-config (with ![…] decryption), and multipart/binary.', badge: 'Live', live: true },
-                { name: 'secure_properties', desc: 'Encrypt / decrypt MuleSoft ![…] secure values (AES/Blowfish/… via the official tool).', badge: 'Live', live: true },
+                { name: 'secure_properties', desc: 'Encrypt / decrypt MuleSoft ![…] secure values (AES/Blowfish/… via the official tool) — one value, or a whole config file in one call.', badge: 'Live', live: true },
                 { name: 'migrate_dw_1_to_2', desc: 'Best-effort DataWeave 1.0 → 2.0 migration; flags manual-fixup spots. Validate the result with the run tool.', badge: 'Live', live: true },
-                { name: 'dw_function_reference', desc: 'Offline DataWeave 2.12 stdlib reference — 309 functions with signatures, docs & examples (by name, search, or list).', badge: 'Live', live: true },
-                { name: 'dw_cookbook', desc: 'Offline cookbook — 83 validated recipes for common transforms (by id, search, or category).', badge: 'Live', live: true },
+                { name: 'dw_function_reference', desc: 'Offline DataWeave 2.12 stdlib reference — every function in the bundled engine, with signatures, docs & examples (by name, search, or list).', badge: 'Live', live: true },
+                { name: 'dw_cookbook', desc: 'Offline cookbook — validated recipes for common transforms (by id, search, or category).', badge: 'Live', live: true },
                 { name: 'format_dataweave', desc: 'Pretty-print / reformat a script via the engine’s own IDE formatter.', badge: 'Live', live: true },
+                { name: 'run_dataweave_tests', desc: 'Run a dw::test suite and report which assertions passed, with the engine’s own failure messages.', badge: 'Live', live: true },
+                { name: 'lint_dataweave', desc: 'Type-check and lint without running — undefined references, wrong arity, insecure hashes, leftover log(). Works with no payload.', badge: 'Live', live: true },
               ].map((t) => (
                 <div key={t.name} className="flex items-center" style={{ gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--line-subtle)', opacity: t.live ? 1 : 0.6 }}>
                   <div className="flex-1 min-w-0">

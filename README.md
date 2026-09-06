@@ -20,8 +20,8 @@ Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor. Ships with a bu
 ![Workbench — payload, script and output](docs/screenshots/script_page_dark_mode.png)
 *Workbench — payload and context on the left, script in the middle, live output on the right, with every request in the workspace one click away*
 
-![Script editor with 309-function autocomplete](docs/screenshots/auto_suggestion_on_typing_monaco_dark_mode.png)
-*Monaco editor with DataWeave syntax highlighting, 309-function autocomplete with signature hints, and live output*
+![Script editor with 361-function autocomplete](docs/screenshots/auto_suggestion_on_typing_monaco_dark_mode.png)
+*Monaco editor with DataWeave syntax highlighting, 361-function autocomplete with signature hints, and live output*
 
 ![Message Flow Designer — visual drag-and-drop canvas](docs/screenshots/message_flow_dark_mode.png)
 *Message Flow Designer — chain Set Payload, Transform, HTTP, Salesforce, and Database connectors with step-through debugging*
@@ -30,7 +30,7 @@ Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor. Ships with a bu
 *Flow Designer in Paper (light) theme with Salesforce connector config*
 
 ![Function Reference Browser](docs/screenshots/dataweave_function_reference_dark_mode.png)
-*Built-in function reference — searchable catalog of all 309 DataWeave functions with signatures and descriptions*
+*Built-in function reference — searchable catalog of all 361 DataWeave functions with signatures and descriptions*
 
 ![OpenAPI / Swagger reader](docs/screenshots/openapi_swagger_paper_mode.png)
 *OpenAPI / Swagger reader — open a 3.x or 2.0 spec, pick any operation, and Studio drops a sample payload and a matching DataWeave skeleton into the workspace*
@@ -122,7 +122,7 @@ Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA
 | **Go to Definition / Rename** | Yes — engine language service | Yes (LSP) | No | Yes |
 | **Type inference** | Yes — engine language service | Yes (LSP) | No | Yes |
 | **Target an older Mule runtime** | Yes — set once, 4.1 to 4.12 | No | No | Per project |
-| **Autocomplete** | 309 functions + type-aware fields from your payload | LSP, type-aware | Basic suggestions | Full LSP |
+| **Autocomplete** | 361 functions + type-aware fields from your payload | LSP, type-aware | Basic suggestions | Full LSP |
 | **Context (vars, attrs, headers)** | UI — no files | Manual JSON scenario files | Partial | Full runtime |
 | **Config YAML (`${key}`)** | Yes | No | No | Yes (full runtime) |
 | **Secure config (`![encrypted]`)** | Yes — offline | No | No | Yes (full runtime) |
@@ -150,7 +150,7 @@ Ships JRE 17 and the DataWeave runtime inside the app. No Java install, no `JAVA
 
 ### Script Editor (Monaco)
 - DataWeave 2.0 syntax highlighting with custom Monarch tokenizer
-- **309-function autocomplete** with signature hints and module grouping
+- **361-function autocomplete** with signature hints and module grouping
 - **Type-aware completion from the engine itself** — `payload.` lists the fields your payload actually has, and inside a `map` the lambda parameter resolves to the element type, so `item.` suggests that element's own fields. This is the DataWeave language service inside the bundled engine, so the types are the engine's truth rather than a guess made from your sample.
 - **Hover for inferred types** and signature help showing which argument you're on
 - **Go to Definition** (F12), **Find All References** (Shift+F12) and **Rename Symbol** (F2), resolved through the engine's scope graph — so a name shadowed in an inner scope is correctly left alone rather than blindly text-replaced
@@ -211,11 +211,11 @@ and a `DateTime` a real timestamp. Preview it, re-roll it, then apply it.
 ### Target runtime
 The engine bundled here is DataWeave 2.12 (Mule 4.12). If you deploy somewhere
 older, a script can work here and fail there — `logInfo` needs 2.10, the `update`
-operator needs 2.3, and around 30 of the 309 standard-library functions did not
+operator needs 2.3, and around 30 standard-library functions did not
 exist in 2.4.
 
 You're asked once, when you first set the app up, and the answer is remembered
-for everything you do. Change it anytime from the toolbar next to Run, or in
+for everything you do. Change it anytime from the status bar, or in
 Settings &rarr; Runtime. The default is "latest", which checks nothing.
 
 It's one app-wide setting rather than a per-workspace one, because which Mule
@@ -332,7 +332,7 @@ output application/json
 12 built-in templates: hello world, map array, filter array, sort, group by, reduce/sum, pluck (object → entries), conditional output, read named input, format date, JSON → XML, variable + function. Click to insert at cursor.
 
 ### Function Reference Browser
-Searchable catalog of all 309 DataWeave functions with signatures, descriptions, and module grouping. Click to insert function name at cursor. Lazy-loaded for performance.
+Searchable catalog of all 361 DataWeave functions with signatures, descriptions, and module grouping. Click to insert function name at cursor. Lazy-loaded for performance.
 
 ### DW 1.0 → 2.0 Migration
 Rewrites legacy scripts in-place. Converts `%dw 1.0` directives, `flowVars`, `inboundProperties`, and type syntax. Diff overlay shows changes side-by-side with one-click replacement.
@@ -485,7 +485,7 @@ src/                        # React frontend
     Sidebar.tsx             # Icon rail with snippets, tools, settings
   hooks/                    # useDWRunner, useWorkspace, useEditorFont
   dataweaveGrammar.ts       # Monarch tokenizer for DW syntax highlighting
-  dataweaveCompletions.ts   # 309-function autocomplete with signature parsing
+  dataweaveCompletions.ts   # 361-function autocomplete with signature parsing
   dataweaveDocs.ts          # Function reference data (signatures, descriptions)
   dataweaveHover.ts         # Hover provider for DW functions
   dataweaveTheme.ts         # Dusk + Paper Monaco themes
