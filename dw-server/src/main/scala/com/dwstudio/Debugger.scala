@@ -166,7 +166,12 @@ class NonConsumingDebuggerExecutor(session: WeaveDebuggingSession, inputNames: S
       if (value == null || names.size <= index) None
       else {
         val name = names(index)
-        if (inputNames.contains(name)) {
+        // The engine parks intermediates in slots it names `__fakeVariable1`,
+        // `__fakeVariable2`, ... Those are its bookkeeping, not the user's
+        // variables, and showing them in the panel is just noise beside `lines`
+        // and `net`.
+        if (name != null && name.startsWith("__")) None
+        else if (inputNames.contains(name)) {
           Some((name, SimpleDebuggerValue("(input - use Evaluate to inspect)", "Input", unknownLocation())))
         } else {
           Some((name, values.getOrElseUpdate(value, DebuggerValueFactory.create(value, maxValueElements, maxValueDepth))))
