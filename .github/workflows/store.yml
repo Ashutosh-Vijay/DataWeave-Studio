@@ -1,0 +1,169 @@
+name: Microsoft Store
+
+# Third distribution channel, alongside release.yml (GitHub releases) and
+# vscode-extension.yml (Marketplace). Deliberately its OWN workflow rather than
+# a job in release.yml: a Store hiccup — certification queue, an expired
+# secret — must never hold the GitHub release hostage, and a re-submission
+# must be re-runnable on its own without rebuilding four platforms.
+#
+# The Store build is not the same binary as the GitHub one. VITE_STORE_BUILD
+# disables the self-updater (the Store delivers updates itself, and a package
+# that updates itself fails certification) and --no-bundle skips the NSIS/MSI
+# installers MSIX doesn't use. So it gets its own build rather than reusing a
+# release.yml artifact.
+#
+# Note: Microsoft currently supports GitHub-Actions app updates for FREE
+# products only. This app is free, so it qualifies.
+
+on:
+  push:
+    tags:
+      # Digit required after the v — plain `v*` also matches vscode-v3.0.0.
+      - 'v[0-9]*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to package (defaults to the current ref)'
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+  # apps.microsoft.com/detail/9NWD4L4J7D92
+  STORE_PRODUCT_ID: 9NWD4L4J7D92
+
+jobs:
+  store:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Set up JDK (for dwstudio-server)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Build dwstudio-server.jar
+        shell: bash
+        run: |
+          cd dw-server
+          mvn -B -q -DskipTests package
+          mkdir -p ../src-tauri/resources/dw-server
+          cp target/dwstudio-server.jar ../src-tauri/resources/dw-server/
+
+      - name: Bundle minimal JRE (jlink)
+        shell: bash
+        run: |
+          MODULES=$(jdeps --print-module-deps --ignore-missing-deps --multi-release 17 src-tauri/resources/dw-server/dwstudio-server.jar 2>/dev/null || echo "java.base,java.compiler,java.desktop,java.management,java.security.sasl,java.sql.rowset")
+          jlink --add-modules "$MODULES,jdk.compiler,jdk.zipfs" --strip-debug --no-man-pages --no-header-files --compress=2 --output src-tauri/resources/jre
+
+      # Package.appxmanifest is the fifth version file and the easiest to
+      # forget; a mismatch is otherwise only caught by Partner Center rejecting
+      # the upload, after a full build. This checks rather than rewrites: the
+      # manifest is hand-maintained and its comments record the real Partner
+      # Center identity, and both a regex and an XML round-trip were tried and
+      # rejected — the regex ate the whole multi-line <Identity> element, and
+      # [xml].Save() reflowed every attribute onto one line and added a BOM.
+      - name: Check the manifest version matches the tag
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.tag || github.ref_name }}"
+          $v = $tag -replace '^v', ''
+          if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "Tag '$tag' is not vMAJOR.MINOR.PATCH" }
+          $want = "$v.0"   # MSIX takes four parts; the Store reserves the last, so it stays 0
+          [xml]$doc = Get-Content 'Package.appxmanifest' -Raw
+          $have = $doc.Package.Identity.Version
+          if ($have -ne $want) {
+            throw "Package.appxmanifest is Version=$have but the tag wants $want. Update it, commit, and re-tag."
+          }
+          Write-Host "Package version $have matches $tag"
+
+      - name: Build (Store mode, no installer bundles)
+        shell: pwsh
+        env:
+          VITE_STORE_BUILD: '1'
+        run: npm run tauri -- build --no-bundle
+
+      # Exactly the layout that runs when you double-click target\release\app.exe.
+      # The resources check is the one that matters: without it a package can
+      # ship with no engine and no JRE and still look fine until launch.
+      - name: Stage package layout
+        shell: pwsh
+        run: |
+          $rel   = 'src-tauri/target/release'
+          $stage = 'dist-msix'
+          if (-not (Test-Path "$rel/app.exe"))   { throw "Build did not produce app.exe in $rel" }
+          if (-not (Test-Path "$rel/resources")) { throw "No resources next to the binary — the engine/JRE would be missing from the package" }
+          if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+          New-Item -ItemType Directory -Path $stage | Out-Null
+          Copy-Item "$rel/app.exe"            $stage
+          Copy-Item "$rel/resources"          $stage -Recurse
+          Copy-Item 'Assets'                  $stage -Recurse
+          Copy-Item 'Package.appxmanifest'    $stage
+
+      - name: Set up winapp CLI
+        uses: microsoft/setup-WinAppCli@v1
+
+      # No --cert on purpose. The Store re-signs on submission, so a signature
+      # here would only be thrown away; the dev cert in scripts/pack-msix.ps1
+      # exists solely so the package can be side-loaded for local testing.
+      - name: Pack MSIX (unsigned — the Store signs it)
+        shell: pwsh
+        run: winapp package dist-msix --manifest dist-msix/Package.appxmanifest --exe app.exe --output dataweave-studio.msix
+
+      - name: Upload MSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: msix
+          path: dataweave-studio.msix
+          if-no-files-found: error
+
+      # Everything above runs with no credentials at all, so the .msix is always
+      # produced and downloadable for a manual Partner Center upload. Only the
+      # submission itself needs secrets — if they are not configured yet the
+      # workflow stops here green rather than failing a release over setup that
+      # has not happened.
+      - name: Check Store credentials
+        id: creds
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.AZURE_AD_TENANT_ID }}" ] && [ -n "${{ secrets.SELLER_ID }}" ] \
+          && [ -n "${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}" ] && [ -n "${{ secrets.AZURE_AD_APPLICATION_SECRET }}" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Store secrets not configured — MSIX built and attached as an artifact, submission skipped."
+          fi
+
+      - name: Configure Microsoft Store CLI
+        if: steps.creds.outputs.ready == 'true'
+        uses: microsoft/microsoft-store-apppublisher@v1.1
+
+      - name: Sign in to Partner Center
+        if: steps.creds.outputs.ready == 'true'
+        shell: pwsh
+        run: |
+          msstore reconfigure `
+            --tenantId ${{ secrets.AZURE_AD_TENANT_ID }} `
+            --sellerId ${{ secrets.SELLER_ID }} `
+            --clientId ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }} `
+            --clientSecret ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+
+      - name: Publish to the Microsoft Store
+        if: steps.creds.outputs.ready == 'true'
+        shell: pwsh
+        run: msstore publish "${{ github.workspace }}/dataweave-studio.msix" -id $env:STORE_PRODUCT_ID
