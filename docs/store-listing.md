@@ -33,6 +33,27 @@ Bundled with its own Java runtime - nothing else to install, no JAVA_HOME, no Ma
 no PATH changes.
 
 
+SEE WHAT YOUR SCRIPT ACTUALLY DID
+
+• A Trace panel lists what every expression in your script evaluated to, in source
+  order - no log() calls, no edits to the script. Click a row to jump to it.
+• A map body that ran five hundred times is one row with a count, not five hundred
+  rows, and a script that throws still shows everything it worked out first.
+• A real step debugger: click the gutter to set a breakpoint and the script stops
+  there, with the call stack, every variable in scope, step over / into / out, and a
+  box to evaluate any expression against the paused frame.
+• It is the DataWeave engine's own debugger, running in-process - no port to open
+  and no second process to attach.
+
+
+CHECK AGAINST THE MULE YOU DEPLOY TO
+
+• Point it at your runtime - Mule 4.1 through 4.12 - and a function your server does
+  not have fails here, in the editor, naming the version that introduced it.
+• It gates the compiler and the runtime's own version-dependent behaviour, not just
+  a lint, and it applies to Run, the test suites and the editor's diagnostics alike.
+
+
 THE EDITOR
 
 • Monaco editor with DataWeave 2.0 syntax highlighting and bracket-pair colouring.
@@ -64,6 +85,10 @@ SECURE PROPERTIES, OFFLINE
   secure-properties-tool.
 • Paste a real secure-config.yaml with ![encrypted] values, supply the key at runtime,
   and run scripts against the genuinely decrypted result.
+• Encrypt a whole config at once - paste a YAML or .properties file and every value
+  is encrypted in place, with anything already written as ![...] left alone and your
+  comments and layout untouched. Decrypt the same way to read one back.
+• Every field is listed with what will happen to it before anything runs.
 • The key is held for the session and never written to disk.
 • No website to be down or blocked by your corporate network, and your production
   secrets never go into someone else's web form.
@@ -99,8 +124,15 @@ SHARE A WHOLE SETUP IN ONE LINK
 BUILT-IN MCP SERVER
 
 • Let AI assistants in Claude Code, Cursor, VS Code or any MCP client compile and run
-  DataWeave against the real engine, so they verify their transforms instead of inventing
-  syntax that does not exist.
+  DataWeave against the real engine, so they verify their transforms instead of
+  inventing syntax that does not exist.
+• Nine tools, not one: run a script, type-check it without running, run a dw::test
+  suite and read which assertions passed, and ask what every expression evaluated to
+  when a transform compiles but the output is wrong.
+• An offline reference the assistant can actually consult - every function in the
+  bundled engine, and a cookbook of verified recipes - so it stops guessing signatures.
+• Answers plain HTTP too: POST a script and a payload, or a whole array of rows, and
+  drive the engine from a script in any language.
 • Bound to localhost, never exposed to your network, and off until you start it.
 • Safe mode blocks Java imports so a generated script can only read your payload.
 
@@ -123,11 +155,14 @@ TOOLS
 
 TESTING
 
-• Per-request test collections with pass / fail / untested badges.
-• Capture expected output by running once, then re-run as a regression suite.
-• Exact or semantic-JSON comparison, with a visual diff when something changes.
-• Execution time tracked per test.
-
+• Real dw::test suites - the same framework MuleSoft ships - written as ordinary
+  DataWeave and run by the bundled engine.
+• Named assertions with the engine's own failure messages and the line each one
+  failed on, not a diff you have to interpret.
+• Suites live beside your scripts in the same workspace, and each one times
+  individually so a slow assertion is obvious.
+• Self-contained by design: a suite defines its own fixtures, so it runs here, in
+  your build, and on a teammate's machine identically.
 
 WORKSPACES
 
