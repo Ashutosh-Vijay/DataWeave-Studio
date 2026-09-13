@@ -351,6 +351,22 @@ export function useWorkspace(): UseWorkspaceReturn {
     const reqs = migrateEmbeddedTests(
       ws.requests && ws.requests.length > 0 ? ws.requests : [blankRequest()],
     );
+    // A workspace can legitimately arrive with a partial context: the v1→v2
+    // migration writes `context: raw.context ?? {}`, and the blank-request
+    // fallback in both backends writes `context: {}`. ContextPanel reads
+    // .queryParams/.headers/.vars unguarded, so one missing array takes the
+    // whole app down behind the error boundary rather than just showing an
+    // empty tab. Fresh arrays per request — DEFAULT_CONTEXT's are shared.
+    for (const r of reqs) {
+      const c = (r.context ?? {}) as Partial<ContextState>;
+      r.context = {
+        ...c,
+        method: c.method ?? 'GET',
+        queryParams: c.queryParams ?? [],
+        headers: c.headers ?? [],
+        vars: c.vars ?? [],
+      };
+    }
     // Seed the per-(request, label) script cache from the loaded data so
     // role-switching remembers what was on disk.
     for (const r of reqs) {
