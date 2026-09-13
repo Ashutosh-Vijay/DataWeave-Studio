@@ -6,8 +6,12 @@
  * open something else. Now:
  *
  *   Workspaces         list what you saved; clicking opens the playground ON it
- *   DataWeave Reference  search 361 functions without leaving your .dwl
+ *   DataWeave Reference  search the function set without leaving your .dwl
  *   Secure Properties  encrypt/decrypt in place (the only tool that fits 300px)
+ *
+ * Saved encryption keys live in `context.secrets` — the OS keychain — and the
+ * secret never enters this webview: picking a saved key sends its NAME, and the
+ * host resolves it at run time. Only the names are ours, in globalState.
  *
  * Two of the three do their work here and never open the panel, which is the
  * point. Chrome comes from --vscode-* vars so every theme (including High
@@ -39,6 +43,9 @@ function shell(body: string, script: string): string {
     --dw-accent-border: oklch(55% 0.15 158 / 0.35);
   }
   * { box-sizing: border-box; }
+  /* A class that sets display beats the UA stylesheet's [hidden] rule, so say
+     it louder — .two is display:flex and would otherwise ignore hidden. */
+  [hidden] { display: none !important; }
   body {
     margin: 0; padding: 0;
     font-family: var(--vscode-font-family);
@@ -97,7 +104,29 @@ function shell(body: string, script: string): string {
     font-family: inherit; font-size: 11px; font-weight: 500;
   }
   .seg button[aria-pressed=true] { background: var(--dw-accent-dim); color: var(--dw-accent); }
-  .two { display: flex; gap: 6px; }
+  .two { display: flex; gap: 6px; align-items: center; }
+  .two > input, .two > select { flex: 1; min-width: 0; }
+  /* Saved-key picker sits in the key row rather than on a label line of its
+     own — the pane is a fixed slice of the Side Bar, so every line costs. */
+  select.mini {
+    flex: 0 0 auto; width: auto; max-width: 96px; height: 24px; padding: 0 2px;
+    font-size: 10.5px; border-radius: 3px;
+    background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent);
+    color: var(--dw-accent); cursor: pointer;
+  }
+  select.mini:hover { border-color: var(--dw-accent-border); }
+  /* algorithm/mode disclosure — AES·CBC is right for almost everyone, so it
+     costs one line until someone actually needs to change it */
+  .disclose {
+    display: flex; align-items: center; gap: 5px; width: 100%; height: 19px;
+    padding: 0; border: 0; background: transparent; cursor: pointer;
+    font-family: inherit; font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+  }
+  .disclose:hover { color: var(--vscode-foreground); }
+  .disclose .tw { transition: transform .12s ease; display: inline-flex; }
+  .disclose[aria-expanded=true] .tw { transform: rotate(90deg); }
+  .disclose b { font-weight: 500; color: var(--dw-accent); font-family: var(--vscode-editor-font-family, monospace); }
 
   /* notices */
   .note { padding: 8px 14px 10px; font-size: 11.5px; color: var(--vscode-descriptionForeground); line-height: 1.5; }
@@ -176,12 +205,25 @@ ${body}
 </body></html>`;
 }
 
+/** Secret entry per saved encryption key. The names are kept in globalState
+ *  (they aren't secret); the keys themselves only ever live in the keychain. */
+const SECRET_PREFIX = 'dwstudio.secureKey.';
+const KEY_NAMES = 'dwstudio.secureKeyNames';
+
 /** Escape for innerHTML — every view renders host data into markup. */
 const ESC = `function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}`;
 
 const COPY_SVG =
   '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">' +
   '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg>';
+
+const PLUS_SVG =
+  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+  'stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+
+const CHEV_SVG =
+  '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" ' +
+  'stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>';
 
 /** The ⟨W⟩ mark, same paths as media/activitybar.svg. */
 const MARK_SVG =
@@ -455,15 +497,17 @@ vs.postMessage({ kind: 'search', q: '' });`,
                  <button type="button" data-op="encrypt" aria-pressed="true">Encrypt</button>
                  <button type="button" data-op="decrypt" aria-pressed="false">Decrypt</button>
                </div>
-               <div>
-                 <div class="lbl">Value</div>
-                 <input id="value" type="text" spellcheck="false" autocomplete="off" placeholder="secret to encrypt">
-               </div>
-               <div>
-                 <div class="lbl">Key</div>
-                 <input id="key" type="password" spellcheck="false" autocomplete="off" placeholder="encryption key">
-               </div>
+               <input id="value" type="text" spellcheck="false" autocomplete="off" placeholder="value to encrypt" aria-label="Value">
                <div class="two">
+                 <input id="key" type="password" spellcheck="false" autocomplete="off" placeholder="encryption key" aria-label="Key">
+                 <select id="saved" class="mini" aria-label="Saved key"></select>
+                 <button class="icon" id="savekey" title="Save this key under a name">${PLUS_SVG.replace(/'/g, "\\'")}</button>
+               </div>
+               <button class="disclose" id="optToggle" aria-expanded="false">
+                 <span class="tw">${CHEV_SVG.replace(/'/g, "\\'")}</span>
+                 <span>Cipher</span> <b id="optSummary">AES · CBC</b>
+               </button>
+               <div class="two" id="opts" hidden>
                  <select id="algo" aria-label="Algorithm">
                    <option>AES</option><option>Blowfish</option><option>DES</option><option>DESede</option><option>RC2</option>
                  </select>
@@ -478,11 +522,20 @@ vs.postMessage({ kind: 'search', q: '' });`,
 const vs = acquireVsCodeApi();
 const value = document.getElementById('value');
 const key = document.getElementById('key');
+const saved = document.getElementById('saved');
+const savekey = document.getElementById('savekey');
 const algo = document.getElementById('algo');
 const mode = document.getElementById('mode');
+const opts = document.getElementById('opts');
+const optToggle = document.getElementById('optToggle');
+const optSummary = document.getElementById('optSummary');
 const go = document.getElementById('go');
 const result = document.getElementById('result');
 let op = 'encrypt';
+// '' = type it in; otherwise the NAME of a key held in the OS keychain. The
+// secret itself is never sent to this webview — only the name goes back out.
+let savedName = '';
+let names = [];
 
 Array.prototype.forEach.call(document.querySelectorAll('.seg button'), function (b) {
   b.onclick = function () {
@@ -496,15 +549,54 @@ Array.prototype.forEach.call(document.querySelectorAll('.seg button'), function 
   };
 });
 
-function run() {
-  if (!value.value || !key.value) {
-    result.innerHTML = '<div class="err">' + (!value.value ? 'Enter a value.' : 'Enter the encryption key.') + '</div>';
+optToggle.onclick = function () {
+  const open = optToggle.getAttribute('aria-expanded') === 'true';
+  optToggle.setAttribute('aria-expanded', String(!open));
+  opts.hidden = open;
+};
+[algo, mode].forEach(function (s) {
+  s.onchange = function () { optSummary.textContent = algo.value + ' \\u00b7 ' + mode.value; };
+});
+
+function renderSaved() {
+  let html = '<option value="">type it in</option>';
+  for (const n of names) html += '<option value="' + esc(n) + '">' + esc(n) + '</option>';
+  if (names.length) html += '<option value="__manage">manage\\u2026</option>';
+  saved.innerHTML = html;
+  saved.value = savedName;
+  key.disabled = !!savedName;
+  key.placeholder = savedName ? 'using \\u201c' + savedName + '\\u201d' : 'encryption key';
+  if (savedName) key.value = '';
+  savekey.disabled = !!savedName;
+  savekey.style.opacity = savedName ? '.35' : '1';
+}
+
+saved.onchange = function () {
+  if (saved.value === '__manage') { saved.value = savedName; vs.postMessage({ kind: 'manageKeys' }); return; }
+  savedName = saved.value;
+  renderSaved();
+  result.innerHTML = '';
+};
+
+savekey.onclick = function () {
+  if (!key.value) {
+    result.innerHTML = '<div class="err">Type a key first, then save it under a name.</div>';
     return;
   }
+  vs.postMessage({ kind: 'saveKey', value: key.value });
+};
+
+function run() {
+  if (!value.value) { result.innerHTML = '<div class="err">Enter a value.</div>'; return; }
+  if (!savedName && !key.value) { result.innerHTML = '<div class="err">Enter the encryption key, or pick a saved one.</div>'; return; }
   go.disabled = true;
-  go.textContent = op === 'encrypt' ? 'Encrypting…' : 'Decrypting…';
+  go.textContent = op === 'encrypt' ? 'Encrypting\\u2026' : 'Decrypting\\u2026';
   result.innerHTML = '';
-  vs.postMessage({ kind: 'run', op: op, value: value.value, key: key.value, algorithm: algo.value, mode: mode.value });
+  vs.postMessage({
+    kind: 'run', op: op, value: value.value,
+    key: savedName ? '' : key.value, keyName: savedName,
+    algorithm: algo.value, mode: mode.value,
+  });
 }
 
 go.onclick = run;
@@ -514,7 +606,17 @@ go.onclick = run;
 
 window.addEventListener('message', function (e) {
   const m = e.data;
-  if (!m || m.kind !== 'done') return;
+  if (!m) return;
+  if (m.kind === 'keys') {
+    names = m.names || [];
+    // A key deleted elsewhere must not stay selected, or Run fails on a name
+    // the keychain no longer has.
+    if (m.selected !== undefined) savedName = m.selected;
+    if (savedName && names.indexOf(savedName) < 0) savedName = '';
+    renderSaved();
+    return;
+  }
+  if (m.kind !== 'done') return;
   go.disabled = false;
   go.textContent = op === 'encrypt' ? 'Encrypt' : 'Decrypt';
   if (m.error) {
@@ -524,8 +626,18 @@ window.addEventListener('message', function (e) {
   result.innerHTML = '<div class="out"><code id="o">' + esc(m.text) + '</code>' +
     '<button class="icon" id="c" title="Copy">${COPY_SVG.replace(/'/g, "\\'")}</button></div>';
   document.getElementById('c').onclick = function () { vs.postMessage({ kind: 'copy', text: m.text }); };
-});`,
+});
+
+renderSaved();
+vs.postMessage({ kind: 'keys' });`,
           );
+
+          // Saved keys live in context.secrets — the OS keychain (Windows
+          // Credential Manager / macOS Keychain / libsecret), not a file we
+          // write. Only the NAMES are ours to keep, in globalState.
+          const keyNames = () => context.globalState.get<string[]>(KEY_NAMES, []).slice().sort();
+          const pushNames = (selected?: string) =>
+            view.webview.postMessage({ kind: 'keys', names: keyNames(), selected });
 
           view.webview.onDidReceiveMessage(async (m) => {
             if (m?.kind === 'copy') {
@@ -533,13 +645,70 @@ window.addEventListener('message', function (e) {
               vscode.window.setStatusBarMessage('Copied', 1500);
               return;
             }
+
+            if (m?.kind === 'keys') { pushNames(); return; }
+
+            if (m?.kind === 'saveKey') {
+              const existing = keyNames();
+              const name = (await vscode.window.showInputBox({
+                title: 'Save encryption key',
+                prompt: 'Name it for the environment it belongs to — uat, prod, …',
+                placeHolder: 'uat',
+                validateInput: (v) => {
+                  const t = v.trim();
+                  if (!t) return 'Give the key a name.';
+                  if (t === '__manage') return 'Pick a different name.';
+                  if (existing.includes(t)) return `"${t}" already exists — saving will replace it.`;
+                  return null;
+                },
+              }))?.trim();
+              if (!name) return;
+              await context.secrets.store(SECRET_PREFIX + name, String(m.value ?? ''));
+              if (!existing.includes(name)) {
+                await context.globalState.update(KEY_NAMES, [...existing, name]);
+              }
+              pushNames(name);
+              vscode.window.setStatusBarMessage(`Saved key "${name}" to the OS keychain`, 2500);
+              return;
+            }
+
+            if (m?.kind === 'manageKeys') {
+              const pick = await vscode.window.showQuickPick(
+                keyNames().map((n) => ({ label: n, description: 'stored in the OS keychain' })),
+                { title: 'Delete a saved encryption key', placeHolder: 'Pick the key to forget' },
+              );
+              if (!pick) return;
+              const yes = await vscode.window.showWarningMessage(
+                `Forget the encryption key "${pick.label}"?`,
+                { modal: true, detail: 'It is removed from the OS keychain. Anything already encrypted with it stays encrypted.' },
+                'Forget it',
+              );
+              if (yes !== 'Forget it') return;
+              await context.secrets.delete(SECRET_PREFIX + pick.label);
+              await context.globalState.update(KEY_NAMES, keyNames().filter((n) => n !== pick.label));
+              pushNames();
+              return;
+            }
+
             if (m?.kind !== 'run') return;
             try {
+              // A saved key arrives as a name; resolve it here so the secret
+              // itself never has to live in the webview.
+              let key = String(m.key ?? '');
+              if (m.keyName) {
+                const stored = await context.secrets.get(SECRET_PREFIX + m.keyName);
+                if (stored === undefined) {
+                  await context.globalState.update(KEY_NAMES, keyNames().filter((n) => n !== m.keyName));
+                  pushNames('');
+                  throw new Error(`Saved key "${m.keyName}" is no longer in the keychain — type it in again.`);
+                }
+                key = stored;
+              }
               const text = await encrypt({
                 operation: m.op,
                 algorithm: m.algorithm,
                 mode: m.mode,
-                key: m.key,
+                key,
                 value: m.value,
                 useRandomIv: false,
               });

@@ -89,18 +89,20 @@
         {
           "id": "dataweaveStudio.workspaces",
           "name": "Workspaces",
-          "type": "webview"
+          "type": "webview",
+          "initialSize": 28
         },
         {
           "id": "dataweaveStudio.reference",
           "name": "DataWeave Reference",
-          "type": "webview"
+          "type": "webview",
+          "initialSize": 22
         },
         {
           "id": "dataweaveStudio.secure",
           "name": "Secure Properties",
           "type": "webview",
-          "visibility": "collapsed"
+          "initialSize": 30
         }
       ]
     },
