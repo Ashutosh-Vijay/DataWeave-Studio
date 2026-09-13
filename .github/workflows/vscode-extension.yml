@@ -106,7 +106,31 @@ jobs:
         if: github.event_name == 'push' || inputs.publish
         working-directory: vscode-extension
         shell: bash
-        run: npx @vscode/vsce publish --packagePath "dataweave-studio-${{ matrix.target }}.vsix" -p "$VSCE_PAT"
+        # vsce does not retry a timed-out gallery request - one "Request timeout:
+        # /_apis/gallery" and the whole publish fails (microsoft/vscode-vsce#926).
+        # That took out all four platforms twice in a row on v3.0.0 while the
+        # Marketplace write path was unhealthy, with nothing actually published.
+        #
+        # --skip-duplicates is what makes retrying safe: if an earlier attempt did
+        # land a platform before timing out, the retry skips it instead of dying on
+        # "version already exists" - which would otherwise force a throwaway patch
+        # release just to get unstuck.
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if npx @vscode/vsce publish \
+                 --packagePath "dataweave-studio-${{ matrix.target }}.vsix" \
+                 --skip-duplicates -p "$VSCE_PAT"; then
+              echo "published on attempt $attempt"
+              exit 0
+            fi
+            if [ "$attempt" -lt 5 ]; then
+              backoff=$((attempt * 30))
+              echo "::warning::Marketplace publish attempt $attempt failed; retrying in ${backoff}s"
+              sleep "$backoff"
+            fi
+          done
+          echo "::error::Marketplace publish failed after 5 attempts"
+          exit 1
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
