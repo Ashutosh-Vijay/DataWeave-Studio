@@ -117,7 +117,7 @@ jobs:
           Copy-Item 'Package.appxmanifest'    $stage
 
       - name: Set up winapp CLI
-        uses: microsoft/setup-WinAppCli@v1
+        uses: microsoft/setup-WinAppCli@v0.2
 
       # No --cert on purpose. The Store re-signs on submission, so a signature
       # here would only be thrown away; the dev cert in scripts/pack-msix.ps1
@@ -157,7 +157,7 @@ jobs:
 
       - name: Configure Microsoft Store CLI
         if: steps.creds.outputs.ready == 'true'
-        uses: microsoft/microsoft-store-apppublisher@v1.1
+        uses: microsoft/microsoft-store-apppublisher@v1.4
 
       - name: Sign in to Partner Center
         if: steps.creds.outputs.ready == 'true'
