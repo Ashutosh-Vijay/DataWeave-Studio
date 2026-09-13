@@ -79,6 +79,7 @@ jobs:
       # rejected — the regex ate the whole multi-line <Identity> element, and
       # [xml].Save() reflowed every attribute onto one line and added a BOM.
       - name: Check the manifest version matches the tag
+        if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         run: |
           $tag = "${{ github.event.inputs.tag || github.ref_name }}"
@@ -141,7 +142,12 @@ jobs:
         id: creds
         shell: bash
         run: |
-          if [ -n "${{ secrets.AZURE_AD_TENANT_ID }}" ] && [ -n "${{ secrets.SELLER_ID }}" ] \
+          # A manual run is for proving the package builds. Submitting one
+          # would push an untagged build to real users, so require a tag.
+          if [ "${{ startsWith(github.ref, 'refs/tags/') }}" != "true" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Not a tag - MSIX built and attached as an artifact, submission skipped."
+          elif [ -n "${{ secrets.AZURE_AD_TENANT_ID }}" ] && [ -n "${{ secrets.SELLER_ID }}" ] \
           && [ -n "${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}" ] && [ -n "${{ secrets.AZURE_AD_APPLICATION_SECRET }}" ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
