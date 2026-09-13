@@ -2,7 +2,9 @@
 
 All notable changes to DataWeave Studio for VS Code.
 
-## 2.0.0 — 2026-09-13
+## 3.0.0 — 2026-09-13
+
+> Jumps from 1.5.0 to match the desktop app. The two have shipped in lockstep every release — v2.4.0 with 1.4.0, v2.5.0 with 1.5.0 — and the leading digit was the only thing out of step. One version number now means one thing, whichever one you are running.
 
 **Stop guessing what your script did.**
 

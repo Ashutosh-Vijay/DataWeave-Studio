@@ -40,7 +40,7 @@ const DESKTOP_RELEASES: Release[] = [
 ];
 
 const VSCODE_RELEASES: Release[] = [
-  { version: '2.0.0', date: 'September 2026', headline: 'Stop guessing what your script did', highlights: V30_HIGHLIGHTS },
+  { version: '3.0.0', date: 'September 2026', headline: 'Stop guessing what your script did', highlights: V30_HIGHLIGHTS },
 ];
 
 // The running build picks its own track.
