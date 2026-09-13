@@ -111,7 +111,7 @@ jobs:
         # That took out all four platforms twice in a row on v3.0.0 while the
         # Marketplace write path was unhealthy, with nothing actually published.
         #
-        # --skip-duplicates is what makes retrying safe: if an earlier attempt did
+        # --skip-duplicate is what makes retrying safe: if an earlier attempt did
         # land a platform before timing out, the retry skips it instead of dying on
         # "version already exists" - which would otherwise force a throwaway patch
         # release just to get unstuck.
@@ -119,7 +119,7 @@ jobs:
           for attempt in 1 2 3 4 5; do
             if npx @vscode/vsce publish \
                  --packagePath "dataweave-studio-${{ matrix.target }}.vsix" \
-                 --skip-duplicates -p "$VSCE_PAT"; then
+                 --skip-duplicate -p "$VSCE_PAT"; then
               echo "published on attempt $attempt"
               exit 0
             fi
