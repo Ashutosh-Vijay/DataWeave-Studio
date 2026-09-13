@@ -2,7 +2,7 @@
 
 All notable changes to DataWeave Studio for VS Code.
 
-## 2.0.0 — 2026-09-05
+## 2.0.0 — 2026-09-13
 
 **Stop guessing what your script did.**
 

@@ -17,8 +17,18 @@ import { ThemeProvider } from "./ThemeContext";
 import { isTauri } from "./bridge";
 import "./index.css";
 
-import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
+// `&inline` matters, and only in VS Code. A plain `?worker` emits a separate
+// file and constructs `new Worker(url)`; in the extension the webview is served
+// from `vscode-webview://` while its assets come from
+// `file+.vscode-resource.vscode-cdn.net`, so that Worker is cross-origin and the
+// browser refuses it outright — SecurityError, five times over, silently killing
+// JSON validation, folding, outline and colour decorators in the payload and
+// config editors. Nothing in the UI says so; it shows only in the webview
+// console. `&inline` builds the worker from a blob, which is always same-origin,
+// so it loads in both hosts. Not a CSP problem — both already allow
+// `worker-src blob:` — it is the same-origin rule on Worker itself.
+import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker&inline";
+import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker&inline";
 
 self.MonacoEnvironment = {
   getWorker(_: unknown, label: string) {

@@ -66,7 +66,7 @@ Built with Tauri v2 (Rust) + React + TypeScript + Monaco Editor. Ships with a bu
 *Settings — Dusk/Paper themes, 5 accent colors, Workbench and Playground layouts*
 
 ![DataWeave Studio in VS Code](docs/screenshots/vscode_extension.png)
-*The same app inside VS Code — bundled Java runtime, no Maven, no Anypoint Studio*
+*The same app inside VS Code — bundled Java runtime, no Maven, no Anypoint Studio. Same engine, same Trace panel, same ~20 ms runs.*
 
 ---
 
