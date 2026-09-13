@@ -941,6 +941,24 @@ function App() {
     invoke<string>('get_app_version').then(setAppVersion).catch(() => {});
   }, []);
 
+  // VS Code Side Bar: clicking a saved workspace opens this panel already on it.
+  // Two triggers, one handler — take_pending_workspace covers a panel that was
+  // just created for the click, the 'open-workspace' push covers one that was
+  // already open. Routed through guardedLoad so it can't silently discard
+  // unsaved work.
+  useEffect(() => {
+    if (isTauri) return;
+    invoke<string | null>('take_pending_workspace')
+      .then((f) => { if (f) void guardedLoad(f); })
+      .catch(() => { /* older extension host — no deep link, no problem */ });
+    const onMsg = (ev: MessageEvent) => {
+      const m = ev.data;
+      if (m?.kind === 'open-workspace' && typeof m.filename === 'string') void guardedLoad(m.filename);
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [guardedLoad]);
+
   // One-time release announcement toast. Flag-based (not version-based) so it
   // behaves identically in VS Code; persistent so it isn't missed. Returning
   // users only — a fresh install gets the Welcome screen, so we just mark the

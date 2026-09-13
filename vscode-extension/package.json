@@ -42,13 +42,33 @@
     "commands": [
       {
         "command": "dataweaveStudio.open",
-        "title": "DataWeave Studio: Open Playground"
+        "title": "DataWeave Studio: Open Playground",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "dataweaveStudio.refreshWorkspaces",
+        "title": "DataWeave Studio: Refresh Workspaces",
+        "icon": "$(refresh)"
       },
       {
         "command": "dataweaveStudio.connectMcp",
         "title": "DataWeave Studio: Add MCP Server to a Client (Claude Code, Cursor, …)"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "dataweaveStudio.open",
+          "when": "view == dataweaveStudio.workspaces",
+          "group": "navigation@1"
+        },
+        {
+          "command": "dataweaveStudio.refreshWorkspaces",
+          "when": "view == dataweaveStudio.workspaces",
+          "group": "navigation@2"
+        }
+      ]
+    },
     "mcpServerDefinitionProviders": [
       {
         "id": "dataweaveStudio.mcpProvider",
@@ -67,17 +87,23 @@
     "views": {
       "dataweaveStudio": [
         {
-          "id": "dataweaveStudio.welcome",
-          "name": "DataWeave Studio"
+          "id": "dataweaveStudio.workspaces",
+          "name": "Workspaces",
+          "type": "webview"
+        },
+        {
+          "id": "dataweaveStudio.reference",
+          "name": "DataWeave Reference",
+          "type": "webview"
+        },
+        {
+          "id": "dataweaveStudio.secure",
+          "name": "Secure Properties",
+          "type": "webview",
+          "visibility": "collapsed"
         }
       ]
     },
-    "viewsWelcome": [
-      {
-        "view": "dataweaveStudio.welcome",
-        "contents": "Run, test, and design MuleSoft DataWeave transforms — powered by the bundled DataWeave 2.12 engine.\n\n[Open Playground](command:dataweaveStudio.open)"
-      }
-    ],
     "keybindings": [
       {
         "command": "dataweaveStudio.noop",

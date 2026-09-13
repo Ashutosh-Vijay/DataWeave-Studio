@@ -24,11 +24,17 @@ import { DwServer, resolveJava, resolveServerJar, runDataweave, warmDataweave, p
 import * as ws from './workspaceStore';
 import * as jarStore from './jarStore';
 import * as moduleStore from './moduleStore';
+import { registerSidebar } from './sidebar';
 
 let server: DwServer | null = null;
 let warmupError: string | null = null;
 let storageDir = '';
 let logDir = '';
+/** The one playground panel. A second "Open" reveals it instead of stacking a
+ *  duplicate — which matters now that the Side Bar opens it on every row click. */
+let panel: vscode.WebviewPanel | null = null;
+/** Workspace the Side Bar asked for, consumed once by take_pending_workspace. */
+let pendingWorkspace: string | null = null;
 
 /** Start the JVM server once, lazily. Shared across all panels. */
 async function getServer(extensionRoot: string): Promise<DwServer> {
@@ -63,19 +69,32 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('dataweaveStudio.noop', () => {})
   );
 
-  // Empty provider for the activity-bar view — keeps it empty so the
-  // viewsWelcome content ("Open Playground" button) shows.
-  context.subscriptions.push(
-    vscode.window.registerTreeDataProvider('dataweaveStudio.welcome', {
-      getChildren: () => [],
-      getTreeItem: (e: vscode.TreeItem) => e,
-    })
+  // The activity-bar Side Bar — three views that mostly do their work in place
+  // (see sidebar.ts). Replaces the single view whose entire body used to be an
+  // "Open Playground" link.
+  registerSidebar(
+    context,
+    storageDir,
+    context.extensionPath,
+    (filename) => vscode.commands.executeCommand('dataweaveStudio.open', filename),
+    (a) => securePropertiesInvoke(context.extensionPath, a),
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('dataweaveStudio.open', () => {
+    vscode.commands.registerCommand('dataweaveStudio.open', (filename?: string | null) => {
+      // Opening on a saved workspace (Side Bar row click). The app picks this up
+      // two ways: take_pending_workspace when it mounts (fresh panel), and the
+      // 'open-workspace' push below (panel already up).
+      pendingWorkspace = typeof filename === 'string' ? filename : null;
+
+      if (panel) {
+        panel.reveal(vscode.ViewColumn.Active);
+        if (pendingWorkspace) panel.webview.postMessage({ kind: 'open-workspace', filename: pendingWorkspace });
+        return;
+      }
+
       const webviewDist = vscode.Uri.joinPath(context.extensionUri, 'webview-dist');
-      const panel = vscode.window.createWebviewPanel(
+      panel = vscode.window.createWebviewPanel(
         'dataweaveStudio',
         'DataWeave Studio',
         vscode.ViewColumn.Active,
@@ -85,9 +104,15 @@ export function activate(context: vscode.ExtensionContext) {
           localResourceRoots: [webviewDist],
         }
       );
+      // Local alias: `panel` is module-level (so a second Open reveals this one
+      // rather than stacking a duplicate), which means TS re-widens it to null
+      // inside every callback below.
+      const p = panel;
+      p.onDidDispose(() => { if (panel === p) panel = null; }, null, context.subscriptions);
+
       // Brand the editor tab with the logo.
-      panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'icon.png');
-      panel.webview.html = getWebviewHtml(panel.webview, webviewDist);
+      p.iconPath = vscode.Uri.joinPath(context.extensionUri, 'icon.png');
+      p.webview.html = getWebviewHtml(p.webview, webviewDist);
 
       // Kick off JVM spawn + compiler priming now, while the loader is showing,
       // so the first Run is warm. Push the warm-up result to the webview so it
@@ -95,10 +120,10 @@ export function activate(context: vscode.ExtensionContext) {
       // get_warmup_status on load to cover the already-warm case).
       warmupError = null;
       getServer(context.extensionPath).then(
-        () => panel.webview.postMessage({ kind: 'warmup', ready: true, error: null }),
+        () => p.webview.postMessage({ kind: 'warmup', ready: true, error: null }),
         (e) => {
           warmupError = e instanceof Error ? e.message : String(e);
-          panel.webview.postMessage({ kind: 'warmup', ready: false, error: warmupError });
+          p.webview.postMessage({ kind: 'warmup', ready: false, error: warmupError });
           // Java-runtime problems get an actionable notification. Copy Details comes
           // first because the common case is now a blocked bundled JRE, where the
           // useful action is pasting the path into a mail to IT — not installing a
@@ -119,15 +144,15 @@ export function activate(context: vscode.ExtensionContext) {
         }
       );
 
-      panel.webview.onDidReceiveMessage(
+      p.webview.onDidReceiveMessage(
         async (msg) => {
           if (!msg || msg.kind !== 'invoke') return;
           const { id, cmd, args } = msg;
           try {
             const value = await handleInvoke(context.extensionPath, cmd, args);
-            panel.webview.postMessage({ kind: 'invoke:result', id, ok: true, value });
+            p.webview.postMessage({ kind: 'invoke:result', id, ok: true, value });
           } catch (e) {
-            panel.webview.postMessage({
+            p.webview.postMessage({
               kind: 'invoke:result',
               id,
               ok: false,
@@ -387,8 +412,19 @@ async function handleInvoke(
       return logDir;
 
     // --- Workspaces (port of workspace.rs) ----------------------------------
-    case 'save_workspace':
-      return ws.saveWorkspace(storageDir, args.workspace);
+    case 'save_workspace': {
+      const saved = ws.saveWorkspace(storageDir, args.workspace);
+      // Keep the Side Bar list honest without the user hitting refresh.
+      void vscode.commands.executeCommand('dataweaveStudio.refreshWorkspaces');
+      return saved;
+    }
+    /** Consumed once, when the app mounts, so a Side Bar row click opens the
+     *  playground already on that workspace instead of a blank one. */
+    case 'take_pending_workspace': {
+      const f = pendingWorkspace;
+      pendingWorkspace = null;
+      return f;
+    }
     case 'load_workspace':
       return ws.loadWorkspace(storageDir, args.filename as string);
     case 'list_workspaces':
@@ -397,11 +433,18 @@ async function handleInvoke(
       return ws.listWorkspacesMeta(storageDir);
     case 'delete_workspace':
       ws.deleteWorkspace(storageDir, args.filename as string);
+      void vscode.commands.executeCommand('dataweaveStudio.refreshWorkspaces');
       return null;
-    case 'rename_workspace':
-      return ws.renameWorkspace(storageDir, args.filename as string, args.newName as string);
-    case 'duplicate_workspace_file':
-      return ws.duplicateWorkspaceFile(storageDir, args.filename as string);
+    case 'rename_workspace': {
+      const renamed = ws.renameWorkspace(storageDir, args.filename as string, args.newName as string);
+      void vscode.commands.executeCommand('dataweaveStudio.refreshWorkspaces');
+      return renamed;
+    }
+    case 'duplicate_workspace_file': {
+      const dup = ws.duplicateWorkspaceFile(storageDir, args.filename as string);
+      void vscode.commands.executeCommand('dataweaveStudio.refreshWorkspaces');
+      return dup;
+    }
     case 'get_workspaces_dir':
       return ws.getWorkspacesDir(storageDir);
 
