@@ -24,7 +24,7 @@ import { DwServer, resolveJava, resolveServerJar, runDataweave, warmDataweave, p
 import * as ws from './workspaceStore';
 import * as jarStore from './jarStore';
 import * as moduleStore from './moduleStore';
-import { registerSidebar } from './sidebar';
+import { registerSidebar, secureKeyNames, secureKeySave, secureKeyDelete, secureKeyGet } from './sidebar';
 
 let server: DwServer | null = null;
 let warmupError: string | null = null;
@@ -35,6 +35,9 @@ let logDir = '';
 let panel: vscode.WebviewPanel | null = null;
 /** Workspace the Side Bar asked for, consumed once by take_pending_workspace. */
 let pendingWorkspace: string | null = null;
+/** Held so handleInvoke can reach SecretStorage — the playground panel's Secure
+ *  Properties tool shares the Side Bar's saved keys rather than having its own. */
+let extCtx: vscode.ExtensionContext | null = null;
 
 /** Start the JVM server once, lazily. Shared across all panels. */
 async function getServer(extensionRoot: string): Promise<DwServer> {
@@ -58,6 +61,7 @@ async function getServer(extensionRoot: string): Promise<DwServer> {
 
 export function activate(context: vscode.ExtensionContext) {
   // Per-extension persistent dirs (VS Code-managed, survive restarts).
+  extCtx = context;
   storageDir = context.globalStorageUri.fsPath;
   logDir = path.join(storageDir, 'logs');
   fs.mkdirSync(logDir, { recursive: true });
@@ -493,8 +497,26 @@ async function handleInvoke(
       return jarStore.compileJava(storageDir, extensionRoot, args.sources as any, args.classpath as string[]);
 
     // --- Secure properties (port of secure_properties.rs) -------------------
-    case 'secure_properties_invoke':
+    case 'secure_properties_invoke': {
+      // A saved key arrives as a name; resolve it here against the OS keychain so
+      // the secret never travels through the webview.
+      const keyName = String(args.keyName ?? '').trim();
+      if (keyName) {
+        if (!extCtx) throw new Error('Extension context unavailable.');
+        return securePropertiesInvoke(extensionRoot, { ...args, key: await secureKeyGet(extCtx, keyName) });
+      }
       return securePropertiesInvoke(extensionRoot, args);
+    }
+    case 'secure_key_names':
+      return extCtx ? secureKeyNames(extCtx) : [];
+    case 'secure_key_save': {
+      if (!extCtx) throw new Error('Extension context unavailable.');
+      return secureKeySave(extCtx, String(args.name ?? ''), String(args.value ?? ''));
+    }
+    case 'secure_key_delete': {
+      if (!extCtx) throw new Error('Extension context unavailable.');
+      return secureKeyDelete(extCtx, String(args.name ?? ''));
+    }
 
     case 'read_text_file':
       return fs.readFileSync(args.path as string, 'utf8');

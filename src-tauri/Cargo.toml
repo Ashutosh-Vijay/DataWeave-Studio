@@ -40,3 +40,4 @@ axum = "0.8"
 serde_yaml = "0.9"
 # Decode base64 multipart part bytes supplied by an MCP agent (binary-safe).
 base64 = "0.22"
+keyring = { version = "3.6.3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }

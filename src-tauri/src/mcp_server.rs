@@ -515,6 +515,7 @@ impl DwTools {
                     eff_algo.clone(),
                     eff_mode.clone(),
                     key.to_string(),
+                    None,
                     inner,
                     eff_riv,
                 ) {
@@ -963,6 +964,7 @@ impl DwTools {
                 algorithm.clone(),
                 mode.clone(),
                 input.key.clone(),
+                None,
                 value,
                 use_random_iv,
             ) {

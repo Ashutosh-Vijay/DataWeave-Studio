@@ -210,6 +210,48 @@ ${body}
 const SECRET_PREFIX = 'dwstudio.secureKey.';
 const KEY_NAMES = 'dwstudio.secureKeyNames';
 
+// Exported so the playground panel's Secure Properties tool (the shared React
+// UI, via handleInvoke) reads the SAME store as the Side Bar view. Save a key in
+// one, use it in the other.
+export function secureKeyNames(context: vscode.ExtensionContext): string[] {
+  return context.globalState.get<string[]>(KEY_NAMES, []).slice().sort();
+}
+
+export async function secureKeySave(
+  context: vscode.ExtensionContext, name: string, value: string,
+): Promise<string[]> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error('Give the key a name.');
+  if (!value) throw new Error('Type a key before saving it.');
+  await context.secrets.store(SECRET_PREFIX + trimmed, value);
+  const names = secureKeyNames(context);
+  if (!names.includes(trimmed)) {
+    await context.globalState.update(KEY_NAMES, [...names, trimmed]);
+  }
+  return secureKeyNames(context);
+}
+
+export async function secureKeyDelete(
+  context: vscode.ExtensionContext, name: string,
+): Promise<string[]> {
+  await context.secrets.delete(SECRET_PREFIX + name);
+  await context.globalState.update(KEY_NAMES, secureKeyNames(context).filter((n) => n !== name));
+  return secureKeyNames(context);
+}
+
+/** Resolve a saved name to its secret. Throws if the keychain no longer has it,
+ *  dropping the stale name so the pickers stop offering it. */
+export async function secureKeyGet(
+  context: vscode.ExtensionContext, name: string,
+): Promise<string> {
+  const stored = await context.secrets.get(SECRET_PREFIX + name);
+  if (stored === undefined) {
+    await context.globalState.update(KEY_NAMES, secureKeyNames(context).filter((n) => n !== name));
+    throw new Error(`Saved key "${name}" is no longer in the keychain — type it in again.`);
+  }
+  return stored;
+}
+
 /** Escape for innerHTML — every view renders host data into markup. */
 const ESC = `function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}`;
 
@@ -635,7 +677,7 @@ vs.postMessage({ kind: 'keys' });`,
           // Saved keys live in context.secrets — the OS keychain (Windows
           // Credential Manager / macOS Keychain / libsecret), not a file we
           // write. Only the NAMES are ours to keep, in globalState.
-          const keyNames = () => context.globalState.get<string[]>(KEY_NAMES, []).slice().sort();
+          const keyNames = () => secureKeyNames(context);
           const pushNames = (selected?: string) =>
             view.webview.postMessage({ kind: 'keys', names: keyNames(), selected });
 
@@ -663,10 +705,7 @@ vs.postMessage({ kind: 'keys' });`,
                 },
               }))?.trim();
               if (!name) return;
-              await context.secrets.store(SECRET_PREFIX + name, String(m.value ?? ''));
-              if (!existing.includes(name)) {
-                await context.globalState.update(KEY_NAMES, [...existing, name]);
-              }
+              await secureKeySave(context, name, String(m.value ?? ''));
               pushNames(name);
               vscode.window.setStatusBarMessage(`Saved key "${name}" to the OS keychain`, 2500);
               return;
@@ -684,8 +723,7 @@ vs.postMessage({ kind: 'keys' });`,
                 'Forget it',
               );
               if (yes !== 'Forget it') return;
-              await context.secrets.delete(SECRET_PREFIX + pick.label);
-              await context.globalState.update(KEY_NAMES, keyNames().filter((n) => n !== pick.label));
+              await secureKeyDelete(context, pick.label);
               pushNames();
               return;
             }
@@ -696,13 +734,12 @@ vs.postMessage({ kind: 'keys' });`,
               // itself never has to live in the webview.
               let key = String(m.key ?? '');
               if (m.keyName) {
-                const stored = await context.secrets.get(SECRET_PREFIX + m.keyName);
-                if (stored === undefined) {
-                  await context.globalState.update(KEY_NAMES, keyNames().filter((n) => n !== m.keyName));
+                try {
+                  key = await secureKeyGet(context, m.keyName);
+                } catch (e) {
                   pushNames('');
-                  throw new Error(`Saved key "${m.keyName}" is no longer in the keychain — type it in again.`);
+                  throw e;
                 }
-                key = stored;
               }
               const text = await encrypt({
                 operation: m.op,

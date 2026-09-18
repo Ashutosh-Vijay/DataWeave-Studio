@@ -2,6 +2,75 @@ use std::process::{Command, Stdio};
 use tauri::{AppHandle, Manager};
 use crate::platform::{hide_console_window, strip_unc_prefix};
 
+/// Saved encryption keys go in the OS keychain (Windows Credential Manager,
+/// macOS Keychain, Secret Service on Linux) — never a file we write. Only the
+/// NAMES are ours, in app-data, because a name is not a secret.
+const KEYRING_SERVICE: &str = "DataWeave Studio secure properties";
+
+fn key_names_file(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let dir = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create app data dir: {}", e))?;
+    Ok(dir.join("secure-keys.json"))
+}
+
+fn read_key_names(app: &AppHandle) -> Vec<String> {
+    let Ok(path) = key_names_file(app) else { return Vec::new() };
+    let Ok(raw) = std::fs::read_to_string(&path) else { return Vec::new() };
+    let mut names: Vec<String> = serde_json::from_str(&raw).unwrap_or_default();
+    names.sort();
+    names
+}
+
+fn write_key_names(app: &AppHandle, names: &[String]) -> Result<(), String> {
+    let path = key_names_file(app)?;
+    let json = serde_json::to_string(names).map_err(|e| e.to_string())?;
+    std::fs::write(&path, json).map_err(|e| format!("Failed to save key names: {}", e))
+}
+
+/// Names of every saved key, sorted. The secrets themselves stay in the keychain.
+#[tauri::command]
+pub fn secure_key_names(app: AppHandle) -> Vec<String> {
+    read_key_names(&app)
+}
+
+/// Store a key under a name. Replaces silently if the name already exists — the
+/// UI asks first, so arriving here means the user said yes.
+#[tauri::command]
+pub fn secure_key_save(app: AppHandle, name: String, value: String) -> Result<Vec<String>, String> {
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err("Give the key a name.".into());
+    }
+    if value.is_empty() {
+        return Err("Type a key before saving it.".into());
+    }
+    keyring::Entry::new(KEYRING_SERVICE, &name)
+        .and_then(|e| e.set_password(&value))
+        .map_err(|e| format!("Could not save to the OS keychain: {}", e))?;
+    let mut names = read_key_names(&app);
+    if !names.contains(&name) {
+        names.push(name);
+        names.sort();
+        write_key_names(&app, &names)?;
+    }
+    Ok(names)
+}
+
+/// Forget a saved key. Removing an entry the keychain no longer has is not an
+/// error — the name index is what the UI reads, so it must always come clean.
+#[tauri::command]
+pub fn secure_key_delete(app: AppHandle, name: String) -> Result<Vec<String>, String> {
+    if let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, &name) {
+        let _ = entry.delete_credential();
+    }
+    let names: Vec<String> = read_key_names(&app).into_iter().filter(|n| n != &name).collect();
+    write_key_names(&app, &names)?;
+    Ok(names)
+}
+
 fn resolve_jar(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     let path = app
         .path()
@@ -36,6 +105,9 @@ pub fn secure_properties_invoke(
     algorithm: String, // "AES" | "Blowfish" | "DES" | "DESede" | "RC2"
     mode: String,      // "CBC" | "CFB" | "ECB" | "OFB"
     key: String,
+    // Names a key held in the OS keychain. When set, `key` is ignored and the
+    // secret is read here — so it never has to travel through the frontend.
+    key_name: Option<String>,
     value: String,
     use_random_iv: bool,
 ) -> Result<String, String> {
@@ -50,6 +122,15 @@ pub fn secure_properties_invoke(
     if !VALID_MODES.contains(&mode.as_str()) {
         return Err(format!("Invalid mode '{}', expected one of: {}", mode, VALID_MODES.join(", ")));
     }
+    let key = match key_name.as_deref().map(str::trim).filter(|n| !n.is_empty()) {
+        Some(name) => keyring::Entry::new(KEYRING_SERVICE, name)
+            .and_then(|e| e.get_password())
+            .map_err(|_| format!(
+                "Saved key \"{}\" is no longer in the OS keychain — type it in again.",
+                name
+            ))?,
+        None => key,
+    };
     if key.is_empty() {
         return Err("Key is required.".into());
     }
