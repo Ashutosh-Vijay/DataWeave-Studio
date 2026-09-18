@@ -97,6 +97,7 @@ pub fn run() {
             secure_properties::secure_key_names,
             secure_properties::secure_key_save,
             secure_properties::secure_key_delete,
+            secure_properties::secure_key_rename,
             workspace::save_workspace,
             workspace::load_workspace,
             workspace::list_workspaces,

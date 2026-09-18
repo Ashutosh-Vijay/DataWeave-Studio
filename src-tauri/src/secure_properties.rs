@@ -59,6 +59,35 @@ pub fn secure_key_save(app: AppHandle, name: String, value: String) -> Result<Ve
     Ok(names)
 }
 
+/// Rename a saved key, keeping its secret. The value never leaves the backend:
+/// read it from the old entry, write it under the new name, drop the old one.
+#[tauri::command]
+pub fn secure_key_rename(app: AppHandle, from: String, to: String) -> Result<Vec<String>, String> {
+    let to = to.trim().to_string();
+    if to.is_empty() {
+        return Err("Give the key a name.".into());
+    }
+    if to == from {
+        return Ok(read_key_names(&app));
+    }
+    let secret = keyring::Entry::new(KEYRING_SERVICE, &from)
+        .and_then(|e| e.get_password())
+        .map_err(|_| format!("Saved key \"{}\" is no longer in the OS keychain.", from))?;
+    keyring::Entry::new(KEYRING_SERVICE, &to)
+        .and_then(|e| e.set_password(&secret))
+        .map_err(|e| format!("Could not save to the OS keychain: {}", e))?;
+    if let Ok(old) = keyring::Entry::new(KEYRING_SERVICE, &from) {
+        let _ = old.delete_credential();
+    }
+    let mut names: Vec<String> = read_key_names(&app).into_iter().filter(|n| n != &from).collect();
+    if !names.contains(&to) {
+        names.push(to);
+    }
+    names.sort();
+    write_key_names(&app, &names)?;
+    Ok(names)
+}
+
 /// Forget a saved key. Removing an entry the keychain no longer has is not an
 /// error — the name index is what the UI reads, so it must always come clean.
 #[tauri::command]

@@ -24,7 +24,7 @@ import { DwServer, resolveJava, resolveServerJar, runDataweave, warmDataweave, p
 import * as ws from './workspaceStore';
 import * as jarStore from './jarStore';
 import * as moduleStore from './moduleStore';
-import { registerSidebar, secureKeyNames, secureKeySave, secureKeyDelete, secureKeyGet } from './sidebar';
+import { registerSidebar, secureKeyNames, secureKeySave, secureKeyDelete, secureKeyRename, secureKeyGet } from './sidebar';
 
 let server: DwServer | null = null;
 let warmupError: string | null = null;
@@ -516,6 +516,10 @@ async function handleInvoke(
     case 'secure_key_delete': {
       if (!extCtx) throw new Error('Extension context unavailable.');
       return secureKeyDelete(extCtx, String(args.name ?? ''));
+    }
+    case 'secure_key_rename': {
+      if (!extCtx) throw new Error('Extension context unavailable.');
+      return secureKeyRename(extCtx, String(args.from ?? ''), String(args.to ?? ''));
     }
 
     case 'read_text_file':

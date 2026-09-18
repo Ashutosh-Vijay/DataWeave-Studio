@@ -239,6 +239,24 @@ export async function secureKeyDelete(
   return secureKeyNames(context);
 }
 
+/** Rename a saved key, keeping its secret — read, rewrite, drop the old entry.
+ *  The value never leaves the host. */
+export async function secureKeyRename(
+  context: vscode.ExtensionContext, from: string, to: string,
+): Promise<string[]> {
+  const target = to.trim();
+  if (!target) throw new Error('Give the key a name.');
+  if (target === from) return secureKeyNames(context);
+  const secret = await context.secrets.get(SECRET_PREFIX + from);
+  if (secret === undefined) throw new Error(`Saved key "${from}" is no longer in the keychain.`);
+  await context.secrets.store(SECRET_PREFIX + target, secret);
+  await context.secrets.delete(SECRET_PREFIX + from);
+  const names = secureKeyNames(context).filter((n) => n !== from);
+  if (!names.includes(target)) names.push(target);
+  await context.globalState.update(KEY_NAMES, names.sort());
+  return secureKeyNames(context);
+}
+
 /** Resolve a saved name to its secret. Throws if the keychain no longer has it,
  *  dropping the stale name so the pickers stop offering it. */
 export async function secureKeyGet(
@@ -714,9 +732,51 @@ vs.postMessage({ kind: 'keys' });`,
             if (m?.kind === 'manageKeys') {
               const pick = await vscode.window.showQuickPick(
                 keyNames().map((n) => ({ label: n, description: 'stored in the OS keychain' })),
-                { title: 'Delete a saved encryption key', placeHolder: 'Pick the key to forget' },
+                { title: 'Saved encryption keys', placeHolder: 'Pick a key' },
               );
               if (!pick) return;
+
+              const action = await vscode.window.showQuickPick(
+                [
+                  { label: '$(edit) Rename', detail: `Keep the key, change what it is called`, id: 'rename' },
+                  { label: '$(key) Replace the key', detail: 'Same name, new value — for a rotated key', id: 'replace' },
+                  { label: '$(trash) Forget', detail: 'Remove it from the OS keychain', id: 'forget' },
+                ],
+                { title: `"${pick.label}"`, placeHolder: 'What do you want to do?' },
+              );
+              if (!action) return;
+
+              if (action.id === 'rename') {
+                const existing = keyNames();
+                const to = (await vscode.window.showInputBox({
+                  title: `Rename "${pick.label}"`,
+                  value: pick.label,
+                  validateInput: (v) => {
+                    const t = v.trim();
+                    if (!t) return 'Give the key a name.';
+                    if (t !== pick.label && existing.includes(t)) return `"${t}" already exists.`;
+                    return null;
+                  },
+                }))?.trim();
+                if (!to) return;
+                await secureKeyRename(context, pick.label, to);
+                pushNames(to);
+                return;
+              }
+
+              if (action.id === 'replace') {
+                const value = await vscode.window.showInputBox({
+                  title: `New key for "${pick.label}"`,
+                  password: true,
+                  placeHolder: 'The rotated encryption key',
+                });
+                if (!value) return;
+                await secureKeySave(context, pick.label, value);
+                pushNames(pick.label);
+                vscode.window.setStatusBarMessage(`Replaced the key behind "${pick.label}"`, 2500);
+                return;
+              }
+
               const yes = await vscode.window.showWarningMessage(
                 `Forget the encryption key "${pick.label}"?`,
                 { modal: true, detail: 'It is removed from the OS keychain. Anything already encrypted with it stays encrypted.' },
