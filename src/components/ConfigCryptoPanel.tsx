@@ -16,12 +16,13 @@ import { open, save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '../bridge';
 import { MiniEditor } from './MiniEditor';
 import { Icons } from './Icons';
+import { SavedKeyField } from './SavedKeyField';
 import { WindowControls } from './WindowControls';
 import {
   ConfigFormat, ConfigField, detectFormat, scanConfig, convertConfig, looksLikeSecret,
 } from '../configCrypto';
 import {
-  EncryptionSettings, DEFAULT_ENCRYPTION_SETTINGS, inspectAesKey,
+  EncryptionSettings, DEFAULT_ENCRYPTION_SETTINGS,
 } from '../cryptoUtils';
 
 const ALGORITHMS = ['AES', 'Blowfish', 'DES', 'DESede', 'RC2'] as const;
@@ -42,7 +43,7 @@ export function ConfigCryptoPanel({ open: isOpen, onClose }: { open: boolean; on
   const [source, setSource] = useState('');
   const [result, setResult] = useState('');
   const [key, setKey] = useState('');
-  const [showKey, setShowKey] = useState(false);
+  const [savedName, setSavedName] = useState('');
   const [settings, setSettings] = useState<EncryptionSettings>(DEFAULT_ENCRYPTION_SETTINGS);
   const [direction, setDirection] = useState<'encrypt' | 'decrypt'>('encrypt');
   const [formatOverride, setFormatOverride] = useState<ConfigFormat | null>(null);
@@ -94,11 +95,10 @@ export function ConfigCryptoPanel({ open: isOpen, onClose }: { open: boolean; on
       .map(({ f }) => f.path)
     : [];
 
-  const aes = inspectAesKey(key);
   const selectedCount = eligible.filter(({ i }) => selected.has(i)).length;
 
   const run = async () => {
-    if (!key.trim()) { setError('An encryption key is required.'); return; }
+    if (!savedName && !key.trim()) { setError('Enter the encryption key, or pick a saved one.'); return; }
     if (!selectedCount) { setError(`Nothing selected to ${direction}.`); return; }
     setBusy(true);
     setError('');
@@ -108,7 +108,7 @@ export function ConfigCryptoPanel({ open: isOpen, onClose }: { open: boolean; on
     try {
       const chosen = eligible.filter(({ i }) => selected.has(i)).map(({ f }) => f);
       const outcome = await convertConfig(
-        source, format, chosen, direction, key, settings,
+        source, format, chosen, direction, key, settings, savedName,
         (done, total) => setProgress({ done, total }),
       );
       setResult(outcome.text);
@@ -188,33 +188,23 @@ export function ConfigCryptoPanel({ open: isOpen, onClose }: { open: boolean; on
         <WindowControls />
       </header>
 
-      {/* Key + cipher. Everything here has to match what the Mule runtime is
+      {/* The key gets a row of its own: it is the input that decides whether
+          anything here works, and saved keys need somewhere to live. */}
+      <div className="shrink-0 px-3.5 py-3 border-b border-line-subtle bg-surface">
+        <SavedKeyField
+          value={key}
+          onValueChange={setKey}
+          savedName={savedName}
+          onSavedNameChange={setSavedName}
+          algorithm={settings.algorithm}
+          onError={setError}
+          resetKey={open}
+        />
+      </div>
+
+      {/* Cipher. Everything here has to match what the Mule runtime is
           configured with, or the output decrypts to nothing useful. */}
       <div className="shrink-0 flex items-center gap-2 px-3.5 h-11 border-b border-line-subtle bg-surface">
-        <div className="relative">
-          <input
-            type={showKey ? 'text' : 'password'}
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder="Encryption key"
-            spellCheck={false}
-            autoComplete="off"
-            className="w-[240px] h-7 pl-2.5 pr-8 rounded-md bg-surface-2 border border-line text-[12px] font-mono text-content placeholder:text-content-ghost outline-none focus:border-accent"
-          />
-          <button
-            onClick={() => setShowKey((v) => !v)}
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-content-faint hover:text-content cursor-pointer"
-            title={showKey ? 'Hide key' : 'Show key'}
-          >
-            <Icons.Secure size={12} />
-          </button>
-        </div>
-        {settings.algorithm === 'AES' && key.length > 0 && (
-          <span className="text-[10.5px] font-mono" style={{ color: aes.aesValid ? 'var(--accent)' : 'var(--warn)' }}>
-            {aes.aesValid ? aes.aesVariant : `${aes.bytes} bytes — AES wants 16, 24 or 32`}
-          </span>
-        )}
-
         <select
           value={settings.algorithm}
           onChange={(e) => setSettings({ ...settings, algorithm: e.target.value })}
@@ -263,7 +253,7 @@ export function ConfigCryptoPanel({ open: isOpen, onClose }: { open: boolean; on
         </div>
         <button
           onClick={run}
-          disabled={busy || !selectedCount || !key.trim()}
+          disabled={busy || !selectedCount || (!savedName && !key.trim())}
           className="inline-flex items-center gap-1.5 h-7 pl-2.5 pr-3 rounded-md text-[12.5px] font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
           style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
           title={selectedCount ? `${direction} ${selectedCount} value${selectedCount > 1 ? 's' : ''}` : `Nothing to ${direction}`}

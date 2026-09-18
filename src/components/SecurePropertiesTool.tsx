@@ -2,12 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import {
   encryptValue,
   decryptValue,
-  inspectAesKey,
   EncryptionSettings,
   DEFAULT_ENCRYPTION_SETTINGS,
 } from '../cryptoUtils';
 import { Icons } from './Icons';
-import { invoke } from '../bridge';
+import { SavedKeyField } from './SavedKeyField';
 
 // Tauri rejects with a plain STRING, not an Error, so `(e as Error).message` is
 // undefined and the error box renders blank — including "Invalid AES key length",
@@ -28,18 +27,11 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
   const [mode, setMode] = useState<'encrypt' | 'decrypt'>('encrypt');
   const [input, setInput] = useState('');
   const [key, setKey] = useState('');
-  const [showKey, setShowKey] = useState(false);
   const [settings, setSettings] = useState<EncryptionSettings>(DEFAULT_ENCRYPTION_SETTINGS);
   // Saved keys live in the OS keychain (Credential Manager / Keychain / Secret
   // Service) via the backend — never in a file we write. The UI only ever holds
   // the NAME; picking one sends that, and the backend resolves it at run time.
-  const [savedNames, setSavedNames] = useState<string[]>([]);
   const [savedName, setSavedName] = useState('');
-  const [naming, setNaming] = useState(false);   // saving a brand-new key
-  const [editing, setEditing] = useState(false); // renaming / replacing the selected one
-  const [newName, setNewName] = useState('');
-  const [newKey, setNewKey] = useState('');
-  const [confirmForget, setConfirmForget] = useState(false);
   const [output, setOutput] = useState('');
   const [error, setError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -71,65 +63,11 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
       setOutput('');
       setError('');
       setCopied(false);
-      setNaming(false);
-      setEditing(false);
-      setConfirmForget(false);
-      invoke<string[]>('secure_key_names')
-        .then(setSavedNames)
-        .catch(() => setSavedNames([]));   // older backend — picker just stays empty
     }
   }, [open]);
 
-  const saveKey = async () => {
-    const name = newName.trim();
-    if (!name) return;
-    try {
-      setSavedNames(await invoke<string[]>('secure_key_save', { name, value: key }));
-      setSavedName(name);
-      setKey('');
-      setNaming(false);
-      setNewName('');
-      setError('');
-    } catch (e) {
-      setError(errText(e));
-    }
-  };
 
-  /** Rename, replace the value, or both — whichever the two fields say. The
-   *  secret is only sent when you actually typed a new one; a plain rename is a
-   *  backend move so the old value never comes back through the UI. */
-  const applyEdit = async () => {
-    const target = newName.trim();
-    if (!target) return;
-    try {
-      let names = savedNames;
-      if (newKey.trim()) {
-        names = await invoke<string[]>('secure_key_save', { name: target, value: newKey });
-        if (target !== savedName) {
-          names = await invoke<string[]>('secure_key_delete', { name: savedName });
-        }
-      } else if (target !== savedName) {
-        names = await invoke<string[]>('secure_key_rename', { from: savedName, to: target });
-      }
-      setSavedNames(names);
-      setSavedName(target);
-      setEditing(false);
-      setNewKey('');
-      setError('');
-    } catch (e) {
-      setError(errText(e));
-    }
-  };
 
-  const forgetKey = async () => {
-    try {
-      setSavedNames(await invoke<string[]>('secure_key_delete', { name: savedName }));
-      setSavedName('');
-      setConfirmForget(false);
-    } catch (e) {
-      setError(errText(e));
-    }
-  };
 
   const handleProcess = async () => {
     if (!input.trim()) {
@@ -270,194 +208,15 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
             )}
           </div>
 
-          {/* Encryption Key */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] text-content-faint uppercase tracking-wide font-medium">
-              Encryption key
-            </label>
-
-            {/* Chips, not a dropdown: you keep two or three environments and
-                switch between them constantly, so they should all be one click
-                away and visible at a glance. */}
-            {savedNames.length > 0 && (
-              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Saved keys">
-                {['', ...savedNames].map((n) => (
-                  <button
-                    key={n || '__type'}
-                    onClick={() => { setSavedName(n); setKey(''); setConfirmForget(false); setEditing(false); setError(''); }}
-                    aria-pressed={savedName === n}
-                    className={`h-6 px-2.5 rounded-full text-[11.5px] border transition-colors cursor-pointer ${
-                      savedName === n
-                        ? 'bg-accent-dim text-accent'
-                        : 'text-content-faint border-line hover:text-content-secondary hover:border-line-secondary'
-                    }`}
-                    style={savedName === n ? { borderColor: 'var(--accent-border)' } : undefined}
-                  >
-                    {n || 'Type it in'}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {savedName ? (
-              <div className="flex gap-2 items-center">
-                <div
-                  className="flex-1 rounded-md px-3 py-2 text-[12.5px] font-mono flex items-center gap-2"
-                  style={{
-                    background: 'color-mix(in oklch, var(--accent) 8%, transparent)',
-                    border: '1px solid var(--accent-border)',
-                    color: 'var(--accent)',
-                  }}
-                >
-                  <Icons.Secure size={12} />
-                  Using “{savedName}” — from this computer’s keychain
-                </div>
-                {confirmForget ? (
-                  <>
-                    <button
-                      onClick={forgetKey}
-                      className="px-3 h-[34px] text-[12px] rounded-md cursor-pointer border"
-                      style={{ borderColor: 'var(--err-border)', color: 'var(--err)' }}
-                    >
-                      Really forget
-                    </button>
-                    <button
-                      onClick={() => setConfirmForget(false)}
-                      className="px-3 h-[34px] text-[12px] text-content-faint hover:text-content border border-line rounded-md cursor-pointer"
-                    >
-                      Keep
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => { setEditing(true); setNewName(savedName); setNewKey(''); }}
-                      title="Rename this key, or replace the value behind it"
-                      className="px-2.5 h-[34px] text-[12px] text-content-faint hover:text-content hover:bg-surface-2 rounded-md cursor-pointer transition-colors"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => setConfirmForget(true)}
-                      title="Remove this key from the keychain"
-                      className="px-2.5 h-[34px] text-[12px] text-content-faint hover:text-content hover:bg-surface-2 rounded-md cursor-pointer transition-colors"
-                    >
-                      Forget
-                    </button>
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <input
-                  type={showKey ? 'text' : 'password'}
-                  value={key}
-                  onChange={(e) => setKey(e.target.value)}
-                  placeholder={settings.algorithm === 'AES' ? 'Exactly 16, 24, or 32 chars (AES-128 / 192 / 256)' : 'Encryption key'}
-                  className="flex-1 bg-surface-2 border border-line rounded-md px-3 py-2 text-[13px] text-content placeholder-content-ghost focus:border-accent focus:outline-none font-mono"
-                />
-                <button
-                  onClick={() => setShowKey(!showKey)}
-                  className="px-2.5 h-[34px] text-[12px] text-content-faint hover:text-content hover:bg-surface-2 rounded-md cursor-pointer transition-colors"
-                >
-                  {showKey ? 'Hide' : 'Show'}
-                </button>
-                <button
-                  onClick={() => { setNaming(true); setNewName(''); }}
-                  disabled={!key.trim()}
-                  title="Save this key in the OS keychain so you can pick it by name next time"
-                  className="px-3 text-[12px] text-content-faint hover:text-content border border-line rounded-md cursor-pointer hover:border-line-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Save
-                </button>
-              </div>
-            )}
-
-            {editing && (
-              <div className="space-y-1.5 rounded-md bg-surface-2 p-2.5">
-                <div className="flex gap-2">
-                  <input
-                    autoFocus
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') applyEdit(); if (e.key === 'Escape') setEditing(false); }}
-                    placeholder="Name"
-                    className="flex-1 bg-surface-2 border border-line rounded-md px-3 py-1.5 text-[12.5px] text-content placeholder-content-ghost focus:border-accent focus:outline-none"
-                  />
-                  <input
-                    type="password"
-                    value={newKey}
-                    onChange={(e) => setNewKey(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') applyEdit(); if (e.key === 'Escape') setEditing(false); }}
-                    placeholder="New key — optional"
-                    className="flex-1 bg-surface-2 border border-line rounded-md px-3 py-1.5 text-[12.5px] text-content placeholder-content-ghost focus:border-accent focus:outline-none font-mono"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10.5px] text-content-ghost flex-1">
-                    {newKey.trim()
-                      ? (newName.trim() !== savedName ? 'Renames it and replaces the key behind it.' : 'Replaces the key behind this name.')
-                      : (newName.trim() !== savedName ? 'Renames it — the key itself is unchanged.' : 'Nothing to change yet.')}
-                  </span>
-                  <button
-                    onClick={applyEdit}
-                    disabled={!newName.trim() || (newName.trim() === savedName && !newKey.trim())}
-                    className="px-3 h-7 text-[12px] rounded-md cursor-pointer font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
-                    style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
-                  >
-                    Apply
-                  </button>
-                  <button
-                    onClick={() => { setEditing(false); setNewKey(''); }}
-                    className="px-3 h-7 text-[12px] text-content-faint hover:text-content hover:bg-surface-2 rounded-md cursor-pointer transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {naming && (
-              <div className="flex gap-2">
-                <input
-                  autoFocus
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') saveKey(); if (e.key === 'Escape') setNaming(false); }}
-                  placeholder="Name it for the environment — uat, prod, …  (Enter to save)"
-                  className="flex-1 bg-surface-2 border border-line rounded-md px-3 py-1.5 text-[12.5px] text-content placeholder-content-ghost focus:border-accent focus:outline-none"
-                />
-                <button
-                  onClick={saveKey}
-                  disabled={!newName.trim()}
-                  className="px-3 text-[12px] rounded-md cursor-pointer font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
-                >
-                  {savedNames.includes(newName.trim()) ? 'Replace' : 'Save'}
-                </button>
-                <button
-                  onClick={() => setNaming(false)}
-                  className="px-3 h-7 text-[12px] text-content-faint hover:text-content hover:bg-surface-2 rounded-md cursor-pointer transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-            {key && settings.algorithm === 'AES' && (() => {
-              const info = inspectAesKey(key);
-              return (
-                <span
-                  className="text-[10px]"
-                  style={{ color: info.aesValid ? 'var(--accent)' : 'var(--warn)' }}
-                >
-                  Key is {info.bytes} bytes —{' '}
-                  {info.aesValid
-                    ? `${info.aesVariant} ✓`
-                    : 'invalid for AES (need 16, 24, or 32 bytes)'}
-                </span>
-              );
-            })()}
-          </div>
+          <SavedKeyField
+            value={key}
+            onValueChange={setKey}
+            savedName={savedName}
+            onSavedNameChange={setSavedName}
+            algorithm={settings.algorithm}
+            onError={setError}
+            resetKey={open}
+          />
 
           {/* Algorithm + Mode + useRandomIVs */}
           <div className="flex gap-3 items-end">

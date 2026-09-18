@@ -274,6 +274,8 @@ export async function convertConfig(
   direction: 'encrypt' | 'decrypt',
   key: string,
   settings: EncryptionSettings,
+  /** Name of a key in the OS keychain; when set, `key` is ignored. */
+  keyName: string,
   onProgress?: (done: number, total: number) => void,
 ): Promise<ConvertOutcome> {
   const targets = fields.filter(
@@ -293,10 +295,10 @@ export async function convertConfig(
       try {
         let replacement: string;
         if (direction === 'encrypt') {
-          replacement = await encryptValue(f.value, key, settings);
+          replacement = await encryptValue(f.value, key, settings, keyName);
         } else {
           const inner = f.value.match(ENCRYPTED_RE)?.[1] ?? f.value;
-          replacement = await decryptValue(inner, key, settings);
+          replacement = await decryptValue(inner, key, settings, keyName);
         }
         edits.push({
           line: f.line,
