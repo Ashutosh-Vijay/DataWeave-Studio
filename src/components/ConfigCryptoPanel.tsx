@@ -115,7 +115,7 @@ export function ConfigCryptoPanel({ open: isOpen, onClose }: { open: boolean; on
       setChanged(outcome.changed);
       setFailures(outcome.failures);
     } catch (e) {
-      setError((e as Error).message);
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
@@ -134,7 +134,7 @@ export function ConfigCryptoPanel({ open: isOpen, onClose }: { open: boolean; on
       setResult('');
       setFormatOverride(null);
     } catch (e) {
-      setError((e as Error).message);
+      setError(e instanceof Error ? e.message : String(e));
     }
   };
 

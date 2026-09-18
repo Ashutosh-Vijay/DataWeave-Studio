@@ -7,6 +7,12 @@ import {
   DEFAULT_ENCRYPTION_SETTINGS,
 } from '../cryptoUtils';
 import { Icons } from './Icons';
+import { invoke } from '../bridge';
+
+// Tauri rejects with a plain STRING, not an Error, so `(e as Error).message` is
+// undefined and the error box renders blank — including "Invalid AES key length",
+// the mistake this tool exists to catch. The rest of the app uses String(e).
+const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 const ALGORITHMS = ['AES', 'Blowfish', 'DES', 'DESede', 'RC2'] as const;
 const MODES = ['CBC', 'CFB', 'ECB', 'OFB'] as const;
@@ -24,6 +30,14 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
   const [key, setKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [settings, setSettings] = useState<EncryptionSettings>(DEFAULT_ENCRYPTION_SETTINGS);
+  // Saved keys live in the OS keychain (Credential Manager / Keychain / Secret
+  // Service) via the backend — never in a file we write. The UI only ever holds
+  // the NAME; picking one sends that, and the backend resolves it at run time.
+  const [savedNames, setSavedNames] = useState<string[]>([]);
+  const [savedName, setSavedName] = useState('');
+  const [naming, setNaming] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [confirmForget, setConfirmForget] = useState(false);
   const [output, setOutput] = useState('');
   const [error, setError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -55,12 +69,46 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
       setOutput('');
       setError('');
       setCopied(false);
+      setNaming(false);
+      setConfirmForget(false);
+      invoke<string[]>('secure_key_names')
+        .then(setSavedNames)
+        .catch(() => setSavedNames([]));   // older backend — picker just stays empty
     }
   }, [open]);
 
+  const saveKey = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    try {
+      setSavedNames(await invoke<string[]>('secure_key_save', { name, value: key }));
+      setSavedName(name);
+      setKey('');
+      setNaming(false);
+      setNewName('');
+      setError('');
+    } catch (e) {
+      setError(errText(e));
+    }
+  };
+
+  const forgetKey = async () => {
+    try {
+      setSavedNames(await invoke<string[]>('secure_key_delete', { name: savedName }));
+      setSavedName('');
+      setConfirmForget(false);
+    } catch (e) {
+      setError(errText(e));
+    }
+  };
+
   const handleProcess = async () => {
-    if (!input.trim() || !key.trim()) {
-      setError('Both input and key are required.');
+    if (!input.trim()) {
+      setError('Enter a value.');
+      return;
+    }
+    if (!savedName && !key.trim()) {
+      setError('Enter the encryption key, or pick a saved one.');
       return;
     }
     setIsProcessing(true);
@@ -69,7 +117,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
     setCopied(false);
     try {
       if (mode === 'encrypt') {
-        const result = await encryptValue(input, key, settings);
+        const result = await encryptValue(input, key, settings, savedName);
         setOutput(result);
         // The button says "Encrypt & copy" — actually copy.
         try {
@@ -81,11 +129,11 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
         const trimmed = input.trim();
         const match = trimmed.match(/^!\[(.+)]$/);
         const base64 = match ? match[1] : trimmed;
-        const result = await decryptValue(base64, key, settings);
+        const result = await decryptValue(base64, key, settings, savedName);
         setOutput(result);
       }
     } catch (e) {
-      setError((e as Error).message);
+      setError(errText(e));
     } finally {
       setIsProcessing(false);
     }
@@ -116,9 +164,9 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
           <div
             className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center"
             style={{
-              background: 'color-mix(in oklch, var(--warn) 15%, transparent)',
-              border: '1px solid color-mix(in oklch, var(--warn) 30%, transparent)',
-              color: 'var(--warn)',
+              background: 'color-mix(in oklch, var(--accent) 15%, transparent)',
+              border: '1px solid color-mix(in oklch, var(--accent) 30%, transparent)',
+              color: 'var(--accent)',
             }}
           >
             <Icons.Secure size={18} />
@@ -154,7 +202,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
               onClick={() => { setMode('decrypt'); setInput(''); setOutput(''); setError(''); }}
               className={`flex-1 h-7 rounded-sm text-[12px] font-medium cursor-pointer transition-colors ${
                 mode === 'decrypt'
-                  ? 'bg-warn-tint text-warn'
+                  ? 'bg-accent-dim text-accent'
                   : 'text-content-faint hover:text-content-secondary'
               }`}
             >
@@ -195,24 +243,114 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
 
           {/* Encryption Key */}
           <div className="space-y-1.5">
-            <label className="text-[10px] text-content-faint uppercase tracking-wide font-medium">
-              Encryption key
-            </label>
-            <div className="flex gap-2">
-              <input
-                type={showKey ? 'text' : 'password'}
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                placeholder={settings.algorithm === 'AES' ? 'Exactly 16, 24, or 32 chars (AES-128 / 192 / 256)' : 'Encryption key'}
-                className="flex-1 bg-surface-2 border border-line rounded-md px-3 py-2 text-[13px] text-content placeholder-content-ghost focus:border-accent focus:outline-none font-mono"
-              />
-              <button
-                onClick={() => setShowKey(!showKey)}
-                className="px-3 text-[12px] text-content-faint hover:text-content border border-line rounded-md cursor-pointer hover:border-line-secondary transition-colors"
-              >
-                {showKey ? 'Hide' : 'Show'}
-              </button>
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] text-content-faint uppercase tracking-wide font-medium flex-1">
+                Encryption key
+              </label>
+              {savedNames.length > 0 && (
+                <select
+                  value={savedName}
+                  onChange={(e) => { setSavedName(e.target.value); setKey(''); setConfirmForget(false); setError(''); }}
+                  aria-label="Saved key"
+                  className="h-6 max-w-[180px] bg-transparent border border-line rounded-md px-1.5 text-[11px] text-accent focus:outline-none focus:border-accent cursor-pointer"
+                >
+                  <option value="">Type it in</option>
+                  {savedNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              )}
             </div>
+
+            {savedName ? (
+              <div className="flex gap-2 items-center">
+                <div
+                  className="flex-1 rounded-md px-3 py-2 text-[12.5px] font-mono flex items-center gap-2"
+                  style={{
+                    background: 'color-mix(in oklch, var(--accent) 8%, transparent)',
+                    border: '1px solid var(--accent-border)',
+                    color: 'var(--accent)',
+                  }}
+                >
+                  <Icons.Secure size={12} />
+                  Using “{savedName}” — from this computer’s keychain
+                </div>
+                {confirmForget ? (
+                  <>
+                    <button
+                      onClick={forgetKey}
+                      className="px-3 h-[34px] text-[12px] rounded-md cursor-pointer border"
+                      style={{ borderColor: 'var(--err-border)', color: 'var(--err)' }}
+                    >
+                      Really forget
+                    </button>
+                    <button
+                      onClick={() => setConfirmForget(false)}
+                      className="px-3 h-[34px] text-[12px] text-content-faint hover:text-content border border-line rounded-md cursor-pointer"
+                    >
+                      Keep
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setConfirmForget(true)}
+                    title="Remove this key from the keychain"
+                    className="px-3 h-[34px] text-[12px] text-content-faint hover:text-content border border-line rounded-md cursor-pointer hover:border-line-secondary transition-colors"
+                  >
+                    Forget
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type={showKey ? 'text' : 'password'}
+                  value={key}
+                  onChange={(e) => setKey(e.target.value)}
+                  placeholder={settings.algorithm === 'AES' ? 'Exactly 16, 24, or 32 chars (AES-128 / 192 / 256)' : 'Encryption key'}
+                  className="flex-1 bg-surface-2 border border-line rounded-md px-3 py-2 text-[13px] text-content placeholder-content-ghost focus:border-accent focus:outline-none font-mono"
+                />
+                <button
+                  onClick={() => setShowKey(!showKey)}
+                  className="px-3 text-[12px] text-content-faint hover:text-content border border-line rounded-md cursor-pointer hover:border-line-secondary transition-colors"
+                >
+                  {showKey ? 'Hide' : 'Show'}
+                </button>
+                <button
+                  onClick={() => { setNaming(true); setNewName(''); }}
+                  disabled={!key.trim()}
+                  title="Save this key in the OS keychain so you can pick it by name next time"
+                  className="px-3 text-[12px] text-content-faint hover:text-content border border-line rounded-md cursor-pointer hover:border-line-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Save
+                </button>
+              </div>
+            )}
+
+            {naming && (
+              <div className="flex gap-2">
+                <input
+                  autoFocus
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveKey(); if (e.key === 'Escape') setNaming(false); }}
+                  placeholder="Name it for the environment — uat, prod, …"
+                  className="flex-1 bg-surface-2 border border-line rounded-md px-3 py-1.5 text-[12.5px] text-content placeholder-content-ghost focus:border-accent focus:outline-none"
+                />
+                <button
+                  onClick={saveKey}
+                  disabled={!newName.trim()}
+                  className="px-3 text-[12px] rounded-md cursor-pointer font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+                >
+                  {savedNames.includes(newName.trim()) ? 'Replace' : 'Save'}
+                </button>
+                <button
+                  onClick={() => setNaming(false)}
+                  className="px-3 text-[12px] text-content-faint hover:text-content border border-line rounded-md cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
             {key && settings.algorithm === 'AES' && (() => {
               const info = inspectAesKey(key);
               return (
@@ -316,10 +454,10 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
           </button>
           <button
             onClick={handleProcess}
-            disabled={isProcessing || !input.trim() || !key.trim()}
+            disabled={isProcessing || !input.trim() || (!savedName && !key.trim())}
             className="h-8 px-4 rounded-md text-[12.5px] font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
             style={{
-              background: mode === 'encrypt' ? 'var(--accent)' : 'var(--warn)',
+              background: 'var(--accent)',
               color: 'var(--accent-ink)',
             }}
           >

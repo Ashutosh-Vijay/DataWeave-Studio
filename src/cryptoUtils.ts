@@ -37,15 +37,19 @@ async function invokeTool(
   operation: 'encrypt' | 'decrypt',
   value: string,
   key: string,
-  settings: EncryptionSettings
+  settings: EncryptionSettings,
+  keyName?: string,
 ): Promise<string> {
-  if (!key) throw new Error('Encryption key is required.');
+  // `keyName` names a key held in the OS keychain; the backend reads it there,
+  // so the secret never has to round-trip through the UI.
+  if (!key && !keyName) throw new Error('Encryption key is required.');
   if (!value) throw new Error('Value is required.');
   return await invoke<string>('secure_properties_invoke', {
     operation,
     algorithm: settings.algorithm,
     mode: settings.mode,
     key,
+    keyName: keyName ?? '',
     value,
     useRandomIv: settings.useRandomIVs,
   });
@@ -55,18 +59,20 @@ async function invokeTool(
 export async function decryptValue(
   encryptedBase64: string,
   key: string,
-  settings: EncryptionSettings
+  settings: EncryptionSettings,
+  keyName?: string,
 ): Promise<string> {
-  return invokeTool('decrypt', encryptedBase64, key, settings);
+  return invokeTool('decrypt', encryptedBase64, key, settings, keyName);
 }
 
 /** Encrypt plaintext → `![Base64Blob]`. */
 export async function encryptValue(
   plaintext: string,
   key: string,
-  settings: EncryptionSettings
+  settings: EncryptionSettings,
+  keyName?: string,
 ): Promise<string> {
-  const inner = await invokeTool('encrypt', plaintext, key, settings);
+  const inner = await invokeTool('encrypt', plaintext, key, settings, keyName);
   return `![${inner}]`;
 }
 
@@ -87,7 +93,9 @@ export async function decryptFlatMap(
       try {
         return [k, await decryptValue(match[1], key, settings)] as const;
       } catch (e) {
-        return [k, `[DECRYPT_ERROR: ${(e as Error).message}]`] as const;
+        // Tauri rejects with a string, not an Error — `.message` would be undefined
+        // on every failed row, hiding the actual reason (usually a wrong key).
+        return [k, `[DECRYPT_ERROR: ${e instanceof Error ? e.message : String(e)}]`] as const;
       }
     })
   );
