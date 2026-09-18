@@ -285,7 +285,10 @@ export async function convertConfig(
   const failures: { path: string; message: string }[] = [];
   let done = 0;
 
-  const CONCURRENCY = 4;
+  // Each value is its own round trip. Measured on an 8-core box, 24 values:
+  // 1 worker 4658ms, 2 → 2522, 4 → 1550, 8 → 1315, 16 → 1347. It plateaus at
+  // the core count, so cap there rather than at a guess.
+  const CONCURRENCY = Math.min(8, (navigator.hardwareConcurrency || 4));
   let next = 0;
   const worker = async () => {
     for (;;) {

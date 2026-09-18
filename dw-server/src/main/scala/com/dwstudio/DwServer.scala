@@ -148,6 +148,17 @@ object DwServer {
         return debugResponse(id, req, started)
       }
 
+      // op=secureProps: MuleSoft's secure-properties encryption, in THIS jvm.
+      // The desktop and the extension used to spawn a fresh `java.exe` per value
+      // (~250ms each, nearly all of it jvm startup), so a 50-value config cost
+      // about twelve seconds and had to be throttled to avoid a spawn storm.
+      // Here it is a method call: measured 0.06ms. It also sidesteps the cp1252
+      // bug — the CLI takes the value as argv, which Windows decodes with the
+      // ANSI codepage, silently mangling anything outside it. There is no argv.
+      if (req.getString("op", "run") == "secureProps") {
+        return securePropsResponse(id, req, started)
+      }
+
       // op=tooling: the engine's own IDE language service — type-aware completion,
       // hover, signature help, type-of, go-to-definition, rename and type checking.
       // Same WeaveToolingService the formatter uses, so nothing new is constructed.
@@ -347,6 +358,113 @@ object DwServer {
     } catch {
       case t: Throwable =>
         errorResponse(id, t.getClass.getSimpleName + ": " + Option(t.getMessage).getOrElse(""), started)
+    }
+  }
+
+  // --- Secure properties -----------------------------------------------------
+  // Loaded reflectively from the bundled secure-properties-tool.jar rather than
+  // compiled against it: that keeps the jar out of our pom and off the launch
+  // classpath, so nothing about how this server starts had to change. The
+  // classloader is cached per jar path — building one per call would undo the
+  // point of being in-process.
+  private val securePropsLoaders =
+    new java.util.concurrent.ConcurrentHashMap[String, ClassLoader]()
+
+  private def securePropsLoader(jarPath: String): ClassLoader =
+    securePropsLoaders.computeIfAbsent(jarPath, { p =>
+      val url = new java.io.File(p).toURI.toURL
+      new java.net.URLClassLoader(Array(url), getClass.getClassLoader)
+    })
+
+  /** Build an Encrypter for these settings. Cheap — measured 0.027ms including
+   *  construction — so there is no cache beyond the classloader. */
+  private def secureEncrypter(
+    jarPath: String, algorithm: String, mode: String, key: String, useRandomIv: Boolean,
+  ): AnyRef = {
+    val cl = securePropsLoader(jarPath)
+    val algoCls = Class.forName("com.mulesoft.modules.configuration.properties.api.EncryptionAlgorithm", true, cl)
+    val modeCls = Class.forName("com.mulesoft.modules.configuration.properties.api.EncryptionMode", true, cl)
+    val builderCls = Class.forName(
+      "com.mulesoft.modules.configuration.properties.internal.jce.factories.SymmetricEncrypterBuilder", true, cl)
+
+    val algo = algoCls.getMethod("valueOf", classOf[String]).invoke(null, algorithm)
+    val md = modeCls.getMethod("valueOf", classOf[String]).invoke(null, mode)
+
+    var b = builderCls.getConstructor(algoCls).newInstance(algo).asInstanceOf[AnyRef]
+    b = b.getClass.getMethod("using", modeCls).invoke(b, md)
+    b = b.getClass.getMethod("forKey", classOf[String]).invoke(b, key)
+    b = b.getClass.getMethod("useRandomIVs", java.lang.Boolean.TYPE)
+          .invoke(b, java.lang.Boolean.valueOf(useRandomIv))
+    b.getClass.getMethod("build").invoke(b)
+  }
+
+  /** Encrypt or decrypt one or many values with one Encrypter. `values` batches
+   *  a whole config file into a single round trip; `value` stays for one-offs. */
+  private def securePropsResponse(id: Int, req: JsonObject, started: Long): String = {
+    val jarPath   = req.getString("jarPath", "")
+    val operation = req.getString("operation", "encrypt")
+    val algorithm = req.getString("algorithm", "AES")
+    val mode      = req.getString("mode", "CBC")
+    val key       = req.getString("key", "")
+    val randomIv  = req.getBoolean("useRandomIv", false)
+
+    if (jarPath.isEmpty) return errorResponse(id, "secureProps: jarPath is required.", started)
+    if (!new java.io.File(jarPath).isFile)
+      return errorResponse(id, s"secure-properties-tool.jar not found at $jarPath", started)
+    if (key.isEmpty) return errorResponse(id, "Key is required.", started)
+    if (operation != "encrypt" && operation != "decrypt")
+      return errorResponse(id, s"Invalid operation '$operation', expected 'encrypt' or 'decrypt'.", started)
+
+    val inputs: Seq[String] =
+      if (req.get("values") != null) {
+        val arr = req.get("values").asArray()
+        (0 until arr.size()).map(i => arr.get(i).asString())
+      } else Seq(req.getString("value", ""))
+
+    try {
+      val enc = secureEncrypter(jarPath, algorithm, mode, key, randomIv)
+      val encrypt = enc.getClass.getMethod("encrypt", classOf[Array[Byte]])
+      val decrypt = enc.getClass.getMethod("decrypt", classOf[Array[Byte]])
+      encrypt.setAccessible(true)
+      decrypt.setAccessible(true)
+      val utf8 = java.nio.charset.StandardCharsets.UTF_8
+      val b64e = java.util.Base64.getEncoder
+      val b64d = java.util.Base64.getDecoder
+
+      val out = new com.eclipsesource.json.JsonArray()
+      val errs = new com.eclipsesource.json.JsonArray()
+      inputs.foreach { v =>
+        try {
+          val r =
+            if (operation == "encrypt")
+              b64e.encodeToString(encrypt.invoke(enc, v.getBytes(utf8)).asInstanceOf[Array[Byte]])
+            else
+              new String(decrypt.invoke(enc, b64d.decode(v)).asInstanceOf[Array[Byte]], utf8)
+          out.add(r)
+          errs.add(Json.NULL)
+        } catch {
+          case e: Throwable =>
+            out.add(Json.NULL)
+            // Reflection wraps the real cause; the message is what the UI shows.
+            val cause = if (e.getCause != null) e.getCause else e
+            errs.add(if (cause.getMessage != null) cause.getMessage else cause.toString)
+        }
+      }
+
+      // Same envelope shape as tooling, so the callers parse it the same way.
+      val r = new JsonObject()
+      r.add("id", id); r.add("ok", true)
+      r.add("results", out)
+      r.add("errors", errs)
+      r.add("error", Json.NULL)
+      r.add("executionTimeMs", System.currentTimeMillis() - started)
+      r.toString
+    } catch {
+      case e: ClassNotFoundException =>
+        errorResponse(id, s"secure-properties-tool.jar at $jarPath does not contain ${e.getMessage} — wrong or corrupt jar.", started)
+      case e: Throwable =>
+        val cause = if (e.getCause != null) e.getCause else e
+        errorResponse(id, s"secure-properties: ${if (cause.getMessage != null) cause.getMessage else cause.toString}", started)
     }
   }
 

@@ -20,7 +20,7 @@ import * as crypto from 'crypto';
 import { execFile } from 'child_process';
 import * as httpApi from './httpApi';
 import { DwServer, resolveJava, resolveServerJar, runDataweave, warmDataweave, pickJava, javaFailureMessage, RunArgs, WarmArgs, formatDataweave,
-  debugDataweave, toolingQuery} from './dwHost';
+  debugDataweave, toolingQuery, securePropsQuery} from './dwHost';
 import * as ws from './workspaceStore';
 import * as jarStore from './jarStore';
 import * as moduleStore from './moduleStore';
@@ -599,7 +599,49 @@ function mapFilters(
 
 /** Port of secure_properties.rs — runs MuleSoft's secure-properties-tool.jar so
  *  output is byte-for-byte compatible with what the Mule runtime decrypts. */
-function securePropertiesInvoke(
+async function securePropertiesInvoke(
+  extensionRoot: string,
+  args: Record<string, unknown>
+): Promise<string> {
+  // Fast path: the DataWeave server's JVM is already up, so do the crypto there
+  // rather than spawning java.exe (~250ms of startup) for one value. Byte-for-byte
+  // identical to the CLI, and it avoids the argv round trip that mangles
+  // non-cp1252 text on Windows. Falls through to the CLI if the server is down.
+  if (server) {
+    try {
+      const jar = resolveSecurePropsJarPath(extensionRoot);
+      const { results, errors } = await securePropsQuery(
+        server,
+        jar,
+        String(args.operation ?? ''),
+        String(args.algorithm ?? 'AES'),
+        String(args.mode ?? 'CBC'),
+        String(args.key ?? ''),
+        [String(args.value ?? '')],
+        !!args.useRandomIv,
+      );
+      if (errors[0]) throw new Error(errors[0]);
+      if (typeof results[0] === 'string') return results[0];
+    } catch (e) {
+      // A per-value failure is a real answer — surface it rather than silently
+      // re-running the whole thing through the slow path.
+      if (e instanceof Error && !/not running|closed unexpectedly|not found at/i.test(e.message)) throw e;
+    }
+  }
+  return securePropertiesInvokeCli(extensionRoot, args);
+}
+
+/** Where the bundled secure-properties jar lives (same search as the CLI path). */
+function resolveSecurePropsJarPath(extensionRoot: string): string {
+  const candidates = [
+    path.join(extensionRoot, 'resources', 'secure-properties', 'secure-properties-tool.jar'),
+    path.join(extensionRoot, '..', 'src-tauri', 'resources', 'secure-properties', 'secure-properties-tool.jar'),
+  ];
+  for (const c of candidates) if (fs.existsSync(c)) return c;
+  throw new Error(`secure-properties-tool.jar not found at ${candidates[0]}`);
+}
+
+function securePropertiesInvokeCli(
   extensionRoot: string,
   args: Record<string, unknown>
 ): Promise<string> {

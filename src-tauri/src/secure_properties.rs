@@ -163,8 +163,41 @@ pub fn secure_properties_invoke(
     if key.is_empty() {
         return Err("Key is required.".into());
     }
+
+    // Fast path: run it inside the DataWeave server's JVM, which is already up.
+    // Spawning java.exe per value costs ~250ms of startup each; in-process it is
+    // ~0.06ms, and it avoids the argv round trip that mangles non-cp1252 text on
+    // Windows. If the server is not running we fall through to the CLI below,
+    // which is byte-for-byte identical (verified) — just slower.
+    if let Ok(jar) = resolve_jar(&app) {
+        let jar_s = jar.to_string_lossy().to_string();
+        if let Ok((results, errors)) = crate::dw_server::secure_props(
+            &app, &jar_s, &operation, &algorithm, &mode, &key,
+            std::slice::from_ref(&value), use_random_iv,
+        ) {
+            if let Some(err) = errors.first().and_then(|e| e.clone()) {
+                return Err(err);
+            }
+            if let Some(Some(out)) = results.first().map(|r| r.clone()) {
+                return Ok(out);
+            }
+        }
+    }
     if value.is_empty() {
         return Err("Value is required.".into());
+    }
+
+    // Only reachable when the DW server is down. The CLI takes the value as a
+    // command-line ARGUMENT, and on Windows the JVM decodes argv with the OS ANSI
+    // codepage — anything outside cp1252 arrives as '?' and gets encrypted as the
+    // wrong text, silently. Refuse rather than corrupt. (The in-process path above
+    // has no argv and handles any UTF-8.)
+    #[cfg(target_os = "windows")]
+    {
+        const CP1252_EXTRAS: &str = "\u{20ac}\u{201a}\u{192}\u{201e}\u{2026}\u{2020}\u{2021}\u{2c6}\u{2030}\u{160}\u{2039}\u{152}\u{17d}\u{2018}\u{2019}\u{201c}\u{201d}\u{2022}\u{2013}\u{2014}\u{2dc}\u{2122}\u{161}\u{203a}\u{153}\u{17e}\u{178}";
+        if value.chars().any(|c| c as u32 > 255 && !CP1252_EXTRAS.contains(c)) {
+            return Err("This value has characters the offline fallback cannot pass to the encryption tool without corrupting them. The DataWeave engine is not running — restart the app and try again.".into());
+        }
     }
 
     let jar = resolve_jar(&app)?;

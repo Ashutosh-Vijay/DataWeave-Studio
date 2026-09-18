@@ -620,6 +620,68 @@ pub fn format(app: &AppHandle, script: &str) -> Result<String, String> {
     }
 }
 
+/// Encrypt or decrypt secure-properties values inside the ALREADY-RUNNING JVM
+/// (`op=secureProps`), instead of spawning `java.exe` once per value. Returns one
+/// result per input, plus a same-length error list so a single bad value does not
+/// sink the batch. Err(..) means the server itself refused or is not up — callers
+/// fall back to the CLI.
+pub fn secure_props(
+    app: &AppHandle,
+    jar_path: &str,
+    operation: &str,
+    algorithm: &str,
+    mode: &str,
+    key: &str,
+    values: &[String],
+    use_random_iv: bool,
+) -> Result<(Vec<Option<String>>, Vec<Option<String>>), String> {
+    let state = app.state::<DwServerState>();
+    let id = state.next_id.fetch_add(1, Ordering::Relaxed);
+    let req = serde_json::json!({
+        "id": id,
+        "op": "secureProps",
+        "jarPath": jar_path,
+        "operation": operation,
+        "algorithm": algorithm,
+        "mode": mode,
+        "key": key,
+        "values": values,
+        "useRandomIv": use_random_iv,
+    })
+    .to_string();
+
+    let mut guard = state.inner.lock().unwrap_or_else(|e| e.into_inner());
+    let inner = guard
+        .as_mut()
+        .ok_or_else(|| "DataWeave server not running".to_string())?;
+    inner.stdin.write_all(req.as_bytes()).map_err(|e| format!("Failed to write to server: {}", e))?;
+    inner.stdin.write_all(b"
+").map_err(|e| format!("Failed to write to server: {}", e))?;
+    inner.stdin.flush().map_err(|e| format!("Failed to flush stdin: {}", e))?;
+
+    let mut resp_bytes: Vec<u8> = Vec::new();
+    inner
+        .stdout
+        .read_until(b'\n', &mut resp_bytes)
+        .map_err(|e| format!("Failed to read from server: {}", e))?;
+    if resp_bytes.is_empty() {
+        return Err("DataWeave server closed unexpectedly.".into());
+    }
+    let resp_line = String::from_utf8_lossy(&resp_bytes);
+    let v: serde_json::Value = serde_json::from_str(&resp_line)
+        .map_err(|e| format!("Bad server response: {} (line: {})", e, resp_line.trim()))?;
+    if !v.get("ok").and_then(|b| b.as_bool()).unwrap_or(false) {
+        return Err(v.get("error").and_then(|s| s.as_str()).unwrap_or("secureProps failed").to_string());
+    }
+    let take = |k: &str| -> Vec<Option<String>> {
+        v.get(k)
+            .and_then(|a| a.as_array())
+            .map(|a| a.iter().map(|e| e.as_str().map(|s| s.to_string())).collect())
+            .unwrap_or_default()
+    };
+    Ok((take("results"), take("errors")))
+}
+
 /// Drive a debug session that is already running (`op=debug`). Everything
 /// except `start` lands here: state, resume, the three step commands, evaluate
 /// and stop. Each returns immediately — the script is paused on its own thread

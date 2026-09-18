@@ -934,6 +934,44 @@ export async function debugDataweave(
 
 /** Pretty-print a script via the engine's IDE formatter (op=format). Returns the
  *  formatted source, or throws with the engine's error. Mirrors dw_server::format. */
+/**
+ * Encrypt or decrypt secure-properties values inside the ALREADY-RUNNING JVM
+ * (`op=secureProps`) instead of spawning `java.exe` per value. Returns one result
+ * and one error slot per input, so a single bad value does not sink a batch.
+ * Throws if the server itself refused — callers fall back to the CLI.
+ */
+export async function securePropsQuery(
+  server: DwServer,
+  jarPath: string,
+  operation: string,
+  algorithm: string,
+  mode: string,
+  key: string,
+  values: string[],
+  useRandomIv: boolean,
+): Promise<{ results: (string | null)[]; errors: (string | null)[] }> {
+  const resp = (await server.run(
+    {
+      op: 'secureProps',
+      jarPath,
+      operation,
+      algorithm,
+      mode,
+      key,
+      values,
+      useRandomIv,
+      script: '',
+      payloadPath: '',
+      payloadMime: 'application/json',
+      namedInputs: [],
+      outputMime: 'application/json',
+    } as never,
+    30000,
+  )) as unknown as { ok: boolean; error?: string; results?: (string | null)[]; errors?: (string | null)[] };
+  if (!resp.ok) throw new Error(resp.error ?? 'secureProps failed');
+  return { results: resp.results ?? [], errors: resp.errors ?? [] };
+}
+
 export async function formatDataweave(server: DwServer, script: string): Promise<string> {
   const resp = await server.run(
     {
