@@ -17,6 +17,7 @@ import { invoke } from '../bridge';
 import { MiniEditor } from './MiniEditor';
 import { Icons } from './Icons';
 import { SavedKeyField } from './SavedKeyField';
+import { securePropertiesConfigXml } from '../muleXmlIO';
 import { WindowControls } from './WindowControls';
 import {
   ConfigFormat, ConfigField, detectFormat, scanConfig, convertConfig, looksLikeSecret,
@@ -44,6 +45,10 @@ export function ConfigCryptoPanel({ open: isOpen, onClose }: { open: boolean; on
   const [result, setResult] = useState('');
   const [key, setKey] = useState('');
   const [savedName, setSavedName] = useState('');
+  // Shown after an encrypt: the file alone is inert until Mule is told about it.
+  const [sourceName, setSourceName] = useState('');
+  const [showMuleConfig, setShowMuleConfig] = useState(false);
+  const [muleCopied, setMuleCopied] = useState(false);
   const [settings, setSettings] = useState<EncryptionSettings>(DEFAULT_ENCRYPTION_SETTINGS);
   const [direction, setDirection] = useState<'encrypt' | 'decrypt'>('encrypt');
   const [formatOverride, setFormatOverride] = useState<ConfigFormat | null>(null);
@@ -112,6 +117,7 @@ export function ConfigCryptoPanel({ open: isOpen, onClose }: { open: boolean; on
         (done, total) => setProgress({ done, total }),
       );
       setResult(outcome.text);
+      setShowMuleConfig(false);
       setChanged(outcome.changed);
       setFailures(outcome.failures);
     } catch (e) {
@@ -131,6 +137,7 @@ export function ConfigCryptoPanel({ open: isOpen, onClose }: { open: boolean; on
     if (!path) return;
     try {
       setSource(await invoke<string>('read_text_file', { path }));
+      setSourceName(path.split(/[\/]/).pop() || '');
       setResult('');
       setFormatOverride(null);
     } catch (e) {
@@ -302,12 +309,53 @@ export function ConfigCryptoPanel({ open: isOpen, onClose }: { open: boolean; on
           badge={result ? `${changed} value${changed === 1 ? '' : 's'} changed` : undefined}
           actions={
             <>
+              {direction === 'encrypt' && (
+                <SmallBtn onClick={() => setShowMuleConfig((v) => !v)} disabled={!result}>
+                  {showMuleConfig ? 'Hide Mule config' : 'Mule config'}
+                </SmallBtn>
+              )}
               <SmallBtn onClick={copyResult} disabled={!result}>{copied ? 'Copied' : 'Copy'}</SmallBtn>
               <SmallBtn onClick={saveResult} disabled={!result}>{saved ? 'Saved' : 'Save as…'}</SmallBtn>
             </>
           }
         >
-          {result
+          {result && showMuleConfig && direction === 'encrypt'
+            ? (() => {
+                const xml = securePropertiesConfigXml({
+                  file: sourceName || (format === 'yaml' ? 'config.yaml' : 'config.properties'),
+                  algorithm: settings.algorithm,
+                  mode: settings.mode,
+                  useRandomIVs: settings.useRandomIVs,
+                });
+                return (
+                  <div className="h-full flex flex-col">
+                    <div className="shrink-0 flex items-start gap-2 px-3.5 py-2 border-b border-line-subtle">
+                      <span className="text-[11px] text-content-faint leading-relaxed flex-1">
+                        An encrypted file does nothing on its own — Mule needs to be told which file,
+                        which cipher, and where the key comes from. The key is left as a placeholder
+                        so this is safe to commit.
+                      </span>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(xml);
+                            setMuleCopied(true);
+                            setTimeout(() => setMuleCopied(false), 2000);
+                          } catch { /* clipboard unavailable */ }
+                        }}
+                        className="shrink-0 h-6 px-2 rounded-md text-[11px] font-semibold cursor-pointer"
+                        style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+                      >
+                        {muleCopied ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                    <div className="flex-1 min-h-0">
+                      <MiniEditor value={xml} onChange={() => {}} language="plaintext" height="100%" readOnly verbatim />
+                    </div>
+                  </div>
+                );
+              })()
+            : result
             ? <MiniEditor value={result} onChange={() => {}} language="plaintext" height="100%" readOnly verbatim />
             : (
               <div className="h-full grid place-items-center px-6 text-center">

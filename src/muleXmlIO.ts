@@ -954,3 +954,62 @@ export function importMuleXml(xml: string): ImportResult | ImportError {
     suggestedAttributes: extractAttributeSkeleton(xml),
   };
 }
+
+/**
+ * The `<secure-properties:config>` block that makes an encrypted config actually
+ * work in a Mule app.
+ *
+ * Encrypting a file is only half the job: on its own the file is inert, and
+ * `${secure::db.password}` will not resolve — the app fails at startup. Mule has
+ * to be told which file, which cipher, and where the key comes from. That is
+ * three separate edits (pom, namespace, config element), which is exactly the
+ * kind of thing people get half-right and then debug for an hour.
+ *
+ * Attribute names come from the bundled jar's own
+ * SecureConfigurationPropertiesConstants, so `useRandomIVs` is plural here even
+ * though the CLI flag is `--use-random-iv` singular. Getting that wrong makes
+ * Mule silently fall back to the default and fail to decrypt.
+ *
+ * The key is deliberately NOT written in. It emits a `${...}` placeholder that
+ * Mule resolves from a deploy-time property, so the snippet is safe to commit.
+ */
+export function securePropertiesConfigXml(opts: {
+  file: string;
+  algorithm: string;
+  mode: string;
+  useRandomIVs: boolean;
+  keyProperty?: string;
+}): string {
+  const file = opts.file.trim() || 'config.yaml';
+  const keyProp = (opts.keyProperty || 'mule.key').trim();
+  // The module version we encrypted with. Callers should match their runtime's,
+  // but the ciphertext is compatible either way for a given algorithm/mode.
+  const MODULE_VERSION = '1.2.3';
+
+  return [
+    '<!-- 1. pom.xml -->',
+    '<dependency>',
+    '  <groupId>com.mulesoft.modules</groupId>',
+    '  <artifactId>mule-secure-configuration-property-module</artifactId>',
+    `  <version>${MODULE_VERSION}</version>   <!-- match your Mule runtime -->`,
+    '  <classifier>mule-plugin</classifier>',
+    '</dependency>',
+    '',
+    '<!-- 2. on the <mule> element -->',
+    '<!--   xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties"',
+    '       and in xsi:schemaLocation:',
+    '       http://www.mulesoft.org/schema/mule/secure-properties',
+    '       http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd -->',
+    '',
+    '<!-- 3. the config -->',
+    '<secure-properties:config name="Secure_Properties_Config"',
+    `                          file="${file}"`,
+    `                          key="\${${keyProp}}">`,
+    `  <secure-properties:encrypt algorithm="${opts.algorithm}" mode="${opts.mode}"`,
+    `                             useRandomIVs="${opts.useRandomIVs}"/>`,
+    '</secure-properties:config>',
+    '',
+    '<!-- 4. reference a value as ${secure::db.password} -->',
+    `<!-- 5. supply the key at deploy time: -M-D${keyProp}=<your key> -->`,
+  ].join('\n');
+}
