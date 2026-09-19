@@ -521,24 +521,24 @@ export function registerEngineLanguageFeatures(
         });
       }
 
-      // Extract only makes sense over a real selection.
-      if (!range.isEmpty()) {
-        const start = model.getOffsetAt({ lineNumber: range.startLineNumber, column: range.startColumn });
-        const end = model.getOffsetAt({ lineNumber: range.endLineNumber, column: range.endColumn });
-        // The engine offers extractConstant too, but it currently produces the
-        // same `var` declaration as extractVariable, so listing both would just
-        // be two menu entries that do one thing.
-        out.push({
-          title: 'Extract to variable',
-          kind: 'refactor.extract',
-          __dw: { op: 'refactor', refactor: 'variable', script: model.getValue(), start, end },
-        });
-        out.push({
-          title: 'Extract to function',
-          kind: 'refactor.extract',
-          __dw: { op: 'refactor', refactor: 'function', script: model.getValue(), start, end },
-        });
-      }
+      // Extract is NOT offered, and that is deliberate — see below.
+      //
+      // `extractVariable` / `extractConstant` / `extractFunction` are all wired
+      // through to the engine (DwServer.scala, op=refactor) and all three return
+      // None for every selection. Not "some selections": every one. Verified by
+      // brute-forcing all (start, end) pairs across a whole document — zero
+      // produced a refactor. So these were two menu entries that silently did
+      // nothing, which is exactly what the comment on the docs action above says
+      // not to ship.
+      //
+      // Ruled out already, so don't retry these:
+      //   - offset convention — the grid search covered every pair, including
+      //     whatever convention the engine might want
+      //   - `doc.cursorAt(start)` first, which is what `completion` needs before
+      //     it will answer; makes no difference here
+      //
+      // The server side is left in place: it is correct as far as it goes, and
+      // whoever works out what the engine wants only has to re-add the actions.
 
       return { actions: out, dispose: () => {} };
     },
