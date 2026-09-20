@@ -13,7 +13,11 @@
  */
 import { Accent } from './accents';
 
-export type EffectKind = 'snow' | 'diyas' | 'colors' | 'bats' | 'blood' | 'sparks' | 'pumpkins';
+export type EffectKind =
+  | 'snow' | 'diyas' | 'colors' | 'bats' | 'blood' | 'sparks' | 'pumpkins'
+  // The set pieces: one figure standing in the empty space, not a drift of
+  // particles. A festival needs a subject, not only weather.
+  | 'tree' | 'snowman' | 'scarecrow';
 
 export interface Season {
   id: string;
@@ -51,7 +55,7 @@ export const SEASONS: Record<string, Season> = {
     name: 'Halloween',
     greeting: 'Happy Halloween',
     accent: { hue: 55, chroma: 0.17 },
-    effects: ['pumpkins', 'bats'],
+    effects: ['scarecrow', 'pumpkins', 'bats'],
     prefer: 'dark',
   },
   christmas: {
@@ -59,14 +63,14 @@ export const SEASONS: Record<string, Season> = {
     name: 'Christmas',
     greeting: 'Merry Christmas',
     accent: { hue: 145, chroma: 0.14 },
-    effects: ['snow'],
+    effects: ['tree', 'snow'],
   },
   newyear: {
     id: 'newyear',
     name: 'New Year',
     greeting: 'Happy New Year',
     accent: { hue: 265, chroma: 0.15 },
-    effects: ['sparks'],
+    effects: ['snowman', 'snow', 'sparks'],
     prefer: 'dark',
   },
   /** Not seasonal — the one you can just switch on. Paper + blood. */

@@ -44,12 +44,15 @@ interface Particle {
 const HOLI_HUES = [330, 20, 50, 145, 200, 285];
 
 /** Kinds that stand at fixed points on an edge instead of drifting through. */
-const ANCHORED: EffectKind[] = ['diyas', 'blood', 'pumpkins'];
+const ANCHORED: EffectKind[] = ['diyas', 'blood', 'pumpkins', 'tree', 'snowman', 'scarecrow'];
+
+/** The set pieces — one figure, standing, not a row of them. */
+const FIGURES: EffectKind[] = ['tree', 'snowman', 'scarecrow'];
 
 /** Kinds that need room. A jack-o'-lantern in a 26px status bar sits on top of
  *  the version string; in a gutter it has all the space in the world. Halloween
  *  still has its bats down there. */
-const NEEDS_ROOM: EffectKind[] = ['pumpkins'];
+const NEEDS_ROOM: EffectKind[] = ['pumpkins', 'tree', 'snowman', 'scarecrow'];
 
 export function SeasonalEffects({
   variants,
@@ -104,6 +107,26 @@ export function SeasonalEffects({
               px: 0, py: 0, vx: 0, vy: 0, life: 1, decay: 0,
               size: kind === 'pumpkins' ? (full ? 15 : 7) : (full ? 9 : 4.5),
               hue: kind === 'pumpkins' ? 55 : 35 + Math.random() * 18,
+              phase: Math.random() * Math.PI * 2,
+            });
+          }
+        }
+        if (FIGURES.includes(kind)) {
+          // A narrow box (a gutter) gets one figure in the middle of it. A wide
+          // one is a full screen whose middle holds the wordmark and the
+          // progress bar, so there the figures stand at the edges — centring
+          // one there put a Christmas tree through the title.
+          const wide = w > 700;
+          const count = wide ? 2 : 1;
+          const size = Math.max(42, Math.min(h * 0.34, 165));
+          for (let i = 0; i < count; i++) {
+            particles.push({
+              kind,
+              x: wide ? w * (i === 0 ? 0.12 : 0.88) : w * 0.5,
+              y: h - 4,
+              px: 0, py: 0, vx: 0, vy: 0, life: 1, decay: 0,
+              size: size * (count === 1 ? 1 : 0.82),
+              hue: 145,
               phase: Math.random() * Math.PI * 2,
             });
           }
@@ -283,10 +306,41 @@ export function SeasonalEffects({
           const depth = Math.min(1, p.size / (full ? 3.2 : 2));
           const fade = Math.min(1, (h - p.y) / (h * 0.45));
           ctx.globalAlpha = (full ? 0.85 : 0.5) * fade * (0.45 + depth * 0.55);
-          ctx.fillStyle = light ? `oklch(72% 0.05 ${p.hue})` : `oklch(96% 0.02 ${p.hue})`;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-          ctx.fill();
+          const snowColor = light ? `oklch(68% 0.06 ${p.hue})` : `oklch(96% 0.02 ${p.hue})`;
+          // Six arms with side branches — a crystal, not a ball of polystyrene.
+          // Only where there is room for it to read; in a 26px bar a flake is
+          // three pixels across and a dot is honest.
+          if (full && p.size > 2.2) {
+            const s = p.size * 1.9;
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(clock * 0.25 + p.phase);
+            ctx.strokeStyle = snowColor;
+            ctx.lineWidth = Math.max(0.7, p.size * 0.3);
+            ctx.lineCap = 'round';
+            for (let arm = 0; arm < 3; arm++) {
+              ctx.rotate(Math.PI / 3);
+              ctx.beginPath();
+              ctx.moveTo(-s, 0);
+              ctx.lineTo(s, 0);
+              // One pair of branches per arm end, angled back toward the centre.
+              ctx.moveTo(s * 0.52, 0);
+              ctx.lineTo(s * 0.8, -s * 0.28);
+              ctx.moveTo(s * 0.52, 0);
+              ctx.lineTo(s * 0.8, s * 0.28);
+              ctx.moveTo(-s * 0.52, 0);
+              ctx.lineTo(-s * 0.8, -s * 0.28);
+              ctx.moveTo(-s * 0.52, 0);
+              ctx.lineTo(-s * 0.8, s * 0.28);
+              ctx.stroke();
+            }
+            ctx.restore();
+          } else {
+            ctx.fillStyle = snowColor;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * 0.8, 0, Math.PI * 2);
+            ctx.fill();
+          }
           continue;
         }
 
@@ -356,46 +410,87 @@ export function SeasonalEffects({
         }
 
         if (p.kind === 'diyas') {
-          // A flame is a teardrop that leans and breathes. Two sines at
-          // different rates keep it from looking like a metronome.
-          const lean = Math.sin(clock * 3.1 + p.phase) * 0.16;
-          const breathe = 0.82 + Math.sin(clock * 5.7 + p.phase * 2) * 0.18;
-          const s = p.size * breathe;
-          const tipY = p.y - s * 2.1;
+          // A real flame is three nested shapes, not one that scales up and
+          // down: a wide dim envelope, a body, and a small white-hot core near
+          // the wick. Scaling a single teardrop is the "breathing blob" that
+          // reads as a loading spinner rather than as fire.
+          //
+          // The motion is the other half. Flames do not pulse on a sine — they
+          // hold, then flick. Summing three sines whose periods share no common
+          // factor gives a wander that never repeats visibly, and taking a high
+          // power of one of them produces the occasional sharp flick.
+          const s = p.size;
+          const wander =
+            Math.sin(clock * 2.3 + p.phase) * 0.5 +
+            Math.sin(clock * 3.7 + p.phase * 1.7) * 0.32 +
+            Math.sin(clock * 6.1 + p.phase * 0.6) * 0.18;
+          const flick = Math.pow(Math.max(0, Math.sin(clock * 1.9 + p.phase * 2.3)), 6);
+          const lean = wander * 0.42;
+          const tall = 1 + flick * 0.5 + wander * 0.08;
+          const wickY = p.y - s * 0.28;
 
+          // The pool of light it throws. This is what a lamp actually looks
+          // like from across a room, and it does the heavy lifting.
           ctx.globalCompositeOperation = glowOp;
-          const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, s * 3.2);
-          glow.addColorStop(0, `oklch(80% 0.16 ${p.hue} / ${(full ? 0.34 : 0.22) * (light ? 0.7 : 1)})`);
-          glow.addColorStop(1, `oklch(80% 0.16 ${p.hue} / 0)`);
+          const glow = ctx.createRadialGradient(wickY ? p.x : p.x, wickY, 0, p.x, wickY, s * 4);
+          const lit = (full ? 0.36 : 0.24) * (light ? 0.6 : 1) * (0.85 + flick * 0.3);
+          glow.addColorStop(0, `oklch(82% 0.17 70 / ${lit})`);
+          glow.addColorStop(0.45, `oklch(78% 0.17 55 / ${lit * 0.35})`);
+          glow.addColorStop(1, 'oklch(78% 0.17 55 / 0)');
           ctx.globalAlpha = 1;
           ctx.fillStyle = glow;
           ctx.beginPath();
-          ctx.arc(p.x, p.y, s * 3.2, 0, Math.PI * 2);
+          ctx.arc(p.x, wickY, s * 4, 0, Math.PI * 2);
           ctx.fill();
 
-          ctx.beginPath();
-          ctx.moveTo(p.x - s * 0.5, p.y);
-          ctx.quadraticCurveTo(p.x - s * 0.5, tipY, p.x + lean * s, tipY);
-          ctx.quadraticCurveTo(p.x + s * 0.5, tipY, p.x + s * 0.5, p.y);
-          ctx.closePath();
-          ctx.fillStyle = `oklch(${light ? 62 : 78}% 0.18 ${p.hue})`;
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.ellipse(p.x, p.y - s * 0.55, s * 0.22, s * 0.62, 0, 0, Math.PI * 2);
-          ctx.fillStyle = light ? 'oklch(82% 0.12 95)' : 'oklch(96% 0.08 95)';
-          ctx.fill();
+          // Three layers, each a teardrop: envelope, body, core. Same curve,
+          // different widths and heights, so they nest the way a flame does.
+          const flame = (wf: number, hf: number, colour: string, alpha: number) => {
+            const tipX = p.x + lean * s * hf * 1.05;
+            const tipY = wickY - s * 2.5 * hf * tall;
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = colour;
+            ctx.beginPath();
+            ctx.moveTo(p.x - s * 0.46 * wf, wickY);
+            ctx.bezierCurveTo(
+              p.x - s * 0.62 * wf, wickY - s * 1.1 * hf,
+              tipX - s * 0.2 * wf, tipY + s * 0.5 * hf,
+              tipX, tipY,
+            );
+            ctx.bezierCurveTo(
+              tipX + s * 0.2 * wf, tipY + s * 0.5 * hf,
+              p.x + s * 0.62 * wf, wickY - s * 1.1 * hf,
+              p.x + s * 0.46 * wf, wickY,
+            );
+            ctx.quadraticCurveTo(p.x, wickY + s * 0.3, p.x - s * 0.46 * wf, wickY);
+            ctx.closePath();
+            ctx.fill();
+          };
+          flame(1.25, 1.12, `oklch(${light ? 66 : 72}% 0.19 35)`, light ? 0.5 : 0.42);
+          flame(1, 1, `oklch(${light ? 70 : 82}% 0.19 60)`, 0.92);
+          flame(0.52, 0.52, light ? 'oklch(88% 0.11 90)' : 'oklch(98% 0.05 95)', 0.95);
           ctx.globalCompositeOperation = 'source-over';
 
-          // The lamp itself. Without it the flames float, which is exactly what
-          // they were doing before.
+          // The diya: a shallow clay bowl with a pinched lip, not a bowl shape
+          // in the abstract. The wick sits in the pinch.
           ctx.globalAlpha = 1;
-          ctx.fillStyle = light ? 'oklch(48% 0.1 40)' : 'oklch(40% 0.09 40)';
+          const clay = light ? 'oklch(52% 0.11 45)' : 'oklch(43% 0.1 45)';
+          ctx.fillStyle = clay;
           ctx.beginPath();
-          ctx.moveTo(p.x - s * 1.2, p.y);
-          ctx.quadraticCurveTo(p.x, p.y + s * 1.3, p.x + s * 1.2, p.y);
+          ctx.moveTo(p.x - s * 1.45, p.y - s * 0.1);
+          ctx.quadraticCurveTo(p.x - s * 1.5, p.y + s * 0.15, p.x - s * 1.05, p.y + s * 0.2);
+          ctx.quadraticCurveTo(p.x, p.y + s * 1.15, p.x + s * 1.05, p.y + s * 0.2);
+          ctx.quadraticCurveTo(p.x + s * 1.5, p.y + s * 0.15, p.x + s * 1.45, p.y - s * 0.1);
+          ctx.quadraticCurveTo(p.x, p.y + s * 0.35, p.x - s * 1.45, p.y - s * 0.1);
           ctx.closePath();
           ctx.fill();
+          // The oil catching the light inside the bowl.
+          ctx.globalAlpha = 0.55;
+          ctx.fillStyle = `oklch(${light ? 72 : 60}% 0.14 70)`;
+          ctx.beginPath();
+          ctx.ellipse(p.x, p.y - s * 0.04, s * 0.85, s * 0.16, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
           continue;
         }
 
@@ -469,6 +564,305 @@ export function SeasonalEffects({
           ctx.fill();
           ctx.globalCompositeOperation = 'source-over';
           ctx.globalAlpha = 1;
+          continue;
+        }
+
+        if (p.kind === 'tree') {
+          // A conifer is tiers of jagged skirt, each wider than the last, and a
+          // trunk. Plain triangles are what make a cheap Christmas tree; the
+          // notched hem is the whole difference.
+          const s = p.size;
+          const base = p.y;
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = 1;
+
+          ctx.fillStyle = light ? 'oklch(42% 0.07 50)' : 'oklch(36% 0.06 50)';
+          ctx.fillRect(p.x - s * 0.055, base - s * 0.1, s * 0.11, s * 0.12);
+
+          const needle = light ? 'oklch(46% 0.12 148)' : 'oklch(52% 0.13 150)';
+          const needleDark = light ? 'oklch(38% 0.11 150)' : 'oklch(42% 0.12 152)';
+          for (let tier = 0; tier < 3; tier++) {
+            const topY = base - s * (0.92 - tier * 0.26);
+            const botY = base - s * (0.52 - tier * 0.26);
+            const halfW = s * (0.13 + tier * 0.1);
+            ctx.fillStyle = tier % 2 ? needleDark : needle;
+            ctx.beginPath();
+            ctx.moveTo(p.x, topY);
+            ctx.lineTo(p.x + halfW, botY);
+            const notches = 4 + tier;
+            for (let n = notches; n >= 0; n--) {
+              const t = n / notches;
+              ctx.lineTo(p.x - halfW + 2 * halfW * t, botY + (n % 2 ? s * 0.035 : 0));
+            }
+            ctx.closePath();
+            ctx.fill();
+          }
+
+          // Baubles, hung on the tiers and lit in turn rather than all at once.
+          const hangs: [number, number, number][] = [
+            [-0.09, 0.62, 0], [0.11, 0.58, 1.9], [-0.17, 0.4, 3.3],
+            [0.19, 0.36, 0.8], [-0.05, 0.22, 2.6], [0.08, 0.18, 4.4],
+            [-0.24, 0.12, 1.2], [0.25, 0.1, 3.9],
+          ];
+          for (const [dx, dy, off] of hangs) {
+            const bx = p.x + s * dx;
+            const by = base - s * dy;
+            const hue = [20, 45, 200, 330][Math.floor((off * 7) % 4)];
+            const on = 0.45 + 0.55 * Math.pow(Math.max(0, Math.sin(clock * 1.6 + off)), 2);
+            ctx.globalCompositeOperation = glowOp;
+            const g = ctx.createRadialGradient(bx, by, 0, bx, by, s * 0.13);
+            g.addColorStop(0, `oklch(82% 0.19 ${hue} / ${0.5 * on * (light ? 0.6 : 1)})`);
+            g.addColorStop(1, `oklch(82% 0.19 ${hue} / 0)`);
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(bx, by, s * 0.13, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = 0.65 + on * 0.35;
+            ctx.fillStyle = `oklch(${light ? 62 : 72}% 0.19 ${hue})`;
+            ctx.beginPath();
+            ctx.arc(bx, by, s * 0.028, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+          }
+
+          // The star, turning slowly — a still one reads as a rendering bug.
+          const starY = base - s * 0.98;
+          const spin = clock * 0.5 + p.phase;
+          ctx.globalCompositeOperation = glowOp;
+          const sg = ctx.createRadialGradient(p.x, starY, 0, p.x, starY, s * 0.2);
+          sg.addColorStop(0, `oklch(90% 0.16 90 / ${light ? 0.45 : 0.7})`);
+          sg.addColorStop(1, 'oklch(90% 0.16 90 / 0)');
+          ctx.fillStyle = sg;
+          ctx.beginPath();
+          ctx.arc(p.x, starY, s * 0.2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.fillStyle = light ? 'oklch(72% 0.16 88)' : 'oklch(88% 0.15 90)';
+          ctx.beginPath();
+          for (let i = 0; i < 10; i++) {
+            const r = i % 2 ? s * 0.035 : s * 0.085;
+            const a = spin + (Math.PI * i) / 5 - Math.PI / 2;
+            const fx = p.x + Math.cos(a) * r;
+            const fy = starY + Math.sin(a) * r;
+            if (i) ctx.lineTo(fx, fy); else ctx.moveTo(fx, fy);
+          }
+          ctx.closePath();
+          ctx.fill();
+          continue;
+        }
+
+        if (p.kind === 'snowman') {
+          // Three stacked balls, and the details are what stop it BEING three
+          // stacked balls: a scarf that trails, twig arms, a carrot that points,
+          // and coal that follows the curve instead of floating on it.
+          const s = p.size;
+          const base = p.y;
+          const sway = Math.sin(clock * 1.4 + p.phase) * s * 0.02;
+          const rB = s * 0.24;
+          const rM = s * 0.18;
+          const rH = s * 0.135;
+          const yB = base - rB;
+          const yM = yB - rB * 0.82 - rM * 0.5;
+          const yH = yM - rM * 0.78 - rH * 0.55;
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = 1;
+
+          // Snow is not pure white, or it vanishes on Paper and glares on Dusk.
+          const snowBody = light ? 'oklch(93% 0.012 230)' : 'oklch(92% 0.015 230)';
+          const snowEdge = light ? 'oklch(84% 0.03 235)' : 'oklch(78% 0.03 240)';
+          const balls: [number, number][] = [[yB, rB], [yM, rM], [yH, rH]];
+          for (const [cy, r] of balls) {
+            const cx = p.x + (cy === yH ? sway : 0);
+            const g = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.4, r * 0.1, cx, cy, r);
+            g.addColorStop(0, snowBody);
+            g.addColorStop(1, snowEdge);
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          const hx = p.x + sway;
+
+          // Twig arms, angled up the way a snowman's always are.
+          ctx.strokeStyle = light ? 'oklch(42% 0.07 55)' : 'oklch(48% 0.07 55)';
+          ctx.lineWidth = Math.max(1, s * 0.016);
+          ctx.lineCap = 'round';
+          for (const dir of [-1, 1]) {
+            ctx.beginPath();
+            ctx.moveTo(p.x + dir * rM * 0.85, yM);
+            ctx.lineTo(p.x + dir * rM * 2.1, yM - rM * 0.75);
+            ctx.moveTo(p.x + dir * rM * 1.7, yM - rM * 0.52);
+            ctx.lineTo(p.x + dir * rM * 1.95, yM - rM * 0.95);
+            ctx.stroke();
+          }
+
+          // Scarf: a band at the neck and a tail that lifts with the sway.
+          const neckY = yH + rH * 0.82;
+          ctx.fillStyle = light ? 'oklch(55% 0.19 25)' : 'oklch(58% 0.2 25)';
+          ctx.beginPath();
+          ctx.ellipse(hx, neckY, rH * 1.05, rH * 0.3, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(hx + rH * 0.5, neckY);
+          ctx.quadraticCurveTo(hx + rH * 1.5 + sway * 6, neckY + rH * 0.7, hx + rH * 1.1 + sway * 9, neckY + rH * 1.7);
+          ctx.lineTo(hx + rH * 0.55 + sway * 7, neckY + rH * 1.5);
+          ctx.quadraticCurveTo(hx + rH * 0.9, neckY + rH * 0.7, hx + rH * 0.12, neckY + rH * 0.2);
+          ctx.closePath();
+          ctx.fill();
+
+          // Coal, and a carrot with a tip.
+          ctx.fillStyle = light ? 'oklch(28% 0.02 260)' : 'oklch(25% 0.02 260)';
+          for (const dx of [-0.36, 0.36]) {
+            ctx.beginPath();
+            ctx.arc(hx + rH * dx, yH - rH * 0.22, rH * 0.11, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          for (let i = -2; i <= 2; i++) {
+            ctx.beginPath();
+            ctx.arc(hx + rH * i * 0.26, yH + rH * 0.42 + Math.abs(i) * rH * 0.07, rH * 0.055, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          for (const dy of [0.22, 0.52, 0.82]) {
+            ctx.beginPath();
+            ctx.arc(p.x, yM - rM * 0.5 + rM * dy, rM * 0.09, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.fillStyle = 'oklch(66% 0.18 55)';
+          ctx.beginPath();
+          ctx.moveTo(hx, yH + rH * 0.02);
+          ctx.lineTo(hx + rH * 0.95, yH + rH * 0.16);
+          ctx.lineTo(hx, yH + rH * 0.2);
+          ctx.closePath();
+          ctx.fill();
+
+          // Hat: brim, crown, band.
+          ctx.fillStyle = light ? 'oklch(30% 0.02 260)' : 'oklch(27% 0.02 260)';
+          ctx.beginPath();
+          ctx.ellipse(hx, yH - rH * 0.86, rH * 1.35, rH * 0.16, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillRect(hx - rH * 0.62, yH - rH * 1.75, rH * 1.24, rH * 0.92);
+          ctx.fillStyle = light ? 'oklch(55% 0.19 25)' : 'oklch(58% 0.2 25)';
+          ctx.fillRect(hx - rH * 0.62, yH - rH * 1.02, rH * 1.24, rH * 0.16);
+          continue;
+        }
+
+        if (p.kind === 'scarecrow') {
+          // Burning, as asked. A cross-post in a tattered coat, with the fire at
+          // its feet — so the light falls on it from BELOW, which is the whole
+          // reason it reads as menacing instead of as a doll.
+          const s = p.size;
+          const base = p.y;
+          const fire = 0.72 + Math.sin(clock * 6.2 + p.phase) * 0.15 + Math.sin(clock * 9.7) * 0.1;
+          const sway = Math.sin(clock * 0.9 + p.phase) * s * 0.012;
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = 1;
+
+          const postY = base - s * 0.92;
+          const armY = base - s * 0.62;
+          ctx.strokeStyle = light ? 'oklch(38% 0.06 55)' : 'oklch(34% 0.06 55)';
+          ctx.lineWidth = Math.max(1.5, s * 0.035);
+          ctx.beginPath();
+          ctx.moveTo(p.x, base);
+          ctx.lineTo(p.x + sway, postY);
+          ctx.moveTo(p.x - s * 0.34 + sway, armY + s * 0.03);
+          ctx.lineTo(p.x + s * 0.34 + sway, armY - s * 0.03);
+          ctx.stroke();
+
+          // Coat — a trapezoid with a torn hem.
+          ctx.fillStyle = light ? 'oklch(40% 0.07 85)' : 'oklch(36% 0.07 85)';
+          ctx.beginPath();
+          ctx.moveTo(p.x - s * 0.2 + sway, armY - s * 0.02);
+          ctx.lineTo(p.x + s * 0.2 + sway, armY - s * 0.02);
+          ctx.lineTo(p.x + s * 0.24 + sway, base - s * 0.22);
+          for (let i = 4; i >= 0; i--) {
+            const t = i / 4;
+            ctx.lineTo(p.x - s * 0.24 + s * 0.48 * t + sway, base - s * 0.22 + (i % 2 ? s * 0.06 : 0));
+          }
+          ctx.closePath();
+          ctx.fill();
+
+          // Straw at the cuffs — the give-away detail.
+          ctx.strokeStyle = light ? 'oklch(68% 0.13 90)' : 'oklch(72% 0.13 90)';
+          ctx.lineWidth = Math.max(0.8, s * 0.012);
+          for (const ax of [-0.34, 0.34]) {
+            for (let i = -1; i <= 1; i++) {
+              ctx.beginPath();
+              ctx.moveTo(p.x + s * ax + sway, armY);
+              ctx.lineTo(p.x + s * (ax + i * 0.04) + sway, armY + s * 0.09);
+              ctx.stroke();
+            }
+          }
+
+          // Head: burlap, stitched mouth, eyes lit from inside.
+          const headY = postY + s * 0.1;
+          const hr = s * 0.115;
+          ctx.fillStyle = light ? 'oklch(62% 0.1 80)' : 'oklch(56% 0.1 80)';
+          ctx.beginPath();
+          ctx.ellipse(p.x + sway, headY, hr, hr * 1.12, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = light ? 'oklch(38% 0.06 70)' : 'oklch(32% 0.05 70)';
+          ctx.lineWidth = Math.max(0.7, s * 0.008);
+          ctx.beginPath();
+          ctx.moveTo(p.x - hr * 0.55 + sway, headY + hr * 0.45);
+          ctx.lineTo(p.x + hr * 0.55 + sway, headY + hr * 0.45);
+          for (let i = -2; i <= 2; i++) {
+            ctx.moveTo(p.x + hr * i * 0.26 + sway, headY + hr * 0.3);
+            ctx.lineTo(p.x + hr * i * 0.26 + sway, headY + hr * 0.6);
+          }
+          ctx.stroke();
+          ctx.globalCompositeOperation = glowOp;
+          ctx.fillStyle = `oklch(78% 0.2 45 / ${0.75 * fire})`;
+          for (const dx of [-0.42, 0.42]) {
+            ctx.beginPath();
+            ctx.arc(p.x + hr * dx + sway, headY - hr * 0.25, hr * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.globalCompositeOperation = 'source-over';
+
+          // Hat.
+          ctx.fillStyle = light ? 'oklch(34% 0.05 70)' : 'oklch(30% 0.05 70)';
+          ctx.beginPath();
+          ctx.ellipse(p.x + sway, headY - hr * 0.95, hr * 1.5, hr * 0.2, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(p.x - hr * 0.7 + sway, headY - hr * 0.95);
+          ctx.quadraticCurveTo(p.x + sway, headY - hr * 2.3, p.x + hr * 0.7 + sway, headY - hr * 0.95);
+          ctx.closePath();
+          ctx.fill();
+
+          // The fire at its feet: a pool of light, embers lifting, flames licking.
+          ctx.globalCompositeOperation = glowOp;
+          const fg = ctx.createRadialGradient(p.x, base, 0, p.x, base, s * 0.5);
+          fg.addColorStop(0, `oklch(80% 0.2 50 / ${(light ? 0.4 : 0.6) * fire})`);
+          fg.addColorStop(1, 'oklch(80% 0.2 50 / 0)');
+          ctx.fillStyle = fg;
+          ctx.beginPath();
+          ctx.arc(p.x, base, s * 0.5, 0, Math.PI * 2);
+          ctx.fill();
+          for (let i = 0; i < 5; i++) {
+            const t = (clock * 0.55 + i * 0.37 + p.phase) % 1;
+            const ex = p.x + Math.sin((clock + i) * 2.2) * s * 0.07 + (i - 2) * s * 0.035;
+            const ey = base - t * s * 0.5;
+            ctx.globalAlpha = (1 - t) * 0.85 * fire;
+            ctx.fillStyle = `oklch(82% 0.2 ${45 + i * 6})`;
+            ctx.beginPath();
+            ctx.arc(ex, ey, s * 0.012 * (1 - t * 0.5), 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+          ctx.globalCompositeOperation = 'source-over';
+          for (let i = -1; i <= 1; i++) {
+            const fx = p.x + i * s * 0.05;
+            const fh = s * (0.1 + 0.05 * Math.abs(Math.sin(clock * 5 + i + p.phase)));
+            ctx.fillStyle = `oklch(${light ? 66 : 76}% 0.2 ${50 + i * 8})`;
+            ctx.beginPath();
+            ctx.moveTo(fx - s * 0.025, base);
+            ctx.quadraticCurveTo(fx - s * 0.03, base - fh * 0.7, fx, base - fh);
+            ctx.quadraticCurveTo(fx + s * 0.03, base - fh * 0.7, fx + s * 0.025, base);
+            ctx.closePath();
+            ctx.fill();
+          }
           continue;
         }
 

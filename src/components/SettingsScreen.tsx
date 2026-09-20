@@ -506,6 +506,15 @@ function AppearancePanel({
           })}
         </div>
 
+        <SRow
+          label="Replay the startup screen"
+          desc="The loader, the greeting and the progress bar — without restarting the app."
+        >
+          <OutlineBtn onClick={() => window.dispatchEvent(new CustomEvent('dw:splash-preview'))}>
+            Show me
+          </OutlineBtn>
+        </SRow>
+
         {/* The preview is the effect itself, running. A still picture of falling
             snow tells you nothing about whether it will annoy you. */}
         {seasonal && (pinned || today) && (

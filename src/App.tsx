@@ -1007,6 +1007,24 @@ function App() {
     return () => clearTimeout(t);
   }, [season, runner.isWarmedUp, isDark, setPref]);
 
+  // Replaying the startup screen. It is the one screen you cannot get back to
+  // without restarting the app, which is a silly reason never to see your own
+  // splash again — Settings asks for it and this runs the whole sequence, 0 to
+  // 100 and out, with a click to cut it short.
+  const [splashReplay, setSplashReplay] = useState(0);
+  const [replayReady, setReplayReady] = useState(false);
+  useEffect(() => {
+    const onReplay = () => { setReplayReady(false); setSplashReplay((n) => n + 1); };
+    window.addEventListener('dw:splash-preview', onReplay);
+    return () => window.removeEventListener('dw:splash-preview', onReplay);
+  }, []);
+  useEffect(() => {
+    if (!splashReplay) return;
+    const warm = setTimeout(() => setReplayReady(true), 4200);
+    const gone = setTimeout(() => setSplashReplay(0), 6200);
+    return () => { clearTimeout(warm); clearTimeout(gone); };
+  }, [splashReplay]);
+
   // Ctrl+. on a `fun` declaration → the engine writes a dw::test suite for it,
   // which arrives here as a new Tests entry. Not an edit to the script being
   // written, so it can't travel as a Monaco edit like the other code actions.
@@ -2345,6 +2363,15 @@ function App() {
         }}
         onClose={() => setPendingSwitch(null)}
       />
+
+      {splashReplay > 0 && (
+        <SplashScreen
+          key={`replay-${splashReplay}`}
+          isReady={replayReady}
+          hasError={false}
+          onDismiss={() => setSplashReplay(0)}
+        />
+      )}
 
       {/* Splash screen — covers everything until engine is ready */}
       <SplashScreen isReady={runner.isWarmedUp} hasError={!!runner.engineError} />
