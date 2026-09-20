@@ -446,7 +446,6 @@ function AppearancePanel({
       </Group>
       )}
 
-      {!matchVsCode && (
       <Group
         title="Seasonal themes"
         desc="On a festival the splash dresses up, and the bars get a little life. Never the editor."
@@ -468,7 +467,11 @@ function AppearancePanel({
         </SRow>
 
         {/* Wearing one on purpose, festival or not — which is how Vampire (the
-            one that isn't a date at all) is meant to be used. */}
+            one that isn't a date at all) is meant to be used. Hidden while VS
+            Code owns the colours: picking a theme sets an accent, and the whole
+            point of adopting the editor theme is that it doesn't. The switch
+            above stays either way — decoration you cannot turn off is a trap. */}
+        {!matchVsCode && (
         <div className="flex flex-wrap gap-2 mt-1">
           {(['', ...Object.keys(SEASONS)]).map((id) => {
             const season = id ? SEASONS[id] : null;
@@ -505,6 +508,7 @@ function AppearancePanel({
             );
           })}
         </div>
+        )}
 
         <SRow
           label="Replay the startup screen"
@@ -529,7 +533,6 @@ function AppearancePanel({
           </div>
         )}
       </Group>
-      )}
 
       <Group title="Density">
         <SRow label="Compact mode" desc="Reduce padding in panels and rows.">
