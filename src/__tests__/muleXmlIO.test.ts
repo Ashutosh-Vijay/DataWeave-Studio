@@ -8,7 +8,10 @@ if (typeof globalThis.DOMParser === 'undefined') {
   globalThis.XMLSerializer = window.XMLSerializer;
 }
 
-import { exportFlowToMuleXml, exportFlowsToMuleXml, importMuleXml } from '../muleXmlIO';
+import {
+  exportFlowToMuleXml, exportFlowsToMuleXml, importMuleXml,
+  httpRequestXml, securePropertiesConfigXml,
+} from '../muleXmlIO';
 import type { FlowNode } from '../components/FlowDesigner';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -866,5 +869,94 @@ describe('muleXmlIO — connectors & transform round-trips', () => {
     expect(nodes[0].type).toBe('transform');
     expect(nodes[0].config.saveToVariable).toBe('result');
     expect(nodes[0].config.script).toContain('payload.id');
+  });
+});
+
+describe('httpRequestXml', () => {
+  const REQ = {
+    method: 'POST',
+    url: 'https://api.example.com/v1/orders?region=eu',
+    headers: [
+      { key: 'Content-Type', value: 'application/json' },
+      { key: 'X-Api-Key', value: 'abc123' },
+    ],
+    queryParams: [{ key: 'region', value: 'eu' }],
+    payload: '{"id":7}',
+    payloadMimeType: 'application/json',
+  };
+
+  it('splits the URL into a connection config and a path', () => {
+    const xml = httpRequestXml(REQ);
+    expect(xml).toContain('<http:request-connection host="api.example.com" port="443" protocol="HTTPS"/>');
+    expect(xml).toContain('method="POST" path="/v1/orders"');
+    // The query belongs in query-params, not smuggled into the path.
+    expect(xml).not.toContain('path="/v1/orders?region=eu"');
+    expect(xml).toContain('<http:query-params>');
+  });
+
+  it('drops Content-Type, because Mule sets it from the payload', () => {
+    const xml = httpRequestXml(REQ);
+    expect(xml).toContain('"X-Api-Key"');
+    expect(xml).not.toContain('"Content-Type"');
+    expect(xml).toContain('<http:body><![CDATA[#[output application/json --- payload]]]></http:body>');
+  });
+
+  it('reads the scheme and port off the URL', () => {
+    expect(httpRequestXml({ ...REQ, url: 'http://localhost:8081/api/ping' }))
+      .toContain('host="localhost" port="8081" protocol="HTTP"');
+  });
+
+  it('self-closes when there is nothing to put inside', () => {
+    const xml = httpRequestXml({
+      method: 'GET', url: 'https://api.example.com/ping',
+      headers: [], queryParams: [], payload: '', payloadMimeType: 'application/json',
+    });
+    expect(xml).toContain('doc:name="GET /ping"/>');
+    expect(xml).not.toContain('</http:request>');
+  });
+
+  it('still produces a usable skeleton from a URL it cannot parse', () => {
+    const xml = httpRequestXml({
+      method: 'GET', url: 'not a url at all',
+      headers: [], queryParams: [], payload: '', payloadMimeType: 'application/json',
+    });
+    expect(xml).toContain('<http:request-config');
+    expect(xml).toContain('method="GET"');
+  });
+
+  it('escapes what would otherwise break the attribute', () => {
+    const xml = httpRequestXml({
+      method: 'GET', url: 'https://api.example.com/a&b<c',
+      headers: [], queryParams: [], payload: '', payloadMimeType: 'application/json',
+    });
+    // `&` becomes an entity and `<` never survives the URL parse, so the
+    // attribute closes where it should and the XML still parses.
+    expect(xml).toContain('path="/a&amp;b%3Cc"');
+    expect(xml).not.toContain('path="/a&b');
+  });
+});
+
+describe('securePropertiesConfigXml', () => {
+  it('names the file, the cipher and where the key comes from', () => {
+    const xml = securePropertiesConfigXml({
+      file: 'config.yaml', algorithm: 'AES', mode: 'CBC', useRandomIVs: true,
+    });
+    expect(xml).toContain('file="config.yaml"');
+    expect(xml).toContain('algorithm="AES" mode="CBC"');
+    expect(xml).toContain('useRandomIVs="true"');
+    // The key stays a placeholder, so the snippet is safe to commit.
+    expect(xml).toContain('key="${mule.key}"');
+    expect(xml).toContain('-M-Dmule.key=');
+    expect(xml).toContain('mule-secure-configuration-property-module');
+  });
+
+  it('takes a different key property when one is given', () => {
+    const xml = securePropertiesConfigXml({
+      file: 'app.properties', algorithm: 'Blowfish', mode: 'CFB',
+      useRandomIVs: false, keyProperty: 'secure.key',
+    });
+    expect(xml).toContain('key="${secure.key}"');
+    expect(xml).toContain('-M-Dsecure.key=');
+    expect(xml).toContain('useRandomIVs="false"');
   });
 });

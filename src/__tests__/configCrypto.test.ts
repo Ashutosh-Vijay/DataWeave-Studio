@@ -5,6 +5,7 @@ import {
   applyEdits,
   yamlScalar,
   looksLikeSecret,
+  convertFormat,
 } from '../configCrypto';
 
 const YAML = `# production config
@@ -208,5 +209,61 @@ describe('looksLikeSecret', () => {
   it('leaves ordinary settings alone', () => {
     for (const k of ['db.host', 'db.port', 'api.client_id', 'app.name'])
       expect(looksLikeSecret(k)).toBe(false);
+  });
+});
+
+describe('convertFormat', () => {
+  const NESTED = [
+    'db:',
+    '  host: db.production.internal',
+    '  port: 5432',
+    '  password: "MySuperSecret:123!"',
+    'api:',
+    '  nested:',
+    '    deep:',
+    '      flag: true',
+  ].join('\n');
+
+  it('flattens YAML into dotted properties keys', () => {
+    expect(convertFormat(NESTED, 'yaml')).toBe([
+      'db.host=db.production.internal',
+      'db.port=5432',
+      // A colon is literal in a properties VALUE — only the first unescaped
+      // separator counts — so escaping it here would put a backslash into
+      // somebody's password.
+      'db.password=MySuperSecret:123!',
+      'api.nested.deep.flag=true',
+      '',
+    ].join('\n'));
+  });
+
+  it('rebuilds the nesting on the way back, values intact', () => {
+    const round = convertFormat(convertFormat(NESTED, 'yaml'), 'properties');
+    expect(round).toContain('  password: "MySuperSecret:123!"');
+    expect(round).toContain('      flag: true');
+    // Same shape out as in: the point of a conversion is that it survives one.
+    expect(scanConfig(round, 'yaml').map((f) => f.path))
+      .toEqual(scanConfig(NESTED, 'yaml').map((f) => f.path));
+  });
+
+  it('keeps a key that is both a leaf and a branch, as a comment', () => {
+    // Properties allows `api=x` beside `api.id=y`; YAML cannot hold both under
+    // one name. An earlier draft let the leaf overwrite the branch and
+    // api.client_id silently vanished — losing a setting without saying so.
+    const out = convertFormat(['api.client_id=7f8b', 'api=whole'].join('\n'), 'properties');
+    expect(out).toContain('  client_id: 7f8b');
+    expect(out).toContain('# api=whole');
+    expect(out).toContain("YAML can't hold this");
+  });
+
+  it('quotes only what YAML needs quoted', () => {
+    const out = convertFormat(['a.plain=hello', 'a.colon=has: colon'].join('\n'), 'properties');
+    expect(out).toContain('plain: hello');
+    expect(out).toContain('colon: "has: colon"');
+  });
+
+  it('an empty config converts to an empty one rather than throwing', () => {
+    expect(convertFormat('', 'yaml')).toBe('');
+    expect(convertFormat('# just a comment', 'properties')).toBe('');
   });
 });

@@ -14,7 +14,7 @@
 import { Accent } from './accents';
 
 export type EffectKind =
-  | 'snow' | 'diyas' | 'colors' | 'bats' | 'blood' | 'sparks' | 'pumpkins'
+  | 'snow' | 'diyas' | 'colors' | 'bats' | 'blood' | 'sparks' | 'pumpkins' | 'gulal'
   // The set pieces: one figure standing in the empty space, not a drift of
   // particles. A festival needs a subject, not only weather.
   | 'tree' | 'snowman' | 'scarecrow';
@@ -47,7 +47,7 @@ export const SEASONS: Record<string, Season> = {
     name: 'Holi',
     greeting: 'Happy Holi',
     accent: { hue: 330, chroma: 0.19 },
-    effects: ['colors'],
+    effects: ['gulal', 'colors'],
     prefer: 'light',
   },
   halloween: {

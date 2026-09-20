@@ -44,7 +44,7 @@ interface Particle {
 const HOLI_HUES = [330, 20, 50, 145, 200, 285];
 
 /** Kinds that stand at fixed points on an edge instead of drifting through. */
-const ANCHORED: EffectKind[] = ['diyas', 'blood', 'pumpkins', 'tree', 'snowman', 'scarecrow'];
+const ANCHORED: EffectKind[] = ['diyas', 'blood', 'pumpkins', 'gulal', 'tree', 'snowman', 'scarecrow'];
 
 /** The set pieces — one figure, standing, not a row of them. */
 const FIGURES: EffectKind[] = ['tree', 'snowman', 'scarecrow'];
@@ -94,8 +94,8 @@ export function SeasonalEffects({
         if (ANCHORED.includes(particles[i].kind)) particles.splice(i, 1);
       }
       for (const kind of kinds) {
-        if (kind === 'diyas' || kind === 'pumpkins') {
-          const gap = kind === 'pumpkins' ? (full ? 130 : 150) : (full ? 78 : 118);
+        if (kind === 'diyas' || kind === 'pumpkins' || kind === 'gulal') {
+          const gap = kind === 'pumpkins' ? (full ? 130 : 150) : kind === 'gulal' ? (full ? 92 : 128) : (full ? 78 : 118);
           const count = Math.max(2, Math.min(14, Math.floor(w / gap)));
           for (let i = 0; i < count; i++) {
             particles.push({
@@ -103,10 +103,10 @@ export function SeasonalEffects({
               x: (w / (count + 1)) * (i + 1),
               // Lamps and pumpkins stand on the floor of whatever they are in;
               // drips hang from its ceiling. Neither is the caller's problem.
-              y: h - (kind === 'pumpkins' ? (full ? 8 : 3) : 5),
+              y: h - (kind === 'pumpkins' ? (full ? 8 : 3) : kind === 'gulal' ? 2 : 5),
               px: 0, py: 0, vx: 0, vy: 0, life: 1, decay: 0,
-              size: kind === 'pumpkins' ? (full ? 15 : 7) : (full ? 9 : 4.5),
-              hue: kind === 'pumpkins' ? 55 : 35 + Math.random() * 18,
+              size: kind === 'pumpkins' ? (full ? 15 : 7) : kind === 'gulal' ? (full ? 17 : 7) : (full ? 9 : 4.5),
+              hue: kind === 'pumpkins' ? 55 : kind === 'gulal' ? HOLI_HUES[i % HOLI_HUES.length] : 35 + Math.random() * 18,
               phase: Math.random() * Math.PI * 2,
             });
           }
@@ -948,6 +948,63 @@ export function SeasonalEffects({
             ctx.closePath();
             ctx.fill();
           }
+          continue;
+        }
+
+        if (p.kind === 'gulal') {
+          // A heap of gulal, the way it is sold from a barrow at Holi: a mound
+          // of loose powder, darker where it meets the ground, brighter over
+          // the crown, with the finest of it drifting off the top. Holi was the
+          // one festival left with only weather and no subject.
+          const s = p.size;
+          const base = p.y;
+          const top = base - s * 0.62;
+
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = 1;
+
+          // The powder that has spilled around the foot of the heap.
+          ctx.fillStyle = `oklch(${light ? 72 : 60}% 0.14 ${p.hue} / 0.35)`;
+          ctx.beginPath();
+          ctx.ellipse(p.x, base, s * 1.15, s * 0.14, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // The heap: a dome that is not a semicircle — powder slumps.
+          const body = ctx.createLinearGradient(p.x, top, p.x, base);
+          body.addColorStop(0, `oklch(${light ? 74 : 72}% 0.2 ${p.hue})`);
+          body.addColorStop(1, `oklch(${light ? 52 : 46}% 0.19 ${p.hue})`);
+          ctx.fillStyle = body;
+          ctx.beginPath();
+          ctx.moveTo(p.x - s * 0.92, base);
+          ctx.bezierCurveTo(p.x - s * 0.78, top + s * 0.06, p.x - s * 0.34, top, p.x, top);
+          ctx.bezierCurveTo(p.x + s * 0.34, top, p.x + s * 0.78, top + s * 0.06, p.x + s * 0.92, base);
+          ctx.closePath();
+          ctx.fill();
+
+          // A lit crown, so it reads as a three-dimensional heap of powder
+          // rather than a coloured hill sticker.
+          ctx.globalAlpha = 0.5;
+          ctx.fillStyle = `oklch(${light ? 88 : 86}% 0.13 ${p.hue})`;
+          ctx.beginPath();
+          ctx.ellipse(p.x - s * 0.1, top + s * 0.14, s * 0.32, s * 0.1, -0.25, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+
+          // Three motes lifting off the crown, each on its own slow clock.
+          for (let i = 0; i < 3; i++) {
+            const t = ((clock * 0.3 + i * 0.37 + p.phase) % 1);
+            ctx.globalAlpha = (1 - t) * (full ? 0.45 : 0.3);
+            ctx.fillStyle = `oklch(${light ? 62 : 76}% 0.2 ${p.hue})`;
+            ctx.beginPath();
+            ctx.arc(
+              p.x + Math.sin((clock + i * 2) * 0.9) * s * 0.3 + (i - 1) * s * 0.18,
+              top - t * s * 0.85,
+              s * 0.05 * (1 - t * 0.4),
+              0, Math.PI * 2,
+            );
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
           continue;
         }
 
