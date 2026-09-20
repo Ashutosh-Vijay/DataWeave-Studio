@@ -1,5 +1,7 @@
 import { Icons } from './Icons';
 import { logoUrl } from '../assets';
+import { SeasonalEffects } from './SeasonalEffects';
+import { Season } from '../seasons';
 
 const LAST_WS_KEY = 'dw.lastWorkspace';
 
@@ -26,17 +28,34 @@ interface EmptyStateProps {
   /** True when no saved file exists but a recoverable in-progress draft does. */
   hasDraftSession?: boolean;
   onResumeLast: () => void;
+  /** Owned by App, which already tracks the Settings toggle. */
+  season: Season | null;
 }
 
 export function EmptyState({
   onBlankTransform, onImportCurl, onImportPlayground, onOpenSnippets, onOpenWorkspace,
-  onStartTour, onOpenFlowDesigner, lastWorkspace, hasDraftSession, onResumeLast,
+  onStartTour, onOpenFlowDesigner, lastWorkspace, hasDraftSession, onResumeLast, season,
 }: EmptyStateProps) {
   const lastName = lastWorkspace ? lastWorkspace.replace(/\.json$/, '').replace(/\.dwstudio$/, '') : null;
   const showResume = !!lastName || !!hasDraftSession;
+  // The widest empty space in the whole app: a 640px card in the middle of a
+  // window that is usually 1500 or more. A festival gets the gutters either
+  // side — they are hundreds of pixels of nothing, and nothing is exactly what
+  // decoration needs. The card keeps its own clear air.
+  const gutter = 'calc(50% - 400px)';
   return (
-    <div className="flex-1 flex items-center justify-center bg-bg overflow-auto">
-      <div className="text-center max-w-[640px] px-6 py-10">
+    <div className="flex-1 flex items-center justify-center bg-bg overflow-auto relative">
+      {season && (
+        <>
+          <div className="absolute inset-y-0 left-0 pointer-events-none" style={{ width: gutter }}>
+            <SeasonalEffects variants={season.effects} intensity="full" />
+          </div>
+          <div className="absolute inset-y-0 right-0 pointer-events-none" style={{ width: gutter }}>
+            <SeasonalEffects variants={season.effects} intensity="full" />
+          </div>
+        </>
+      )}
+      <div className="relative text-center max-w-[640px] px-6 py-10">
         <img
           src={logoUrl}
           alt="DataWeave Studio"

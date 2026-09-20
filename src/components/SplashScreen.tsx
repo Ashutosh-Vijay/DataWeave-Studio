@@ -126,7 +126,7 @@ export function SplashScreen({ isReady, hasError }: SplashScreenProps) {
       />
 
       {/* The festival, behind everything and over nothing. */}
-      {season && <SeasonalEffects variant={season.effect} intensity="full" />}
+      {season && <SeasonalEffects variants={season.effects} intensity="full" />}
 
       {/* Loader centerpiece */}
       <div className="relative" style={{ width: 280, height: 280 }}>

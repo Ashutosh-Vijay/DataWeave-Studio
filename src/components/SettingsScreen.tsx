@@ -513,7 +513,7 @@ function AppearancePanel({
             className="relative mt-3 h-[72px] rounded-lg overflow-hidden flex items-end px-3 pb-2"
             style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}
           >
-            <SeasonalEffects variant={(pinned ? SEASONS[pinned] : today!).effect} intensity="full" />
+            <SeasonalEffects variants={(pinned ? SEASONS[pinned] : today!).effects} intensity="full" />
             <span className="relative text-[11px]" style={{ color: 'var(--content-faint)' }}>
               {(pinned ? SEASONS[pinned] : today!).greeting}
             </span>

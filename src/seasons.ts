@@ -13,7 +13,7 @@
  */
 import { Accent } from './accents';
 
-export type EffectKind = 'snow' | 'diyas' | 'colors' | 'bats' | 'blood' | 'sparks';
+export type EffectKind = 'snow' | 'diyas' | 'colors' | 'bats' | 'blood' | 'sparks' | 'pumpkins';
 
 export interface Season {
   id: string;
@@ -22,7 +22,9 @@ export interface Season {
   /** The line on the splash. Plain, never exclamatory twice over. */
   greeting: string;
   accent: Accent;
-  effect: EffectKind;
+  /** Layers, drawn together. A festival is rarely one thing: Halloween is
+   *  pumpkins and bats, Diwali is lamps and fireworks. */
+  effects: EffectKind[];
   /** Applied along with the accent when the offer is accepted. */
   prefer?: 'dark' | 'light';
 }
@@ -33,7 +35,7 @@ export const SEASONS: Record<string, Season> = {
     name: 'Diwali',
     greeting: 'Happy Diwali',
     accent: { hue: 75, chroma: 0.15 },
-    effect: 'diyas',
+    effects: ['diyas', 'sparks'],
     prefer: 'dark',
   },
   holi: {
@@ -41,7 +43,7 @@ export const SEASONS: Record<string, Season> = {
     name: 'Holi',
     greeting: 'Happy Holi',
     accent: { hue: 330, chroma: 0.19 },
-    effect: 'colors',
+    effects: ['colors'],
     prefer: 'light',
   },
   halloween: {
@@ -49,7 +51,7 @@ export const SEASONS: Record<string, Season> = {
     name: 'Halloween',
     greeting: 'Happy Halloween',
     accent: { hue: 55, chroma: 0.17 },
-    effect: 'bats',
+    effects: ['pumpkins', 'bats'],
     prefer: 'dark',
   },
   christmas: {
@@ -57,14 +59,14 @@ export const SEASONS: Record<string, Season> = {
     name: 'Christmas',
     greeting: 'Merry Christmas',
     accent: { hue: 145, chroma: 0.14 },
-    effect: 'snow',
+    effects: ['snow'],
   },
   newyear: {
     id: 'newyear',
     name: 'New Year',
     greeting: 'Happy New Year',
     accent: { hue: 265, chroma: 0.15 },
-    effect: 'sparks',
+    effects: ['sparks'],
     prefer: 'dark',
   },
   /** Not seasonal — the one you can just switch on. Paper + blood. */
@@ -73,7 +75,7 @@ export const SEASONS: Record<string, Season> = {
     name: 'Vampire',
     greeting: 'Good evening',
     accent: { hue: 20, chroma: 0.19 },
-    effect: 'blood',
+    effects: ['blood', 'bats'],
     prefer: 'light',
   },
 };

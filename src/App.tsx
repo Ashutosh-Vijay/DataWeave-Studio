@@ -207,9 +207,9 @@ function StatusBar({
     <div
       className="h-[26px] shrink-0 flex items-center gap-3.5 px-3.5 bg-rail border-t border-line text-[11px] text-content-faint font-mono relative"
     >
-      {/* Chrome only — the status bar, the header and empty panels. A festival
-          never draws over an editor. */}
-      {season && <SeasonalEffects variant={season.effect} />}
+      {/* Chrome only — the status bar and empty panels. A festival never draws
+          over an editor, and never over a line of text. */}
+      {season && <SeasonalEffects variants={season.effects} />}
       <span
         className="inline-flex items-center gap-1.5"
         style={{ color: isReady ? 'var(--accent)' : 'var(--warn)' }}
@@ -1438,8 +1438,10 @@ function App() {
   return (
     <div className="h-screen w-screen bg-bg text-content flex flex-col font-sans select-none">
       {/* Top bar — brand, breadcrumb, ⌘K search, run cluster */}
-      <header data-tour="header" data-tauri-drag-region className="h-11 flex items-center gap-3 px-3 bg-surface border-b border-line shrink-0 relative">
-        {season && <SeasonalEffects variant={season.effect} />}
+      {/* No decoration in here on purpose: the header is wall-to-wall controls,
+          and lamps behind the breadcrumb and the search field were sitting on
+          the text. The status bar and the empty gutters have the room. */}
+      <header data-tour="header" data-tauri-drag-region className="h-11 flex items-center gap-3 px-3 bg-surface border-b border-line shrink-0">
         {/* Brand mark — also the About entry; subtle dot when an update is available */}
         <div className="flex items-center justify-center w-11 shrink-0">
           <button
@@ -1830,6 +1832,7 @@ function App() {
         {/* Main — empty state, then compact pane tabs, then three resizable columns */}
         {!hasStarted ? (
           <EmptyState
+            season={season}
             onBlankTransform={handleNewScript}
             onImportCurl={handleOpenImport}
             onImportPlayground={handleImportPlayground}
