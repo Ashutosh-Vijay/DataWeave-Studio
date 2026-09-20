@@ -202,7 +202,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
     const step: React.CSSProperties = { display: 'flex', gap: 10, alignItems: 'flex-start' };
     const num: React.CSSProperties = { flexShrink: 0, width: 20, height: 20, borderRadius: 999, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', color: 'var(--accent)' };
     const kbd = (t: string) => <code style={{ fontFamily: MONO, fontSize: 11.5, background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 5, padding: '1px 6px' }}>{t}</code>;
-    const TOOLS = ['validate_and_run_dataweave', 'secure_properties', 'migrate_dw_1_to_2', 'format_dataweave', 'dw_function_reference', 'dw_cookbook'];
+    const TOOLS = ['validate_and_run_dataweave', 'secure_properties', 'migrate_dw_1_to_2', 'format_dataweave', 'dw_function_reference', 'dw_cookbook', 'dw_scope_at'];
     const addToClient = async (client: string, label: string) => {
       try {
         const r = await invoke<{ copied?: boolean; path?: string; existed?: boolean }>('mcp_write_config', { client });
@@ -509,6 +509,7 @@ output application/json
                 { name: 'format_dataweave', desc: 'Pretty-print / reformat a script via the engine’s own IDE formatter.', badge: 'Live', live: true },
                 { name: 'run_dataweave_tests', desc: 'Run a dw::test suite and report which assertions passed, with the engine’s own failure messages.', badge: 'Live', live: true },
                 { name: 'lint_dataweave', desc: 'Type-check and lint without running — undefined references, wrong arity, insecure hashes, leftover log(). Works with no payload.', badge: 'Live', live: true },
+                { name: 'dw_scope_at', desc: 'What is in scope at one point in a script — every visible variable with its inferred type, so a lambda’s parameter is a real shape rather than a guess.', badge: 'Live', live: true },
               ].map((t) => (
                 <div key={t.name} className="flex items-center" style={{ gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--line-subtle)', opacity: t.live ? 1 : 0.6 }}>
                   <div className="flex-1 min-w-0">

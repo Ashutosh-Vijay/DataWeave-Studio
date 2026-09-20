@@ -159,6 +159,27 @@ struct LintInput {
     payload_mime_type: Option<String>,
 }
 
+/// Input for the `dw_scope_at` tool.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct ScopeInput {
+    /// The DataWeave script to inspect.
+    script: String,
+    /// 1-based line to ask about. Omitted, the question is asked at the end of
+    /// the script, which answers "what is in scope at the top level".
+    #[serde(default)]
+    line: Option<u32>,
+    /// 1-based column on that line. Defaults to the end of the line.
+    #[serde(default)]
+    column: Option<u32>,
+    /// Optional sample payload, so `payload` resolves to its real shape rather
+    /// than `Any`.
+    #[serde(default)]
+    payload: Option<String>,
+    /// MIME type of `payload`. Default application/json.
+    #[serde(default)]
+    payload_mime_type: Option<String>,
+}
+
 /// Input for the `dw_function_reference` tool.
 #[derive(Deserialize, schemars::JsonSchema)]
 struct FnRefInput {
@@ -982,6 +1003,125 @@ impl DwTools {
             }
         }
         Ok(CallToolResult::success(vec![Content::text(out_lines.join("\n"))]))
+    }
+
+    #[tool(
+        description = "Ask the engine what is IN SCOPE at one point in a script — every visible variable with its INFERRED type, plus the functions the script itself declares, one line per overload. Inside a `map`/`filter` lambda this is the only way to learn what the lambda parameter actually is (e.g. `item` is `{ price: Number, name: String }`), which is exactly what you need before writing the body. Pass `line` (1-based, as reported by lint/run errors) and optionally `column`; with no position it answers at the end of the script. Supply `payload` so `payload` resolves to its real shape. This lists the SCRIPT's own names only — for standard-library functions use dw_function_reference."
+    )]
+    async fn dw_scope_at(
+        &self,
+        Parameters(input): Parameters<ScopeInput>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        // Answering this compiles the script, same as a run, so it takes the
+        // same Safe-mode gate.
+        if !self.advanced.load(Ordering::Relaxed) {
+            if let Some(reason) = safe_mode_block_reason(&input.script) {
+                return Ok(CallToolResult::error(vec![Content::text(format!(
+                    "Safe mode rejected this script: {} is not allowed here — it was NOT compiled.",
+                    reason
+                ))]));
+            }
+        }
+        self.requests.fetch_add(1, Ordering::Relaxed);
+
+        // Line/column -> character offset. Lines are 1-based to match what every
+        // other tool here reports; a column past the end of the line just lands
+        // at the end of it.
+        let offset = match input.line {
+            None => input.script.chars().count(),
+            Some(line) => {
+                let mut at = 0usize;
+                let mut found = None;
+                for (i, text) in input.script.split('\n').enumerate() {
+                    let len = text.trim_end_matches('\r').chars().count();
+                    if i as u32 + 1 == line {
+                        let col = input.column.unwrap_or(u32::MAX).saturating_sub(1) as usize;
+                        found = Some(at + col.min(len));
+                        break;
+                    }
+                    at += text.chars().count() + 1;
+                }
+                found.unwrap_or_else(|| input.script.chars().count())
+            }
+        };
+
+        let payload = input.payload.unwrap_or_default();
+        let mime = input.payload_mime_type.unwrap_or_else(default_mime);
+        let vars = crate::dw_server::tooling(
+            &self.app, "visibleVariables", &input.script, offset, &payload, &[], "", "", &mime, 1,
+        )
+        .map_err(|e| rmcp::ErrorData::internal_error(e, None))?;
+        let funs = crate::dw_server::tooling(
+            &self.app, "availableFunctions", &input.script, offset, &payload, &[], "", "", &mime, 1,
+        )
+        .map_err(|e| rmcp::ErrorData::internal_error(e, None))?;
+
+        let mut out = match input.line {
+            Some(l) => format!("In scope at line {}:\n", l),
+            None => "In scope at the end of the script:\n".to_string(),
+        };
+
+        // Inferred types arrive pretty-printed over several lines, which is
+        // unreadable in a list — flatten each one to a single line.
+        let flatten = |t: &str| t.split_whitespace().collect::<Vec<_>>().join(" ");
+
+        let variables = vars.get("variables").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        if variables.is_empty() {
+            out.push_str("\nNo variables visible here.\n");
+        } else {
+            out.push_str("\nVariables\n");
+            for v in &variables {
+                let name = v.get("name").and_then(|x| x.as_str()).unwrap_or("?");
+                let ty = v.get("type").and_then(|x| x.as_str()).unwrap_or("Any");
+                out.push_str(&format!("  {} : {}\n", name, flatten(ty)));
+            }
+        }
+
+        // The script's own functions also show up in the variable list above, so
+        // this looks redundant — until the script overloads a name. There the
+        // variable list collapses the overloads into one union signature
+        // (`(x: Number | String) -> String`, which is not a thing you can call),
+        // and only this list shows the two real signatures.
+        let functions = funs.get("functions").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        if !functions.is_empty() {
+            out.push_str("\nFunctions declared in this script, one line per overload\n");
+            for f in &functions {
+                // The engine qualifies these with the document's own module path
+                // (`/main::addTax`), which is an artefact of how the script is
+                // loaded — the call site just writes `addTax`.
+                let name = f
+                    .get("name")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("?")
+                    .rsplit("::")
+                    .next()
+                    .unwrap_or("?");
+                let params: Vec<String> = f
+                    .get("params")
+                    .and_then(|v| v.as_array())
+                    .map(|a| {
+                        a.iter()
+                            .map(|p| {
+                                let pn = p.get("name").and_then(|x| x.as_str()).unwrap_or("_");
+                                match p.get("type").and_then(|x| x.as_str()) {
+                                    Some(t) => format!("{}: {}", pn, flatten(t)),
+                                    None => pn.to_string(),
+                                }
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                let returns = f
+                    .get("returns")
+                    .and_then(|x| x.as_str())
+                    .map(|r| format!(" -> {}", flatten(r)))
+                    .unwrap_or_default();
+                out.push_str(&format!("  {}({}){}\n", name, params.join(", "), returns));
+            }
+        }
+
+        out.push_str("\nStandard-library functions are not listed here — see dw_function_reference.");
+        Ok(CallToolResult::success(vec![Content::text(out)]))
     }
 
     #[tool(

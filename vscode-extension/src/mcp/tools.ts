@@ -1,10 +1,11 @@
 /**
  * MCP tool surface for DataWeave Studio (VS Code extension) — at parity with the
- * desktop's rmcp server (src-tauri/src/mcp_server.rs). Eight tools, all backed by
+ * desktop's rmcp server (src-tauri/src/mcp_server.rs). Nine tools, all backed by
  * the SAME bundled DataWeave 2.12 engine via dwHost:
  *
  *   validate_and_run_dataweave · secure_properties · migrate_dw_1_to_2 ·
- *   format_dataweave · dw_function_reference · dw_cookbook
+ *   format_dataweave · dw_function_reference · dw_cookbook ·
+ *   run_dataweave_tests · lint_dataweave · dw_scope_at
  *
  * SECURITY — Safe mode is the default and is a real pure-transform sandbox:
  * `import java!…`, `readUrl`, and `dw::io` are rejected before running (in the
@@ -667,6 +668,81 @@ export function registerTools(
       }
       lines.push(`\n${messages.length} problem${messages.length === 1 ? '' : 's'} found.`);
       return ok(lines.join('\n'));
+    },
+  );
+
+  // 9) dw_scope_at -----------------------------------------------------------
+  register(
+    'dw_scope_at',
+    {
+      title: 'What is in scope here',
+      description:
+        'Ask the engine what is IN SCOPE at one point in a script — every visible variable with its INFERRED ' +
+        'type, plus the functions the script itself declares, one line per overload. Inside a `map`/`filter` ' +
+        'lambda this is the only way to learn what the lambda parameter actually is (e.g. `item` is ' +
+        '`{ price: Number, name: String }`), which is exactly what you need before writing the body. Pass ' +
+        '`line` (1-based, as reported by lint/run errors) and optionally `column`; with no position it answers ' +
+        "at the end of the script. Supply `payload` so `payload` resolves to its real shape. This lists the " +
+        "SCRIPT's own names only — for standard-library functions use dw_function_reference.",
+      inputSchema: {
+        script: z.string().describe('The DataWeave script to inspect.'),
+        line: z.number().optional().describe('1-based line to ask about. Omitted, answers at the end of the script.'),
+        column: z.number().optional().describe('1-based column on that line. Defaults to the end of the line.'),
+        payload: z.string().optional().describe('Optional sample payload, so `payload` resolves to its real shape.'),
+        payloadMimeType: z.string().optional().describe('MIME type of payload. Default application/json.'),
+      },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async (a) => {
+      if (!advanced) {
+        const reason = safeModeBlockReason(a.script);
+        if (reason) return err(`Safe mode rejected this script: ${reason} is not allowed here — it was NOT compiled.`);
+      }
+      // Line/column -> character offset. A column past the end of the line just
+      // lands at the end of it.
+      let offset = a.script.length;
+      if (a.line != null) {
+        const rows = a.script.split('\n');
+        if (a.line >= 1 && a.line <= rows.length) {
+          const before = rows.slice(0, a.line - 1).reduce((n: number, r: string) => n + r.length + 1, 0);
+          const len = rows[a.line - 1].replace(/\r$/, '').length;
+          offset = before + Math.min(Math.max((a.column ?? Infinity) - 1, 0), len);
+        }
+      }
+      const mime = a.payloadMimeType ?? 'application/json';
+      let vars: any, funs: any;
+      try {
+        vars = await toolingQuery(dw, 'visibleVariables', a.script, offset, a.payload ?? '', undefined, undefined, mime, 1);
+        funs = await toolingQuery(dw, 'availableFunctions', a.script, offset, a.payload ?? '', undefined, undefined, mime, 1);
+      } catch (e) {
+        return err(`Scope query failed: ${(e as Error).message}`);
+      }
+      // Inferred types arrive pretty-printed over several lines, which is
+      // unreadable in a list — flatten each one.
+      const flat = (t: string) => String(t ?? '').split(/\s+/).filter(Boolean).join(' ');
+      const out: string[] = [a.line != null ? `In scope at line ${a.line}:` : 'In scope at the end of the script:'];
+      const variables: any[] = Array.isArray(vars?.variables) ? vars.variables : [];
+      if (!variables.length) out.push('', 'No variables visible here.');
+      else {
+        out.push('', 'Variables');
+        for (const v of variables) out.push(`  ${v?.name ?? '?'} : ${flat(v?.type ?? 'Any')}`);
+      }
+      // These also appear above as variables — until the script overloads a
+      // name, where the variable list collapses the overloads into one union
+      // signature that nothing can actually be called with.
+      const functions: any[] = Array.isArray(funs?.functions) ? funs.functions : [];
+      if (functions.length) {
+        out.push('', 'Functions declared in this script, one line per overload');
+        for (const f of functions) {
+          const name = String(f?.name ?? '?').split('::').pop();
+          const params = (Array.isArray(f?.params) ? f.params : [])
+            .map((p: any) => (p?.type ? `${p.name}: ${flat(p.type)}` : String(p?.name ?? '_')))
+            .join(', ');
+          out.push(`  ${name}(${params})${f?.returns ? ` -> ${flat(f.returns)}` : ''}`);
+        }
+      }
+      out.push('', 'Standard-library functions are not listed here — see dw_function_reference.');
+      return ok(out.join('\n'));
     },
   );
 }
