@@ -960,3 +960,76 @@ describe('securePropertiesConfigXml', () => {
     expect(xml).toContain('useRandomIVs="false"');
   });
 });
+
+describe('httpRequestXml — what the cURL carried', () => {
+  const BASE = {
+    method: 'GET', url: 'https://api.example.com/v1/orders',
+    headers: [], queryParams: [], payload: '', payloadMimeType: 'application/json',
+  };
+
+  it('turns -u into basic auth, without writing the password down', () => {
+    const xml = httpRequestXml({ ...BASE, auth: { username: 'admin', password: 'hunter2' } });
+    expect(xml).toContain('<http:basic-authentication username="admin"');
+    // The snippet is meant to be pasted into a project and committed. The
+    // password from somebody's cURL must not travel with it.
+    expect(xml).not.toContain('hunter2');
+    expect(xml).toContain('password="${http.password}"');
+    expect(xml).toContain('the password is a placeholder');
+  });
+
+  it('carries the timeout across, in the unit Mule counts in', () => {
+    // cURL says seconds; Mule says milliseconds.
+    expect(httpRequestXml({ ...BASE, timeoutMs: 30000 })).toContain('responseTimeout="30000"');
+  });
+
+  it('carries -L across, and says nothing when it was absent', () => {
+    expect(httpRequestXml({ ...BASE, followRedirects: true })).toContain('followRedirects="true"');
+    expect(httpRequestXml(BASE)).not.toContain('followRedirects');
+    expect(httpRequestXml(BASE)).not.toContain('responseTimeout');
+    expect(httpRequestXml(BASE)).not.toContain('authentication');
+  });
+
+  it('keeps the connection self-closed when there is no auth to nest', () => {
+    expect(httpRequestXml({ ...BASE, timeoutMs: 5000 })).toContain('responseTimeout="5000"/>');
+  });
+});
+
+describe('httpRequestXml — reading values off the inbound request', () => {
+  const REQ = {
+    method: 'POST', url: 'https://api.example.com/v1/orders',
+    headers: [{ key: 'X-Api-Key', value: 'abc123' }],
+    queryParams: [{ key: 'region', value: 'eu' }, { key: 'x-mode', value: 'fast' }],
+    payload: '{"id":7}', payloadMimeType: 'application/json',
+  };
+
+  it('forwards instead of baking in', () => {
+    const xml = httpRequestXml({ ...REQ, values: 'attributes' });
+    expect(xml).toContain('"region": attributes.queryParams.region');
+    expect(xml).not.toContain('"eu"');
+    expect(xml).not.toContain('"abc123"');
+  });
+
+  it('lowercases and brackets a header reference', () => {
+    // Mule lowercases inbound header names, and
+    // `attributes.headers.X-Api-Key` is three things to DataWeave, not one key.
+    expect(httpRequestXml({ ...REQ, values: 'attributes' }))
+      .toContain(`"X-Api-Key": attributes.headers['x-api-key']`);
+  });
+
+  it('brackets a query key that is not a bare word, and leaves one that is', () => {
+    const xml = httpRequestXml({ ...REQ, values: 'attributes' });
+    expect(xml).toContain(`"x-mode": attributes.queryParams['x-mode']`);
+    expect(xml).toContain('"region": attributes.queryParams.region');
+  });
+
+  it('the body was always a pass-through, in either mode', () => {
+    for (const values of ['literal', 'attributes'] as const) {
+      expect(httpRequestXml({ ...REQ, values }))
+        .toContain('#[output application/json --- payload]');
+    }
+  });
+
+  it('literal is the default, so nothing changes for anyone not asking', () => {
+    expect(httpRequestXml(REQ)).toContain('"region": "eu"');
+  });
+});

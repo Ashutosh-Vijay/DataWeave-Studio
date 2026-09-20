@@ -1029,6 +1029,20 @@ export function httpRequestXml(opts: {
   queryParams: { key: string; value: string }[];
   payload: string;
   payloadMimeType: string;
+  auth?: { username: string; password: string };
+  followRedirects?: boolean;
+  timeoutMs?: number;
+  /**
+   * Where the headers and query params get their VALUES.
+   *
+   * `literal` bakes in what the cURL said — right when this request is a fixed
+   * call out to a downstream API. `attributes` reads them off the inbound
+   * request instead (`attributes.queryParams.region`), which is what a flow
+   * sitting behind an HTTP listener wants: it forwards what it was given and
+   * needs no transform in between. The body is `payload` either way, so it has
+   * always passed through.
+   */
+  values?: 'literal' | 'attributes';
 }): string {
   let host = 'api.example.com';
   let port = '443';
@@ -1045,6 +1059,19 @@ export function httpRequestXml(opts: {
   // Content-Type belongs on the body, and Mule sets it from the payload's mime
   // type, so passing it through as a header as well is how you end up with two.
   const headers = opts.headers.filter((h) => h.key.toLowerCase() !== 'content-type');
+  const fromAttributes = opts.values === 'attributes';
+
+  // A DataWeave key is a bare word only when it looks like one; anything else
+  // has to be quoted, or the generated expression will not compile.
+  const dwKey = (k: string) => (/^[A-Za-z_$][\w$]*$/.test(k) ? `.${k}` : `['${k.replace(/'/g, "\\'")}']`);
+  // Mule lowercases inbound header names, so a reference has to be lowercase
+  // and bracketed — `attributes.headers.X-Api-Key` is three things to DataWeave,
+  // not one key.
+  const headerRef = (k: string) => `attributes.headers['${k.toLowerCase().replace(/'/g, "\\'")}']`;
+  const entry = (k: string, v: string, kind: 'header' | 'query') =>
+    fromAttributes
+      ? `    "${k}": ${kind === 'header' ? headerRef(k) : `attributes.queryParams${dwKey(k)}`}`
+      : `    "${k}": "${v.replace(/"/g, '\\"')}"`;
 
   const inner: string[] = [];
   if (opts.payload.trim()) {
@@ -1052,21 +1079,42 @@ export function httpRequestXml(opts: {
   }
   if (headers.length) {
     inner.push('  <http:headers><![CDATA[#[{');
-    inner.push(headers.map((h) => `    "${h.key}": "${h.value.replace(/"/g, '\\"')}"`).join(',\n'));
+    inner.push(headers.map((h) => entry(h.key, h.value, 'header')).join(',\n'));
     inner.push('  }]]]></http:headers>');
   }
   if (opts.queryParams.length) {
     inner.push('  <http:query-params><![CDATA[#[{');
-    inner.push(opts.queryParams.map((q) => `    "${q.key}": "${q.value.replace(/"/g, '\\"')}"`).join(',\n'));
+    inner.push(opts.queryParams.map((q) => entry(q.key, q.value, 'query')).join(',\n'));
     inner.push('  }]]]></http:query-params>');
+  }
+
+  // Everything below comes out of the cURL itself. Dropping it on the floor is
+  // how you get an export that 401s, or hangs where the command would not.
+  const connection = [`host="${escXml(host)}"`, `port="${escXml(port)}"`, `protocol="${protocol}"`];
+  if (opts.timeoutMs !== undefined) connection.push(`responseTimeout="${opts.timeoutMs}"`);
+  if (opts.followRedirects) connection.push('followRedirects="true"');
+
+  const conn: string[] = [];
+  if (opts.auth) {
+    conn.push(`  <http:request-connection ${connection.join(' ')}>`);
+    conn.push('    <http:authentication>');
+    // The password stays a placeholder on purpose: this snippet is meant to be
+    // pasted into a project and committed, and the one from your cURL would go
+    // with it. Encrypt the real one with the Secure Properties tool.
+    conn.push(`      <http:basic-authentication username="${escXml(opts.auth.username)}" password="\${http.password}"/>`);
+    conn.push('    </http:authentication>');
+    conn.push('  </http:request-connection>');
+  } else {
+    conn.push(`  <http:request-connection ${connection.join(' ')}/>`);
   }
 
   const open = `<http:request method="${escXml(opts.method)}" path="${escXml(path)}" config-ref="HTTP_Request_Config" doc:name="${escXml(opts.method)} ${escXml(path)}"`;
   return [
     '<!-- 1. the connection — one config, reused by every request to this host -->',
     '<http:request-config name="HTTP_Request_Config" doc:name="HTTP Request configuration">',
-    `  <http:request-connection host="${escXml(host)}" port="${escXml(port)}" protocol="${protocol}"/>`,
+    ...conn,
     '</http:request-config>',
+    ...(opts.auth ? ['<!-- the password is a placeholder — put the real one in a property, or encrypt it -->'] : []),
     '',
     '<!-- 2. the call -->',
     ...(inner.length ? [`${open}>`, ...inner, '</http:request>'] : [`${open}/>`]),

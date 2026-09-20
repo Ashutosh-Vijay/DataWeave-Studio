@@ -7,6 +7,14 @@ export interface CurlImportResult {
   /** The request URL as written, query string included. Only the Mule XML
    *  output uses it — the import path takes the query as `queryParams`. */
   url: string;
+  /** From `-u user:pass`. Only the Mule XML output uses these three: the
+   *  importer has nowhere to put them, but a connector call does, and dropping
+   *  them on the floor is how you get an export that 401s. */
+  auth?: { username: string; password: string };
+  /** From `-L` / `--location`. */
+  followRedirects?: boolean;
+  /** From `-m` / `--max-time`, which cURL takes in seconds. */
+  timeoutMs?: number;
   headers: KeyValuePair[];
   queryParams: KeyValuePair[];
   payload: string;
@@ -300,6 +308,9 @@ export function parseCurl(curl: string): CurlImportResult {
   const tokens = tokenize(withoutCurl);
 
   let url = '';
+  let auth: { username: string; password: string } | undefined;
+  let followRedirects = false;
+  let timeoutMs: number | undefined;
   let i = 0;
   while (i < tokens.length) {
     const token = tokens[i];
@@ -337,11 +348,28 @@ export function parseCurl(curl: string): CurlImportResult {
         formParts.push(part);
         if (!explicitMethod) method = 'POST';
       }
+    } else if (token === '-u' || token === '--user') {
+      i++;
+      if (i < tokens.length) {
+        // `user:pass`, and a password may itself contain colons.
+        const at = tokens[i].indexOf(':');
+        auth = at >= 0
+          ? { username: tokens[i].slice(0, at), password: tokens[i].slice(at + 1) }
+          : { username: tokens[i], password: '' };
+      }
+    } else if (token === '-L' || token === '--location') {
+      followRedirects = true;
+    } else if (token === '-m' || token === '--max-time') {
+      i++;
+      // cURL counts seconds; Mule counts milliseconds.
+      if (i < tokens.length && Number.isFinite(Number(tokens[i]))) {
+        timeoutMs = Math.round(Number(tokens[i]) * 1000);
+      }
     } else if (token.startsWith('-')) {
       const flagsWithValue = [
-        '-u', '--user', '-o', '--output', '-A', '--user-agent',
+        '-o', '--output', '-A', '--user-agent',
         '-b', '--cookie', '-c', '--cookie-jar', '-e', '--referer',
-        '--connect-timeout', '-m', '--max-time', '--retry',
+        '--connect-timeout', '--retry',
         '-x', '--proxy', '--cert', '--key', '--cacert',
       ];
       if (flagsWithValue.includes(token)) i++;
@@ -406,7 +434,10 @@ export function parseCurl(curl: string): CurlImportResult {
       }))
     : undefined;
 
-  return { method, url, headers, queryParams, payload, payloadMimeType, generatedScript, multipartParts };
+  return {
+    method, url, headers, queryParams, payload, payloadMimeType, generatedScript, multipartParts,
+    auth, followRedirects: followRedirects || undefined, timeoutMs,
+  };
 }
 
 function parseFormPart(formStr: string): LocalMultipartPart {
@@ -553,6 +584,10 @@ export function CurlImporter({ onImport, open, onClose, onImportShareLink }: Cur
   // The same parsed request, shown two ways: the transform to work on, or the
   // connector call to paste into a flow.
   const [outputTab, setOutputTab] = useState<'dw' | 'xml'>('dw');
+  // Literal bakes the cURL's values in; attributes reads them off the inbound
+  // request, which is what a flow behind a listener wants — no transform in
+  // between. See httpRequestXml.
+  const [xmlValues, setXmlValues] = useState<'literal' | 'attributes'>('literal');
   const backdropRef = useRef<HTMLDivElement>(null);
   const mouseDownOnBackdrop = useRef(false);
 
@@ -897,10 +932,33 @@ export function CurlImporter({ onImport, open, onClose, onImportShareLink }: Cur
                     </button>
                   ))}
                 </div>
+                {outputTab === 'xml' && (
+                  <div className="flex items-center gap-1">
+                    {([['literal', 'Literal values'], ['attributes', 'From the request']] as const).map(([v, label]) => (
+                      <button
+                        key={v}
+                        onClick={() => setXmlValues(v)}
+                        title={v === 'literal'
+                          ? 'Bake in the values this cURL used — a fixed call to a downstream API'
+                          : 'Read them off the inbound request (attributes.queryParams.region) — a flow that forwards what it was given, with no transform in between'}
+                        className="h-[21px] px-2 rounded text-[11px] font-medium normal-case tracking-normal cursor-pointer"
+                        style={xmlValues === v
+                          ? { background: 'var(--surface-3)', color: 'var(--content)', border: '1px solid var(--line-secondary)' }
+                          : { background: 'transparent', color: 'var(--content-faint)', border: '1px solid var(--line)' }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <span className="flex-1" />
                 <button
                   onClick={async () => {
-                    try { await navigator.clipboard.writeText(outputTab === 'dw' ? preview.generatedScript : httpRequestXml(preview)); } catch { /* ignore */ }
+                    try {
+                      await navigator.clipboard.writeText(
+                        outputTab === 'dw' ? preview.generatedScript : httpRequestXml({ ...preview, values: xmlValues }),
+                      );
+                    } catch { /* ignore */ }
                   }}
                   className="text-[11px] font-medium normal-case tracking-normal cursor-pointer bg-transparent border-none inline-flex items-center gap-1"
                   style={{ color: 'var(--content-muted)' }}
@@ -917,7 +975,7 @@ export function CurlImporter({ onImport, open, onClose, onImportShareLink }: Cur
                   maxHeight: 200,
                 }}
               >
-                {outputTab === 'dw' ? preview.generatedScript : httpRequestXml(preview)}
+                {outputTab === 'dw' ? preview.generatedScript : httpRequestXml({ ...preview, values: xmlValues })}
               </pre>
             </div>
           )}
