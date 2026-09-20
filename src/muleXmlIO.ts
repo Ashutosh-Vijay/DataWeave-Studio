@@ -1013,3 +1013,62 @@ export function securePropertiesConfigXml(opts: {
     `<!-- 5. supply the key at deploy time: -M-D${keyProp}=<your key> -->`,
   ].join('\n');
 }
+
+/**
+ * A cURL request as the Mule elements that perform it: the HTTP request config
+ * (host/port/protocol, which is where the base URL has to live) and the
+ * `<http:request>` itself, with headers, query params and body.
+ *
+ * This is the export end of the cURL importer — the same pasted command either
+ * becomes a transform to work on, or the connector call to paste into a flow.
+ */
+export function httpRequestXml(opts: {
+  method: string;
+  url: string;
+  headers: { key: string; value: string }[];
+  queryParams: { key: string; value: string }[];
+  payload: string;
+  payloadMimeType: string;
+}): string {
+  let host = 'api.example.com';
+  let port = '443';
+  let protocol = 'HTTPS';
+  let path = '/';
+  try {
+    const u = new URL(opts.url.startsWith('http') ? opts.url : `https://${opts.url}`);
+    host = u.hostname;
+    protocol = u.protocol === 'http:' ? 'HTTP' : 'HTTPS';
+    port = u.port || (protocol === 'HTTP' ? '80' : '443');
+    path = u.pathname || '/';
+  } catch { /* an unparseable URL still produces a usable skeleton */ }
+
+  // Content-Type belongs on the body, and Mule sets it from the payload's mime
+  // type, so passing it through as a header as well is how you end up with two.
+  const headers = opts.headers.filter((h) => h.key.toLowerCase() !== 'content-type');
+
+  const inner: string[] = [];
+  if (opts.payload.trim()) {
+    inner.push(`  <http:body><![CDATA[#[output ${opts.payloadMimeType} --- payload]]]></http:body>`);
+  }
+  if (headers.length) {
+    inner.push('  <http:headers><![CDATA[#[{');
+    inner.push(headers.map((h) => `    "${h.key}": "${h.value.replace(/"/g, '\\"')}"`).join(',\n'));
+    inner.push('  }]]]></http:headers>');
+  }
+  if (opts.queryParams.length) {
+    inner.push('  <http:query-params><![CDATA[#[{');
+    inner.push(opts.queryParams.map((q) => `    "${q.key}": "${q.value.replace(/"/g, '\\"')}"`).join(',\n'));
+    inner.push('  }]]]></http:query-params>');
+  }
+
+  const open = `<http:request method="${escXml(opts.method)}" path="${escXml(path)}" config-ref="HTTP_Request_Config" doc:name="${escXml(opts.method)} ${escXml(path)}"`;
+  return [
+    '<!-- 1. the connection — one config, reused by every request to this host -->',
+    '<http:request-config name="HTTP_Request_Config" doc:name="HTTP Request configuration">',
+    `  <http:request-connection host="${escXml(host)}" port="${escXml(port)}" protocol="${protocol}"/>`,
+    '</http:request-config>',
+    '',
+    '<!-- 2. the call -->',
+    ...(inner.length ? [`${open}>`, ...inner, '</http:request>'] : [`${open}/>`]),
+  ].join('\n');
+}

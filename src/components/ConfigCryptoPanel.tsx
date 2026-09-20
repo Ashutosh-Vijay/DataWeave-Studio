@@ -20,7 +20,7 @@ import { SavedKeyField } from './SavedKeyField';
 import { securePropertiesConfigXml } from '../muleXmlIO';
 import { WindowControls } from './WindowControls';
 import {
-  ConfigFormat, ConfigField, detectFormat, scanConfig, convertConfig, looksLikeSecret,
+  ConfigFormat, ConfigField, detectFormat, scanConfig, convertConfig, convertFormat, looksLikeSecret,
 } from '../configCrypto';
 import {
   EncryptionSettings, DEFAULT_ENCRYPTION_SETTINGS,
@@ -292,6 +292,21 @@ export function ConfigCryptoPanel({ open: isOpen, onClose }: { open: boolean; on
           actions={
             <>
               <SmallBtn onClick={loadFile}>Load file</SmallBtn>
+              {/* Mule reads both syntaxes and projects rarely change which one
+                  they use, so converting is a chore done by hand. It rewrites
+                  the source in place — the point is to convert and then encrypt,
+                  and undo still works if it wasn't wanted. */}
+              <SmallBtn
+                onClick={() => {
+                  setSource(convertFormat(source, format));
+                  setFormatOverride(format === 'yaml' ? 'properties' : 'yaml');
+                  setResult('');
+                }}
+                disabled={!source.trim() || !fields.some((f) => !f.skip)}
+                title={`Rewrite as ${format === 'yaml' ? 'dotted properties keys' : 'nested YAML'} — comments and blank lines are not carried over`}
+              >
+                To {format === 'yaml' ? 'properties' : 'YAML'}
+              </SmallBtn>
               {!source && <SmallBtn onClick={() => setSource(SAMPLE)}>Paste a sample</SmallBtn>}
             </>
           }
@@ -504,11 +519,12 @@ function Pane({
   );
 }
 
-function SmallBtn({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
+function SmallBtn({ onClick, disabled, children, title }: { onClick: () => void; disabled?: boolean; children: React.ReactNode; title?: string }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
+      title={title}
       className="inline-flex items-center h-[21px] px-2 rounded text-[10.5px] font-medium border border-line bg-surface text-content-secondary hover:border-line-secondary cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
     >
       {children}

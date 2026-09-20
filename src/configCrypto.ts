@@ -321,3 +321,71 @@ export async function convertConfig(
 
   return { text: applyEdits(text, edits), changed: edits.length, failures };
 }
+
+/**
+ * The same config in the other syntax — YAML to Java properties, or back.
+ *
+ * Mule reads both, and which one a project uses is usually a decision someone
+ * made years ago, so moving a file between them is a real chore: nesting has to
+ * become dotted keys, or dotted keys have to become nesting, by hand, without
+ * breaking a value.
+ *
+ * This reuses the scanner the encryptor already runs, which means it inherits
+ * exactly what that understands: flat scalars. Comments and blank lines are NOT
+ * carried over — there is nowhere to put a YAML comment in a dotted key list
+ * that would survive a round trip — and neither are lists or multi-line blocks,
+ * which the scanner skips. The UI says so before the button is pressed.
+ */
+export function convertFormat(text: string, from: ConfigFormat): string {
+  const fields = scanConfig(text, from).filter((f) => !f.skip);
+
+  if (from === 'yaml') {
+    return fields.map((f) => `${f.path}=${escapeProperties(f.value)}`).join('\n') + (fields.length ? '\n' : '');
+  }
+
+  // properties -> YAML. Dotted keys rebuild the tree. Properties allows a key to
+  // be both a leaf and a branch (`api=x` next to `api.id=y`); YAML cannot hold
+  // both under one name. Those are left out of the tree and written at the end
+  // as comments — dropping one silently is how you lose a setting.
+  type Node = { children: Map<string, Node>; value?: string };
+  const root: Node = { children: new Map() };
+  const conflicts: ConfigField[] = [];
+  for (const f of fields) {
+    const parts = f.path.split('.');
+    // Walk it as a probe first, so a rejected key leaves no half-built branch.
+    let probe: Node | undefined = root;
+    let ok = true;
+    for (let i = 0; i < parts.length && probe; i++) {
+      const next: Node | undefined = probe.children.get(parts[i]);
+      if (!next) { probe = undefined; break; }
+      const last = i === parts.length - 1;
+      if (!last ? next.value !== undefined : (next.children.size > 0 || next.value !== undefined)) { ok = false; break; }
+      probe = next;
+    }
+    if (!ok) { conflicts.push(f); continue; }
+    let node = root;
+    parts.forEach((part, i) => {
+      let next = node.children.get(part);
+      if (!next) { next = { children: new Map() }; node.children.set(part, next); }
+      node = next;
+      if (i === parts.length - 1) node.value = f.value;
+    });
+  }
+
+  const out: string[] = [];
+  const walk = (node: Node, depth: number) => {
+    for (const [name, child] of node.children) {
+      const pad = '  '.repeat(depth);
+      if (child.value !== undefined) out.push(`${pad}${name}: ${yamlScalar(child.value)}`);
+      else {
+        out.push(`${pad}${name}:`);
+        walk(child, depth + 1);
+      }
+    }
+  };
+  walk(root, 0);
+  for (const f of conflicts) {
+    out.push(`# ${f.path}=${escapeProperties(f.value)}   # YAML can't hold this and ${f.path}.* under one name`);
+  }
+  return out.join('\n') + (out.length ? '\n' : '');
+}

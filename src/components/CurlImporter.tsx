@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { KeyValuePair, MimeType, MultipartPart } from '../types';
+import { httpRequestXml } from '../muleXmlIO';
 
 export interface CurlImportResult {
   method: string;
+  /** The request URL as written, query string included. Only the Mule XML
+   *  output uses it — the import path takes the query as `queryParams`. */
+  url: string;
   headers: KeyValuePair[];
   queryParams: KeyValuePair[];
   payload: string;
@@ -402,7 +406,7 @@ function parseCurl(curl: string): CurlImportResult {
       }))
     : undefined;
 
-  return { method, headers, queryParams, payload, payloadMimeType, generatedScript, multipartParts };
+  return { method, url, headers, queryParams, payload, payloadMimeType, generatedScript, multipartParts };
 }
 
 function parseFormPart(formStr: string): LocalMultipartPart {
@@ -546,6 +550,9 @@ export function CurlImporter({ onImport, open, onClose, onImportShareLink }: Cur
   const [linkText, setLinkText] = useState('');
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<CurlImportResult | null>(null);
+  // The same parsed request, shown two ways: the transform to work on, or the
+  // connector call to paste into a flow.
+  const [outputTab, setOutputTab] = useState<'dw' | 'xml'>('dw');
   const backdropRef = useRef<HTMLDivElement>(null);
   const mouseDownOnBackdrop = useRef(false);
 
@@ -875,10 +882,25 @@ export function CurlImporter({ onImport, open, onClose, onImportShareLink }: Cur
                 className="text-[10.5px] font-semibold uppercase tracking-[0.4px] mb-1.5 flex items-center gap-2"
                 style={{ color: 'var(--content-faint)' }}
               >
-                <span className="flex-1">Generated DataWeave script</span>
+                <span>Generated</span>
+                <div className="flex items-center gap-1">
+                  {([['dw', 'DataWeave'], ['xml', 'Mule XML']] as const).map(([t, label]) => (
+                    <button
+                      key={t}
+                      onClick={() => setOutputTab(t)}
+                      className="h-[21px] px-2 rounded text-[11px] font-medium normal-case tracking-normal cursor-pointer"
+                      style={outputTab === t
+                        ? { background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid var(--accent-border)' }
+                        : { background: 'transparent', color: 'var(--content-faint)', border: '1px solid var(--line)' }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <span className="flex-1" />
                 <button
                   onClick={async () => {
-                    try { await navigator.clipboard.writeText(preview.generatedScript); } catch { /* ignore */ }
+                    try { await navigator.clipboard.writeText(outputTab === 'dw' ? preview.generatedScript : httpRequestXml(preview)); } catch { /* ignore */ }
                   }}
                   className="text-[11px] font-medium normal-case tracking-normal cursor-pointer bg-transparent border-none inline-flex items-center gap-1"
                   style={{ color: 'var(--content-muted)' }}
@@ -895,7 +917,7 @@ export function CurlImporter({ onImport, open, onClose, onImportShareLink }: Cur
                   maxHeight: 200,
                 }}
               >
-                {preview.generatedScript}
+                {outputTab === 'dw' ? preview.generatedScript : httpRequestXml(preview)}
               </pre>
             </div>
           )}
