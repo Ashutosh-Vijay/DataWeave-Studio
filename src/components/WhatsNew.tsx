@@ -14,36 +14,37 @@ interface Release { version: string; date: string; headline: string; highlights:
 // extension (1.x) ship on their own version numbers and cadence — keeping them
 // separate means a release that only touches one runtime never shows stale notes
 // in the other. Each list is newest-first; the dialog/toast pick by runtime.
-const V30_HIGHLIGHTS: Highlight[] = [
-  { title: 'A real debugger', tag: 'NEW', only: 'desktop',
-    desc: 'Click the gutter beside a line number to set a breakpoint and press Debug. The script stops there and you get the call stack, every variable in scope, step over / into / out, and a box to evaluate any expression against the paused frame. It is the engine’s own debugger, running in-process — no port to open, no second process to attach.' },
-  { title: 'Every value, without a single log()', tag: 'NEW',
-    desc: 'A Trace panel under the output lists what each expression in your script evaluated to, in source order; click a row to jump to it. A map body that ran 500 times is one row with a count rather than 500 rows, and a script that fails shows everything it worked out before the throw. It replaces wrapping an expression in log() and then having to take it back out — and it is on by default.' },
-  { title: 'Tests you can actually trust', tag: 'NEW',
-    desc: 'The snapshot runner is gone. In its place are real dw::test suites — the same framework MuleSoft ships — with named assertions, the engine’s own failure messages and the line that failed. The old runner only ever answered “did the output change”, and went stale the moment a transform legitimately changed.' },
-  { title: 'Check against the Mule you actually deploy to', tag: 'NEW',
-    desc: 'Point Studio at your runtime — Mule 4.1 through 4.12 — and anything newer stops being a surprise on the server. A 2.10 function on a 4.4 runtime now fails here, in the editor, with the version that introduced it. It gates the compiler and the runtime’s own version-dependent behaviour, not just a lint, and it applies to Run, the Tests panel and the editor’s diagnostics alike.' },
-  { title: 'Encrypt a whole config, not one value at a time', tag: 'NEW',
-    desc: 'A new page takes a YAML or .properties config and encrypts every value at once, or decrypts one so you can read it. Values already written as ![…] are left alone rather than encrypted twice, comments and layout survive untouched, and every field is listed with what will happen to it before anything runs.' },
-  { title: 'The editor caught up with the engine',
-    desc: 'Diagnostics now come with fixes you can apply, colouring comes from the parsed syntax tree instead of text patterns, and hovers render the real documentation — they had been showing raw AsciiDoc markup. Studio can generate a doc comment from a function’s signature, generate realistic sample data from a declared type, and it warns when a script hashes with MD5 or leaves a log() behind.' },
-  { title: 'DataWeave 2.12, and 52 functions nobody documented',
-    desc: 'The bundled engine moves to 2.12 and the reference was regenerated against it. Beyond that, the reference now covers the modules MuleSoft’s own docs leave out entirely — all 25 dw::test::Asserts matchers, the file module, protobuf — read from the doc comments inside the engine itself. 309 functions to 361.' },
-  { title: 'Your AI assistant can test and lint, not just run', tag: 'NEW',
-    desc: 'The MCP server grew from six tools to nine. An agent can now run a dw::test suite and get back which assertions passed, type-check a script without running it at all — useful when there is no sample payload to run against — and ask for every expression’s value when a transform compiles but the output is wrong. Encrypting a config over MCP is one call for the whole file rather than one per secret. Its offline reference had also been stuck at 309 functions and 83 recipes since June; it now serves the same 361 and 172 the app does.' },
-  { title: 'Less in the way',
-    desc: 'Run follows the pane you are in, so pressing it with the Tests panel open runs the suite instead of silently running the script. Debug is a toggle rather than a start button with a stop hidden elsewhere. The target runtime moved to the status bar and auto-run and trace moved into a caret beside Run, which took five controls out of the top bar. And the engine now says why it failed to start instead of sitting at 85%.' },
+const V31_HIGHLIGHTS: Highlight[] = [
+  { title: 'Name your encryption key once', tag: 'NEW',
+    desc: 'Encrypting a value meant pasting the same key in every single time, and picking the right one out of your head — uat or prod. Save them instead, under names you choose, and pick one from a row of chips. The key itself goes into the operating system’s own keychain (Credential Manager on Windows, Keychain on macOS, the secret service on Linux) — never into a workspace file, never into a share link. Rename one, rotate the value behind a name, or forget it entirely.' },
+  { title: 'A whole config encrypts in the time one value used to', tag: 'NEW',
+    desc: 'Secure properties used to start a fresh JVM per value — a quarter of a second each, so a thirty-field config took the better part of eight seconds. The same work now happens inside the engine already running: 3ms a value, and that config finishes in under a tenth of a second. It also fixed a silent corruption on Windows, where non-English characters were being encrypted as “?” because the key and value travelled as command-line arguments.' },
+  { title: 'An encrypted config is inert until Mule is told about it',
+    desc: 'The file on its own does nothing — the runtime needs to know which file, which cipher, and where the key comes from. After an encrypt, a Mule config button writes that snippet out: the pom dependency, the namespace, the secure-properties config with your algorithm and mode already filled in, and the deploy-time flag that supplies the key. The key stays a placeholder, so it is safe to commit.' },
+  { title: 'Replay a request that only exists in a log', tag: 'NEW',
+    desc: 'Mule’s wire logger prints the whole outbound request when DEBUG is on for HttpMessageLogger — the only trace of what actually left an environment you cannot attach to, and unusable, because you retype it into cURL by hand. Paste the log instead: every request in it comes back as a cURL command, and Import hands one to the cURL importer, which turns it into a payload, a context and a starting transform. Log to a script under test, nothing retyped.' },
+  { title: 'Two conversions that were a copy-paste away',
+    desc: 'A pasted cURL can now leave as the Mule elements that perform it — an http:request-config for the host and an http:request carrying headers, query params and body — as a tab beside the generated script. And config encryption grew a To properties / To YAML button, because Mule reads both and which one a project uses was decided years ago by somebody else.' },
+  { title: 'The Side Bar does the work now, instead of opening the app', tag: 'NEW', only: 'vscode',
+    desc: 'It held one button that opened the panel. It now has three views that answer things without leaving the editor: your saved workspaces, with a click to open one; a search across all 361 DataWeave functions, with Insert and Copy on any signature; and secure properties, encrypting or decrypting a value on the spot with your saved keys.' },
+  { title: 'The engine writes the test', tag: 'NEW',
+    desc: 'Put the cursor on a fun declaration and press Ctrl+. — the engine generates a dw::test suite for that function, with its cases laid out and the function carried in, as a new Tests entry ready to run. Doc comments are checked as you type, too, in the same pass as the type checker.' },
+  { title: 'Your AI assistant can ask what a lambda parameter actually is', tag: 'NEW',
+    desc: 'A tenth MCP tool. Inside items map ((item, i) -> …), writing the body means knowing what item is — and the engine knows: { price: Number, name: String }, inferred from your sample payload. Until now the only way to find out was to run the thing and read the error. It answers at any line and column, which is what run and lint already report.' },
+  { title: 'The app knows what day it is', tag: 'NEW',
+    desc: 'On Diwali, Holi, Halloween, Christmas and New Year the startup screen dresses up — lamps, gulal, a burning scarecrow, a tree that draws itself on, a snowman — and the bars and empty panels get a little of it too. Never over an editor, never over a line of text. Keeping the colours for the whole app is a question asked once per festival, and Settings → Appearance turns the lot off. Vampire is in there as well, for any day you like.' },
+  { title: 'Fixes',
+    desc: 'A workspace saved with a partial request context took the whole app down on open. Every backend error in the crypto tools rendered as an empty red box, because Tauri rejects with a plain string and the code read .message off it. Two refactor entries in the lightbulb menu did nothing at all — the engine declines every selection — so they are gone.' },
 ];
 
 const DESKTOP_RELEASES: Release[] = [
-  { version: '3.0.0', date: 'September 2026', headline: 'Stop guessing what your script did', highlights: V30_HIGHLIGHTS },
+  { version: '3.1.0', date: 'September 2026', headline: 'Stop retyping the key', highlights: V31_HIGHLIGHTS },
 ];
 
 const VSCODE_RELEASES: Release[] = [
-  { version: '3.0.0', date: 'September 2026', headline: 'Stop guessing what your script did', highlights: V30_HIGHLIGHTS },
+  { version: '3.1.0', date: 'September 2026', headline: 'Stop retyping the key', highlights: V31_HIGHLIGHTS },
 ];
 
-// The running build picks its own track.
 const RELEASES: Release[] = isTauri ? DESKTOP_RELEASES : VSCODE_RELEASES;
 
 export function getRelease(version: string): Release | null {
