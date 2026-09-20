@@ -124,7 +124,9 @@ export function SeasonalEffects({
               kind,
               x: wide ? w * (i === 0 ? 0.12 : 0.88) : w * 0.5,
               y: h - 4,
-              px: 0, py: 0, vx: 0, vy: 0, life: 1, decay: 0,
+              // `life` is the reveal clock for a figure, not a lifetime: the
+              // tree draws itself on from 0 to 1 and then stays.
+              px: 0, py: 0, vx: 0, vy: 0, life: 0, decay: 0,
               size: size * (count === 1 ? 1 : 0.82),
               hue: 145,
               phase: Math.random() * Math.PI * 2,
@@ -571,44 +573,84 @@ export function SeasonalEffects({
           // A conifer is tiers of jagged skirt, each wider than the last, and a
           // trunk. Plain triangles are what make a cheap Christmas tree; the
           // notched hem is the whole difference.
+          //
+          // It draws itself on: a light climbs the silhouette and the tree
+          // appears behind it, then the star lands with an elastic overshoot.
+          // (The idea is the one in Chris Gannon's Christmas pen, which does it
+          // with GSAP's DrawSVG masking a stroked outline. Here the reveal is a
+          // clip rectangle following the same light — no 70KB of animation
+          // library on a splash, and our tree still re-tints per theme.)
           const s = p.size;
           const base = p.y;
+          const TIERS = [
+            { top: 0.92, bot: 0.52, half: 0.13 },
+            { top: 0.66, bot: 0.26, half: 0.23 },
+            { top: 0.40, bot: 0.0, half: 0.33 },
+          ];
+          const APEX = 0.98;
+
+          if (p.life < 1) p.life = Math.min(1, p.life + dt / 1.8);
+          const grow = 1 - Math.pow(1 - p.life, 3);
+          const line = APEX * grow;
+          const drawing = p.life < 1;
+
+          // Half-width of the silhouette at a height, so the light can hug the
+          // edge instead of running up an invisible centre line.
+          const halfAt = (fy: number) => {
+            let hw = 0;
+            for (const t of TIERS) {
+              if (fy >= t.bot && fy <= t.top) {
+                hw = Math.max(hw, t.half * (1 - (fy - t.bot) / (t.top - t.bot)));
+              }
+            }
+            return hw;
+          };
+
           ctx.globalCompositeOperation = 'source-over';
           ctx.globalAlpha = 1;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(p.x - s * 0.5, base - s * line, s, s * line + s * 0.2);
+          ctx.clip();
 
           ctx.fillStyle = light ? 'oklch(42% 0.07 50)' : 'oklch(36% 0.06 50)';
           ctx.fillRect(p.x - s * 0.055, base - s * 0.1, s * 0.11, s * 0.12);
 
           const needle = light ? 'oklch(46% 0.12 148)' : 'oklch(52% 0.13 150)';
           const needleDark = light ? 'oklch(38% 0.11 150)' : 'oklch(42% 0.12 152)';
-          for (let tier = 0; tier < 3; tier++) {
-            const topY = base - s * (0.92 - tier * 0.26);
-            const botY = base - s * (0.52 - tier * 0.26);
-            const halfW = s * (0.13 + tier * 0.1);
-            ctx.fillStyle = tier % 2 ? needleDark : needle;
+          TIERS.forEach((tier, i) => {
+            const topY = base - s * tier.top;
+            const botY = base - s * tier.bot;
+            const halfW = s * tier.half;
+            ctx.fillStyle = i % 2 ? needleDark : needle;
             ctx.beginPath();
             ctx.moveTo(p.x, topY);
             ctx.lineTo(p.x + halfW, botY);
-            const notches = 4 + tier;
+            const notches = 4 + i;
             for (let n = notches; n >= 0; n--) {
               const t = n / notches;
               ctx.lineTo(p.x - halfW + 2 * halfW * t, botY + (n % 2 ? s * 0.035 : 0));
             }
             ctx.closePath();
             ctx.fill();
-          }
+          });
+          ctx.restore();
 
-          // Baubles, hung on the tiers and lit in turn rather than all at once.
+          // Baubles, hung on the tiers, each lighting as the reveal passes it
+          // and then twinkling in its own time.
           const hangs: [number, number, number][] = [
             [-0.09, 0.62, 0], [0.11, 0.58, 1.9], [-0.17, 0.4, 3.3],
             [0.19, 0.36, 0.8], [-0.05, 0.22, 2.6], [0.08, 0.18, 4.4],
             [-0.24, 0.12, 1.2], [0.25, 0.1, 3.9],
           ];
           for (const [dx, dy, off] of hangs) {
+            if (dy > line) continue;
+            const arrived = Math.min(1, (line - dy) * 9);
             const bx = p.x + s * dx;
             const by = base - s * dy;
             const hue = [20, 45, 200, 330][Math.floor((off * 7) % 4)];
-            const on = 0.45 + 0.55 * Math.pow(Math.max(0, Math.sin(clock * 1.6 + off)), 2);
+            const on = (0.45 + 0.55 * Math.pow(Math.max(0, Math.sin(clock * 1.6 + off)), 2)) * arrived;
             ctx.globalCompositeOperation = glowOp;
             const g = ctx.createRadialGradient(bx, by, 0, bx, by, s * 0.13);
             g.addColorStop(0, `oklch(82% 0.19 ${hue} / ${0.5 * on * (light ? 0.6 : 1)})`);
@@ -618,7 +660,7 @@ export function SeasonalEffects({
             ctx.arc(bx, by, s * 0.13, 0, Math.PI * 2);
             ctx.fill();
             ctx.globalCompositeOperation = 'source-over';
-            ctx.globalAlpha = 0.65 + on * 0.35;
+            ctx.globalAlpha = (0.65 + on * 0.35) * arrived;
             ctx.fillStyle = `oklch(${light ? 62 : 72}% 0.19 ${hue})`;
             ctx.beginPath();
             ctx.arc(bx, by, s * 0.028, 0, Math.PI * 2);
@@ -626,29 +668,72 @@ export function SeasonalEffects({
             ctx.globalAlpha = 1;
           }
 
-          // The star, turning slowly — a still one reads as a rendering bug.
-          const starY = base - s * 0.98;
-          const spin = clock * 0.5 + p.phase;
-          ctx.globalCompositeOperation = glowOp;
-          const sg = ctx.createRadialGradient(p.x, starY, 0, p.x, starY, s * 0.2);
-          sg.addColorStop(0, `oklch(90% 0.16 90 / ${light ? 0.45 : 0.7})`);
-          sg.addColorStop(1, 'oklch(90% 0.16 90 / 0)');
-          ctx.fillStyle = sg;
-          ctx.beginPath();
-          ctx.arc(p.x, starY, s * 0.2, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalCompositeOperation = 'source-over';
-          ctx.fillStyle = light ? 'oklch(72% 0.16 88)' : 'oklch(88% 0.15 90)';
-          ctx.beginPath();
-          for (let i = 0; i < 10; i++) {
-            const r = i % 2 ? s * 0.035 : s * 0.085;
-            const a = spin + (Math.PI * i) / 5 - Math.PI / 2;
-            const fx = p.x + Math.cos(a) * r;
-            const fy = starY + Math.sin(a) * r;
-            if (i) ctx.lineTo(fx, fy); else ctx.moveTo(fx, fy);
+          // The light doing the drawing, and the sparks coming off it.
+          if (drawing) {
+            const lx = p.x - halfAt(line) * s;
+            const ly = base - s * line;
+            const fade = Math.min(1, (1 - p.life) * 8);
+            ctx.globalCompositeOperation = glowOp;
+            const lg = ctx.createRadialGradient(lx, ly, 0, lx, ly, s * 0.22);
+            lg.addColorStop(0, `oklch(95% 0.1 95 / ${0.9 * fade * (light ? 0.7 : 1)})`);
+            lg.addColorStop(1, 'oklch(95% 0.1 95 / 0)');
+            ctx.fillStyle = lg;
+            ctx.beginPath();
+            ctx.arc(lx, ly, s * 0.22, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = fade;
+            ctx.fillStyle = light ? 'oklch(72% 0.16 88)' : 'oklch(96% 0.08 95)';
+            ctx.beginPath();
+            ctx.arc(lx, ly, s * 0.022, 0, Math.PI * 2);
+            ctx.fill();
+            // Four sparks thrown off, on their own little clocks.
+            for (let i = 0; i < 4; i++) {
+              const st = ((clock * 1.7 + i * 0.25) % 1);
+              const ang = i * 1.9 + clock * 3;
+              const d = st * s * 0.16;
+              ctx.globalAlpha = (1 - st) * 0.8 * fade;
+              ctx.beginPath();
+              ctx.arc(lx + Math.cos(ang) * d, ly + Math.sin(ang) * d, s * 0.01, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.globalAlpha = 1;
           }
-          ctx.closePath();
-          ctx.fill();
+
+          // The star arrives last, overshooting and settling — easeOutElastic,
+          // which is what makes it land rather than simply appear.
+          const st = Math.max(0, Math.min(1, (p.life - 0.82) / 0.18));
+          if (st > 0) {
+            const pop = st >= 1
+              ? 1
+              : Math.pow(2, -10 * st) * Math.sin((st * 10 - 0.75) * (Math.PI * 2 / 3)) + 1;
+            const starY = base - s * APEX;
+            const spin = clock * 0.5 + p.phase;
+            ctx.save();
+            ctx.translate(p.x, starY);
+            ctx.scale(pop, pop);
+            ctx.globalCompositeOperation = glowOp;
+            const sg = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.2);
+            sg.addColorStop(0, `oklch(90% 0.16 90 / ${light ? 0.45 : 0.7})`);
+            sg.addColorStop(1, 'oklch(90% 0.16 90 / 0)');
+            ctx.fillStyle = sg;
+            ctx.beginPath();
+            ctx.arc(0, 0, s * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = light ? 'oklch(72% 0.16 88)' : 'oklch(88% 0.15 90)';
+            ctx.beginPath();
+            for (let i = 0; i < 10; i++) {
+              const r = i % 2 ? s * 0.035 : s * 0.085;
+              const a = spin + (Math.PI * i) / 5 - Math.PI / 2;
+              const fx = Math.cos(a) * r;
+              const fy = Math.sin(a) * r;
+              if (i) ctx.lineTo(fx, fy); else ctx.moveTo(fx, fy);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+          }
           continue;
         }
 
