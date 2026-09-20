@@ -56,6 +56,7 @@ const FeedbackDialog = lazy(() => import('./components/FeedbackDialog').then((m)
 const SecurePropertiesTool = lazy(() => import('./components/SecurePropertiesTool').then((m) => ({ default: m.SecurePropertiesTool })));
 const ConfigCryptoPanel = lazy(() => import('./components/ConfigCryptoPanel').then((m) => ({ default: m.ConfigCryptoPanel })));
 const CompareTool = lazy(() => import('./components/CompareTool').then((m) => ({ default: m.CompareTool })));
+const MuleLogTool = lazy(() => import('./components/MuleLogTool').then((m) => ({ default: m.MuleLogTool })));
 const WelcomeTour = lazy(() => import('./components/WelcomeTour').then((m) => ({ default: m.WelcomeTour })));
 const ShortcutsDialog = lazy(() => import('./components/ShortcutsDialog').then((m) => ({ default: m.ShortcutsDialog })));
 const SettingsScreen = lazy(() => import('./components/SettingsScreen').then((m) => ({ default: m.SettingsScreen })));
@@ -263,6 +264,7 @@ function App() {
   const [secureToolOpen, setSecureToolOpen] = useState(false);
   const [configCryptoOpen, setConfigCryptoOpen] = useState(false);
   const [compareToolOpen, setCompareToolOpen] = useState(false);
+  const [muleLogOpen, setMuleLogOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -1358,23 +1360,28 @@ function App() {
       group: 'Node label',
       run: () => workspace.setNodeLabel(l),
     })),
-    { id: 'reference', label: 'Open DataWeave function reference', group: 'Tools', run: () => setReferenceOpen(true) },
-    { id: 'recipes', label: 'Open DataWeave cookbook', group: 'Tools', run: () => setRecipesOpen(true) },
+    // Grouped rather than one long "Tools" list: at eighteen entries the single
+    // list was longer than the palette's visible area, so the last third only
+    // existed if you already knew to search for it. Headings render in the order
+    // they first appear here.
+    { id: 'reference', label: 'Open DataWeave function reference', group: 'Writing', run: () => setReferenceOpen(true) },
+    { id: 'recipes', label: 'Open DataWeave cookbook', group: 'Writing', run: () => setRecipesOpen(true) },
+    { id: 'snippets', label: 'Open snippets library', shortcut: '⌘L', group: 'Writing', run: handleOpenSnippets },
+    { id: 'modules', label: 'Open Module library', group: 'Writing', run: () => setModulesOpen(true) },
+    { id: 'import-curl', label: 'Import cURL', shortcut: '⌘⇧I', group: 'Bring data in', run: handleOpenImport },
+    { id: 'mule-log', label: 'Mule log → cURL', hint: 'Replay a request that only exists in a log', group: 'Bring data in', run: () => setMuleLogOpen(true) },
+    { id: 'openapi', label: 'Open OpenAPI / Swagger reader', group: 'Bring data in', run: () => { introFeature('openapi'); setOpenApiOpen(true); } },
+    { id: 'secure', label: 'Open Secure Properties tool', shortcut: '⌘⇧E', group: 'Secrets', run: () => setSecureToolOpen(true) },
+    { id: 'config-crypto', label: 'Encrypt or decrypt a config file', group: 'Secrets', run: () => setConfigCryptoOpen(true) },
     { id: 'flow', label: 'Open Message Flow designer', group: 'Tools', run: () => setFlowDesignerOpen(true) },
-    { id: 'java', label: 'Open Java tester', group: 'Tools', run: () => setJavaTesterOpen(true) },
-    { id: 'modules', label: 'Open Module library', group: 'Tools', run: () => setModulesOpen(true) },
-    { id: 'config-crypto', label: 'Encrypt or decrypt a config file', group: 'Tools', run: () => setConfigCryptoOpen(true) },
-    { id: 'mcp', label: 'Open Local Server', hint: 'MCP for AI agents · HTTP for scripts', group: 'Tools', run: () => setMcpOpen(true) },
-    { id: 'secure', label: 'Open Secure Properties tool', shortcut: '⌘⇧E', group: 'Tools', run: () => setSecureToolOpen(true) },
     { id: 'compare', label: 'Open Compare tool', group: 'Tools', run: () => setCompareToolOpen(true) },
-    { id: 'import-curl', label: 'Import cURL', shortcut: '⌘⇧I', group: 'Tools', run: handleOpenImport },
-    { id: 'openapi', label: 'Open OpenAPI / Swagger reader', group: 'Tools', run: () => { introFeature('openapi'); setOpenApiOpen(true); } },
-    { id: 'snippets', label: 'Open snippets library', shortcut: '⌘L', group: 'Tools', run: handleOpenSnippets },
-    { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: '⌘/', group: 'Tools', run: () => setShortcutsOpen(true) },
-    { id: 'settings', label: 'Open Settings', shortcut: '⌘,', group: 'Tools', run: () => setSettingsOpen(true) },
-    { id: 'about', label: 'About DataWeave Studio', group: 'Tools', run: () => setAboutOpen(true) },
-    { id: 'feedback', label: 'Send feedback / report a bug', group: 'Tools', run: () => setFeedbackOpen(true) },
-    { id: 'tour', label: 'Show guided tour', group: 'Tools', run: () => {
+    { id: 'java', label: 'Open Java tester', group: 'Tools', run: () => setJavaTesterOpen(true) },
+    { id: 'mcp', label: 'Open Local Server', hint: 'MCP for AI agents · HTTP for scripts', group: 'Tools', run: () => setMcpOpen(true) },
+    { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: '⌘/', group: 'App', run: () => setShortcutsOpen(true) },
+    { id: 'settings', label: 'Open Settings', shortcut: '⌘,', group: 'App', run: () => setSettingsOpen(true) },
+    { id: 'about', label: 'About DataWeave Studio', group: 'App', run: () => setAboutOpen(true) },
+    { id: 'feedback', label: 'Send feedback / report a bug', group: 'App', run: () => setFeedbackOpen(true) },
+    { id: 'tour', label: 'Show guided tour', group: 'App', run: () => {
       beginTransforming();
       setLayout('workbench');
       setSidebarCollapsed(false);
@@ -1509,6 +1516,7 @@ function App() {
                     ['Secure Properties tool', () => setSecureToolOpen(true)],
                     ['Config encryption', () => setConfigCryptoOpen(true)],
                     ['Compare tool', () => setCompareToolOpen(true)],
+                    ['Mule log → cURL', () => setMuleLogOpen(true)],
                     ['Import cURL', handleOpenImport],
                     ['OpenAPI / Swagger reader', () => { introFeature('openapi'); setOpenApiOpen(true); }],
                     ['Snippets', handleOpenSnippets],
@@ -2103,6 +2111,19 @@ function App() {
       {compareToolOpen && (
         <Suspense fallback={null}>
           <CompareTool open={compareToolOpen} onClose={() => setCompareToolOpen(false)} />
+        </Suspense>
+      )}
+
+      {/* Mule log → cURL — replay a request that only exists in a log. */}
+      {muleLogOpen && (
+        <Suspense fallback={null}>
+          {/* beginTransforming here rather than on open: looking at a log
+              shouldn't dismiss the welcome screen, importing one should. */}
+          <MuleLogTool
+            open={muleLogOpen}
+            onClose={() => setMuleLogOpen(false)}
+            onImport={(r) => { beginTransforming(); handleCurlImport(r); }}
+          />
         </Suspense>
       )}
 

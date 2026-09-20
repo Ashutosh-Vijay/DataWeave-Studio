@@ -285,7 +285,7 @@ function singularize(word: string): string {
 // Curl parser
 // ========================================================
 
-function parseCurl(curl: string): CurlImportResult {
+export function parseCurl(curl: string): CurlImportResult {
   let method = 'GET';
   let explicitMethod = false;
   const headers: KeyValuePair[] = [];
