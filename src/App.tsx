@@ -69,6 +69,9 @@ import {
 import { FeatureIntroHost } from './components/FeatureIntroHost';
 import { introFeature } from './featureIntros';
 import { SplashScreen } from './components/SplashScreen';
+import { SeasonalEffects } from './components/SeasonalEffects';
+import { Season, activeSeason, offerAnswered, recordOfferAnswer, setPinnedSeason } from './seasons';
+import { applyAccentVars } from './accents';
 import { EngineDownScreen } from './components/EngineDownScreen';
 import { CommandPalette, Command } from './components/CommandPalette';
 import { CompactLayout } from './components/CompactLayout';
@@ -188,6 +191,7 @@ function StatusBar({
   workspaceFile,
   targetLabel,
   onOpenSettings,
+  season,
 }: {
   isReady: boolean;
   appVersion: string;
@@ -197,11 +201,15 @@ function StatusBar({
    *  engine's own version. */
   targetLabel?: string;
   onOpenSettings: () => void;
+  season: Season | null;
 }) {
   return (
     <div
-      className="h-[26px] shrink-0 flex items-center gap-3.5 px-3.5 bg-rail border-t border-line text-[11px] text-content-faint font-mono"
+      className="h-[26px] shrink-0 flex items-center gap-3.5 px-3.5 bg-rail border-t border-line text-[11px] text-content-faint font-mono relative"
     >
+      {/* Chrome only — the status bar, the header and empty panels. A festival
+          never draws over an editor. */}
+      {season && <SeasonalEffects variant={season.effect} />}
       <span
         className="inline-flex items-center gap-1.5"
         style={{ color: isReady ? 'var(--accent)' : 'var(--warn)' }}
@@ -240,7 +248,7 @@ function App() {
   // Run button can drive it. Pressing the big green Run while looking at the
   // Tests panel used to run the script instead, with no visible effect.
   const tests = useTestRunner();
-  const { toggle, isDark } = useTheme();
+  const { toggle, isDark, setPref } = useTheme();
   const [outputFormat, setOutputFormat] = useState<'json' | 'xml' | 'raw'>('json');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   // Auto-run persists across sessions (Run's caret menu / ⌘⇧R toggle it). On by
@@ -961,6 +969,44 @@ function App() {
     return () => window.removeEventListener('message', onMsg);
   }, [guardedLoad]);
 
+  // What the calendar says the app is wearing. Settings can switch it off or
+  // pin one, so it is state rather than a read at render.
+  const [season, setSeason] = useState<Season | null>(() => activeSeason());
+  useEffect(() => {
+    const refresh = () => setSeason(activeSeason());
+    window.addEventListener('dw:seasonal-changed', refresh);
+    return () => window.removeEventListener('dw:seasonal-changed', refresh);
+  }, []);
+
+  // The offer. The splash wears the festival for two seconds without asking;
+  // keeping it for the whole app is a question, asked once per festival per
+  // year — marked answered as soon as it is asked, so ignoring it is an answer
+  // and nobody gets nagged on every launch of Diwali week.
+  useEffect(() => {
+    if (!season || !runner.isWarmedUp || offerAnswered(season)) return;
+    const t = setTimeout(() => {
+      recordOfferAnswer(season, 'declined');
+      toast({
+        title: `${season.name} theme`,
+        message: 'The splash is wearing it. Want the app to as well?',
+        variant: 'info',
+        persist: true,
+        action: {
+          label: 'Keep it',
+          onClick: () => {
+            setPinnedSeason(season.id);
+            if (season.prefer) setPref(season.prefer);
+            applyAccentVars(season.accent, season.prefer ? season.prefer === 'dark' : isDark);
+            window.dispatchEvent(new CustomEvent('dw:accent-changed'));
+            recordOfferAnswer(season, 'kept');
+            toast({ title: `${season.name} it is`, message: 'Turn it off any time in Settings → Appearance.', variant: 'success' });
+          },
+        },
+      });
+    }, 1800);
+    return () => clearTimeout(t);
+  }, [season, runner.isWarmedUp, isDark, setPref]);
+
   // Ctrl+. on a `fun` declaration → the engine writes a dw::test suite for it,
   // which arrives here as a new Tests entry. Not an edit to the script being
   // written, so it can't travel as a Monaco edit like the other code actions.
@@ -1392,7 +1438,8 @@ function App() {
   return (
     <div className="h-screen w-screen bg-bg text-content flex flex-col font-sans select-none">
       {/* Top bar — brand, breadcrumb, ⌘K search, run cluster */}
-      <header data-tour="header" data-tauri-drag-region className="h-11 flex items-center gap-3 px-3 bg-surface border-b border-line shrink-0">
+      <header data-tour="header" data-tauri-drag-region className="h-11 flex items-center gap-3 px-3 bg-surface border-b border-line shrink-0 relative">
+        {season && <SeasonalEffects variant={season.effect} />}
         {/* Brand mark — also the About entry; subtle dot when an update is available */}
         <div className="flex items-center justify-center w-11 shrink-0">
           <button
@@ -2071,6 +2118,7 @@ function App() {
 
       {/* Status bar */}
       <StatusBar
+        season={season}
         isReady={runner.isWarmedUp}
         appVersion={appVersion}
         dwVersion={runner.engineVersion}

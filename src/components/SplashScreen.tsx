@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { pickRandomLoader } from './Loaders';
+import { SeasonalEffects } from './SeasonalEffects';
+import { activeSeason } from '../seasons';
+import { applyAccentVars } from '../accents';
 
 interface SplashScreenProps {
   isReady: boolean;
@@ -36,11 +39,31 @@ export function SplashScreen({ isReady, hasError }: SplashScreenProps) {
 
   // Pick one of three loaders, stable for this mount
   const Loader = useMemo(() => pickRandomLoader(), []);
+
+  // A festival dresses the splash, and only the splash. The accent is written
+  // straight onto <html> here so the loader, the progress bar and the glow all
+  // pick it up — then put back when the splash lifts, because nobody asked for
+  // their editor to change colour. Keeping it is a separate question, asked
+  // once, by the offer in App.
+  const season = useMemo(() => activeSeason(), []);
+  useEffect(() => {
+    if (!season || hidden) return;
+    const root = document.documentElement;
+    const before = ['--accent', '--accent-hover', '--accent-dim', '--accent-border']
+      .map((k) => [k, root.style.getPropertyValue(k)] as const);
+    applyAccentVars(season.accent, !root.classList.contains('light'));
+    return () => {
+      for (const [k, v] of before) {
+        if (v) root.style.setProperty(k, v);
+        else root.style.removeProperty(k);
+      }
+    };
+  }, [season, hidden]);
   // Resolve theme colors once so the SVG loaders render with the app's palette
   const colors = useMemo(() => ({
-    accent: readCssVar('--accent', '#10b981'),
+    accent: season ? `oklch(72% ${season.accent.chroma} ${season.accent.hue})` : readCssVar('--accent', '#10b981'),
     fg: readCssVar('--content', '#f3efe6'),
-  }), []);
+  }), [season]);
 
   useEffect(() => {
     if (hidden) return;
@@ -102,6 +125,9 @@ export function SplashScreen({ isReady, hasError }: SplashScreenProps) {
         }}
       />
 
+      {/* The festival, behind everything and over nothing. */}
+      {season && <SeasonalEffects variant={season.effect} intensity="full" />}
+
       {/* Loader centerpiece */}
       <div className="relative" style={{ width: 280, height: 280 }}>
         <Loader accent={colors.accent} fg={colors.fg} size={280} />
@@ -111,7 +137,9 @@ export function SplashScreen({ isReady, hasError }: SplashScreenProps) {
       <h1 className="text-2xl font-bold text-content tracking-tight mt-8 mb-1 relative">
         DataWeave Studio
       </h1>
-      <p className="text-sm text-content-faint mb-10 relative">Desktop Edition</p>
+      <p className="text-sm text-content-faint mb-10 relative">
+        {season ? season.greeting : 'Desktop Edition'}
+      </p>
 
       {/* Progress bar */}
       <div className="w-72 relative mb-4">

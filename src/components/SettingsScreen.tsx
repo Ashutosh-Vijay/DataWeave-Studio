@@ -10,6 +10,12 @@ import { notifyEditorFontChanged } from '../hooks/useEditorFont';
 import { useTheme } from '../ThemeContext';
 import { MiniPreview } from './MiniPreview';
 import { resetFeatureIntros } from '../featureIntros';
+import { ACCENTS, applyAccentVars } from '../accents';
+import {
+  SEASONS, currentSeason, pinnedSeason, setPinnedSeason,
+  seasonalEnabled, setSeasonalEnabled,
+} from '../seasons';
+import { SeasonalEffects } from './SeasonalEffects';
 import { toast } from './Toast';
 
 type Section = 'appearance' | 'general' | 'runtime' | 'editor' | 'shortcuts' | 'advanced' | 'about';
@@ -50,13 +56,6 @@ const SECTIONS: { id: Section; label: string; icon: keyof typeof Icons; keywords
   { id: 'about',      label: 'About',      icon: 'Help', keywords: ['version', 'build', 'credits'] },
 ];
 
-const ACCENT_SWATCHES: { id: string; hue: number; chroma: number; name: string }[] = [
-  { id: 'emerald', hue: 158, chroma: 0.15, name: 'Emerald' },
-  { id: 'sky',     hue: 220, chroma: 0.13, name: 'Sky' },
-  { id: 'violet',  hue: 290, chroma: 0.14, name: 'Violet' },
-  { id: 'amber',   hue: 80,  chroma: 0.14, name: 'Amber' },
-  { id: 'rose',    hue: 20,  chroma: 0.18, name: 'Rose' },
-];
 
 export function SettingsScreen(props: SettingsScreenProps) {
   const { open: isOpen, onClose, appVersion, layout, onLayoutChange,
@@ -306,18 +305,19 @@ function AppearancePanel({
   const [showLineNums, setShowLineNums] = useState<boolean>(() => {
     try { return localStorage.getItem('dw.lineNumbers') !== '0'; } catch { return true; }
   });
+  const [seasonal, setSeasonal] = useState(seasonalEnabled);
+  const [pinned, setPinned] = useState(() => pinnedSeason()?.id ?? '');
+  const today = useMemo(() => currentSeason(), []);
 
   const applyAccent = (id: string) => {
     setAccent(id);
-    const sw = ACCENT_SWATCHES.find(s => s.id === id);
+    const sw = ACCENTS.find(a => a.id === id);
     if (!sw) return;
-    const root = document.documentElement;
-    const lightness = isDark ? 72 : 55;
-    const hoverL = isDark ? 78 : 50;
-    root.style.setProperty('--accent', `oklch(${lightness}% ${sw.chroma} ${sw.hue})`);
-    root.style.setProperty('--accent-hover', `oklch(${hoverL}% ${sw.chroma} ${sw.hue})`);
-    root.style.setProperty('--accent-dim', `oklch(${lightness}% ${sw.chroma} ${sw.hue} / 0.14)`);
-    root.style.setProperty('--accent-border', `oklch(${lightness}% ${sw.chroma} ${sw.hue} / 0.32)`);
+    applyAccentVars(sw, isDark);
+    // Picking a colour by hand outranks a seasonal theme accepted once, so the
+    // pin comes off rather than silently coming back on the next launch.
+    setPinnedSeason(null);
+    setPinned('');
     try { localStorage.setItem('dw.accent', id); } catch { /* ignore */ }
     // Notify Monaco editors to re-bake their themes — the cursor, selection,
     // and suggest-widget highlight color all live inside Monaco's cached
@@ -412,9 +412,14 @@ function AppearancePanel({
       </Group>
 
       {!matchVsCode && (
-      <Group title="Accent color">
+      <Group
+        title="Accent color"
+        desc={pinned
+          ? `The ${SEASONS[pinned].name} theme is using its own colour — pick one here to go back to it.`
+          : undefined}
+      >
         <div className="flex gap-2.5">
-          {ACCENT_SWATCHES.map((s) => {
+          {ACCENTS.map((s) => {
             const active = accent === s.id;
             const lightness = isDark ? 72 : 55;
             const swatchColor = `oklch(${lightness}% ${s.chroma} ${s.hue})`;
@@ -438,6 +443,82 @@ function AppearancePanel({
             );
           })}
         </div>
+      </Group>
+      )}
+
+      {!matchVsCode && (
+      <Group
+        title="Seasonal themes"
+        desc="On a festival the splash dresses up, and the bars get a little life. Never the editor."
+      >
+        <SRow
+          label="Let the calendar decorate"
+          desc={today
+            ? `Today counts as ${today.name}.`
+            : 'Diwali, Holi, Halloween, Christmas and New Year. Nothing today.'}
+        >
+          <Toggle
+            on={seasonal}
+            onChange={(v) => {
+              setSeasonal(v);
+              setSeasonalEnabled(v);
+              window.dispatchEvent(new CustomEvent('dw:seasonal-changed'));
+            }}
+          />
+        </SRow>
+
+        {/* Wearing one on purpose, festival or not — which is how Vampire (the
+            one that isn't a date at all) is meant to be used. */}
+        <div className="flex flex-wrap gap-2 mt-1">
+          {(['', ...Object.keys(SEASONS)]).map((id) => {
+            const season = id ? SEASONS[id] : null;
+            const active = pinned === id;
+            const swatch = season
+              ? `oklch(${isDark ? 72 : 55}% ${season.accent.chroma} ${season.accent.hue})`
+              : 'var(--content-faint)';
+            return (
+              <button
+                key={id || 'none'}
+                disabled={!seasonal}
+                onClick={() => {
+                  setPinned(id);
+                  setPinnedSeason(id || null);
+                  if (season) {
+                    applyAccentVars(season.accent, isDark);
+                  } else {
+                    const sw = ACCENTS.find((a) => a.id === accent);
+                    if (sw) applyAccentVars(sw, isDark);
+                  }
+                  window.dispatchEvent(new CustomEvent('dw:accent-changed'));
+                  window.dispatchEvent(new CustomEvent('dw:seasonal-changed'));
+                }}
+                className="inline-flex items-center gap-2 h-8 pl-2 pr-3 rounded-full text-[12px] cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  background: active ? 'var(--accent-dim)' : 'var(--surface-2)',
+                  border: `1px solid ${active ? 'var(--accent-border)' : 'var(--line)'}`,
+                  color: active ? 'var(--accent)' : 'var(--content-secondary)',
+                }}
+              >
+                <span className="w-3.5 h-3.5 rounded-full" style={{ background: swatch }} />
+                {season ? season.name : 'Follow the calendar'}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* The preview is the effect itself, running. A still picture of falling
+            snow tells you nothing about whether it will annoy you. */}
+        {seasonal && (pinned || today) && (
+          <div
+            className="relative mt-3 h-[72px] rounded-lg overflow-hidden flex items-end px-3 pb-2"
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}
+          >
+            <SeasonalEffects variant={(pinned ? SEASONS[pinned] : today!).effect} intensity="full" />
+            <span className="relative text-[11px]" style={{ color: 'var(--content-faint)' }}>
+              {(pinned ? SEASONS[pinned] : today!).greeting}
+            </span>
+          </div>
+        )}
       </Group>
       )}
 
