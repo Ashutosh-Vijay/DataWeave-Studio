@@ -959,6 +959,27 @@ function App() {
     return () => window.removeEventListener('message', onMsg);
   }, [guardedLoad]);
 
+  // Ctrl+. on a `fun` declaration → the engine writes a dw::test suite for it,
+  // which arrives here as a new Tests entry. Not an edit to the script being
+  // written, so it can't travel as a Monaco edit like the other code actions.
+  useEffect(() => {
+    const onGenerated = (e: Event) => {
+      const { suite, funName } = (e as CustomEvent).detail as { suite: string; funName: string };
+      if (!suite.trim()) {
+        toast({
+          title: 'No test to generate',
+          message: `The engine wrote nothing for ${funName}. Put the cursor on the function's declaration line.`,
+          variant: 'error',
+        });
+        return;
+      }
+      workspace.addRequest(`Tests — ${funName}`, 'test', suite);
+      toast({ title: 'Test suite generated', message: `${funName} — edit the cases, then Run`, variant: 'success' });
+    };
+    window.addEventListener('dw:unit-test-generated', onGenerated);
+    return () => window.removeEventListener('dw:unit-test-generated', onGenerated);
+  }, [workspace.addRequest]);
+
   // One-time release announcement toast. Flag-based (not version-based) so it
   // behaves identically in VS Code; persistent so it isn't missed. Returning
   // users only — a fresh install gets the Welcome screen, so we just mark the

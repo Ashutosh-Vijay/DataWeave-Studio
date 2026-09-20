@@ -23,6 +23,9 @@ import type * as Monaco from 'monaco-editor';
 import { invoke } from './bridge';
 import type { DWCompletionContext } from './dataweaveCompletions';
 
+/** Monaco command id behind the "Generate unit test" code action. */
+const UNIT_TEST_COMMAND = 'dataweave.generateUnitTest';
+
 /** One parameter of one signature overload, as the engine reports it. */
 interface EngineSignatureParam {
   name: string;
@@ -480,6 +483,44 @@ export function registerEngineLanguageFeatures(
     },
   });
 
+  // The engine writes a whole `dw::test` suite for a function — named cases,
+  // imports, the lot. It lands as a new Tests entry rather than in the script
+  // being edited, which is why App listens for the event instead of Monaco
+  // applying an edit.
+  const unitTest = monaco.editor.addCommand({
+    id: UNIT_TEST_COMMAND,
+    run: async (_accessor, script: string, start: number, funName: string) => {
+      // Only `offset` actually reaches the engine — neither host forwards a
+      // start/end pair — and the engine reads a bare offset as an empty range
+      // at that point. That is enough: an empty range on the `fun` keyword
+      // resolves the declaration, which is the only thing this op accepts.
+      // (An offset anywhere later on the line, the name included, returns None.)
+      const res = await askNow<{ test?: string | null; path?: string | null }>(
+        'unitTest', script, start, payloadOf(), levelOf(),
+      );
+
+      // Two things the engine writes make sense in a Mule project and not here.
+      // It imports the document it was generated from (`/main` — the in-memory
+      // name of this buffer, which resolves to nothing at run time), and it
+      // names the suite after that same path. A Tests entry is standalone, so
+      // the function being tested comes along as source: every directive the
+      // script declares, minus the header lines the suite writes for itself.
+      const sep = script.search(/^---\s*$/m);
+      const directives = (sep < 0 ? script : script.slice(0, sep))
+        .split(/\r?\n/)
+        .filter((l) => !/^\s*(%dw|output|input)\b/.test(l))
+        .join('\n')
+        .trim();
+      const suite = (res?.test ?? '')
+        .replace(/^import \* from \/\S+[ \t]*$/m, directives)
+        .replace(/^"\/\S*" describedBy/m, `"${funName} tests" describedBy`);
+
+      window.dispatchEvent(new CustomEvent('dw:unit-test-generated', {
+        detail: { suite, funName },
+      }));
+    },
+  });
+
   // ── Quick fixes and refactorings ──────────────────────────────────────────
   // Both arrive as code actions (the lightbulb). Neither carries an `edit` when
   // first offered: computing one means asking the engine to actually perform the
@@ -513,11 +554,28 @@ export function registerEngineLanguageFeatures(
       // worse than no entry, so check the line before offering it rather than
       // spending a round-trip to find out.
       const lineText = model.getLineContent(range.startLineNumber);
-      if (/^\s*fun\s+[A-Za-z_$][\w$]*/.test(lineText)) {
+      const funName = /^\s*fun\s+([A-Za-z_$][\w$]*)/.exec(lineText)?.[1];
+      if (funName) {
         out.push({
           title: 'Generate documentation comment',
           kind: 'refactor.rewrite',
           __dw: { op: 'docs', script: model.getValue(), line: range.startLineNumber },
+        });
+        // A generated dw::test suite is not an edit to THIS document — it is a
+        // new entry in the workspace — so it runs as a command rather than
+        // through resolveCodeAction, which only knows how to produce edits.
+        out.push({
+          title: `Generate unit test for ${funName}`,
+          kind: 'refactor.rewrite',
+          command: {
+            id: UNIT_TEST_COMMAND,
+            title: 'Generate unit test',
+            arguments: [
+              model.getValue(),
+              model.getOffsetAt({ lineNumber: range.startLineNumber, column: 1 }),
+              funName,
+            ],
+          },
         });
       }
 
@@ -569,6 +627,11 @@ export function registerEngineLanguageFeatures(
           .replace(/^\r?\n/, '')
           .replace(/[ \t]+$/gm, '')
           .replace(/\s+$/, '')
+          // The scaffold leaves the example's Output block empty, and the
+          // engine's own doc validator rejects an empty code block — so the
+          // comment it just wrote would light up red under validateDocs below.
+          // A placeholder line the user overwrites keeps it valid meanwhile.
+          .replace(/\*[ \t]*----\n(?:\*[ \t]*\n)+\*[ \t]*----/g, '* ----\n* // replace with the output\n* ----')
           .split(/\r?\n/)
           .map((l) => (l ? indent + l : l))
           .join('\n');
@@ -634,6 +697,7 @@ export function registerEngineLanguageFeatures(
       symbols.dispose();
       folding.dispose();
       actions.dispose();
+      unitTest.dispose();
     },
   };
 }
@@ -685,7 +749,31 @@ export function attachEngineDiagnostics(
     if (!res) return; // engine cold or restarting: leave the last markers alone
     lastDiagnostics.set(model.uri.toString(), { script, messages: res.messages ?? [] });
 
+    // Weavedoc syntax, checked by the engine's own doc parser. Only worth a
+    // round trip when there is a doc comment to check, which most scripts in a
+    // playground do not have. Deliberately NOT folded into lastDiagnostics:
+    // quick fixes are applied by index into the typeCheck array, so padding it
+    // would apply the wrong fix.
+    const docRes = script.includes('/**')
+      ? await askNow<{ messages?: EngineMessage[] }>('validateDocs', script, 0, getPayload(), getLevel())
+      : null;
+    if (disposed || mine !== generation || model.isDisposed()) return;
+
     const markers: Monaco.editor.IMarkerData[] = [];
+    for (const m of docRes?.messages ?? []) {
+      const range = rangeOf(model, m.location);
+      if (!range) continue;
+      markers.push({
+        severity: m.severity === 'error' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
+        // The parser reports its own line/column, counted from the start of the
+        // comment rather than the file. Monaco already points at the right
+        // place, so that tail only contradicts it.
+        message: m.message.replace(/\s*\(line \d+, column \d+\):?\s*$/, ''),
+        code: m.code,
+        source: 'DataWeave docs',
+        ...range,
+      });
+    }
     for (const m of res.messages ?? []) {
       const range = rangeOf(model, m.location);
       if (!range) continue;
