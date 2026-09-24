@@ -1,0 +1,47 @@
+{
+  "id": "mcq-xml-repeated-first-only",
+  "unit": "duplicate-keys",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "xml",
+    ".*",
+    "selectors"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ one: payload.order.line, all: payload.order.*line }",
+    "payload": "<order><line>A</line><line>B</line><line>C</line></order>"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "{ \"one\": null, \"all\": [ \"A\", \"B\", \"C\" ] }",
+      "{ \"one\": \"C\", \"all\": [ \"A\", \"B\", \"C\" ] }",
+      "{ \"one\": [ \"A\", \"B\", \"C\" ], \"all\": [ \"A\", \"B\", \"C\" ] }",
+      "{ \"one\": \"A\", \"all\": [ \"A\", \"B\", \"C\" ] }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ one: payload.order.line, all: payload.order.*line }",
+  "explanation": {
+    "approach": "XML elements with the same name become repeated keys in one Object. A single-value selector returns the first match. The multi-value selector `.*` returns all of them as an Array.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ one: payload.order.line, all: payload.order.*line }",
+        "payload": "<order><line>A</line><line>B</line><line>C</line></order>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "{ \"one\": \"A\", \"all\": [ \"A\", \"B\", \"C\" ] }"
+        },
+        "note": "The single selector silently drops B and C."
+      }
+    ]
+  }
+}

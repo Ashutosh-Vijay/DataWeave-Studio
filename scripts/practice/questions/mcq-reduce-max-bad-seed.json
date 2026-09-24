@@ -1,0 +1,62 @@
+{
+  "id": "mcq-reduce-max-bad-seed",
+  "unit": "reduce-seed",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "reduce"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload reduce ((n, acc = 0) -> if (n > acc) n else acc)",
+    "payload": "[-5,-3,-8]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "-3",
+      "-5",
+      "0",
+      "-8"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload reduce ((n, acc = 0) -> if (n > acc) n else acc)",
+  "explanation": {
+    "approach": "The seed is a value the fold starts from, and it takes part in the comparison. None of the numbers is greater than 0, so the seed is never replaced.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload reduce ((n, acc = 0) -> if (n > acc) n else acc)",
+        "payload": "[-5,-3,-8]",
+        "expect": {
+          "output": "0"
+        },
+        "note": "A value that is not in the data."
+      },
+      {
+        "label": "No seed: start from the first element",
+        "script": "%dw 2.0\noutput application/json\n---\npayload reduce ((n, acc) -> if (n > acc) n else acc)",
+        "payload": "[-5,-3,-8]",
+        "expect": {
+          "output": "-3"
+        },
+        "note": "Leaving the seed out uses the first element, which is correct for a maximum."
+      },
+      {
+        "label": "Or use max",
+        "script": "%dw 2.0\noutput application/json\n---\nmax(payload)",
+        "payload": "[-5,-3,-8]",
+        "expect": {
+          "output": "-3"
+        },
+        "note": "The built-in has no seed to get wrong."
+      }
+    ]
+  }
+}

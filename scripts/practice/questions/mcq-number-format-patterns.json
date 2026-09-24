@@ -1,0 +1,61 @@
+{
+  "id": "mcq-number-format-patterns",
+  "unit": "numbers-and-rounding",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "as",
+    "format"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n\"1,234,567.89\"\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"amount\":1234567.891}",
+    "target": "\"1,234,567.89\"",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload.amount as String",
+      "%dw 2.0\noutput application/json\n---\npayload.amount as String {format: \"0.00\"}",
+      "%dw 2.0\noutput application/json\n---\npayload.amount as String {format: \"#,##0.00\"}",
+      "%dw 2.0\noutput application/json\n---\npayload.amount as String {format: \"#,##0\"}"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.amount as String {format: \"#,##0.00\"}",
+  "explanation": {
+    "approach": "`,` in a pattern adds grouping separators and `.00` fixes two decimals. Each wrong option drops one of the two.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.amount as String {format: \"#,##0.00\"}",
+        "payload": "{\"amount\":1234567.891}",
+        "expect": {
+          "output": "\"1,234,567.89\""
+        },
+        "note": "Grouping and two decimal places."
+      },
+      {
+        "label": "No grouping",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.amount as String {format: \"0.00\"}",
+        "payload": "{\"amount\":1234567.891}",
+        "expect": {
+          "output": "\"1234567.89\""
+        },
+        "note": "Right decimals, no commas."
+      },
+      {
+        "label": "No decimals",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.amount as String {format: \"#,##0\"}",
+        "payload": "{\"amount\":1234567.891}",
+        "expect": {
+          "output": "\"1,234,568\""
+        },
+        "note": "Commas, and the value is rounded to a whole number."
+      }
+    ]
+  }
+}

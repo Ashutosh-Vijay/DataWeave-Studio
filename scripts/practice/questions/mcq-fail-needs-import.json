@@ -1,0 +1,49 @@
+{
+  "id": "mcq-fail-needs-import",
+  "unit": "error-handling",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "dw::Runtime",
+    "fail",
+    "try"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Three of these return a value. **One does not compile.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\nimport try from dw::Runtime\n---\ntry(() -> fail(\"bad row\")).error.message",
+      "%dw 2.0\noutput application/json\nimport try from dw::Runtime\n---\ntry(() -> 1).success",
+      "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ntry(() -> fail(\"bad row\")).error.message",
+      "%dw 2.0\noutput application/json\nimport try, fail from dw::Runtime\n---\ntry(() -> fail(\"bad row\")).error.message"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport try, fail from dw::Runtime\n---\ntry(() -> fail(\"bad row\")).error.message",
+  "explanation": {
+    "approach": "`try` and `fail` both live in `dw::Runtime`. Importing one by name does not bring in the other. Note that the scripts that do compile call `fail` on purpose and still return a value, because `try` captures it.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\nimport try from dw::Runtime\n---\ntry(() -> fail(\"bad row\")).error.message",
+        "expect": {
+          "error": true
+        },
+        "note": "Unable to resolve reference of: fail."
+      },
+      {
+        "label": "Both imported",
+        "script": "%dw 2.0\noutput application/json\nimport try, fail from dw::Runtime\n---\ntry(() -> fail(\"bad row\")).error.message",
+        "expect": {
+          "output": "\"bad row\""
+        },
+        "note": "The message given to `fail` is captured."
+      }
+    ]
+  }
+}

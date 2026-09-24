@@ -1,0 +1,47 @@
+{
+  "id": "mcq-xml-single-with-star",
+  "unit": "xml-selectors",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "xml",
+    ".*",
+    "selectors"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ one: payload.order.line, all: payload.order.*line }",
+    "payload": "<order><line>A</line></order>"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "{ \"one\": \"A\", \"all\": [ \"A\" ] }",
+      "{ \"one\": \"A\", \"all\": null }",
+      "{ \"one\": \"A\", \"all\": \"A\" }",
+      "{ \"one\": [ \"A\" ], \"all\": [ \"A\" ] }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ one: payload.order.line, all: payload.order.*line }",
+  "explanation": {
+    "approach": "`.*` always returns an Array, even when there is only one matching element. That is why it is the safe selector for an element that may repeat: the code after it does not have to handle two shapes.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ one: payload.order.line, all: payload.order.*line }",
+        "payload": "<order><line>A</line></order>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "{ \"one\": \"A\", \"all\": [ \"A\" ] }"
+        },
+        "note": "A one-element Array."
+      }
+    ]
+  }
+}

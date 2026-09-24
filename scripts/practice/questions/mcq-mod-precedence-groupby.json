@@ -1,0 +1,57 @@
+{
+  "id": "mcq-mod-precedence-groupby",
+  "unit": "groupby-shape",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "Which one fails?",
+  "topics": [
+    "mod",
+    "groupBy",
+    "precedence"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n[1, 2, 3, 4] groupBy (if (($ mod 2) == 0) \"even\" else \"odd\")",
+      "%dw 2.0\noutput application/json\n---\n[1, 2, 3, 4] groupBy ($ mod 2 == 0)",
+      "%dw 2.0\noutput application/json\n---\n[1, 2, 3, 4] groupBy (($ mod 2) == 0)",
+      "%dw 2.0\noutput application/json\n---\n[1, 2, 3, 4] groupBy ($ mod 2)"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[1, 2, 3, 4] groupBy (($ mod 2) == 0)",
+  "explanation": {
+    "approach": "`mod` binds more loosely than `==`, so `$ mod 2 == 0` is read as `$ mod (2 == 0)`, the modulo of a Number by a Boolean. The fix is parentheses around the `mod`.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2, 3, 4] groupBy ($ mod 2 == 0)",
+        "expect": {
+          "error": true
+        },
+        "note": "A compile error, not a runtime one."
+      },
+      {
+        "label": "The fix",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2, 3, 4] groupBy (($ mod 2) == 0)",
+        "expect": {
+          "output": "{ \"false\": [ 1, 3 ], \"true\": [ 2, 4 ] }"
+        },
+        "note": "The Boolean keys become the Strings \"false\" and \"true\"."
+      },
+      {
+        "label": "The same trap on its own",
+        "script": "%dw 2.0\noutput application/json\n---\n(3 mod 2) == 1",
+        "expect": {
+          "output": "true"
+        },
+        "note": "Without the parentheses, `3 mod 2 == 1` does not compile."
+      }
+    ]
+  }
+}

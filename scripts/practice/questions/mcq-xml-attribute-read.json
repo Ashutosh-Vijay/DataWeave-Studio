@@ -1,0 +1,65 @@
+{
+  "id": "mcq-xml-attribute-read",
+  "unit": "xml-selectors",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "Which script produces this output?",
+  "topics": [
+    "xml",
+    "@",
+    ".*"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n[ \"1\", \"2\" ]\n```",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "<items><item id=\"1\">A</item><item id=\"2\">B</item></items>",
+    "target": "[ \"1\", \"2\" ]",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload.items.*item",
+      "%dw 2.0\noutput application/json\n---\npayload.items.*item.@id",
+      "%dw 2.0\noutput application/json\n---\npayload.items.*item.id",
+      "%dw 2.0\noutput application/json\n---\npayload.items.item.@id"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.items.*item.@id",
+  "explanation": {
+    "approach": "`.*item` selects every item element and `.@id` then reads the attribute from each. Without the star only the first item is read. `.id` looks for a child element called id, and there is none.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.items.*item.@id",
+        "payload": "<items><item id=\"1\">A</item><item id=\"2\">B</item></items>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "[ \"1\", \"2\" ]"
+        },
+        "note": "Attribute values are Strings."
+      },
+      {
+        "label": "First item only",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.items.item.@id",
+        "payload": "<items><item id=\"1\">A</item><item id=\"2\">B</item></items>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "\"1\""
+        },
+        "note": "A single value."
+      },
+      {
+        "label": "The text, not the attribute",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.items.*item",
+        "payload": "<items><item id=\"1\">A</item><item id=\"2\">B</item></items>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "[ \"A\", \"B\" ]"
+        },
+        "note": "Element content."
+      }
+    ]
+  }
+}

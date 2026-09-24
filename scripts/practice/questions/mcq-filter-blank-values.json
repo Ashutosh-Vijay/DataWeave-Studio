@@ -1,0 +1,61 @@
+{
+  "id": "mcq-filter-blank-values",
+  "unit": "filter-and-null",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "filter",
+    "isEmpty"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n[ \"a\", \"b\", \"  \" ]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[\"a\",\"\",null,\"b\",\"  \"]",
+    "target": "[ \"a\", \"b\", \"  \" ]",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload filter (isEmpty($))",
+      "%dw 2.0\noutput application/json\n---\npayload filter ($ != null)",
+      "%dw 2.0\noutput application/json\n---\npayload filter ($ != \"\")",
+      "%dw 2.0\noutput application/json\n---\npayload filter (not isEmpty($))"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload filter (not isEmpty($))",
+  "explanation": {
+    "approach": "`isEmpty` is true for null and for the empty String, but a String of spaces is not empty. The two partial checks each let one of null and \"\" through.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filter (not isEmpty($))",
+        "payload": "[\"a\",\"\",null,\"b\",\"  \"]",
+        "expect": {
+          "output": "[ \"a\", \"b\", \"  \" ]"
+        },
+        "note": "The parentheses matter: `not` binds loosely."
+      },
+      {
+        "label": "Only nulls removed",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filter ($ != null)",
+        "payload": "[\"a\",\"\",null,\"b\",\"  \"]",
+        "expect": {
+          "output": "[ \"a\", \"\", \"b\", \"  \" ]"
+        },
+        "note": "The empty String stays."
+      },
+      {
+        "label": "Only empty Strings removed",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filter ($ != \"\")",
+        "payload": "[\"a\",\"\",null,\"b\",\"  \"]",
+        "expect": {
+          "output": "[ \"a\", null, \"b\", \"  \" ]"
+        },
+        "note": "null is not equal to \"\", so it stays in."
+      }
+    ]
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "id": "mcq-try-or-else",
+  "unit": "error-handling",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "dw::Runtime",
+    "try",
+    "orElse"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\n[1, 0, 4] map ((d) -> try(() -> 12 / d) orElse \"n/a\")"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "It fails: Division by zero",
+      "[ 12, \"n/a\", 3 ]",
+      "[ 12, null, 3 ]",
+      "[ \"n/a\", \"n/a\", \"n/a\" ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\n[1, 0, 4] map ((d) -> try(() -> 12 / d) orElse \"n/a\")",
+  "explanation": {
+    "approach": "`try` runs a function and captures a failure instead of letting it stop the script. `orElse` returns the successful result, or the fallback if it failed. Only the division by zero falls back.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\n[1, 0, 4] map ((d) -> try(() -> 12 / d) orElse \"n/a\")",
+        "expect": {
+          "output": "[ 12, \"n/a\", 3 ]"
+        },
+        "note": "One bad row, not a failed batch."
+      },
+      {
+        "label": "What try returns",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ntry(() -> 12 / 4)",
+        "expect": {
+          "output": "{ \"success\": true, \"result\": 3 }"
+        },
+        "note": "An Object describing the outcome."
+      }
+    ]
+  }
+}

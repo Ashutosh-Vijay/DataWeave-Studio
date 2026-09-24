@@ -1,0 +1,58 @@
+{
+  "id": "mcq-xml-values-are-strings",
+  "unit": "xml-selectors",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "xml",
+    "max",
+    "sum",
+    "as"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ total: sum(payload.r.*v), top: max(payload.r.*v) }",
+    "payload": "<r><v>9</v><v>10</v></r>"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "{ \"total\": 19, \"top\": \"9\" }",
+      "{ \"total\": \"910\", \"top\": \"9\" }",
+      "{ \"total\": 19, \"top\": 10 }",
+      "{ \"total\": \"910\", \"top\": \"10\" }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ total: sum(payload.r.*v), top: max(payload.r.*v) }",
+  "explanation": {
+    "approach": "XML element text is a String. `sum` coerces its elements to Number, so the total is right. `max` does not coerce, so it compares the Strings alphabetically and \"9\" wins.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ total: sum(payload.r.*v), top: max(payload.r.*v) }",
+        "payload": "<r><v>9</v><v>10</v></r>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "{ \"total\": 19, \"top\": \"9\" }"
+        },
+        "note": "One function coerces and the other does not."
+      },
+      {
+        "label": "Coerce for a numeric max",
+        "script": "%dw 2.0\noutput application/json\n---\nmax(payload.r.*v map ($ as Number))",
+        "payload": "<r><v>9</v><v>10</v></r>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "10"
+        },
+        "note": "Now 10 wins."
+      }
+    ]
+  }
+}

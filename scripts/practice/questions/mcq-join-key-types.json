@@ -1,0 +1,44 @@
+{
+  "id": "mcq-join-key-types",
+  "unit": "joins",
+  "mode": "choice",
+  "tier": "max",
+  "title": "What does this return?",
+  "topics": [
+    "dw::core::Arrays",
+    "join",
+    "=="
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\n{ joined: sizeOf(join([{ id: 1 }], [{ id: \"1\" }], (a) -> a.id, (b) -> b.id)), equal: 1 == \"1\" }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "{ \"joined\": 0, \"equal\": false }",
+      "{ \"joined\": 0, \"equal\": true }",
+      "{ \"joined\": 1, \"equal\": false }",
+      "{ \"joined\": 1, \"equal\": true }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\n{ joined: sizeOf(join([{ id: 1 }], [{ id: \"1\" }], (a) -> a.id, (b) -> b.id)), equal: 1 == \"1\" }",
+  "explanation": {
+    "approach": "The join criteria return keys that are compared as Strings, so the Number 1 and the String \"1\" match even though `==` says they differ. That helps when joining a CSV feed to JSON, and hurts if you were relying on type to keep them apart.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\n{ joined: sizeOf(join([{ id: 1 }], [{ id: \"1\" }], (a) -> a.id, (b) -> b.id)), equal: 1 == \"1\" }",
+        "expect": {
+          "output": "{ \"joined\": 1, \"equal\": false }"
+        },
+        "note": "The join matched them, and `==` did not."
+      }
+    ]
+  }
+}

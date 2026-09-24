@@ -1,0 +1,43 @@
+{
+  "id": "mcq-index-of-last",
+  "unit": "string-basics",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "indexOf",
+    "lastIndexOf"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ \"hello\" indexOf \"l\", \"hello\" lastIndexOf \"l\", \"hello\" indexOf \"z\" ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "[ 3, 4, 0 ]",
+      "[ 3, 4, -1 ]",
+      "[ 2, 3, -1 ]",
+      "[ 2, 3, null ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ \"hello\" indexOf \"l\", \"hello\" lastIndexOf \"l\", \"hello\" indexOf \"z\" ]",
+  "explanation": {
+    "approach": "Positions start at 0. A search that finds nothing returns -1, not null.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ \"hello\" indexOf \"l\", \"hello\" lastIndexOf \"l\", \"hello\" indexOf \"z\" ]",
+        "expect": {
+          "output": "[ 2, 3, -1 ]"
+        },
+        "note": "h is 0, e is 1, the first l is 2."
+      }
+    ]
+  }
+}

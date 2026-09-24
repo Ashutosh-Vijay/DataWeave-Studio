@@ -1,0 +1,55 @@
+{
+  "id": "mcq-var-reassign",
+  "unit": "do-and-scope",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "Which one fails?",
+  "topics": [
+    "var"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\nvar rate = 0.1\n---\ndo { var rate = 0.2 --- rate }",
+      "%dw 2.0\noutput application/json\nvar rate = 0.1\nvar rate = 0.2\n---\nrate",
+      "%dw 2.0\noutput application/json\nvar rate = 0.1\n---\nrate * 2",
+      "%dw 2.0\noutput application/json\nvar rate = 0.1\nvar rate2 = rate * 2\n---\nrate"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nvar rate = 0.1\nvar rate2 = 0.2\n---\nrate2",
+  "explanation": {
+    "approach": "Variables in DataWeave are immutable, and a name can be declared only once in the same scope. A `do` block is a new scope, so it may declare its own variable with the same name.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\nvar rate = 0.1\nvar rate = 0.2\n---\nrate",
+        "expect": {
+          "error": true
+        },
+        "note": "Duplicated variable: rate."
+      },
+      {
+        "label": "A new name",
+        "script": "%dw 2.0\noutput application/json\nvar rate = 0.1\nvar rate2 = 0.2\n---\nrate2",
+        "expect": {
+          "output": "0.2"
+        },
+        "note": "Declare another variable instead of changing one."
+      },
+      {
+        "label": "A new scope",
+        "script": "%dw 2.0\noutput application/json\nvar rate = 0.1\n---\ndo { var rate = 0.2 --- rate }",
+        "expect": {
+          "output": "0.2"
+        },
+        "note": "Inside the `do`, the inner `rate` hides the outer one."
+      }
+    ]
+  }
+}

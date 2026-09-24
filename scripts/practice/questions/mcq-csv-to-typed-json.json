@@ -1,0 +1,65 @@
+{
+  "id": "mcq-csv-to-typed-json",
+  "unit": "csv-round-trip",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "csv",
+    "as",
+    "map"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "The payload is CSV. The JSON must carry real Numbers. Given the payload below,\n\n**which script produces exactly this output?**\n\n```\n[ { \"id\": 1, \"price\": 9.5 }, { \"id\": 2, \"price\": 20 } ]\n```",
+  "inputMime": "application/csv",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "id,price\n1,9.50\n2,20",
+    "target": "[ { \"id\": 1, \"price\": 9.5 }, { \"id\": 2, \"price\": 20 } ]",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload map { id: $.id as Number, price: $.price }",
+      "%dw 2.0\noutput application/json\n---\npayload map { id: $.id as Number, price: $.price as Number }",
+      "%dw 2.0\noutput application/json\n---\npayload map { id: $.id, price: $.price as Number }",
+      "%dw 2.0\noutput application/json\n---\npayload"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map { id: $.id as Number, price: $.price as Number }",
+  "explanation": {
+    "approach": "Every CSV field is a String, and the JSON writer prints a String with quotes. Each field that should be a Number has to be coerced, and missing one leaves a quoted value in the output.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map { id: $.id as Number, price: $.price as Number }",
+        "payload": "id,price\n1,9.50\n2,20",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "[ { \"id\": 1, \"price\": 9.5 }, { \"id\": 2, \"price\": 20 } ]"
+        },
+        "note": "Both fields coerced."
+      },
+      {
+        "label": "Straight through",
+        "script": "%dw 2.0\noutput application/json\n---\npayload",
+        "payload": "id,price\n1,9.50\n2,20",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "[ { \"id\": \"1\", \"price\": \"9.50\" }, { \"id\": \"2\", \"price\": \"20\" } ]"
+        },
+        "note": "Every value is quoted, and the text \"9.50\" keeps its trailing zero."
+      },
+      {
+        "label": "One field missed",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map { id: $.id, price: $.price as Number }",
+        "payload": "id,price\n1,9.50\n2,20",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "[ { \"id\": \"1\", \"price\": 9.5 }, { \"id\": \"2\", \"price\": 20 } ]"
+        },
+        "note": "The id is still a String."
+      }
+    ]
+  }
+}

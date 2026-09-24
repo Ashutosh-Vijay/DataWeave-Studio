@@ -1,0 +1,60 @@
+{
+  "id": "mcq-update-nested",
+  "unit": "update-operator",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "update"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n{ \"id\": 1, \"stock\": { \"qty\": 5, \"loc\": \"A\" } }\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"id\":1,\"stock\":{\"qty\":4,\"loc\":\"A\"}}",
+    "target": "{ \"id\": 1, \"stock\": { \"qty\": 5, \"loc\": \"A\" } }",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload update { case q at .qty -> q + 1 }",
+      "%dw 2.0\noutput application/json\n---\npayload.stock update { case q at .qty -> q + 1 }",
+      "%dw 2.0\noutput application/json\n---\npayload update { case q at .stock.qty -> q + 1 }",
+      "%dw 2.0\noutput application/json\n---\npayload update { case .stock -> { qty: 5 } }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload update { case q at .stock.qty -> q + 1 }",
+  "explanation": {
+    "approach": "The selector after `at` is a path from the top of the value being updated. Replacing `stock` replaces the whole inner Object. Updating `payload.stock` returns only the inner Object. A path that does not exist at the top level changes nothing.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload update { case q at .stock.qty -> q + 1 }",
+        "payload": "{\"id\":1,\"stock\":{\"qty\":4,\"loc\":\"A\"}}",
+        "expect": {
+          "output": "{ \"id\": 1, \"stock\": { \"qty\": 5, \"loc\": \"A\" } }"
+        },
+        "note": "Only `qty` changes."
+      },
+      {
+        "label": "Replacing the parent",
+        "script": "%dw 2.0\noutput application/json\n---\npayload update { case .stock -> { qty: 5 } }",
+        "payload": "{\"id\":1,\"stock\":{\"qty\":4,\"loc\":\"A\"}}",
+        "expect": {
+          "output": "{ \"id\": 1, \"stock\": { \"qty\": 5 } }"
+        },
+        "note": "`loc` is lost."
+      },
+      {
+        "label": "A path that is not there",
+        "script": "%dw 2.0\noutput application/json\n---\npayload update { case q at .qty -> q + 1 }",
+        "payload": "{\"id\":1,\"stock\":{\"qty\":4,\"loc\":\"A\"}}",
+        "expect": {
+          "output": "{ \"id\": 1, \"stock\": { \"qty\": 4, \"loc\": \"A\" } }"
+        },
+        "note": "There is no top-level `qty`."
+      }
+    ]
+  }
+}

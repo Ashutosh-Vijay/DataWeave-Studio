@@ -1,0 +1,51 @@
+{
+  "id": "mcq-reduce-empty",
+  "unit": "reduce-seed",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "reduce",
+    "sum"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ r: [] reduce ($$ + $), s: sum([]) }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "{ \"r\": null, \"s\": null }",
+      "{ \"r\": 0, \"s\": 0 }",
+      "{ \"r\": [ ], \"s\": 0 }",
+      "{ \"r\": null, \"s\": 0 }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ r: [] reduce ($$ + $), s: sum([]) }",
+  "explanation": {
+    "approach": "With no seed and no elements there is nothing to start from, so `reduce` returns null. `sum` of an empty Array is defined as 0.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ r: [] reduce ($$ + $), s: sum([]) }",
+        "expect": {
+          "output": "{ \"r\": null, \"s\": 0 }"
+        },
+        "note": "Give `reduce` a seed if an empty input is possible."
+      },
+      {
+        "label": "A seed fixes the empty case",
+        "script": "%dw 2.0\noutput application/json\n---\n[] reduce ((n, acc = 0) -> acc + n)",
+        "expect": {
+          "output": "0"
+        },
+        "note": "Now the seed is the answer."
+      }
+    ]
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "id": "mcq-if-number-condition",
+  "unit": "error-handling",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "Which one fails?",
+  "topics": [
+    "if",
+    "coercion",
+    "filter"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "The payload is `{\"n\": 0, \"flag\": \"true\"}`. Three of these return a value. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "payload": "{\"n\":0,\"flag\":\"true\"}",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\nif (isEmpty(payload.n)) \"yes\" else \"no\"",
+      "%dw 2.0\noutput application/json\n---\nif (payload.n != 0) \"yes\" else \"no\"",
+      "%dw 2.0\noutput application/json\n---\nif (payload.n) \"yes\" else \"no\"",
+      "%dw 2.0\noutput application/json\n---\nif (payload.flag as Boolean) \"yes\" else \"no\""
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nif (payload.n != 0) \"yes\" else \"no\"",
+  "explanation": {
+    "approach": "An `if` condition must be a Boolean. DataWeave has no idea of \"truthy\" values, so 0 is neither true nor false and the script fails at run time. Write the comparison you mean.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\nif (payload.n) \"yes\" else \"no\"",
+        "payload": "{\"n\":0,\"flag\":\"true\"}",
+        "expect": {
+          "error": true
+        },
+        "note": "Expecting type Boolean but got Number."
+      },
+      {
+        "label": "Say what you mean",
+        "script": "%dw 2.0\noutput application/json\n---\nif (payload.n != 0) \"yes\" else \"no\"",
+        "payload": "{\"n\":0,\"flag\":\"true\"}",
+        "expect": {
+          "output": "\"no\""
+        },
+        "note": "An explicit comparison."
+      },
+      {
+        "label": "A number is not empty",
+        "script": "%dw 2.0\noutput application/json\n---\nif (isEmpty(payload.n)) \"yes\" else \"no\"",
+        "payload": "{\"n\":0,\"flag\":\"true\"}",
+        "expect": {
+          "output": "\"no\""
+        },
+        "note": "Zero is a value, so `isEmpty` is false."
+      }
+    ]
+  }
+}

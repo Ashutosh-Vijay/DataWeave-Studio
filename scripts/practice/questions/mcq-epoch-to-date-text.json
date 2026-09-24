@@ -1,0 +1,62 @@
+{
+  "id": "mcq-epoch-to-date-text",
+  "unit": "dates-formatting",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "Which script produces this output?",
+  "topics": [
+    "as",
+    "DateTime",
+    "format"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "The payload holds seconds since 1970. Given the payload below,\n\n**which script produces exactly this output?**\n\n```\n\"2024-01-15\"\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"ts\":1705312800}",
+    "target": "\"2024-01-15\"",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n(payload.ts as DateTime) as String",
+      "%dw 2.0\noutput application/json\n---\n(payload.ts as DateTime) as String {format: \"yyyy-mm-dd\"}",
+      "%dw 2.0\noutput application/json\n---\n((payload.ts * 1000) as DateTime) as String {format: \"yyyy-MM-dd\"}",
+      "%dw 2.0\noutput application/json\n---\n(payload.ts as DateTime) as String {format: \"yyyy-MM-dd\"}"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload.ts as DateTime) as String {format: \"yyyy-MM-dd\"}",
+  "explanation": {
+    "approach": "A Number coerces to DateTime as seconds since 1970, in UTC. Formatting it as text then needs a date pattern, with `MM` for the month. Treating the value as milliseconds lands tens of thousands of years in the future.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload.ts as DateTime) as String {format: \"yyyy-MM-dd\"}",
+        "payload": "{\"ts\":1705312800}",
+        "expect": {
+          "output": "\"2024-01-15\""
+        },
+        "note": "Seconds to DateTime, DateTime to text."
+      },
+      {
+        "label": "No pattern",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload.ts as DateTime) as String",
+        "payload": "{\"ts\":1705312800}",
+        "expect": {
+          "output": "\"2024-01-15T10:00:00Z\""
+        },
+        "note": "The full ISO date-time."
+      },
+      {
+        "label": "Minutes in the month place",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload.ts as DateTime) as String {format: \"yyyy-mm-dd\"}",
+        "payload": "{\"ts\":1705312800}",
+        "expect": {
+          "output": "\"2024-00-15\""
+        },
+        "note": "10:00, so the minutes are 00."
+      }
+    ]
+  }
+}

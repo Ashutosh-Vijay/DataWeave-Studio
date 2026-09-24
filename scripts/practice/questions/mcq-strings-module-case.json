@@ -1,0 +1,46 @@
+{
+  "id": "mcq-strings-module-case",
+  "unit": "string-basics",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "dw::core::Strings",
+    "camelize",
+    "dasherize",
+    "underscore",
+    "capitalize"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\n[ camelize(\"order_line_id\"), dasherize(\"OrderLineId\"), underscore(\"OrderLineId\"), capitalize(\"hello WORLD\") ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ \"orderLineId\", \"order-line-id\", \"order_line_id\", \"Hello World\" ]",
+      "[ \"orderlineid\", \"order-line-id\", \"order_line_id\", \"HELLO WORLD\" ]",
+      "[ \"orderLineId\", \"Order-Line-Id\", \"Order_Line_Id\", \"Hello World\" ]",
+      "[ \"OrderLineId\", \"order-line-id\", \"order_line_id\", \"Hello WORLD\" ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\n[ camelize(\"order_line_id\"), dasherize(\"OrderLineId\"), underscore(\"OrderLineId\"), capitalize(\"hello WORLD\") ]",
+  "explanation": {
+    "approach": "The case helpers in `dw::core::Strings` convert between naming styles. `camelize` starts lower-case. `dasherize` and `underscore` lower-case every word. `capitalize` upper-cases the first letter of each word and lower-cases the rest.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\n[ camelize(\"order_line_id\"), dasherize(\"OrderLineId\"), underscore(\"OrderLineId\"), capitalize(\"hello WORLD\") ]",
+        "expect": {
+          "output": "[ \"orderLineId\", \"order-line-id\", \"order_line_id\", \"Hello World\" ]"
+        },
+        "note": "Note that \"WORLD\" becomes \"World\"."
+      }
+    ]
+  }
+}

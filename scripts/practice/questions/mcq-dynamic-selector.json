@@ -1,0 +1,44 @@
+{
+  "id": "mcq-dynamic-selector",
+  "unit": "schema-validator",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "selectors",
+    "dynamic keys",
+    "var"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nvar k = \"name\"\nvar rec = { id: \"7\", name: \"Ann\" }\n---\n[ rec[k], rec.k, rec.\"name\" ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "[ \"Ann\", \"Ann\", \"Ann\" ]",
+      "[ \"Ann\", null, null ]",
+      "[ \"Ann\", null, \"Ann\" ]",
+      "[ null, \"Ann\", \"Ann\" ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nvar k = \"name\"\nvar rec = { id: \"7\", name: \"Ann\" }\n---\n[ rec[k], rec.k, rec.\"name\" ]",
+  "explanation": {
+    "approach": "`.k` always looks for a field literally called k. To use a variable as the field name, write it in square brackets. A quoted name after the dot is literal too, which is how you select a field with spaces or dashes in its name.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nvar k = \"name\"\nvar rec = { id: \"7\", name: \"Ann\" }\n---\n[ rec[k], rec.k, rec.\"name\" ]",
+        "expect": {
+          "output": "[ \"Ann\", null, \"Ann\" ]"
+        },
+        "note": "Brackets evaluate, the dot does not."
+      }
+    ]
+  }
+}

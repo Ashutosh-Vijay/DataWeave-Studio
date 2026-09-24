@@ -1,0 +1,42 @@
+{
+  "id": "mcq-splitby-empty-field",
+  "unit": "string-basics",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "splitBy"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n\"a,b,,c\" splitBy \",\""
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ \"a\", \"b\", \"\", \"c\" ]",
+      "\"a b c\"",
+      "[ \"a\", \"b\", null, \"c\" ]",
+      "[ \"a\", \"b\", \"c\" ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"a,b,,c\" splitBy \",\"",
+  "explanation": {
+    "approach": "`splitBy` keeps empty pieces between two separators. The empty field becomes an empty String, not null, and it is not dropped.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n\"a,b,,c\" splitBy \",\"",
+        "expect": {
+          "output": "[ \"a\", \"b\", \"\", \"c\" ]"
+        },
+        "note": "Four fields in, four elements out. Position is preserved, which matters when the fields are columns."
+      }
+    ]
+  }
+}

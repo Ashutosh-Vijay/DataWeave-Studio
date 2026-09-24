@@ -1,0 +1,51 @@
+{
+  "id": "mcq-scan-groups",
+  "unit": "string-basics",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "scan",
+    "regex"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n\"a1b22c333\" scan /\\d+/"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ \"1\", \"2\", \"2\", \"3\", \"3\", \"3\" ]",
+      "[ \"1\", \"22\", \"333\" ]",
+      "[ 1, 22, 333 ]",
+      "[ [ \"1\" ], [ \"22\" ], [ \"333\" ] ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"a1b22c333\" scan /\\d+/",
+  "explanation": {
+    "approach": "`scan` returns every match, and each match is itself an array: the whole match first, then any capture groups. With no groups, each inner array has one element.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n\"a1b22c333\" scan /\\d+/",
+        "expect": {
+          "output": "[ [ \"1\" ], [ \"22\" ], [ \"333\" ] ]"
+        },
+        "note": "An array of arrays of Strings."
+      },
+      {
+        "label": "Flattening to the second option",
+        "script": "%dw 2.0\noutput application/json\n---\nflatten(\"a1b22c333\" scan /\\d+/)",
+        "expect": {
+          "output": "[ \"1\", \"22\", \"333\" ]"
+        },
+        "note": "One more step gets the flat list most people expect from `scan`."
+      }
+    ]
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "id": "mcq-concat-array-and-number",
+  "unit": "concat-and-remove",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "++"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n1 ++ 2",
+      "%dw 2.0\noutput application/json\n---\n[1, 2] ++ [3]",
+      "%dw 2.0\noutput application/json\n---\n[1, 2] ++ 3",
+      "%dw 2.0\noutput application/json\n---\n\"a\" ++ 1"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[1, 2] ++ [3]",
+  "explanation": {
+    "approach": "`++` on arrays needs an array on both sides. Wrap a single value in brackets to append it. The two that look odd both work: Numbers and Strings are joined as text.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2] ++ 3",
+        "expect": {
+          "error": true
+        },
+        "note": "A compile error: there is no `++` for an Array and a Number."
+      },
+      {
+        "label": "Wrap the value",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2] ++ [3]",
+        "expect": {
+          "output": "[ 1, 2, 3 ]"
+        },
+        "note": "Now both sides are arrays."
+      },
+      {
+        "label": "Numbers are joined as text",
+        "script": "%dw 2.0\noutput application/json\n---\n1 ++ 2",
+        "expect": {
+          "output": "\"12\""
+        },
+        "note": "The result is the String \"12\", not 3."
+      }
+    ]
+  }
+}

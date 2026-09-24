@@ -1,0 +1,55 @@
+{
+  "id": "mcq-reduce-no-seed-object",
+  "unit": "reduce-seed",
+  "mode": "choice",
+  "tier": "max",
+  "title": "What does this return?",
+  "topics": [
+    "reduce",
+    "++",
+    "dynamic keys"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload reduce ((item, acc) -> acc ++ { (item.k): item.v })",
+    "payload": "[{\"k\":\"a\",\"v\":1},{\"k\":\"b\",\"v\":2}]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "{ \"b\": 2 }",
+      "{ \"a\": 1, \"b\": 2 }",
+      "[ { \"a\": 1 }, { \"b\": 2 } ]",
+      "{ \"k\": \"a\", \"v\": 1, \"b\": 2 }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload reduce ((item, acc) -> acc ++ { (item.k): item.v })",
+  "explanation": {
+    "approach": "Without a seed, the accumulator starts as the first element, which is the whole object `{ k: \"a\", v: 1 }`, and the lambda is not called for that element. Only the second item is converted.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload reduce ((item, acc) -> acc ++ { (item.k): item.v })",
+        "payload": "[{\"k\":\"a\",\"v\":1},{\"k\":\"b\",\"v\":2}]",
+        "expect": {
+          "output": "{ \"k\": \"a\", \"v\": 1, \"b\": 2 }"
+        },
+        "note": "The first row survives unconverted."
+      },
+      {
+        "label": "With an empty-object seed",
+        "script": "%dw 2.0\noutput application/json\n---\npayload reduce ((item, acc = {}) -> acc ++ { (item.k): item.v })",
+        "payload": "[{\"k\":\"a\",\"v\":1},{\"k\":\"b\",\"v\":2}]",
+        "expect": {
+          "output": "{ \"a\": 1, \"b\": 2 }"
+        },
+        "note": "Now every item goes through the lambda."
+      }
+    ]
+  }
+}

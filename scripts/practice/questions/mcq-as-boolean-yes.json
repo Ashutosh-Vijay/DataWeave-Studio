@@ -1,0 +1,48 @@
+{
+  "id": "mcq-as-boolean-yes",
+  "unit": "type-coercion",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "as",
+    "Boolean"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n\"true\" as Boolean",
+      "%dw 2.0\noutput application/json\n---\ntrue as String",
+      "%dw 2.0\noutput application/json\n---\n\"false\" as Boolean",
+      "%dw 2.0\noutput application/json\n---\n\"yes\" as Boolean"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"yes\" == \"yes\"",
+  "explanation": {
+    "approach": "Only the text \"true\" and \"false\" coerce to Boolean. Anything else, however obviously affirmative, is an error. Going the other way, from Boolean to String, always works.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\n\"yes\" as Boolean",
+        "expect": {
+          "error": true
+        },
+        "note": "Cannot coerce String (yes) to Boolean."
+      },
+      {
+        "label": "The two that coerce",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"true\" as Boolean, \"false\" as Boolean, true as String]",
+        "expect": {
+          "output": "[ true, false, \"true\" ]"
+        },
+        "note": "For \"yes\"/\"no\" data, compare the String instead of coercing it."
+      }
+    ]
+  }
+}

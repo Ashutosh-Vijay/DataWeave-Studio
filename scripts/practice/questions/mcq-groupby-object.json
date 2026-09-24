@@ -1,0 +1,50 @@
+{
+  "id": "mcq-groupby-object",
+  "unit": "groupby-shape",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "groupBy"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ a: 1, b: 2, c: 1 } groupBy $"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "It fails: groupBy needs an Array",
+      "{ \"1\": [ 1, 1 ], \"2\": [ 2 ] }",
+      "{ \"1\": { \"a\": 1, \"c\": 1 }, \"2\": { \"b\": 2 } }",
+      "{ \"1\": [ \"a\", \"c\" ], \"2\": [ \"b\" ] }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ a: 1, b: 2, c: 1 } groupBy $",
+  "explanation": {
+    "approach": "`groupBy` also works on an Object. Each group is then an Object too, holding the original key-value pairs, and the group names are Strings.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ a: 1, b: 2, c: 1 } groupBy $",
+        "expect": {
+          "output": "{ \"1\": { \"a\": 1, \"c\": 1 }, \"2\": { \"b\": 2 } }"
+        },
+        "note": "The input shape is kept inside each group."
+      },
+      {
+        "label": "On an Array, groups are Arrays",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2, 1] groupBy $",
+        "expect": {
+          "output": "{ \"1\": [ 1, 1 ], \"2\": [ 2 ] }"
+        },
+        "note": "Same values, different container."
+      }
+    ]
+  }
+}

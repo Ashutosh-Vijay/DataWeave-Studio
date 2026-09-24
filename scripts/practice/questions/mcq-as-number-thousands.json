@@ -1,0 +1,57 @@
+{
+  "id": "mcq-as-number-thousands",
+  "unit": "type-coercion",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "as",
+    "Number",
+    "format"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n\"1,250\" as Number {format: \"#,##0\"}",
+      "%dw 2.0\noutput application/json\n---\n\"1250.00\" as Number",
+      "%dw 2.0\noutput application/json\n---\n\"1,250\" as Number",
+      "%dw 2.0\noutput application/json\n---\n\"1250\" as Number"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"1,250\" as Number {format: \"#,##0\"}",
+  "explanation": {
+    "approach": "A plain `as Number` accepts digits, a sign and a decimal point. A grouping comma is not part of that, so the text has to be parsed with a format that says where the commas go.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\n\"1,250\" as Number",
+        "expect": {
+          "error": true
+        },
+        "note": "Cannot coerce String (1,250) to Number."
+      },
+      {
+        "label": "The fix",
+        "script": "%dw 2.0\noutput application/json\n---\n\"1,250\" as Number {format: \"#,##0\"}",
+        "expect": {
+          "output": "1250"
+        },
+        "note": "The format is a parsing pattern here, not an output pattern."
+      },
+      {
+        "label": "Trailing zeros are fine",
+        "script": "%dw 2.0\noutput application/json\n---\n\"1250.00\" as Number",
+        "expect": {
+          "output": "1250.00"
+        },
+        "note": "A decimal point is part of what a plain coercion understands."
+      }
+    ]
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "id": "mcq-recursive-sum",
+  "unit": "recursion",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "Which script produces this output?",
+  "topics": [
+    "fun",
+    "recursion",
+    "sum",
+    "default"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Every node has a value `v` and may have `kids`. Add up every `v` at every depth. Given the payload below,\n\n**which script produces exactly this output?**\n\n```\n10\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"v\":1,\"kids\":[{\"v\":2},{\"v\":3,\"kids\":[{\"v\":4}]}]}",
+    "target": "10",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload.v + sum(payload.kids.v)",
+      "%dw 2.0\noutput application/json\nfun sumTree(t) = t.v + sum((t.kids default []) map sumTree($))\n---\nsumTree(payload)",
+      "%dw 2.0\noutput application/json\nfun sumTree(t) = sum((t.kids default []) map sumTree($))\n---\nsumTree(payload)",
+      "%dw 2.0\noutput application/json\nfun sumTree(t) = t.v + sum((t.kids default []).v)\n---\nsumTree(payload)"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun sumTree(t) = t.v + sum((t.kids default []) map sumTree($))\n---\nsumTree(payload)",
+  "explanation": {
+    "approach": "A tree of unknown depth needs a function that calls itself on each child. It also needs a base case: a node with no `kids` must still return its own value, which is what `default []` makes possible.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nfun sumTree(t) = t.v + sum((t.kids default []) map sumTree($))\n---\nsumTree(payload)",
+        "payload": "{\"v\":1,\"kids\":[{\"v\":2},{\"v\":3,\"kids\":[{\"v\":4}]}]}",
+        "expect": {
+          "output": "10"
+        },
+        "note": "1 + 2 + 3 + 4."
+      },
+      {
+        "label": "One level only",
+        "script": "%dw 2.0\noutput application/json\nfun sumTree(t) = t.v + sum((t.kids default []).v)\n---\nsumTree(payload)",
+        "payload": "{\"v\":1,\"kids\":[{\"v\":2},{\"v\":3,\"kids\":[{\"v\":4}]}]}",
+        "expect": {
+          "output": "6"
+        },
+        "note": "The 4 is two levels down and never reached."
+      },
+      {
+        "label": "Forgetting the node itself",
+        "script": "%dw 2.0\noutput application/json\nfun sumTree(t) = sum((t.kids default []) map sumTree($))\n---\nsumTree(payload)",
+        "payload": "{\"v\":1,\"kids\":[{\"v\":2},{\"v\":3,\"kids\":[{\"v\":4}]}]}",
+        "expect": {
+          "output": "0"
+        },
+        "note": "Every leaf returns the sum of no children, which is 0."
+      }
+    ]
+  }
+}

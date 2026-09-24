@@ -1,0 +1,61 @@
+{
+  "id": "mcq-map-computed-field",
+  "unit": "map-basics",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "Which script produces this output?",
+  "topics": [
+    "map",
+    "*"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n[ { \"sku\": \"A\", \"total\": 10 }, { \"sku\": \"B\", \"total\": 12 } ]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[{\"sku\":\"A\",\"qty\":2,\"price\":5},{\"sku\":\"B\",\"qty\":3,\"price\":4}]",
+    "target": "[ { \"sku\": \"A\", \"total\": 10 }, { \"sku\": \"B\", \"total\": 12 } ]",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload map { sku: $.sku, total: $.qty + $.price }",
+      "%dw 2.0\noutput application/json\n---\npayload map { sku: $.sku, total: $$ * $.price }",
+      "%dw 2.0\noutput application/json\n---\npayload map { sku: $.sku, total: $.qty * $.price }",
+      "%dw 2.0\noutput application/json\n---\n{ sku: payload.sku, total: payload.qty * payload.price }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map { sku: $.sku, total: $.qty * $.price }",
+  "explanation": {
+    "approach": "Inside `map`, `$` is the current element, so each output object is built from one row. The wrong options add instead of multiply, work on whole arrays at once, or use the index where a field belongs.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map { sku: $.sku, total: $.qty * $.price }",
+        "payload": "[{\"sku\":\"A\",\"qty\":2,\"price\":5},{\"sku\":\"B\",\"qty\":3,\"price\":4}]",
+        "expect": {
+          "output": "[ { \"sku\": \"A\", \"total\": 10 }, { \"sku\": \"B\", \"total\": 12 } ]"
+        },
+        "note": "2 * 5 and 3 * 4."
+      },
+      {
+        "label": "Selecting from the whole array",
+        "script": "%dw 2.0\noutput application/json\n---\n{ sku: payload.sku, total: payload.qty * payload.price }",
+        "payload": "[{\"sku\":\"A\",\"qty\":2,\"price\":5},{\"sku\":\"B\",\"qty\":3,\"price\":4}]",
+        "expect": {
+          "error": true
+        },
+        "note": "`payload.qty` is the Array [2, 3], and Arrays cannot be multiplied."
+      },
+      {
+        "label": "The index instead of qty",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map { sku: $.sku, total: $$ * $.price }",
+        "payload": "[{\"sku\":\"A\",\"qty\":2,\"price\":5},{\"sku\":\"B\",\"qty\":3,\"price\":4}]",
+        "expect": {
+          "output": "[ { \"sku\": \"A\", \"total\": 0 }, { \"sku\": \"B\", \"total\": 4 } ]"
+        },
+        "note": "`$$` is 0 and then 1."
+      }
+    ]
+  }
+}

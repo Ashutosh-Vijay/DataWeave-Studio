@@ -1,0 +1,45 @@
+{
+  "id": "mcq-xml-namespace-output",
+  "unit": "xml-namespaces",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "xml",
+    "ns",
+    "output"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/xml indent=false, writeDeclaration=false",
+  "given": {
+    "script": "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\nns soap http://schemas.xmlsoap.org/soap/envelope/\n---\n{ soap#Envelope: { soap#Body: { id: 1 } } }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "<Envelope xmlns=\"http://schemas.xmlsoap.org/soap/envelope/\"><Body><id>1</id></Body></Envelope>",
+      "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap:Body><id>1</id></soap:Body></soap:Envelope>",
+      "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap:Body><soap:id>1</soap:id></soap:Body></soap:Envelope>",
+      "<soap:Envelope><soap:Body><id>1</id></soap:Body></soap:Envelope>"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\nns soap http://schemas.xmlsoap.org/soap/envelope/\n---\n{ soap#Envelope: { soap#Body: { id: 1 } } }",
+  "explanation": {
+    "approach": "`ns` declares a prefix, and `prefix#name` puts an element in that namespace. The writer declares the namespace once, on the first element that uses it. Elements written without a prefix stay unqualified.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\nns soap http://schemas.xmlsoap.org/soap/envelope/\n---\n{ soap#Envelope: { soap#Body: { id: 1 } } }",
+        "outputMime": "application/xml indent=false, writeDeclaration=false",
+        "expect": {
+          "output": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap:Body><id>1</id></soap:Body></soap:Envelope>"
+        },
+        "note": "`id` has no prefix, so it is not in the SOAP namespace."
+      }
+    ]
+  }
+}

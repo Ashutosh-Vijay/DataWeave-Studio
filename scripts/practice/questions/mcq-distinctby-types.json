@@ -1,0 +1,42 @@
+{
+  "id": "mcq-distinctby-types",
+  "unit": "distinct-and-order",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "distinctBy"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[1, \"1\", 1.0, \"1\"] distinctBy $"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "[ \"1\" ]",
+      "[ 1 ]",
+      "[ 1, \"1\" ]",
+      "[ 1, \"1\", 1.0 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[1, \"1\", 1.0, \"1\"] distinctBy $",
+  "explanation": {
+    "approach": "`distinctBy` compares with `==`, which considers type. The Number 1 and the String \"1\" are different, but 1 and 1.0 are the same Number.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, \"1\", 1.0, \"1\"] distinctBy $",
+        "expect": {
+          "output": "[ 1, \"1\" ]"
+        },
+        "note": "One Number and one String survive."
+      }
+    ]
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "id": "mcq-csv-sum-quantities",
+  "unit": "csv-round-trip",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "csv",
+    "sum",
+    "as",
+    "reduce"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "The payload is CSV. Which script produces exactly this output?\n\n**which script produces exactly this output?**\n\n```\n55\n```",
+  "inputMime": "application/csv",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "sku,qty\nA,12\nB,3\nC,40",
+    "target": "55",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\nsizeOf(payload map $.qty)",
+      "%dw 2.0\noutput application/json\n---\nsum(payload map ($.qty as Number))",
+      "%dw 2.0\noutput application/json\n---\npayload.qty reduce ((q, acc = \"\") -> acc ++ q)",
+      "%dw 2.0\noutput application/json\n---\nmax(payload.qty)"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nsum(payload map ($.qty as Number))",
+  "explanation": {
+    "approach": "The quantities are Strings, so they need coercing before they are summed. The distractors each return something recognisable from the data but not the total: a concatenation, a row count, and an alphabetical maximum.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\nsum(payload map ($.qty as Number))",
+        "payload": "sku,qty\nA,12\nB,3\nC,40",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "55"
+        },
+        "note": "12 + 3 + 40."
+      },
+      {
+        "label": "Folding with ++",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.qty reduce ((q, acc = \"\") -> acc ++ q)",
+        "payload": "sku,qty\nA,12\nB,3\nC,40",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "\"12340\""
+        },
+        "note": "Text joined end to end."
+      },
+      {
+        "label": "max over Strings",
+        "script": "%dw 2.0\noutput application/json\n---\nmax(payload.qty)",
+        "payload": "sku,qty\nA,12\nB,3\nC,40",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "\"40\""
+        },
+        "note": "Alphabetical: \"4\" beats \"3\" and \"1\"."
+      }
+    ]
+  }
+}

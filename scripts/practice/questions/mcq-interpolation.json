@@ -1,0 +1,52 @@
+{
+  "id": "mcq-interpolation",
+  "unit": "string-basics",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "Which script produces this output?",
+  "topics": [
+    "interpolation",
+    "upper"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n\"ANN has 3 orders\"\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"first\":\"ann\",\"total\":3}",
+    "target": "\"ANN has 3 orders\"",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n\"$(upper(payload.first)) has $(payload.total) orders\"",
+      "%dw 2.0\noutput application/json\n---\n\"upper(payload.first) has $(payload.total) orders\"",
+      "%dw 2.0\noutput application/json\n---\n\"$(payload.first) has $(payload.total) orders\"",
+      "%dw 2.0\noutput application/json\n---\nupper(payload.first) ++ \" has payload.total orders\""
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"$(upper(payload.first)) has $(payload.total) orders\"",
+  "explanation": {
+    "approach": "Inside a String, `$( )` evaluates an expression. Anything outside it is literal text, including something that looks like a function call.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n\"$(upper(payload.first)) has $(payload.total) orders\"",
+        "payload": "{\"first\":\"ann\",\"total\":3}",
+        "expect": {
+          "output": "\"ANN has 3 orders\""
+        },
+        "note": "Both expressions are inside `$( )`."
+      },
+      {
+        "label": "The call outside $( ) is just text",
+        "script": "%dw 2.0\noutput application/json\n---\n\"upper(payload.first) has $(payload.total) orders\"",
+        "payload": "{\"first\":\"ann\",\"total\":3}",
+        "expect": {
+          "output": "\"upper(payload.first) has 3 orders\""
+        },
+        "note": "The engine does not look inside plain text for code."
+      }
+    ]
+  }
+}

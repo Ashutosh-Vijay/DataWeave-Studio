@@ -1,0 +1,72 @@
+{
+  "id": "mcq-strings-pad",
+  "unit": "string-basics",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "dw::core::Strings",
+    "leftPad",
+    "substringBefore",
+    "substringAfterLast"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Take the part after the last dash and pad it to three digits. Given the payload below,\n\n**which script produces exactly this output?**\n\n```\n\"007\"\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"ref\":\"EU-DE-7\"}",
+    "target": "\"007\"",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\nleftPad(substringBefore(payload.ref, \"-\"), 3, \"0\")",
+      "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\nrightPad(substringAfterLast(payload.ref, \"-\"), 3, \"0\")",
+      "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\nleftPad(substringAfterLast(payload.ref, \"-\"), 3, \"0\")",
+      "%dw 2.0\noutput application/json\n---\nleftPad(substringAfterLast(payload.ref, \"-\"), 3, \"0\")"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\nleftPad(substringAfterLast(payload.ref, \"-\"), 3, \"0\")",
+  "explanation": {
+    "approach": "`substringAfterLast` takes the text after the final separator, and `leftPad` pads on the left up to the given length. Both live in `dw::core::Strings`, so without an import neither name resolves.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\nleftPad(substringAfterLast(payload.ref, \"-\"), 3, \"0\")",
+        "payload": "{\"ref\":\"EU-DE-7\"}",
+        "expect": {
+          "output": "\"007\""
+        },
+        "note": "\"7\" padded to three characters."
+      },
+      {
+        "label": "Padding on the right",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\nrightPad(substringAfterLast(payload.ref, \"-\"), 3, \"0\")",
+        "payload": "{\"ref\":\"EU-DE-7\"}",
+        "expect": {
+          "output": "\"700\""
+        },
+        "note": "A different number."
+      },
+      {
+        "label": "Before the first dash",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\nleftPad(substringBefore(payload.ref, \"-\"), 3, \"0\")",
+        "payload": "{\"ref\":\"EU-DE-7\"}",
+        "expect": {
+          "output": "\"0EU\""
+        },
+        "note": "The wrong end of the String."
+      },
+      {
+        "label": "Without the import",
+        "script": "%dw 2.0\noutput application/json\n---\nleftPad(substringAfterLast(payload.ref, \"-\"), 3, \"0\")",
+        "payload": "{\"ref\":\"EU-DE-7\"}",
+        "expect": {
+          "error": true
+        },
+        "note": "These are not core functions."
+      }
+    ]
+  }
+}

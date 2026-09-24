@@ -1,0 +1,43 @@
+{
+  "id": "mcq-division-and-mod",
+  "unit": "numbers-and-rounding",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "/",
+    "mod"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ 10 / 4, 7 mod 3, -7 mod 3 ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "[ 2.5, 1, 2 ]",
+      "[ 2, 1, 2 ]",
+      "[ 2.5, 1, -1 ]",
+      "[ 2, 1, -1 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ 10 / 4, 7 mod 3, -7 mod 3 ]",
+  "explanation": {
+    "approach": "Division between integers still gives a decimal, so 10 / 4 is 2.5, not 2. `mod` keeps the sign of the left operand, so -7 mod 3 is -1 rather than 2.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ 10 / 4, 7 mod 3, -7 mod 3 ]",
+        "expect": {
+          "output": "[ 2.5, 1, -1 ]"
+        },
+        "note": "Two separate traps, one per wrong option pair."
+      }
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "id": "mcq-urlencoded-output",
+  "unit": "multi-format-embed",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "urlencoded",
+    "output"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/x-www-form-urlencoded",
+  "given": {
+    "script": "%dw 2.0\noutput application/x-www-form-urlencoded\n---\n{ q: \"blue shoes\", page: 2 }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "q=blue shoes&page=2",
+      "{\"q\":\"blue shoes\",\"page\":2}",
+      "q=blue%20shoes;page=2",
+      "q=blue+shoes&page=2"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/x-www-form-urlencoded\n---\n{ q: \"blue shoes\", page: 2 }",
+  "explanation": {
+    "approach": "The form-urlencoded writer joins key=value pairs with `&` and encodes a space as `+`, the way an HTML form submits data.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/x-www-form-urlencoded\n---\n{ q: \"blue shoes\", page: 2 }",
+        "outputMime": "application/x-www-form-urlencoded",
+        "expect": {
+          "output": "q=blue+shoes&page=2"
+        },
+        "note": "The format of a form post or a query string."
+      }
+    ]
+  }
+}

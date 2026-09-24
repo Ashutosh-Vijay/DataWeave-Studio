@@ -1,0 +1,71 @@
+{
+  "id": "mcq-zero-padding",
+  "unit": "string-basics",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "as",
+    "format",
+    "++"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n\"ORD-0012\"\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"n\":12}",
+    "target": "\"ORD-0012\"",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n\"ORD-$(payload.n)\"",
+      "%dw 2.0\noutput application/json\n---\n\"ORD-\" ++ (payload.n as String {format: \"####\"})",
+      "%dw 2.0\noutput application/json\n---\n\"ORD-00\" + payload.n",
+      "%dw 2.0\noutput application/json\n---\n\"ORD-\" ++ (payload.n as String {format: \"0000\"})"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"ORD-\" ++ (payload.n as String {format: \"0000\"})",
+  "explanation": {
+    "approach": "In a number pattern, `0` is a digit that is always printed and `#` is one that is dropped when it would be a leading zero. Padding needs zeros.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n\"ORD-\" ++ (payload.n as String {format: \"0000\"})",
+        "payload": "{\"n\":12}",
+        "expect": {
+          "output": "\"ORD-0012\""
+        },
+        "note": "Four mandatory digits."
+      },
+      {
+        "label": "Interpolation keeps the number as it is",
+        "script": "%dw 2.0\noutput application/json\n---\n\"ORD-$(payload.n)\"",
+        "payload": "{\"n\":12}",
+        "expect": {
+          "output": "\"ORD-12\""
+        },
+        "note": "No padding happens without a format."
+      },
+      {
+        "label": "Hashes are optional digits",
+        "script": "%dw 2.0\noutput application/json\n---\n\"ORD-\" ++ (payload.n as String {format: \"####\"})",
+        "payload": "{\"n\":12}",
+        "expect": {
+          "output": "\"ORD-12\""
+        },
+        "note": "The leading positions are left out."
+      },
+      {
+        "label": "+ tries arithmetic",
+        "script": "%dw 2.0\noutput application/json\n---\n\"ORD-00\" + payload.n",
+        "payload": "{\"n\":12}",
+        "expect": {
+          "error": true
+        },
+        "note": "\"ORD-00\" is not a number, so `+` has nothing to add."
+      }
+    ]
+  }
+}

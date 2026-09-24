@@ -1,0 +1,44 @@
+{
+  "id": "mcq-eval-expression-tree",
+  "unit": "expression-evaluator",
+  "mode": "choice",
+  "tier": "extra",
+  "title": "What does this return?",
+  "topics": [
+    "fun",
+    "recursion",
+    "match"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev({ op: \"+\", l: 2, r: { op: \"*\", l: 3, r: 4 } })"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "20",
+      "It fails: match has no else",
+      "14",
+      "9"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev({ op: \"+\", l: 2, r: { op: \"*\", l: 3, r: 4 } })",
+  "explanation": {
+    "approach": "The tree says 2 + (3 * 4). The function evaluates each branch recursively before combining them, so the nesting decides the order, not the reading order. Every node here matches one case, so the missing `else` is never needed.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev({ op: \"+\", l: 2, r: { op: \"*\", l: 3, r: 4 } })",
+        "expect": {
+          "output": "14"
+        },
+        "note": "3 * 4 first, then + 2."
+      }
+    ]
+  }
+}

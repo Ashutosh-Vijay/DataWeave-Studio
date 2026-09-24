@@ -1,0 +1,64 @@
+{
+  "id": "mcq-not-precedence",
+  "unit": "filter-and-null",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "not",
+    "!",
+    "or",
+    "filter"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload filter (not $.active or $.vip) map $.id",
+    "payload": "[{\"id\":1,\"active\":true,\"vip\":false},{\"id\":2,\"active\":false,\"vip\":false},{\"id\":3,\"active\":true,\"vip\":true}]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "[ 2, 3 ]",
+      "[ 2 ]",
+      "[ 3 ]",
+      "[ 1, 2, 3 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload filter (not $.active or $.vip) map $.id",
+  "explanation": {
+    "approach": "`not` has lower precedence than `or`, so `not $.active or $.vip` means `not ($.active or $.vip)`. That keeps only rows where both are false. `!` binds tightly, which is the reading most people intended.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filter (not $.active or $.vip) map $.id",
+        "payload": "[{\"id\":1,\"active\":true,\"vip\":false},{\"id\":2,\"active\":false,\"vip\":false},{\"id\":3,\"active\":true,\"vip\":true}]",
+        "expect": {
+          "output": "[ 2 ]"
+        },
+        "note": "Only row 2 has both flags false."
+      },
+      {
+        "label": "With !, the other reading",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filter (!$.active or $.vip) map $.id",
+        "payload": "[{\"id\":1,\"active\":true,\"vip\":false},{\"id\":2,\"active\":false,\"vip\":false},{\"id\":3,\"active\":true,\"vip\":true}]",
+        "expect": {
+          "output": "[ 2, 3 ]"
+        },
+        "note": "Inactive rows, plus VIPs."
+      },
+      {
+        "label": "The same thing in isolation",
+        "script": "%dw 2.0\noutput application/json\n---\n[ not true or true, !true or true ]",
+        "expect": {
+          "output": "[ false, true ]"
+        },
+        "note": "Same operands, different grouping."
+      }
+    ]
+  }
+}

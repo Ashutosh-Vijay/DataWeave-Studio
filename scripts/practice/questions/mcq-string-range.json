@@ -1,0 +1,43 @@
+{
+  "id": "mcq-string-range",
+  "unit": "sizeof-and-slicing",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "range",
+    "String"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ \"Hello\"[1 to 3], \"Hello\"[-1], \"Hello\"[10] ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ \"el\", \"o\", null ]",
+      "[ \"ell\", \"H\", null ]",
+      "[ \"Hel\", \"o\", \"\" ]",
+      "[ \"ell\", \"o\", null ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ \"Hello\"[1 to 3], \"Hello\"[-1], \"Hello\"[10] ]",
+  "explanation": {
+    "approach": "A String can be indexed like an array of characters. A range `[1 to 3]` includes both ends. A negative index counts from the end. An index past the end gives null, not an error.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ \"Hello\"[1 to 3], \"Hello\"[-1], \"Hello\"[10] ]",
+        "expect": {
+          "output": "[ \"ell\", \"o\", null ]"
+        },
+        "note": "Positions 1, 2 and 3 are e, l, l."
+      }
+    ]
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "id": "mcq-argument-count",
+  "unit": "higher-order",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "fun",
+    "infix"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\nfun plus(a, b) = a + b\n---\n1 plus 2",
+      "%dw 2.0\noutput application/json\nfun plus(a, b) = a + b\n---\nplus(1, 2)",
+      "%dw 2.0\noutput application/json\nfun plus(a, b) = a + b\n---\n[1, 2, 3] reduce ((n, acc = 0) -> plus(acc, n))",
+      "%dw 2.0\noutput application/json\nfun plus(a, b) = a + b\n---\nplus(1, 2, 3)"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun plus(a, b) = a + b\n---\nplus(plus(1, 2), 3)",
+  "explanation": {
+    "approach": "A function must be called with the number of arguments it declares, unless some have defaults. A two-parameter function can also be written infix, between its arguments, the way `map` and `filter` are.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\nfun plus(a, b) = a + b\n---\nplus(1, 2, 3)",
+        "expect": {
+          "error": true
+        },
+        "note": "Expects 2 arguments but got 3."
+      },
+      {
+        "label": "Infix call",
+        "script": "%dw 2.0\noutput application/json\nfun plus(a, b) = a + b\n---\n1 plus 2",
+        "expect": {
+          "output": "3"
+        },
+        "note": "The first argument goes on the left."
+      },
+      {
+        "label": "Nest to add three",
+        "script": "%dw 2.0\noutput application/json\nfun plus(a, b) = a + b\n---\nplus(plus(1, 2), 3)",
+        "expect": {
+          "output": "6"
+        },
+        "note": "Two calls, two arguments each."
+      },
+      {
+        "label": "map and filter are the same kind of call",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2, 3] map ($ * 2) filter ($ > 2)",
+        "expect": {
+          "output": "[ 4, 6 ]"
+        },
+        "note": "Two-argument functions written between their arguments."
+      }
+    ]
+  }
+}

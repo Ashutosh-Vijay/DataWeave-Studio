@@ -1,0 +1,43 @@
+{
+  "id": "mcq-do-shadowing",
+  "unit": "do-and-scope",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "do",
+    "var"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nvar a = 1\n---\n{ a: a, b: do { var a = 2 --- a * 10 }, c: a }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "It fails: a is declared twice",
+      "{ \"a\": 1, \"b\": 20, \"c\": 2 }",
+      "{ \"a\": 2, \"b\": 20, \"c\": 2 }",
+      "{ \"a\": 1, \"b\": 20, \"c\": 1 }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nvar a = 1\n---\n{ a: a, b: do { var a = 2 --- a * 10 }, c: a }",
+  "explanation": {
+    "approach": "The `do` block has its own scope. Its `a` hides the header `a` inside the block and disappears after it. Nothing outside the block changes.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nvar a = 1\n---\n{ a: a, b: do { var a = 2 --- a * 10 }, c: a }",
+        "expect": {
+          "output": "{ \"a\": 1, \"b\": 20, \"c\": 1 }"
+        },
+        "note": "The header value is untouched."
+      }
+    ]
+  }
+}

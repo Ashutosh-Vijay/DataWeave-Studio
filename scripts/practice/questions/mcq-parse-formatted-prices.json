@@ -1,0 +1,63 @@
+{
+  "id": "mcq-parse-formatted-prices",
+  "unit": "type-coercion",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "Which script produces this output?",
+  "topics": [
+    "as",
+    "format",
+    "sum",
+    "joinBy"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n1300\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"prices\":[\"1,200.50\",\"99.50\"]}",
+    "target": "1300",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\nsum(payload.prices map (($ as Number) default 0))",
+      "%dw 2.0\noutput application/json\n---\npayload.prices joinBy \"+\"",
+      "%dw 2.0\noutput application/json\n---\nsum(payload.prices map ($ as Number {format: \"#,##0.00\"}))",
+      "%dw 2.0\noutput application/json\n---\nsizeOf(payload.prices)"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nsum(payload.prices map ($ as Number {format: \"#,##0.00\"}))",
+  "explanation": {
+    "approach": "The first price has a grouping comma, so a plain `as Number` cannot read it. A format pattern that includes the comma parses it. Wrapping the plain coercion in `default` does not fail, but it quietly turns the unreadable price into 0.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\nsum(payload.prices map ($ as Number {format: \"#,##0.00\"}))",
+        "payload": "{\"prices\":[\"1,200.50\",\"99.50\"]}",
+        "expect": {
+          "output": "1300"
+        },
+        "note": "1200.50 + 99.50."
+      },
+      {
+        "label": "The silent zero",
+        "script": "%dw 2.0\noutput application/json\n---\nsum(payload.prices map (($ as Number) default 0))",
+        "payload": "{\"prices\":[\"1,200.50\",\"99.50\"]}",
+        "expect": {
+          "output": "99.50"
+        },
+        "note": "The larger price was replaced by 0 and nothing complained."
+      },
+      {
+        "label": "Joining is not adding",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.prices joinBy \"+\"",
+        "payload": "{\"prices\":[\"1,200.50\",\"99.50\"]}",
+        "expect": {
+          "output": "\"1,200.50+99.50\""
+        },
+        "note": "A String."
+      }
+    ]
+  }
+}
