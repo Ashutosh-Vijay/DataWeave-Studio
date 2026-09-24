@@ -378,6 +378,8 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
   const [result, setResult] = useState<GradeResult | null>(null);
   /** `predict` mode: what you typed, and how it compared to the engine. */
   const [guess, setGuess] = useState('');
+  /** `choice` mode: which option was clicked, or null while unanswered. */
+  const [picked, setPicked] = useState<number | null>(null);
   const [verdict, setVerdict] = useState<{ correct: boolean; because: string; actual: string } | null>(null);
   const [hintsShown, setHintsShown] = useState(0);
   const [showSolution, setShowSolution] = useState(false);
@@ -418,6 +420,7 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
     setResult(null);
     setGuess('');
     setVerdict(null);
+    setPicked(null);
     setHintsShown(0);
     setShowSolution(false);
     setShowExplanation(false);
@@ -570,6 +573,36 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
       }
     } finally {
       setRunning(false);
+    }
+  };
+
+  /**
+   * Answer a multiple-choice question. No engine call: the key was already
+   * adjudicated by the gate, which ran every option and proved exactly one
+   * satisfies the stem. Clicking is just reading off that verdict.
+   */
+  const handlePick = (i: number) => {
+    if (!question) return;
+    setPicked(i);
+    const right = i === question.choice?.answer;
+    const prev = progress[question.id] ?? { solved: false, viewedSolution: false, attempts: 0 };
+    const updated = {
+      ...progress,
+      [question.id]: { solved: prev.solved || right, viewedSolution: prev.viewedSolution, attempts: prev.attempts + 1 },
+    };
+    setProgress(updated);
+    saveProgress(updated);
+
+    const log = trimLog([...events, { t: Date.now(), id: question.id, solved: right }]);
+    setEvents(log);
+    try {
+      localStorage.setItem(ACTIVITY_KEY, JSON.stringify(log));
+    } catch {
+      /* blocked storage */
+    }
+    if (right) {
+      setStopped(true);
+      setShowExplanation(true);
     }
   };
 
@@ -887,7 +920,87 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
           </div>
 
           {/* right: read it and say what it returns, or write and run */}
-          {question.mode === 'predict' ? (
+          {question.mode === 'choice' ? (
+            <div className="flex-1 flex flex-col min-w-0">
+              <div className="h-9 shrink-0 flex items-center gap-2 px-3.5 border-b border-line-subtle">
+                <span className="text-[11px] font-medium text-content-secondary flex-1">
+                  {question.choice?.kind === 'which-output' ? 'Read this' : 'Pick one'}
+                </span>
+              </div>
+              <div className="px-3.5 py-3 overflow-auto">
+                {question.given?.script && (
+                  <pre
+                    className="rounded p-2.5 text-[12px] font-mono whitespace-pre-wrap break-words leading-relaxed border mb-2"
+                    style={{ background: 'var(--surface-2)', borderColor: 'var(--line)', color: 'var(--content)' }}
+                  >
+                    {question.given.script}
+                  </pre>
+                )}
+                {(question.given?.payload ?? question.choice?.payload) && (
+                  <>
+                    <div className="text-[10px] uppercase tracking-[0.6px] font-semibold text-content-faint mt-2 mb-1">
+                      Payload
+                    </div>
+                    <pre
+                      className="rounded p-2.5 text-[11.5px] font-mono whitespace-pre-wrap break-words leading-relaxed border mb-3"
+                      style={{ background: 'var(--surface-2)', borderColor: 'var(--line)', color: 'var(--content)' }}
+                    >
+                      {question.given?.payload ?? question.choice?.payload}
+                    </pre>
+                  </>
+                )}
+
+                <div className="space-y-1.5">
+                  {(question.choice?.options ?? []).map((opt, i) => {
+                    const answered = picked !== null;
+                    const isKey = i === question.choice?.answer;
+                    const isPicked = i === picked;
+                    // After answering, the right one is always marked — being
+                    // told only "wrong" teaches nothing.
+                    const tone = !answered ? null : isKey ? 'ok' : isPicked ? 'err' : null;
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => { if (!answered) handlePick(i); }}
+                        disabled={answered}
+                        className="w-full text-left rounded-md border px-3 py-2 flex gap-2.5 items-start cursor-pointer disabled:cursor-default"
+                        style={{
+                          borderColor: tone ? `color-mix(in oklch, var(--${tone}) 45%, transparent)` : 'var(--line)',
+                          background: tone ? `color-mix(in oklch, var(--${tone}) 8%, transparent)` : 'transparent',
+                        }}
+                      >
+                        <span className="font-mono text-[11px] text-content-faint mt-0.5 shrink-0">
+                          {String.fromCharCode(65 + i)}
+                        </span>
+                        <pre className="flex-1 text-[11.5px] font-mono whitespace-pre-wrap break-words leading-relaxed text-content">
+                          {opt}
+                        </pre>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {picked !== null && (
+                  <div
+                    className="mt-3 rounded-lg border px-3.5 py-3"
+                    style={{
+                      background: `color-mix(in oklch, var(--${picked === question.choice?.answer ? 'ok' : 'err'}) 6%, transparent)`,
+                      borderColor: `color-mix(in oklch, var(--${picked === question.choice?.answer ? 'ok' : 'err'}) 25%, transparent)`,
+                    }}
+                  >
+                    <div
+                      className="text-[13px] font-semibold"
+                      style={{ color: picked === question.choice?.answer ? 'var(--ok)' : 'var(--err)' }}
+                    >
+                      {picked === question.choice?.answer
+                        ? 'Correct'
+                        : `Not quite — the answer is ${String.fromCharCode(65 + (question.choice?.answer ?? 0))}`}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : question.mode === 'predict' ? (
             <div className="flex-1 flex flex-col min-w-0">
               <div className="h-9 shrink-0 flex items-center gap-2 px-3.5 border-b border-line-subtle">
                 <span className="text-[11px] font-medium text-content-secondary flex-1">

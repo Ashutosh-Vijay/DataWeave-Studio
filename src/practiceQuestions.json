@@ -4413,6 +4413,70 @@
     "derivedFrom": "format-date-parts"
   },
   {
+    "id": "mcq-groupby-key-type",
+    "unit": "groupby-shape",
+    "mode": "choice",
+    "tier": "medium",
+    "title": "What does this return?",
+    "topics": [
+      "groupBy",
+      "mapObject",
+      "sizeOf"
+    ],
+    "examObjective": "Predicting the result of core DataWeave functions",
+    "prompt": "Read the script and the payload. **What does it return?**",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "given": {
+      "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.tier mapObject { ($$): sizeOf($) }",
+      "payload": "[{\"id\":\"a\",\"tier\":2},{\"id\":\"b\",\"tier\":1},{\"id\":\"c\",\"tier\":2}]"
+    },
+    "choice": {
+      "kind": "which-output",
+      "answer": 0,
+      "options": [
+        "{ \"2\": 2, \"1\": 1 }",
+        "[ { \"tier\": \"2\", \"count\": 2 }, { \"tier\": \"1\", \"count\": 1 } ]",
+        "{ \"2\": [ { \"id\": \"a\", \"tier\": 2 }, { \"id\": \"c\", \"tier\": 2 } ], \"1\": [ { \"id\": \"b\", \"tier\": 1 } ] }",
+        "[ 2, 1 ]"
+      ]
+    },
+    "cases": [],
+    "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.tier mapObject { ($$): sizeOf($) }",
+    "explanation": {
+      "approach": "Two things decide this. `groupBy` returns an Object, not an Array — so the answer has braces, not brackets. And an object key is always a name, so grouping by a Number gives you the String keys \"2\" and \"1\".",
+      "snippets": [
+        {
+          "label": "What groupBy alone returns",
+          "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.tier",
+          "payload": "[{\"id\":\"a\",\"tier\":2},{\"id\":\"b\",\"tier\":1},{\"id\":\"c\",\"tier\":2}]",
+          "expect": {
+            "output": "{ \"2\": [ { \"id\": \"a\", \"tier\": 2 }, { \"id\": \"c\", \"tier\": 2 } ], \"1\": [ { \"id\": \"b\", \"tier\": 1 } ] }"
+          },
+          "note": "This is option C — the shape you get if you stop one step early. The keys are already Strings here, before mapObject touches anything."
+        },
+        {
+          "label": "The answer",
+          "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.tier mapObject { ($$): sizeOf($) }",
+          "payload": "[{\"id\":\"a\",\"tier\":2},{\"id\":\"b\",\"tier\":1},{\"id\":\"c\",\"tier\":2}]",
+          "expect": {
+            "output": "{ \"2\": 2, \"1\": 1 }"
+          },
+          "note": "Inside mapObject, `$` is the bucket and `$$` is its key. Buckets appear in the order their key was first seen, which is why 2 comes before 1."
+        },
+        {
+          "label": "The array shape, for comparison",
+          "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.tier pluck ((v, k) -> { tier: k, count: sizeOf(v) })",
+          "payload": "[{\"id\":\"a\",\"tier\":2},{\"id\":\"b\",\"tier\":1},{\"id\":\"c\",\"tier\":2}]",
+          "expect": {
+            "output": "[ { \"tier\": \"2\", \"count\": 2 }, { \"tier\": \"1\", \"count\": 1 } ]"
+          },
+          "note": "Option B. It needs `pluck` rather than `mapObject`, and the tier has come out as a String — the giveaway that it was a key on the way through."
+        }
+      ]
+    }
+  },
+  {
     "id": "orders-per-priority",
     "unit": "groupby-shape",
     "tier": "medium",
@@ -5127,6 +5191,77 @@
       ]
     },
     "derivedFrom": "duplicate-key-collision"
+  },
+  {
+    "id": "mcq-filter-order-sku",
+    "unit": "distinct-and-order",
+    "mode": "choice",
+    "tier": "medium",
+    "title": "Which script produces this output?",
+    "topics": [
+      "filter",
+      "orderBy",
+      "map"
+    ],
+    "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+    "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n[\"A-1\", \"C-3\"]\n```\n\nOnly one of the four does. The others are each wrong in a different way.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "choice": {
+      "kind": "which-script",
+      "payload": "[{\"sku\":\"A-1\",\"qty\":40},{\"sku\":\"B-2\",\"qty\":20},{\"sku\":\"C-3\",\"qty\":30}]",
+      "target": "[\"A-1\",\"C-3\"]",
+      "answer": 0,
+      "options": [
+        "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty > 25) orderBy $.sku) map $.sku",
+        "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty > 25) orderBy $.qty) map $.sku",
+        "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty >= 20) orderBy $.sku) map $.sku",
+        "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty > 25) orderBy $.sku) map $.qty"
+      ]
+    },
+    "cases": [],
+    "solution": "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty > 25) orderBy $.sku) map $.sku",
+    "explanation": {
+      "approach": "Three things have to be right at once — which rows survive, what order they come back in, and which field you keep — and each wrong option gets exactly one of them wrong. That is what a well-built multiple-choice question does: it separates the three decisions so a near-miss tells you which one you got wrong.",
+      "snippets": [
+        {
+          "label": "The answer",
+          "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty > 25) orderBy $.sku) map $.sku",
+          "payload": "[{\"sku\":\"A-1\",\"qty\":40},{\"sku\":\"B-2\",\"qty\":20},{\"sku\":\"C-3\",\"qty\":30}]",
+          "expect": {
+            "output": "[ \"A-1\", \"C-3\" ]"
+          },
+          "note": "Keep the rows over 25, put them in `sku` order, take the `sku`."
+        },
+        {
+          "label": "Ordering by the wrong field",
+          "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty > 25) orderBy $.qty) map $.sku",
+          "payload": "[{\"sku\":\"A-1\",\"qty\":40},{\"sku\":\"B-2\",\"qty\":20},{\"sku\":\"C-3\",\"qty\":30}]",
+          "expect": {
+            "output": "[ \"C-3\", \"A-1\" ]"
+          },
+          "note": "The right rows, the wrong order. Ordering by `qty` puts 30 before 40, so C-3 comes first. The data was chosen so `sku` order and `qty` order disagree — if they agreed, this would not be a distractor at all, it would be a second correct answer."
+        },
+        {
+          "label": "The boundary, off by one row",
+          "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty >= 20) orderBy $.sku) map $.sku",
+          "payload": "[{\"sku\":\"A-1\",\"qty\":40},{\"sku\":\"B-2\",\"qty\":20},{\"sku\":\"C-3\",\"qty\":30}]",
+          "expect": {
+            "output": "[ \"A-1\", \"B-2\", \"C-3\" ]"
+          },
+          "note": "`>=` lets B-2 in at exactly 20. Boundary conditions are the most common real mistake and the most common exam distractor."
+        },
+        {
+          "label": "The right rows, the wrong field",
+          "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty > 25) orderBy $.sku) map $.qty",
+          "payload": "[{\"sku\":\"A-1\",\"qty\":40},{\"sku\":\"B-2\",\"qty\":20},{\"sku\":\"C-3\",\"qty\":30}]",
+          "expect": {
+            "output": "[ 40, 30 ]"
+          },
+          "note": "Everything correct up to the last step. Note these are Numbers, not Strings — the output does not even have the right type, which is often the quickest way to eliminate an option under time pressure."
+        }
+      ]
+    }
   },
   {
     "id": "unique-sorted-list",
@@ -7980,6 +8115,62 @@
       ]
     },
     "derivedFrom": "region-category-totals"
+  },
+  {
+    "id": "mcq-reserved-word-key",
+    "unit": "custom-types",
+    "mode": "choice",
+    "tier": "medium",
+    "title": "Which one does not compile?",
+    "topics": [
+      "default",
+      "upper"
+    ],
+    "examObjective": "Applying correct syntax to write DataWeave transformations",
+    "prompt": "Three of these compile and run. **One does not.** Which one?",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "choice": {
+      "kind": "which-fails",
+      "answer": 1,
+      "options": [
+        "%dw 2.0\noutput application/json\n---\n{ kind: upper(\"order\") }",
+        "%dw 2.0\noutput application/json\n---\n{ type: \"order\" }",
+        "%dw 2.0\noutput application/json\n---\n{ \"type\": \"order\" }",
+        "%dw 2.0\noutput application/json\n---\n{ kind: payload.missing default \"order\" }"
+      ]
+    },
+    "cases": [],
+    "solution": "%dw 2.0\noutput application/json\n---\n{ \"type\": \"order\" }",
+    "explanation": {
+      "approach": "`type` is a reserved word in DataWeave, so it cannot be a bare key. Quote it and it is fine. This is worth knowing because `type` is one of the most natural field names in integration work — a payload with a `type` field is completely ordinary, and the script that builds one fails to compile for a reason that has nothing to do with your data.",
+      "snippets": [
+        {
+          "label": "The one that fails",
+          "script": "%dw 2.0\noutput application/json\n---\n{ type: \"order\" }",
+          "expect": {
+            "error": true
+          },
+          "note": "CompilationException: the name `type` is a reserved word. It fails to compile, so you find out immediately rather than at runtime."
+        },
+        {
+          "label": "Quoting it fixes it",
+          "script": "%dw 2.0\noutput application/json\n---\n{ \"type\": \"order\" }",
+          "expect": {
+            "output": "{ \"type\": \"order\" }"
+          },
+          "note": "Same key in the output. The restriction is purely about the bare identifier form."
+        },
+        {
+          "label": "A missing field with a fallback still compiles",
+          "script": "%dw 2.0\noutput application/json\n---\n{ kind: payload.missing default \"order\" }",
+          "expect": {
+            "output": "{ \"kind\": \"order\" }"
+          },
+          "note": "Reading a field that is not there is not an error — it is null, and `default` catches it."
+        }
+      ]
+    }
   },
   {
     "id": "subscription-days",

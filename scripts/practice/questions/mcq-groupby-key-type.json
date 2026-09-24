@@ -1,0 +1,54 @@
+{
+  "id": "mcq-groupby-key-type",
+  "unit": "groupby-shape",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": ["groupBy", "mapObject", "sizeOf"],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.tier mapObject { ($$): sizeOf($) }",
+    "payload": "[{\"id\":\"a\",\"tier\":2},{\"id\":\"b\",\"tier\":1},{\"id\":\"c\",\"tier\":2}]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "{ \"2\": 2, \"1\": 1 }",
+      "[ { \"tier\": \"2\", \"count\": 2 }, { \"tier\": \"1\", \"count\": 1 } ]",
+      "{ \"2\": [ { \"id\": \"a\", \"tier\": 2 }, { \"id\": \"c\", \"tier\": 2 } ], \"1\": [ { \"id\": \"b\", \"tier\": 1 } ] }",
+      "[ 2, 1 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.tier mapObject { ($$): sizeOf($) }",
+  "explanation": {
+    "approach": "Two things decide this. `groupBy` returns an Object, not an Array — so the answer has braces, not brackets. And an object key is always a name, so grouping by a Number gives you the String keys \"2\" and \"1\".",
+    "snippets": [
+      {
+        "label": "What groupBy alone returns",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.tier",
+        "payload": "[{\"id\":\"a\",\"tier\":2},{\"id\":\"b\",\"tier\":1},{\"id\":\"c\",\"tier\":2}]",
+        "expect": { "output": "{ \"2\": [ { \"id\": \"a\", \"tier\": 2 }, { \"id\": \"c\", \"tier\": 2 } ], \"1\": [ { \"id\": \"b\", \"tier\": 1 } ] }" },
+        "note": "This is option C — the shape you get if you stop one step early. The keys are already Strings here, before mapObject touches anything."
+      },
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.tier mapObject { ($$): sizeOf($) }",
+        "payload": "[{\"id\":\"a\",\"tier\":2},{\"id\":\"b\",\"tier\":1},{\"id\":\"c\",\"tier\":2}]",
+        "expect": { "output": "{ \"2\": 2, \"1\": 1 }" },
+        "note": "Inside mapObject, `$` is the bucket and `$$` is its key. Buckets appear in the order their key was first seen, which is why 2 comes before 1."
+      },
+      {
+        "label": "The array shape, for comparison",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.tier pluck ((v, k) -> { tier: k, count: sizeOf(v) })",
+        "payload": "[{\"id\":\"a\",\"tier\":2},{\"id\":\"b\",\"tier\":1},{\"id\":\"c\",\"tier\":2}]",
+        "expect": { "output": "[ { \"tier\": \"2\", \"count\": 2 }, { \"tier\": \"1\", \"count\": 1 } ]" },
+        "note": "Option B. It needs `pluck` rather than `mapObject`, and the tier has come out as a String — the giveaway that it was a key on the way through."
+      }
+    ]
+  }
+}

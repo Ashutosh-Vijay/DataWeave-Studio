@@ -4,6 +4,7 @@ import {
   outputsMatch,
   gradeSubmission,
   gradePrediction,
+  soundChoice,
   nextUnsolved,
   type PracticeQuestion,
   type RunOutcome,
@@ -267,5 +268,45 @@ describe('gradePrediction', () => {
   it('honours expectedError even when the run happened to succeed', () => {
     // Belt and braces: a question can declare the answer is an error.
     expect(gradePrediction('error', ran('anything'), true).correct).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Multiple choice is the format MCD Level 1 actually uses, and the one most
+ * often shipped broken: no option right, two options right, or a key that
+ * disagrees with reality. The engine runs every option; this decides what the
+ * results mean.
+ */
+describe('soundChoice', () => {
+  it('accepts exactly one right option matching the key', () => {
+    expect(soundChoice([false, true, false, false], 1)).toEqual({
+      ok: true, why: 'only option 1 satisfies it',
+    });
+  });
+
+  it('rejects a question where nothing is right', () => {
+    const r = soundChoice([false, false, false, false], 2);
+    expect(r.ok).toBe(false);
+    expect(r.why).toMatch(/no option satisfies/);
+  });
+
+  it('rejects two right options — the classic broken distractor', () => {
+    const r = soundChoice([true, false, true, false], 0);
+    expect(r.ok).toBe(false);
+    expect(r.why).toMatch(/0 and 2 both satisfy/);
+  });
+
+  it('rejects a key the engine disagrees with, even when the question is well formed', () => {
+    // Exactly one option works, but the author pointed at a different one.
+    // This is the failure a model is most likely to produce.
+    const r = soundChoice([false, false, true, false], 1);
+    expect(r.ok).toBe(false);
+    expect(r.why).toMatch(/key says 1 but the engine says 2/);
+  });
+
+  it('handles the first option being the answer', () => {
+    expect(soundChoice([true, false], 0).ok).toBe(true);
   });
 });

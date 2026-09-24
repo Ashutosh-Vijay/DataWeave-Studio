@@ -42,11 +42,31 @@ for (const file of allFiles) {
   if (!q.id) problems.push(`${file}: no id`);
   if (!TIERS.includes(q.tier)) problems.push(`${q.id}: unknown tier "${q.tier}"`);
   if (!units.has(q.unit)) problems.push(`${q.id}: unit "${q.unit}" is not in the curriculum`);
-  if ((q.mode ?? 'build') !== 'predict') {
+  const mode = q.mode ?? 'build';
+  if (mode === 'build' || mode === 'debug') {
     if ((q.cases ?? []).length < 2) problems.push(`${q.id}: needs a hidden case, has ${(q.cases ?? []).length}`);
     if (!q.solution) problems.push(`${q.id}: no reference solution`);
-  } else if (!q.given?.script) {
+  }
+  // `given` is what you are asked to read: always for predict, and for the
+  // which-output flavour of choice. The other choice kinds put the code in the
+  // options themselves, so they have no `given` at all.
+  if (mode === 'predict' && !q.given?.script) {
     problems.push(`${q.id}: a predict question needs a script to read`);
+  }
+  if (mode === 'choice' && q.choice?.kind === 'which-output' && !q.given?.script) {
+    problems.push(`${q.id}: a which-output question needs a script to read`);
+  }
+  if (mode === 'choice') {
+    const c = q.choice;
+    if (!c || !Array.isArray(c.options) || c.options.length < 3) {
+      problems.push(`${q.id}: a choice question needs at least three options`);
+    } else if (typeof c.answer !== 'number' || c.answer < 0 || c.answer >= c.options.length) {
+      problems.push(`${q.id}: answer ${c.answer} is not one of the options`);
+    } else if (new Set(c.options.map((o) => String(o).trim())).size !== c.options.length) {
+      // Two identical options make one of them unpickable and the question
+      // unfair; the gate would also refuse it, but say so plainly here.
+      problems.push(`${q.id}: two options are textually identical`);
+    }
   }
   if (questions.some((o) => o.id === q.id)) problems.push(`${q.id}: duplicate id`);
 

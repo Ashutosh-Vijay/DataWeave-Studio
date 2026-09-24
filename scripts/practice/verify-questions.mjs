@@ -24,7 +24,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { openEngine } from '../dwEngine.mjs';
-import { gradeSubmission, outputsMatch } from '../../src/practiceGrading.ts';
+import { gradeSubmission, outputsMatch, soundChoice } from '../../src/practiceGrading.ts';
 
 /** Hand-written first, then the ones derived from them by derive.mjs. */
 const DIRS = ['scripts/practice/questions', 'scripts/practice/questions-derived'];
@@ -92,6 +92,46 @@ for (const file of files) {
         outputMime: q.outputMime ?? 'application/json',
       }),
     );
+
+  // A multiple-choice question is checked by running EVERY option and proving
+  // that exactly one of them satisfies the stem — and that it is the one the
+  // key names. This is the whole reason the format is trustworthy here: a
+  // distractor that accidentally also works, or a key that disagrees with the
+  // engine, is caught mechanically rather than believed.
+  if (mode === 'choice') {
+    const c = q.choice;
+    const satisfies = [];
+    for (const opt of c.options) {
+      if (c.kind === 'which-output') {
+        // Options are outputs; the script is fixed. Run it once, outside the
+        // loop conceptually, but the cost is trivial and this keeps it simple.
+        const r = await dw.run(q.given.script, {
+          payload: q.given.payload ?? '{}',
+          payloadMime: q.inputMime ?? 'application/json',
+          outputMime: q.outputMime ?? 'application/json',
+        });
+        satisfies.push(r.ok && outputsMatch(r.output, opt, q.compare ?? 'json'));
+      } else {
+        const r = await dw.run(opt, {
+          payload: c.payload ?? '{}',
+          payloadMime: q.inputMime ?? 'application/json',
+          outputMime: q.outputMime ?? 'application/json',
+        });
+        satisfies.push(
+          c.kind === 'which-fails' ? !r.ok : r.ok && outputsMatch(r.output, c.target ?? '', q.compare ?? 'json'),
+        );
+      }
+    }
+    const verdict = soundChoice(satisfies, c.answer);
+    if (!verdict.ok) problems.push(`choice unsound — ${verdict.why}`);
+    else console.log(`   choice       ${c.options.length} options run, ${verdict.why}`);
+
+    if (problems.length) {
+      failures += problems.length;
+      for (const p of problems) console.log(`   ✗ ${p}`);
+    }
+    continue;
+  }
 
   // A predict question has no cases: it is graded against whatever the engine
   // returns at the moment you answer, so what must be true here is only that

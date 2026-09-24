@@ -37,8 +37,63 @@ export interface PracticeCase {
  *               costs no new grading at all.
  * - `predict` — here is a script and a payload; say what it returns, without
  *               running it. Fast, and it teaches reading rather than writing.
+ * - `choice`  — multiple choice, which is what MCD Level 1 actually is. It is
+ *               also the most verifiable format here: when the options are
+ *               code or outputs, the engine can run all of them and prove that
+ *               exactly one satisfies the question. A distractor that happens
+ *               to also be right gets caught mechanically, which is the check
+ *               every braindump lacks.
  */
-export type PracticeMode = 'build' | 'debug' | 'predict';
+export type PracticeMode = 'build' | 'debug' | 'predict' | 'choice';
+
+/**
+ * The three multiple-choice shapes the engine can adjudicate on its own.
+ *
+ * Anything that cannot be settled by running something — "what is the default
+ * MIME type", "which module is `lookup` in" — is deliberately not here. Those
+ * are answer keys somebody asserted, and asserting is the thing we do not do.
+ */
+export type ChoiceKind =
+  /** Options are scripts. Exactly one must turn `payload` into `target`. */
+  | 'which-script'
+  /** Options are outputs. Exactly one must equal what `given.script` returns. */
+  | 'which-output'
+  /** Options are scripts. Exactly one must fail to run. */
+  | 'which-fails';
+
+export interface PracticeChoice {
+  kind: ChoiceKind;
+  /** Four or five of them: scripts for which-script/which-fails, outputs for which-output. */
+  options: string[];
+  /** Index into `options`. The gate proves this is the one the engine agrees with. */
+  answer: number;
+  /** which-script: the payload every option is run against. */
+  payload?: string;
+  /** which-script: the output the right option has to produce. */
+  target?: string;
+}
+
+/**
+ * Is a multiple-choice question sound, given how each option actually behaved?
+ *
+ * `satisfies[i]` is whether option i did what the stem asks — produced the
+ * target, matched the real output, failed to run. Two ways a question is
+ * broken, and both are common in hand-written exam material: no option is
+ * right, or more than one is. The third is an answer key that disagrees with
+ * the engine, which is the one a model is most likely to produce.
+ */
+export function soundChoice(
+  satisfies: boolean[],
+  answer: number,
+): { ok: boolean; why: string } {
+  const hits = satisfies.flatMap((s, i) => (s ? [i] : []));
+  if (hits.length === 0) return { ok: false, why: 'no option satisfies the question' };
+  if (hits.length > 1) return { ok: false, why: `options ${hits.join(' and ')} both satisfy it` };
+  if (hits[0] !== answer) {
+    return { ok: false, why: `the key says ${answer} but the engine says ${hits[0]}` };
+  }
+  return { ok: true, why: `only option ${answer} satisfies it` };
+}
 
 export interface PracticeQuestion {
   id: string;
@@ -53,6 +108,8 @@ export interface PracticeQuestion {
    * away from what the engine actually does.
    */
   given?: { script: string; payload?: string };
+  /** `choice` only: the options, the key, and what the key has to satisfy. */
+  choice?: PracticeChoice;
   tier: 'easy' | 'medium' | 'hard' | 'extra' | 'max' | 'ultra';
   title: string;
   topics?: string[];
