@@ -458,7 +458,10 @@
       ],
       "teaches": "`write` to embed one format inside another mid-transform.",
       "trap": "`write` gives you a String, so the result is an escaped blob \u2014 which is the point, and also why it looks broken the first time.",
-      "verified": []
+      "verified": [
+        "write([{price:3, sku:'F6', qty:4}], 'application/csv') -> \"price,sku,qty\r\n3,F6,4\r\n\" \u2014 column order follows the OBJECT's field order",
+        "write([], 'application/csv') -> \"\" (not a header-only string)"
+      ]
     },
     {
       "id": "higher-order",
@@ -469,8 +472,12 @@
         "then"
       ],
       "teaches": "Functions as values, partial application, `then` pipelines.",
-      "trap": "A lambda's parameter types are inferred from the call site, so an unused-looking annotation is sometimes what makes it compile.",
-      "verified": []
+      "trap": "Infix `then` rejects a named function as its callback \u2014 `10 then addN(5)` throws *Cannot coerce Function to String* \u2014 while the prefix form and an inline lambda both work.",
+      "verified": [
+        "10 then addN(5) -> UnsupportedTypeCoercionException: Cannot coerce Function to String",
+        "then(10, addN(5)) -> 15",
+        "10 then ((x) -> x + 5) -> 15"
+      ]
     },
     {
       "id": "custom-types",
