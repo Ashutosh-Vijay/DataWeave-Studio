@@ -32,6 +32,17 @@ import {
   type GradeResult,
   type PracticeQuestion,
 } from '../practiceGrading';
+import {
+  recentDays,
+  activitySummary,
+  goalStreak,
+  trimLog,
+  readActivity,
+  readGoal,
+  ACTIVITY_KEY,
+  GOAL_KEY,
+  type ActivityEvent,
+} from '../practiceStats';
 import QUESTIONS_JSON from '../practiceQuestions.json';
 
 const QUESTIONS = QUESTIONS_JSON as unknown as PracticeQuestion[];
@@ -39,14 +50,22 @@ const QUESTIONS = QUESTIONS_JSON as unknown as PracticeQuestion[];
 const TIERS = ['easy', 'medium', 'hard', 'extra', 'max', 'ultra'] as const;
 type Tier = (typeof TIERS)[number];
 
-/** How each tier reads, and what it means. */
+/**
+ * How each tier reads, and what it means.
+ *
+ * Difficulty is an ORDERED scale, so the colours are a sequential ramp — one
+ * hue getting stronger — rather than six identities. Two real defects went with
+ * the old set: `max` and `ultra` were literally the same colour, and `--accent`
+ * is user-configurable, so a tier could change hue when somebody picked a new
+ * accent. The ramp is fixed and its steps are validated for both surfaces.
+ */
 const TIER_META: Record<Tier, { colour: string; label: string; blurb: string }> = {
-  easy:   { colour: 'var(--ok)',     label: 'Easy',   blurb: 'One idea at a time' },
-  medium: { colour: 'var(--cyan)',   label: 'Medium', blurb: 'Two ideas, and a shape that surprises you' },
-  hard:   { colour: 'var(--warn)',   label: 'Hard',   blurb: 'Something a working Mule developer hits' },
-  extra:  { colour: 'var(--accent)', label: 'Extra',  blurb: 'Needs a technique, not just a function' },
-  max:    { colour: 'var(--err)',    label: 'Max',    blurb: 'Recursive, or a shape discovered from the data' },
-  ultra:  { colour: 'var(--err)',    label: 'Ultra',  blurb: 'Write an interpreter in a mapping language' },
+  easy:   { colour: 'var(--tier-1)', label: 'Easy',   blurb: 'One idea at a time' },
+  medium: { colour: 'var(--tier-2)', label: 'Medium', blurb: 'Two ideas, and a shape that surprises you' },
+  hard:   { colour: 'var(--tier-3)', label: 'Hard',   blurb: 'Something a working Mule developer hits' },
+  extra:  { colour: 'var(--tier-4)', label: 'Extra',  blurb: 'Needs a technique, not just a function' },
+  max:    { colour: 'var(--tier-5)', label: 'Max',    blurb: 'Recursive, or a shape discovered from the data' },
+  ultra:  { colour: 'var(--tier-6)', label: 'Ultra',  blurb: 'Write an interpreter in a mapping language' },
 };
 
 /**
@@ -143,6 +162,188 @@ function Prose({ text }: { text: string }) {
   );
 }
 
+/** A ratio against a limit, drawn as a track — never a two-slice pie. */
+function Meter({ done, total, colour }: { done: number; total: number; colour: string }) {
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  return (
+    <div
+      className="h-1.5 rounded-full overflow-hidden"
+      style={{ background: 'color-mix(in oklch, var(--content) 12%, transparent)' }}
+    >
+      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: colour }} />
+    </div>
+  );
+}
+
+/**
+ * Everything you have actually done, above the question list.
+ *
+ * Forms are chosen by what the reader has to do, not by what is prettiest:
+ * the set's make-up is part-to-whole, so it is one stacked bar rather than a
+ * pie — slices are hard to compare and six of them are worse; how far through
+ * a tier you are is a ratio against a limit, so it is a meter; and practice
+ * over time is a time series, so it is columns.
+ */
+function ProgressPanel({
+  questions,
+  solvedIds,
+  events,
+  goal,
+  onGoal,
+}: {
+  questions: PracticeQuestion[];
+  solvedIds: Set<string>;
+  events: ActivityEvent[];
+  goal: number;
+  onGoal: (n: number) => void;
+}) {
+  const [hover, setHover] = useState<{ day: string; count: number } | null>(null);
+
+  const perTier = TIERS.map((tier) => {
+    const all = questions.filter((q) => q.tier === tier);
+    return { tier, total: all.length, done: all.filter((q) => solvedIds.has(q.id)).length };
+  }).filter((r) => r.total > 0);
+
+  const days = recentDays(events, 30);
+  const summary = activitySummary(events);
+  const streak = goalStreak(events, goal);
+  const busiest = Math.max(1, ...days.map((d) => d.count));
+  const solved = solvedIds.size;
+
+  return (
+    <div className="rounded-lg border border-line overflow-hidden mb-7">
+      <div className="px-3.5 py-3 border-b border-line-subtle">
+        <div className="flex items-baseline gap-2">
+          <span className="text-[26px] font-semibold text-content tabular-nums leading-none">{solved}</span>
+          <span className="text-[13px] text-content-muted">of {questions.length} solved</span>
+        </div>
+
+        {/* The set's make-up, one bar. A 2px gap keeps neighbouring segments
+            from reading as one block. */}
+        <div className="flex gap-[2px] mt-3">
+          {perTier.map(({ tier, total, done }) => (
+            <div key={tier} className="flex flex-col gap-1" style={{ flex: total }}>
+              <div
+                className="h-2 rounded-[3px] overflow-hidden"
+                // Not --surface-2: on the light theme that is near-white and the
+                // untouched tiers vanished into the panel. A tint of the ink
+                // reads as an empty track on both surfaces.
+                style={{ background: 'color-mix(in oklch, var(--content) 12%, transparent)' }}
+              >
+                <div
+                  className="h-full"
+                  style={{ width: `${(done / total) * 100}%`, background: TIER_META[tier].colour }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Six segments is past the point where colour alone identifies them,
+            so every one is labelled rather than relying on a legend swatch. */}
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+          {perTier.map(({ tier, total, done }) => (
+            <span key={tier} className="inline-flex items-center gap-1.5 text-[11px] text-content-faint">
+              <span className="w-2 h-2 rounded-[2px]" style={{ background: TIER_META[tier].colour }} />
+              {TIER_META[tier].label}
+              <span className="tabular-nums text-content-secondary">{done}/{total}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Practice over time. */}
+      <div className="px-3.5 py-3 border-b border-line-subtle">
+        <div className="flex items-baseline justify-between mb-2">
+          <span className="text-[11px] uppercase tracking-[0.6px] font-semibold text-content-faint">
+            Last 30 days
+          </span>
+          <span className="text-[11px] text-content-faint tabular-nums h-4">
+            {hover ? `${hover.day} · ${hover.count} solved` : ''}
+          </span>
+        </div>
+        <div className="flex items-end gap-[2px] h-14" onMouseLeave={() => setHover(null)}>
+          {days.map((d) => (
+            <div
+              key={d.day}
+              onMouseEnter={() => setHover(d)}
+              className="flex-1 h-full flex items-end cursor-default"
+              title={`${d.day} · ${d.count} solved`}
+            >
+              <div
+                className="w-full rounded-t-[4px]"
+                style={{
+                  // A zero day still draws a sliver, so the axis reads as a
+                  // run of days rather than gaps of missing data.
+                  height: d.count ? `${Math.max(8, (d.count / busiest) * 100)}%` : '2px',
+                  background: d.count ? 'var(--tier-3)' : 'var(--line)',
+                  opacity: hover && hover.day !== d.day ? 0.45 : 1,
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Four numbers that need no plot. */}
+      <div className="grid grid-cols-4 divide-x border-b border-line-subtle" style={{ borderColor: 'var(--line-subtle)' }}>
+        {([
+          ['Today', summary.today],
+          ['Yesterday', summary.yesterday],
+          ['This month', summary.month],
+          ['This year', summary.year],
+        ] as const).map(([label, n]) => (
+          <div key={label} className="px-3.5 py-2.5" style={{ borderColor: 'var(--line-subtle)' }}>
+            <div className="text-[17px] font-semibold text-content tabular-nums leading-none">{n}</div>
+            <div className="text-[10.5px] text-content-faint mt-1">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* The goal you set yourself. */}
+      <div className="px-3.5 py-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] uppercase tracking-[0.6px] font-semibold text-content-faint">
+            Daily goal
+          </span>
+          <span className="flex-1" />
+          {[0, 1, 2, 3, 5].map((n) => (
+            <button
+              key={n}
+              onClick={() => onGoal(n)}
+              className="h-6 min-w-[28px] px-2 rounded-md text-[11.5px] border cursor-pointer transition-colors"
+              style={
+                goal === n
+                  ? { background: 'var(--accent)', color: 'var(--accent-ink)', borderColor: 'transparent' }
+                  : { borderColor: 'var(--line)', color: 'var(--content-secondary)' }
+              }
+            >
+              {n === 0 ? 'Off' : n}
+            </button>
+          ))}
+        </div>
+        {goal > 0 && (
+          <div className="mt-2.5">
+            <Meter done={Math.min(summary.today, goal)} total={goal} colour="var(--accent)" />
+            <div className="flex items-baseline justify-between mt-1.5">
+              <span className="text-[11.5px] text-content-secondary">
+                {summary.today >= goal
+                  ? `Done for today — ${summary.today} of ${goal}`
+                  : `${goal - summary.today} more today`}
+              </span>
+              {streak > 1 && (
+                <span className="text-[11px] text-content-faint tabular-nums">
+                  {streak} days in a row
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
 export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -156,6 +357,8 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
    * throw your work away. A ref rather than state because nothing renders from
    * it — it is read when a question opens and written as you type.
    */
+  const [events, setEvents] = useState<ActivityEvent[]>(readActivity);
+  const [goal, setGoal] = useState<number>(readGoal);
   const drafts = useRef<Record<string, string>>(loadDrafts());
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [running, setRunning] = useState(false);
@@ -343,6 +546,17 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
       const updated = { ...progress, [question.id]: next };
       setProgress(updated);
       saveProgress(updated);
+
+      // Every submission is logged, pass or fail — the chart counts the
+      // passes, but keeping the failures means the log can answer a different
+      // question later without a migration.
+      const log = trimLog([...events, { t: Date.now(), id: question.id, solved: r.solved }]);
+      setEvents(log);
+      try {
+        localStorage.setItem(ACTIVITY_KEY, JSON.stringify(log));
+      } catch {
+        /* blocked storage — the chart just stays empty */
+      }
       if (r.solved) {
         setShowExplanation(true);
         setStopped(true);
@@ -352,16 +566,9 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
     }
   };
 
+  // Each question is the only one for its curriculum unit, so solved count IS
+  // topics covered — there is no second number to report.
   const solvedCount = QUESTIONS.filter((q) => progress[q.id]?.solved).length;
-  /**
-   * Coverage of the syllabus, which is the one number here that means
-   * something: each question is the only one for its curriculum unit, so this
-   * is how many distinct ideas you have actually worked through.
-   */
-  const topicsCovered = new Set(
-    QUESTIONS.filter((q) => progress[q.id]?.solved).map((q) => q.unit),
-  ).size;
-  const topicsTotal = new Set(QUESTIONS.map((q) => q.unit)).size;
 
   /** Where "Next" goes: the next thing you have not done, wrapping around. */
   const upNext = question
@@ -438,7 +645,7 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
           </>
         ) : (
           <span className="text-[11px] text-content-faint">
-            {solvedCount}/{QUESTIONS.length} solved · {topicsCovered}/{topicsTotal} topics covered
+            {solvedCount}/{QUESTIONS.length} solved
           </span>
         )}
         <WindowControls />
@@ -454,6 +661,21 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
               explanation was executed before it shipped, so nothing here teaches you something
               that does not compile.
             </p>
+
+            <ProgressPanel
+              questions={QUESTIONS}
+              solvedIds={new Set(QUESTIONS.filter((q) => progress[q.id]?.solved).map((q) => q.id))}
+              events={events}
+              goal={goal}
+              onGoal={(n) => {
+                setGoal(n);
+                try {
+                  localStorage.setItem(GOAL_KEY, String(n));
+                } catch {
+                  /* blocked storage */
+                }
+              }}
+            />
 
             {TIERS.map((tier) => {
               const inTier = QUESTIONS.filter((q) => q.tier === tier);

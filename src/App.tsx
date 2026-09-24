@@ -10,6 +10,14 @@ import { ScriptEditor, ScriptEditorHandle } from './components/ScriptEditor';
 import { WindowControls } from './components/WindowControls';
 import { WorkspaceMenu } from './components/WorkspaceMenu';
 import { ToastHost, toast } from './components/Toast';
+import {
+  shouldNudge,
+  activitySummary,
+  readActivity,
+  readGoal,
+  dayKey,
+  NUDGED_KEY,
+} from './practiceStats';
 import { buildAttributesJson, buildVarsJson } from './runInput';
 import { resolveVarsJson } from './resolveVars';
 import { substituteQueryParams } from './queryRender';
@@ -275,6 +283,43 @@ function App() {
   const [compareToolOpen, setCompareToolOpen] = useState(false);
   const [muleLogOpen, setMuleLogOpen] = useState(false);
   const [practiceOpen, setPracticeOpen] = useState(false);
+
+  /**
+   * The daily nudge, Duolingo-owl duty.
+   *
+   * Only when a goal has been set, only when the day is short of it, and at
+   * most once a day — a reminder that reappears on every window focus is how a
+   * helpful nudge becomes the thing people turn off. The off switch is the
+   * goal's own "Off", which sits right beside the goal it disables.
+   *
+   * Delayed a few seconds so it does not land on top of the splash.
+   */
+  useEffect(() => {
+    let last: string | null = null;
+    try {
+      last = localStorage.getItem(NUDGED_KEY);
+    } catch {
+      return;
+    }
+    const events = readActivity();
+    const goal = readGoal();
+    if (!shouldNudge(events, goal, last)) return;
+    const short = goal - activitySummary(events).today;
+    const timer = setTimeout(() => {
+      toast({
+        title: 'Practice',
+        message: `${short} more DataWeave ${short === 1 ? 'question' : 'questions'} to hit today's goal.`,
+        variant: 'info',
+        action: { label: 'Open', onClick: () => setPracticeOpen(true) },
+      });
+      try {
+        localStorage.setItem(NUDGED_KEY, dayKey(Date.now()));
+      } catch {
+        /* blocked storage — it will simply ask again next launch */
+      }
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, []);
   const [showTour, setShowTour] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);

@@ -64,6 +64,15 @@
   --warn:   oklch(80% 0.14 80);
   --err:    oklch(68% 0.18 20);
   --ok:     oklch(76% 0.15 155);
+
+  /* Difficulty ramp — ordered, so one hue getting stronger. Steps validated
+     for chroma >= 0.1 and >= 3:1 contrast against this surface. */
+  --tier-1: oklch(54% 0.13 262);
+  --tier-2: oklch(59% 0.14 262);
+  --tier-3: oklch(64% 0.15 262);
+  --tier-4: oklch(69% 0.15 262);
+  --tier-5: oklch(73% 0.14 262);
+  --tier-6: oklch(78% 0.13 262);
   --violet: oklch(72% 0.14 290);
   --cyan:   oklch(75% 0.11 220);
 
@@ -122,6 +131,15 @@
   --warn:   oklch(60% 0.15 80);
   --err:    oklch(55% 0.18 20);
   --ok:     oklch(52% 0.14 155);
+
+  /* The same ramp stepped for the light surface — darker as difficulty rises,
+     which is the direction that reads as "more" on white. */
+  --tier-1: oklch(66% 0.12 265);
+  --tier-2: oklch(60% 0.14 265);
+  --tier-3: oklch(54% 0.15 265);
+  --tier-4: oklch(47% 0.15 265);
+  --tier-5: oklch(40% 0.14 265);
+  --tier-6: oklch(33% 0.12 265);
   --violet: oklch(50% 0.15 290);
   --cyan:   oklch(55% 0.12 220);
 
@@ -179,6 +197,15 @@ html.dw-vscode-theme {
   --warn: var(--vscode-editorWarning-foreground, #cca700);
   --err:  var(--vscode-editorError-foreground, var(--vscode-errorForeground, #f48771));
   --ok:   var(--vscode-testing-iconPassed, #3fb950);
+
+  /* VS Code themes vary too much to derive a ramp from, so the Dusk steps are
+     used as-is; both surfaces they run on are dark. */
+  --tier-1: oklch(54% 0.13 262);
+  --tier-2: oklch(59% 0.14 262);
+  --tier-3: oklch(64% 0.15 262);
+  --tier-4: oklch(69% 0.15 262);
+  --tier-5: oklch(73% 0.14 262);
+  --tier-6: oklch(78% 0.13 262);
 
   --scrollbar-thumb:       var(--vscode-scrollbarSlider-background, #79797966);
   --scrollbar-thumb-hover: var(--vscode-scrollbarSlider-hoverBackground, #64646480);
