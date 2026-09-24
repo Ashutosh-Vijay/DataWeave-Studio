@@ -350,19 +350,24 @@ export function registerSidebar(
           workspacesView = view;
           view.webview.options = { enableScripts: true };
           view.webview.html = shell(
-            '<div id="list"></div>',
+            // The way in is always here, not only when the list is empty. It
+            // used to live inside the empty state, so the moment you saved a
+            // single workspace the primary action vanished and the only way
+            // left was a 16px rocket in the title bar.
+            '<div class="pad"><button class="primary" id="openTop">Open DataWeave Studio</button></div>' +
+              '<div id="list"></div>',
             `${ESC}
 const vs = acquireVsCodeApi();
 const list = document.getElementById('list');
 let active = null;
 
+document.getElementById('openTop').onclick = function () { vs.postMessage({ kind: 'open', filename: null }); };
+
 function render(rows) {
   if (!rows.length) {
     list.innerHTML = '<div class="empty">${MARK_SVG.replace(/'/g, "\\'")}' +
       '<h4>No workspace yet</h4>' +
-      '<p>Open the playground to write a transform — it shows up here once you save.</p>' +
-      '<button class="primary" id="new">Open Playground</button></div>';
-    document.getElementById('new').onclick = function () { vs.postMessage({ kind: 'open', filename: null }); };
+      '<p>Open it to write a transform — it shows up here once you save.</p></div>';
     return;
   }
   list.innerHTML = rows.map(function (r) {
