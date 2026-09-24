@@ -121,5 +121,5 @@ An open brief produces forty variations on `groupBy`. Read those files directly;
 they are on disk, and a round trip through MCP to fetch them buys nothing. The
 MCP and the engine are for the part that needs a running engine: validation.
 
-A draft that fails the gate is **discarded, not repaired**. Repairing invites a
-model to argue with the engine.
+A draft that fails the gate is **discarded, not repaired**. Repairing means
+bending the question to fit whatever the engine happened to say.
