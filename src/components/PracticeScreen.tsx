@@ -85,6 +85,27 @@ function saveProgress(p: Record<string, Progress>) {
 }
 
 /**
+ * What you had typed, per question.
+ *
+ * Kept apart from progress on purpose: these are bulk and disposable, progress
+ * is small and meaningful, and clearing one should not take the other with it.
+ *
+ * It stores the live editor contents rather than the last *submitted* answer,
+ * which is the more useful of the two — a half-finished attempt you walked away
+ * from is exactly the thing worth coming back to, and a submitted answer is
+ * just a draft that happened to be run.
+ */
+const DRAFTS = 'dw-practice-drafts-v1';
+
+function loadDrafts(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(DRAFTS) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Inline `code`, **bold**, *italic*, and paragraphs. Enough for a task
  * description and a worked explanation, which is all this has to render.
  *
@@ -130,6 +151,13 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
   const [progress, setProgress] = useState<Record<string, Progress>>(loadProgress);
   const [openId, setOpenId] = useState<string | null>(null);
   const [script, setScript] = useState('');
+  /**
+   * Every question's editor contents, so leaving one and coming back does not
+   * throw your work away. A ref rather than state because nothing renders from
+   * it — it is read when a question opens and written as you type.
+   */
+  const drafts = useRef<Record<string, string>>(loadDrafts());
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [running, setRunning] = useState(false);
   const [sampleOut, setSampleOut] = useState<{ ok: boolean; text: string } | null>(null);
   /**
@@ -173,10 +201,11 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose, openId]);
 
-  // Reset everything when a question is opened, including the clock.
+  // Reset everything when a question is opened, including the clock — except
+  // what you had written, which comes back.
   useEffect(() => {
     if (!question) return;
-    setScript(question.starter ?? '%dw 2.0\noutput application/json\n---\n');
+    setScript(drafts.current[question.id] ?? question.starter ?? '%dw 2.0\noutput application/json\n---\n');
     setSampleOut(null);
     setTrace(null);
     setResult(null);
@@ -244,6 +273,39 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
       setRunning(false);
     }
   };
+
+  /**
+   * Remember what is in the editor, debounced.
+   *
+   * `id` is captured at the call site rather than read back from state when the
+   * timer fires: otherwise switching questions inside the debounce window would
+   * save the old script under the new question's id.
+   */
+  const stashDraft = (id: string, text: string) => {
+    drafts.current[id] = text;
+    if (draftTimer.current) clearTimeout(draftTimer.current);
+    draftTimer.current = setTimeout(() => {
+      try {
+        localStorage.setItem(DRAFTS, JSON.stringify(drafts.current));
+      } catch {
+        /* blocked storage — practice still works, it just forgets */
+      }
+    }, 400);
+  };
+
+  // A pending write must not be lost because the screen closed.
+  useEffect(
+    () => () => {
+      if (!draftTimer.current) return;
+      clearTimeout(draftTimer.current);
+      try {
+        localStorage.setItem(DRAFTS, JSON.stringify(drafts.current));
+      } catch {
+        /* blocked storage */
+      }
+    },
+    [],
+  );
 
   /**
    * Run the sample with the engine's execution listener on, so every
@@ -417,8 +479,16 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
                         >
                           <span
                             className="w-1.5 h-1.5 rounded-full shrink-0"
+                            // Amber also covers "started but never submitted" —
+                            // a saved draft is progress, and the list should
+                            // show you where you left off, not only where you
+                            // pressed Submit.
                             style={{
-                              background: p?.solved ? 'var(--ok)' : p?.attempts ? 'var(--warn)' : 'var(--line)',
+                              background: p?.solved
+                                ? 'var(--ok)'
+                                : p?.attempts || (drafts.current[q.id] ?? q.starter) !== q.starter
+                                  ? 'var(--warn)'
+                                  : 'var(--line)',
                             }}
                           />
                           <span className="text-[13px] text-content flex-1 truncate">{q.title}</span>
@@ -546,6 +616,22 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
           <div className="flex-1 flex flex-col min-w-0">
             <div className="h-9 shrink-0 flex items-center gap-2 px-3.5 border-b border-line-subtle">
               <span className="text-[11px] font-medium text-content-secondary flex-1">Your script</span>
+              {script !== (question.starter ?? '') && (
+                <button
+                  onClick={() => {
+                    const fresh = question.starter ?? '%dw 2.0\noutput application/json\n---\n';
+                    setScript(fresh);
+                    stashDraft(question.id, fresh);
+                    setSampleOut(null);
+                    setTrace(null);
+                    setResult(null);
+                  }}
+                  title="Clear what you have written and start from the blank script"
+                  className="h-[26px] px-2.5 rounded-md text-[12px] border border-line text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer"
+                >
+                  Reset
+                </button>
+              )}
               <button
                 onClick={handleRun}
                 disabled={running}
@@ -578,7 +664,10 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
                 language="dataweave"
                 theme={monacoTheme}
                 value={script}
-                onChange={(v) => setScript(v ?? '')}
+                onChange={(v) => {
+                  setScript(v ?? '');
+                  stashDraft(question.id, v ?? '');
+                }}
                 beforeMount={handleBeforeMount}
                 options={editorOptions}
               />
