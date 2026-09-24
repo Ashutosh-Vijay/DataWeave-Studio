@@ -679,6 +679,97 @@
     }
   },
   {
+    "id": "array-merge-and-remove",
+    "unit": "concat-and-remove",
+    "tier": "easy",
+    "title": "Combine and delete from lists",
+    "topics": [
+      "++",
+      "--",
+      "arrays"
+    ],
+    "prompt": "You are given an array of numbers, then two more arrays.\n\nCombine your first array with the second array. Then remove any elements that appear in the third array.\n\nReturn the final array.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "{\n  \"first\": [1, 2],\n  \"second\": [3, 4],\n  \"remove\": [2]\n}",
+        "output": "[1, 3, 4]"
+      },
+      {
+        "input": "{\n  \"first\": [5, 6, 7],\n  \"second\": [8],\n  \"remove\": [6, 8]\n}",
+        "output": "[5, 7]"
+      },
+      {
+        "input": "{\n  \"first\": [10],\n  \"second\": [20, 30],\n  \"remove\": []\n}",
+        "output": "[10, 20, 30]"
+      },
+      {
+        "input": "{\n  \"first\": [1, 2, 3],\n  \"second\": [2, 3, 4],\n  \"remove\": [1, 2, 3, 4]\n}",
+        "output": "[]"
+      },
+      {
+        "input": "{\n  \"first\": [7, 8, 9],\n  \"second\": [1, 2],\n  \"remove\": [99]\n}",
+        "output": "[7, 8, 9, 1, 2]"
+      }
+    ],
+    "hints": [
+      "Two operators in sequence. `++` comes first, then `--`. Read the inputs as `payload.first`, `payload.second`, `payload.remove`.",
+      "`++` glues two arrays into one. `--` removes elements that appear in the second array.",
+      "Both operators expect arrays on both sides. Nothing is converted for you — if you have the structure right, it just works."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\npayload.first ++ payload.second -- payload.remove",
+    "explanation": {
+      "approach": "`++` and `--` are binary operators that work left to right. First, concatenate the two arrays. Then, filter out the unwanted elements. The order matters because you are removing from the combined result, not from the parts.",
+      "snippets": [
+        {
+          "label": "The answer",
+          "script": "%dw 2.0\noutput application/json\n---\npayload.first ++ payload.second -- payload.remove",
+          "payload": "{\"first\":[1,2],\"second\":[3,4],\"remove\":[2]}",
+          "expect": {
+            "output": "[1, 3, 4]"
+          },
+          "note": "Merge first, remove second. The 2 in `first` was part of the merge, so it is there to be removed."
+        },
+        {
+          "label": "Why order matters",
+          "script": "%dw 2.0\noutput application/json\n---\n(payload.first -- payload.remove) ++ payload.second",
+          "payload": "{\"first\":[1,2],\"second\":[3,4],\"remove\":[2]}",
+          "expect": {
+            "output": "[1, 3, 4]"
+          },
+          "note": "Same input, same answer — but only by luck. If the item to remove was in `second`, this version would keep it. The wrong order hides when the trap applies."
+        },
+        {
+          "label": "Both operands are required to be arrays",
+          "script": "%dw 2.0\noutput application/json\n---\n[1, 2] ++ [3, 4]",
+          "expect": {
+            "output": "[1, 2, 3, 4]"
+          },
+          "note": "`++` joins the right array into the left. Both must be arrays — scalar values are not auto-wrapped."
+        },
+        {
+          "label": "Remove an element that appears twice",
+          "script": "%dw 2.0\noutput application/json\n---\n[1, 2, 2, 3] -- [2]",
+          "expect": {
+            "output": "[1, 3]"
+          },
+          "note": "`--` removes all instances of each element in the second array, not just the first."
+        },
+        {
+          "label": "The wrong-order case that reveals the trap",
+          "script": "%dw 2.0\noutput application/json\n---\n(payload.first -- payload.remove) ++ payload.second",
+          "payload": "{\"first\":[1,2],\"second\":[2],\"remove\":[2]}",
+          "expect": {
+            "output": "[1, 2]"
+          },
+          "note": "Remove from `first` first, then merge. But `second` contains 2, which should have been removed — it comes back in the merge. The right answer filters the final result: `[1] ++ [2] -- [2] -> []`."
+        }
+      ]
+    }
+  },
+  {
     "id": "orders-per-priority",
     "unit": "groupby-shape",
     "tier": "medium",
@@ -1572,6 +1663,194 @@
     }
   },
   {
+    "id": "read-repeated-xml-elements",
+    "unit": "xml-selectors",
+    "tier": "medium",
+    "title": "Get all items from repeated XML elements",
+    "topics": [
+      "XML",
+      "selectors",
+      ".*",
+      "@"
+    ],
+    "prompt": "An XML order has multiple `<line>` elements inside. Extract an array of the text content of each line.\n\nYou must return **all** lines, not just the first one.\n\nBonus: also extract the order's `id` attribute and the `currency` of the first line.\n\nOutput a JSON object with keys `lines`, `orderId`, and `firstCurrency`.",
+    "inputMime": "application/xml",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "<order id=\"ORD-001\">\n  <line currency=\"USD\">Widget</line>\n  <line currency=\"USD\">Gadget</line>\n  <line currency=\"USD\">Doohickey</line>\n</order>",
+        "output": "{\n  \"lines\": [\"Widget\", \"Gadget\", \"Doohickey\"],\n  \"orderId\": \"ORD-001\",\n  \"firstCurrency\": \"USD\"\n}"
+      },
+      {
+        "input": "<order id=\"ORD-002\">\n  <line currency=\"EUR\">Item1</line>\n  <line currency=\"GBP\">Item2</line>\n</order>",
+        "output": "{\n  \"lines\": [\"Item1\", \"Item2\"],\n  \"orderId\": \"ORD-002\",\n  \"firstCurrency\": \"EUR\"\n}"
+      },
+      {
+        "input": "<order id=\"ORD-003\">\n  <line currency=\"JPY\">Single</line>\n</order>",
+        "output": "{\n  \"lines\": [\"Single\"],\n  \"orderId\": \"ORD-003\",\n  \"firstCurrency\": \"JPY\"\n}"
+      },
+      {
+        "input": "<order id=\"ORD-004\">\n  <line currency=\"CAD\">First</line>\n  <line currency=\"CAD\">Second</line>\n  <line currency=\"CAD\">Third</line>\n  <line currency=\"CAD\">Fourth</line>\n  <line currency=\"CAD\">Fifth</line>\n</order>",
+        "output": "{\n  \"lines\": [\"First\", \"Second\", \"Third\", \"Fourth\", \"Fifth\"],\n  \"orderId\": \"ORD-004\",\n  \"firstCurrency\": \"CAD\"\n}"
+      },
+      {
+        "input": "<order id=\"ORD-005\">\n  <line currency=\"USD\">A</line>\n  <line currency=\"USD\">B</line>\n  <line currency=\"USD\">C</line>\n</order>",
+        "output": "{\n  \"lines\": [\"A\", \"B\", \"C\"],\n  \"orderId\": \"ORD-005\",\n  \"firstCurrency\": \"USD\"\n}"
+      }
+    ],
+    "hints": [
+      "The `.` selector on a repeated element gives you only the **first** match. Use `.*` to get all of them.",
+      "On XML, `@name` reads an attribute. `payload.order.@id` pulls the `id` attribute from the `order` element.",
+      "Combine selectors: `payload.order.*line` returns an **array**, so you can use `map` or index it with `[0]`."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\n{\n  lines: payload.order.*line,\n  orderId: payload.order.@id,\n  firstCurrency: payload.order.*line[0].@currency\n}",
+    "explanation": {
+      "approach": "On XML with repeated elements, `.` silently returns only the first match. `.*` breaks that silence and returns all of them as an array. The `@` symbol reads attributes instead of child elements.",
+      "snippets": [
+        {
+          "label": "The answer",
+          "script": "%dw 2.0\noutput application/json\n---\n{\n  lines: payload.order.*line,\n  orderId: payload.order.@id,\n  firstCurrency: payload.order.*line[0].@currency\n}",
+          "payload": "<order id=\"ORD-001\"><line currency=\"USD\">Widget</line><line currency=\"USD\">Gadget</line><line currency=\"USD\">Doohickey</line></order>",
+          "payloadMime": "application/xml",
+          "expect": {
+            "output": "{\"lines\":[\"Widget\",\"Gadget\",\"Doohickey\"],\"orderId\":\"ORD-001\",\"firstCurrency\":\"USD\"}"
+          },
+          "note": "`.*line` is what makes the difference. Without the `*`, you get only the first."
+        },
+        {
+          "label": "Why . loses lines",
+          "script": "%dw 2.0\noutput application/json\n---\npayload.order.line",
+          "payload": "<order id=\"X\"><line>A</line><line>B</line><line>C</line></order>",
+          "payloadMime": "application/xml",
+          "expect": {
+            "output": "\"A\""
+          },
+          "note": "Only the first line. The selector stops at the first match and returns its value, not an array. Perfect for single child, catastrophic for repeated ones."
+        },
+        {
+          "label": "Getting all lines with .*",
+          "script": "%dw 2.0\noutput application/json\n---\npayload.order.*line",
+          "payload": "<order id=\"X\"><line>A</line><line>B</line><line>C</line></order>",
+          "payloadMime": "application/xml",
+          "expect": {
+            "output": "[\"A\", \"B\", \"C\"]"
+          },
+          "note": "The `*` makes it an array. Now you have all of them and can index or transform them as needed."
+        },
+        {
+          "label": "Reading attributes",
+          "script": "%dw 2.0\noutput application/json\n---\npayload.order.@id",
+          "payload": "<order id=\"ORD-123\"><item>x</item></order>",
+          "payloadMime": "application/xml",
+          "expect": {
+            "output": "\"ORD-123\""
+          },
+          "note": "`@` is the attribute syntax. `payload.order.@id` reads the `id` attribute of the `order` element."
+        },
+        {
+          "label": "Attribute on an array element",
+          "script": "%dw 2.0\noutput application/json\n---\npayload.order.*line map $.@currency",
+          "payload": "<order id=\"X\"><line currency=\"USD\">A</line><line currency=\"EUR\">B</line></order>",
+          "payloadMime": "application/xml",
+          "expect": {
+            "output": "[\"USD\", \"EUR\"]"
+          },
+          "note": "First get the array with `.*line`, then `map` over it and read `@currency` from each element."
+        }
+      ]
+    }
+  },
+  {
+    "id": "format-date-parts",
+    "unit": "dates-formatting",
+    "tier": "medium",
+    "title": "Extract specific parts of a date",
+    "topics": [
+      "date formatting",
+      "format patterns",
+      "as String"
+    ],
+    "prompt": "You are given a date string. Format it into separate parts.\n\nReturn a JSON object with:\n- `day`: the day of the month (\"01\" through \"31\")\n- `month`: the month (\"01\" through \"12\")\n- `dayOfYear`: the day of the year (\"001\" through \"366\")\n- `year`: the calendar year (\"2027\")\n\nMust be exactly 2 digits for day and month, exactly 3 digits for day-of-year, exactly 4 digits for year.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "\"2027-03-05\"",
+        "output": "{\n  \"day\": \"05\",\n  \"month\": \"03\",\n  \"dayOfYear\": \"064\",\n  \"year\": \"2027\"\n}"
+      },
+      {
+        "input": "\"2026-01-01\"",
+        "output": "{\n  \"day\": \"01\",\n  \"month\": \"01\",\n  \"dayOfYear\": \"001\",\n  \"year\": \"2026\"\n}"
+      },
+      {
+        "input": "\"2025-12-31\"",
+        "output": "{\n  \"day\": \"31\",\n  \"month\": \"12\",\n  \"dayOfYear\": \"365\",\n  \"year\": \"2025\"\n}"
+      },
+      {
+        "input": "\"2024-02-29\"",
+        "output": "{\n  \"day\": \"29\",\n  \"month\": \"02\",\n  \"dayOfYear\": \"060\",\n  \"year\": \"2024\"\n}"
+      },
+      {
+        "input": "\"2027-06-15\"",
+        "output": "{\n  \"day\": \"15\",\n  \"month\": \"06\",\n  \"dayOfYear\": \"166\",\n  \"year\": \"2027\"\n}"
+      }
+    ],
+    "hints": [
+      "Three format letters look similar but mean different things. `dd` is day-of-month, `DDD` (three D's) is day-of-year, and `MM` is month (not `mm`, which is minutes).",
+      "Use `as Date` to convert the string, then `as String {format: 'dd'}` to format it. The format pattern controls the width and padding.",
+      "Padding: `dd` gives you \"05\" (two digits), `DDD` gives you \"064\" (three digits with leading zeros). The pattern itself decides the width."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var d = payload as Date\n  ---\n  {\n    day: d as String {format: 'dd'},\n    month: d as String {format: 'MM'},\n    dayOfYear: d as String {format: 'DDD'},\n    year: d as String {format: 'yyyy'}\n  }\n}",
+    "explanation": {
+      "approach": "Date formatting patterns are case-sensitive and the number of repeated letters controls the padding. `dd` is day-of-month (\"01\"-\"31\"), `DD` is day-of-year without leading zero (\"1\"-\"366\"), `DDD` is day-of-year with padding (\"001\"-\"366\"), `MM` is month (\"01\"-\"12\"), and `mm` (lowercase) is minutes in a time. Lowercase `yyyy` is the calendar year; uppercase `YYYY` is the ISO week-year, which can differ at the year boundary.",
+      "snippets": [
+        {
+          "label": "DD vs DDD format",
+          "script": "%dw 2.0\noutput application/json\n---\n{\n  withDD: |2027-03-05| as String {format: 'DD'},\n  withDDD: |2027-03-05| as String {format: 'DDD'}\n}",
+          "expect": {
+            "output": "{\"withDD\":\"64\",\"withDDD\":\"064\"}"
+          },
+          "note": "Same date, different padding. `DD` gives \"64\", `DDD` gives \"064\". Day-of-year is the same (64th day), just different widths."
+        },
+        {
+          "label": "MM vs mm",
+          "script": "%dw 2.0\noutput application/json\n---\n{\n  month: |2027-03-05| as String {format: 'MM'},\n  minutes: |10:07:30| as String {format: 'mm'}\n}",
+          "expect": {
+            "output": "{\"month\":\"03\",\"minutes\":\"07\"}"
+          },
+          "note": "`MM` on a date gives the month. `mm` on a time gives the minutes. Same letters, opposite case, completely different meaning."
+        },
+        {
+          "label": "The answer",
+          "script": "%dw 2.0\noutput application/json\n---\ndo {\n  var d = payload as Date\n  ---\n  {\n    day: d as String {format: 'dd'},\n    month: d as String {format: 'MM'},\n    dayOfYear: d as String {format: 'DDD'},\n    year: d as String {format: 'yyyy'}\n  }\n}",
+          "payload": "\"2027-03-05\"",
+          "expect": {
+            "output": "{\"day\":\"05\",\"month\":\"03\",\"dayOfYear\":\"064\",\"year\":\"2027\"}"
+          },
+          "note": "Store the date in a variable first, then format it multiple ways. The variable inside the object holds the date, and each format call extracts a different part."
+        },
+        {
+          "label": "Day-of-month is always 2 digits",
+          "script": "%dw 2.0\noutput application/json\n---\n{\n  jan1: |2027-01-01| as String {format: 'dd'},\n  dec31: |2027-12-31| as String {format: 'dd'}\n}",
+          "expect": {
+            "output": "{\"jan1\":\"01\",\"dec31\":\"31\"}"
+          },
+          "note": "The day-of-month is always between 01 and 31, with padding to 2 digits. Easy to understand but easy to confuse with the similar-looking day-of-year formats."
+        },
+        {
+          "label": "Day-of-month vs day-of-year in a leap year",
+          "script": "%dw 2.0\noutput application/json\n---\n{\n  jan1_dayOfMonth: |2024-01-01| as String {format: 'dd'},\n  dec31_dayOfMonth: |2024-12-31| as String {format: 'dd'},\n  dec31_dayOfYear: |2024-12-31| as String {format: 'DDD'}\n}",
+          "expect": {
+            "output": "{\"jan1_dayOfMonth\":\"01\",\"dec31_dayOfMonth\":\"31\",\"dec31_dayOfYear\":\"366\"}"
+          },
+          "note": "December 31 of a leap year is the 366th day. The day-of-month is 31 (within December), while day-of-year is 366 (within the entire year)."
+        }
+      ]
+    }
+  },
+  {
     "id": "subscription-days",
     "unit": "date-arithmetic",
     "tier": "hard",
@@ -2038,6 +2317,207 @@
     }
   },
   {
+    "id": "enrich-orders-with-customers",
+    "unit": "joins",
+    "tier": "hard",
+    "title": "Enrich orders with the customer that placed them",
+    "topics": [
+      "leftJoin",
+      "dw::core::Arrays",
+      "object merging"
+    ],
+    "prompt": "You are given `payload.orders`, an array of `{ orderId, customerId }`, and `payload.customers`, an array of `{ id, name }`.\n\nReturn an array of `{ orderId, customerId, customerName }`, one entry per order, in the order the orders appear.\n\nIf an order's `customerId` does not match any customer, `customerName` is `null`. A customer that no order references does not appear in the output at all.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "{\"orders\":[{\"orderId\":\"O1\",\"customerId\":1},{\"orderId\":\"O2\",\"customerId\":2}],\"customers\":[{\"id\":1,\"name\":\"Ann\"},{\"id\":2,\"name\":\"Bo\"}]}",
+        "output": "[{\"orderId\":\"O1\",\"customerId\":1,\"customerName\":\"Ann\"},{\"orderId\":\"O2\",\"customerId\":2,\"customerName\":\"Bo\"}]"
+      },
+      {
+        "input": "{\"orders\":[{\"orderId\":\"O3\",\"customerId\":99}],\"customers\":[{\"id\":1,\"name\":\"Ann\"}]}",
+        "output": "[{\"orderId\":\"O3\",\"customerId\":99,\"customerName\":null}]"
+      },
+      {
+        "input": "{\"orders\":[{\"orderId\":\"O1\",\"customerId\":1}],\"customers\":[{\"id\":1,\"name\":\"Ann\"},{\"id\":2,\"name\":\"Bo\"}]}",
+        "output": "[{\"orderId\":\"O1\",\"customerId\":1,\"customerName\":\"Ann\"}]"
+      },
+      {
+        "input": "{\"orders\":[],\"customers\":[{\"id\":1,\"name\":\"Ann\"}]}",
+        "output": "[]"
+      },
+      {
+        "input": "{\"orders\":[{\"orderId\":\"O1\",\"customerId\":1},{\"orderId\":\"O2\",\"customerId\":1},{\"orderId\":\"O3\",\"customerId\":5}],\"customers\":[{\"id\":1,\"name\":\"Ann\"},{\"id\":2,\"name\":\"Bo\"}]}",
+        "output": "[{\"orderId\":\"O1\",\"customerId\":1,\"customerName\":\"Ann\"},{\"orderId\":\"O2\",\"customerId\":1,\"customerName\":\"Ann\"},{\"orderId\":\"O3\",\"customerId\":5,\"customerName\":null}]"
+      }
+    ],
+    "hints": [
+      "This is a join, not a nested lookup you have to write by hand. `leftJoin` lives in `dw::core::Arrays`, not core — without importing it, the name does not resolve.",
+      "`leftJoin` does not merge anything for you. Each element of its result is `{l: <left item>, r: <right item>}` — one item from each side, not a single combined object. You still have to build the shape the question asks for.",
+      "When a left item has no match, the result element has no `r` key at all — not `r: null`. Selecting through a missing key still gives you `null`, so `$.r.name` already produces the fallback the question wants, with no extra check needed."
+    ],
+    "solution": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nleftJoin(payload.orders, payload.customers, (o) -> o.customerId as String, (c) -> c.id as String)\n  map { orderId: $.l.orderId, customerId: $.l.customerId, customerName: $.r.name }",
+    "explanation": {
+      "approach": "`leftJoin` is not part of core DataWeave — it lives in `dw::core::Arrays` and has to be imported. Its job is narrower than 'give me the merged rows': it walks the left array and, for each item, attaches the right item whose key matches, if one exists. What comes back is a pair, `{l: ..., r: ...}` — one item from each side, never a single merged object — and when nothing on the right matches, the pair simply has no `r` at all rather than `r: null`. Turning that into the shape this question wants, and handling both edges — an order with no customer, and a customer no order points to — is the actual work.",
+      "snippets": [
+        {
+          "label": "Without the import, the name does not resolve",
+          "script": "%dw 2.0\noutput application/json\n---\nleftJoin([{id:'1'}],[{id:'1'}],(l)->l.id,(r)->r.id)",
+          "expect": {
+            "error": true
+          },
+          "note": "`leftJoin` is not in core. Calling it without `import * from dw::core::Arrays` is a compile error, not a runtime one."
+        },
+        {
+          "label": "What leftJoin actually returns: pairs, not merged rows",
+          "script": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nleftJoin(payload.orders, payload.customers, (o) -> o.customerId as String, (c) -> c.id as String)",
+          "payload": "{\"orders\":[{\"orderId\":\"O1\",\"customerId\":1},{\"orderId\":\"O2\",\"customerId\":2}],\"customers\":[{\"id\":1,\"name\":\"Ann\"},{\"id\":2,\"name\":\"Bo\"}]}",
+          "expect": {
+            "output": "[{\"l\":{\"orderId\":\"O1\",\"customerId\":1},\"r\":{\"id\":1,\"name\":\"Ann\"}},{\"l\":{\"orderId\":\"O2\",\"customerId\":2},\"r\":{\"id\":2,\"name\":\"Bo\"}}]"
+          },
+          "note": "Every element is `{l, r}` — the left order and the matched customer, sitting side by side rather than combined. Building `{ orderId, customerId, customerName }` out of this is a separate step."
+        },
+        {
+          "label": "An order with no matching customer has no r key at all",
+          "script": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nleftJoin([{orderId:'O3',customerId:99}], [{id:1,name:'Ann'}], (o) -> o.customerId as String, (c) -> c.id as String)",
+          "expect": {
+            "output": "[{\"l\":{\"orderId\":\"O3\",\"customerId\":99}}]"
+          },
+          "note": "Customer 99 does not exist, so the pair for order O3 has an `l` and nothing else — there is no `r` field to be null, it is simply absent."
+        },
+        {
+          "label": "Selecting through the missing key still gives null",
+          "script": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\n(leftJoin([{orderId:'O3',customerId:99}], [{id:1,name:'Ann'}], (o) -> o.customerId as String, (c) -> c.id as String))[0].r.name",
+          "expect": {
+            "output": "null"
+          },
+          "note": "`.r` is absent, and DataWeave selectors on a missing or null value keep returning null rather than erroring. `$.r.name` already does the right thing for an unmatched order with no extra handling."
+        },
+        {
+          "label": "The plausible wrong approach: a nested filter per row",
+          "script": "%dw 2.0\noutput application/json\n---\npayload.orders\n  map ((o) -> do {\n    var match = (payload.customers filter ($.id == o.customerId))[0]\n    ---\n    { orderId: o.orderId, customerId: o.customerId, customerName: match.name }\n  })\n  filter ($.customerName != null)",
+          "payload": "{\"orders\":[{\"orderId\":\"O1\",\"customerId\":1},{\"orderId\":\"O3\",\"customerId\":99}],\"customers\":[{\"id\":1,\"name\":\"Ann\"}]}",
+          "expect": {
+            "output": "[{\"orderId\":\"O1\",\"customerId\":1,\"customerName\":\"Ann\"}]"
+          },
+          "note": "This looks reasonable and passes on data where everything matches. But the trailing `filter` that was meant to clean up ends up deleting order O3 entirely, because it has no customer and so no way to tell 'unmatched' apart from 'exclude this row'. The question asked for O3 to appear with `customerName: null` — it just vanished instead."
+        },
+        {
+          "label": "The full answer",
+          "script": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nleftJoin(payload.orders, payload.customers, (o) -> o.customerId as String, (c) -> c.id as String)\n  map { orderId: $.l.orderId, customerId: $.l.customerId, customerName: $.r.name }",
+          "payload": "{\"orders\":[{\"orderId\":\"O1\",\"customerId\":1},{\"orderId\":\"O2\",\"customerId\":2}],\"customers\":[{\"id\":1,\"name\":\"Ann\"},{\"id\":2,\"name\":\"Bo\"}]}",
+          "expect": {
+            "output": "[{\"orderId\":\"O1\",\"customerId\":1,\"customerName\":\"Ann\"},{\"orderId\":\"O2\",\"customerId\":2,\"customerName\":\"Bo\"}]"
+          },
+          "note": "The join finds the pairs; the `map` afterward flattens each `{l, r}` pair into the final shape, and `$.r.name` reads as null on its own for any order that had no match."
+        }
+      ]
+    }
+  },
+  {
+    "id": "relabel-fields-by-id",
+    "unit": "dynamic-keys",
+    "tier": "hard",
+    "title": "Rename every field to its human-readable label",
+    "compare": "text",
+    "topics": [
+      "computed keys",
+      "mapObject",
+      "duplicate keys"
+    ],
+    "prompt": "You are given `payload.data`, an object of raw values keyed by internal field IDs like `f1`, `f2`, and `payload.labels`, an object mapping some of those same field IDs to human-readable names.\n\nBuild a new object with the same values, but with each key replaced by its label. A field ID that has no entry in `labels` keeps its original key.\n\nTwo different field IDs can be labeled with the exact same name (two internal fields both meaning \"comments\", say). When that happens, keep **both** entries in the output under that shared name, in the order they appear in `data` — do not collapse them.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "{\"data\":{\"f1\":\"Alice\",\"f2\":\"42 Main St\",\"f3\":\"Loves DataWeave\",\"f7\":\"Great support\"},\"labels\":{\"f1\":\"name\",\"f2\":\"address\",\"f3\":\"comments\",\"f7\":\"comments\"}}",
+        "output": "{\n  \"name\": \"Alice\",\n  \"address\": \"42 Main St\",\n  \"comments\": \"Loves DataWeave\",\n  \"comments\": \"Great support\"\n}"
+      },
+      {
+        "input": "{\"data\":{\"f1\":\"Alice\",\"f9\":\"mystery\"},\"labels\":{\"f1\":\"name\"}}",
+        "output": "{\n  \"name\": \"Alice\",\n  \"f9\": \"mystery\"\n}"
+      },
+      {
+        "input": "{\"data\":{},\"labels\":{}}",
+        "output": "{\n  \n}"
+      },
+      {
+        "input": "{\"data\":{\"f1\":\"a\",\"f2\":\"b\",\"f3\":\"c\",\"f4\":\"d\",\"f5\":\"e\"},\"labels\":{\"f1\":\"x\",\"f2\":\"x\",\"f3\":\"x\",\"f4\":\"y\",\"f5\":\"y\"}}",
+        "output": "{\n  \"x\": \"a\",\n  \"x\": \"b\",\n  \"x\": \"c\",\n  \"y\": \"d\",\n  \"y\": \"e\"\n}"
+      },
+      {
+        "input": "{\"data\":{\"f1\":\"a\",\"f2\":\"b\"},\"labels\":{}}",
+        "output": "{\n  \"f1\": \"a\",\n  \"f2\": \"b\"\n}"
+      }
+    ],
+    "hints": [
+      "You need to build an object whose keys come from data, not from the script text. `mapObject` walks an object and lets you produce a new one; wrapping an expression in parentheses as a key — `(expr): value` — makes it a computed key, evaluated rather than read literally.",
+      "`mapObject` hands its lambda the value, the key, and the position, in that order — value first. The field ID you need for the lookup is the second parameter. To read a field of `labels` whose name you only know at runtime, use a bracket selector like `payload.labels[k]`; when the ID is not present, that gives `null`, and `default` supplies the fallback.",
+      "Leaving off the parentheses does not error — it silently changes the meaning. `{ k: v }` builds a field literally named `k` for every entry, not whatever value the variable `k` holds, so you would get the same key repeated for every row instead of the labels you looked up."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\npayload.data mapObject ((v, k, i) -> { (payload.labels[k] default k): v })",
+    "explanation": {
+      "approach": "The new key for each field is not known when the script is written — it depends on looking the field ID up in `labels`. `mapObject` gives you each value and key of `data` in turn; wrapping the looked-up label in parentheses, `(payload.labels[k] default k): v`, makes DataWeave evaluate it into a key rather than treating it as a literal field name. Because DataWeave objects are ordered lists of pairs, two fields that resolve to the same label both survive in the output side by side, instead of the second overwriting the first.",
+      "snippets": [
+        {
+          "label": "Looking a value up by a key you only know at runtime",
+          "script": "%dw 2.0\noutput application/json\n---\ndo {\n  var labels = {f1: 'name', f2: 'address'}\n  var k = 'f2'\n  ---\n  labels[k]\n}",
+          "expect": {
+            "output": "\"address\""
+          },
+          "note": "A bracket selector with a variable inside it reads the field whose name is the variable's value, not a field literally called `k`."
+        },
+        {
+          "label": "Without parentheses, the key is the literal word",
+          "script": "%dw 2.0\noutput application/json\n---\ndo { var k = 'x' --- { k: 1 } }",
+          "expect": {
+            "output": "{ \"k\": 1 }"
+          },
+          "note": "Even though `k` holds `'x'`, writing `k:` as a bare key builds a field named `k`. The variable is never read."
+        },
+        {
+          "label": "With parentheses, the key becomes the variable's value",
+          "script": "%dw 2.0\noutput application/json\n---\ndo { var k = 'x' --- { (k): 1 } }",
+          "expect": {
+            "output": "{ \"x\": 1 }"
+          },
+          "note": "The parentheses are what turn `k` from a field name into an expression to evaluate. This is the whole trick a computed key relies on."
+        },
+        {
+          "label": "mapObject hands you value first",
+          "script": "%dw 2.0\noutput application/json\n---\npayload mapObject ((v, k, i) -> { (k): [v, i] })",
+          "payload": "{\"a\":\"A\"}",
+          "expect": {
+            "output": "{\"a\":[\"A\",0]}"
+          },
+          "note": "The lambda's first parameter is the value, the second is the key, and the third is the index — the opposite order from how you would say the pair out loud."
+        },
+        {
+          "label": "The wrong way: forgetting the parentheses when renaming",
+          "script": "%dw 2.0\noutput application/json\n---\npayload.data mapObject ((v, k, i) -> { k: v })",
+          "payload": "{\"data\":{\"f1\":\"Alice\",\"f2\":\"42 Main St\",\"f3\":\"Loves DataWeave\",\"f7\":\"Great support\"},\"labels\":{\"f1\":\"name\",\"f2\":\"address\",\"f3\":\"comments\",\"f7\":\"comments\"}}",
+          "expect": {
+            "output": "{\n  \"k\": \"Alice\",\n  \"k\": \"42 Main St\",\n  \"k\": \"Loves DataWeave\",\n  \"k\": \"Great support\"\n}"
+          },
+          "compare": "text",
+          "note": "Every entry lands under the literal key `k`, because the bare identifier was never turned into an expression. The labels lookup does not even run."
+        },
+        {
+          "label": "The answer, and why the duplicate label survives",
+          "script": "%dw 2.0\noutput application/json\n---\npayload.data mapObject ((v, k, i) -> { (payload.labels[k] default k): v })",
+          "payload": "{\"data\":{\"f1\":\"Alice\",\"f2\":\"42 Main St\",\"f3\":\"Loves DataWeave\",\"f7\":\"Great support\"},\"labels\":{\"f1\":\"name\",\"f2\":\"address\",\"f3\":\"comments\",\"f7\":\"comments\"}}",
+          "expect": {
+            "output": "{\n  \"name\": \"Alice\",\n  \"address\": \"42 Main St\",\n  \"comments\": \"Loves DataWeave\",\n  \"comments\": \"Great support\"\n}"
+          },
+          "compare": "text",
+          "note": "`f3` and `f7` both resolve to `comments`. DataWeave objects do not deduplicate keys, so both pairs come through in the order they were built."
+        }
+      ]
+    }
+  },
+  {
     "id": "namespaced-customer-status",
     "unit": "xml-namespaces",
     "tier": "hard",
@@ -2410,6 +2890,798 @@
             "error": true
           },
           "note": "An empty line has no character at position 26 — the selector returns null, and null as Number throws UnsupportedTypeCoercionException. The failure surfaces at the coercion, several steps after the split that actually produced the bad element, which is why filtering blank lines up front is easier than debugging this backward."
+        }
+      ]
+    }
+  },
+  {
+    "id": "pricing-pipeline",
+    "unit": "higher-order",
+    "tier": "extra",
+    "title": "Run a list of pricing rules through a pipeline",
+    "topics": [
+      "fun",
+      "then",
+      "partial application",
+      "reduce"
+    ],
+    "prompt": "Each order has a `base` price and a `rules` array. Each rule is `{ op, amount }`, where `op` is `\"add\"`, `\"mul\"`, or `\"sub\"`. Starting from `base`, apply the rules **in the order given** — an `\"add\"` adds `amount`, `\"mul\"` multiplies by `amount`, `\"sub\"` subtracts `amount`. An `op` that is none of those three leaves the running total unchanged.\n\nReturn an array of `{ id, total }`. An order with no rules keeps its `base` as `total`.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[\n  { \"id\": \"O1\", \"base\": 100, \"rules\": [ { \"op\": \"add\", \"amount\": 10 }, { \"op\": \"mul\", \"amount\": 2 } ] },\n  { \"id\": \"O2\", \"base\": 50, \"rules\": [] }\n]",
+        "output": "[{\"id\":\"O1\",\"total\":220},{\"id\":\"O2\",\"total\":50}]"
+      },
+      {
+        "input": "[\n  { \"id\": \"O3\", \"base\": 100, \"rules\": [ { \"op\": \"mul\", \"amount\": 2 }, { \"op\": \"add\", \"amount\": 10 } ] }\n]",
+        "output": "[{\"id\":\"O3\",\"total\":210}]"
+      },
+      {
+        "input": "[\n  { \"id\": \"O4\", \"base\": 100, \"rules\": [ { \"op\": \"sub\", \"amount\": 30 }, { \"op\": \"weird\", \"amount\": 999 } ] }\n]",
+        "output": "[{\"id\":\"O4\",\"total\":70}]"
+      },
+      {
+        "input": "[]",
+        "output": "[]"
+      },
+      {
+        "input": "[\n  { \"id\": \"O5\", \"base\": 10, \"rules\": [ { \"op\": \"add\", \"amount\": 1 }, { \"op\": \"add\", \"amount\": 2 }, { \"op\": \"mul\", \"amount\": 3 }, { \"op\": \"sub\", \"amount\": 5 } ] }\n]",
+        "output": "[{\"id\":\"O5\",\"total\":34}]"
+      }
+    ],
+    "hints": [
+      "A rule is naturally a one-argument function from price to price: give the operation and amount, get back a function that does that step. That is partial application — a function returning a function.",
+      "`then` composes a value with a callback — `then(x, f)` is `f(x)`. Fold the rules array into a chain of these with `reduce`, seeding the accumulator with `base` the way `[] reduce ((i, acc = 0) -> acc + i)` seeds it with `0`.",
+      "The natural first draft, `acc then applyOp(r.op, r.amount)`, does not compile — the infix form of `then` only accepts a literal lambda on its right, not a call to a named function. Write it as `then(acc, applyOp(r.op, r.amount))` instead, and never as separate running totals grouped by operation: `add`s and `mul`s do not commute, so grouping them loses the order the rules were given in."
+    ],
+    "solution": "%dw 2.0\noutput application/json\nfun applyOp(op: String, amount: Number) = (x: Number) -> op match {\n  case \"add\" -> x + amount\n  case \"mul\" -> x * amount\n  case \"sub\" -> x - amount\n  else -> x\n}\n---\npayload map (o) -> {\n  id: o.id,\n  total: o.rules reduce ((r, acc = o.base) -> then(acc, applyOp(r.op, r.amount)))\n}",
+    "explanation": {
+      "approach": "A rule is a step in a pipeline, and the natural way to represent a step is a one-argument function: give `applyOp` the operation and amount, and it hands back a function from price to price without running it yet — that is partial application. `then` is DataWeave's way to compose a value with a callback: `then(x, f)` is exactly `f(x)`, and folding the rules array with `reduce`, calling `then` once per rule, builds the pipeline in the order the rules appear. The trap is that `then` has two faces. Its function-call form, `then(acc, applyOp(...))`, accepts any callback, including one that came from calling a named function. Its infix form, `acc then applyOp(...)`, does not — it only works when the right-hand side is a lambda written out inline, and fails the moment it is a call to a `fun`, whether or not that call still takes more arguments. The two forms are not interchangeable despite looking like the same operation written two ways.",
+      "snippets": [
+        {
+          "label": "Partial application: a function that returns a function",
+          "script": "%dw 2.0\noutput application/json\nfun applyOp(op: String, amount: Number) = (x: Number) -> op match {\n  case \"add\" -> x + amount\n  case \"mul\" -> x * amount\n  else -> x\n}\n---\n{ kind: typeOf(applyOp(\"add\", 5)), result: (applyOp(\"add\", 5))(10) }",
+          "expect": {
+            "output": "{ \"kind\": \"Function\", \"result\": 15 }"
+          },
+          "note": "applyOp(\"add\", 5) does not compute a number — it returns a Function, still waiting for `x`. Calling that result with (10) is what actually runs the addition."
+        },
+        {
+          "label": "then's function-call form composes it",
+          "script": "%dw 2.0\noutput application/json\nfun applyOp(op: String, amount: Number) = (x: Number) -> op match {\n  case \"add\" -> x + amount\n  case \"mul\" -> x * amount\n  else -> x\n}\n---\nthen(10, applyOp(\"add\", 5))",
+          "expect": {
+            "output": "15"
+          },
+          "note": "then(10, applyOp(\"add\", 5)) is then(10, f) where f is the function from the previous snippet — it runs f(10) and gets 15. This is the form the pipeline is built from."
+        },
+        {
+          "label": "The infix spelling of the exact same thing does not compile",
+          "script": "%dw 2.0\noutput application/json\nfun applyOp(op: String, amount: Number) = (x: Number) -> op match {\n  case \"add\" -> x + amount\n  case \"mul\" -> x * amount\n  else -> x\n}\n---\n10 then applyOp(\"add\", 5)",
+          "expect": {
+            "error": true
+          },
+          "note": "Same values, same callback, written as `10 then applyOp(\"add\", 5)` instead of `then(10, applyOp(\"add\", 5))`. It fails with UnsupportedTypeCoercionException: Cannot coerce Function to String. Infix `then` does not accept a callback produced by calling a named function — bare or applied, with or without type annotations, it fails the same way. This is why the pipeline has to be built with the function-call form, not the infix one."
+        },
+        {
+          "label": "Infix then is fine with a lambda written out inline",
+          "script": "%dw 2.0\noutput application/json\n---\n10 then ((x) -> x + 5)",
+          "expect": {
+            "output": "15"
+          },
+          "note": "The only difference from the previous snippet is that the callback here is a lambda literal instead of a call to `applyOp`. It compiles and runs. `then` itself is not broken — only its infix form's tolerance for where the callback comes from is limited."
+        },
+        {
+          "label": "Order changes the answer, which is why grouping by operation is wrong",
+          "script": "%dw 2.0\noutput application/json\nfun applyOp(op: String, amount: Number) = (x: Number) -> op match {\n  case \"add\" -> x + amount\n  case \"mul\" -> x * amount\n  else -> x\n}\nfun pipeline(base, rules) = rules reduce ((r, acc = base) -> then(acc, applyOp(r.op, r.amount)))\n---\n{\n  addThenMul: pipeline(100, [{op: \"add\", amount: 10}, {op: \"mul\", amount: 2}]),\n  mulThenAdd: pipeline(100, [{op: \"mul\", amount: 2}, {op: \"add\", amount: 10}])\n}",
+          "expect": {
+            "output": "{ \"addThenMul\": 220, \"mulThenAdd\": 210 }"
+          },
+          "note": "Same two rules, opposite order, different totals — 220 against 210. An approach that sums all the adds and multiplies by all the muls as separate batches cannot tell these two apart, because it throws away the order the rules came in."
+        }
+      ]
+    }
+  },
+  {
+    "id": "event-shape-classifier",
+    "unit": "custom-types",
+    "tier": "extra",
+    "title": "Classify raw events by their shape",
+    "topics": [
+      "type",
+      "is"
+    ],
+    "prompt": "A raw event feed mixes several shapes with no discriminator field to tell them apart — only the fields present say what an event is.\n\nDeclare a `ClickEvent` type with `x` and `y`, both Numbers, and a `KeyEvent` type with `key`, a String. For each event, return `{ id, type }`, where `type` is `\"Click\"` if it matches `ClickEvent`, `\"Key\"` if it matches `KeyEvent`, or `\"Unknown\"` otherwise. An event can only be classified by checking it against the declared types with `is` — there is no field named `type` on the input to read.\n\nIf an event matches both shapes at once, classify it as `\"Click\"`.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[\n  { \"id\": \"E1\", \"x\": 10, \"y\": 20 },\n  { \"id\": \"E2\", \"key\": \"Enter\" },\n  { \"id\": \"E3\", \"foo\": \"bar\" }\n]",
+        "output": "[{\"id\":\"E1\",\"type\":\"Click\"},{\"id\":\"E2\",\"type\":\"Key\"},{\"id\":\"E3\",\"type\":\"Unknown\"}]"
+      },
+      {
+        "input": "[\n  { \"id\": \"E4\", \"x\": 1, \"y\": 2, \"key\": \"Enter\" }\n]",
+        "output": "[{\"id\":\"E4\",\"type\":\"Click\"}]"
+      },
+      {
+        "input": "[\n  { \"id\": \"E5\", \"x\": \"10\", \"y\": 20 }\n]",
+        "output": "[{\"id\":\"E5\",\"type\":\"Unknown\"}]"
+      },
+      {
+        "input": "[\n  { \"id\": \"E6\", \"x\": 5 }\n]",
+        "output": "[{\"id\":\"E6\",\"type\":\"Unknown\"}]"
+      },
+      {
+        "input": "[]",
+        "output": "[]"
+      }
+    ],
+    "hints": [
+      "`type Name = { ... }` declares a shape, and `value is Name` checks a value against it structurally — you never build an instance of the type, you only test against it.",
+      "The check is open, not exact: an object with extra fields the type does not mention can still satisfy it. What fails the check is a required field that is missing, or present with the wrong type.",
+      "The output field the question asks for is named `type`. Writing it as a bare key, `{ type: ... }`, does not compile — `type` is a reserved word there. Quote it: `{ \"type\": ... }`. And test `is ClickEvent` before `is KeyEvent`, since an event can satisfy both and the question says Click wins."
+    ],
+    "solution": "%dw 2.0\ntype ClickEvent = { x: Number, y: Number }\ntype KeyEvent = { key: String }\noutput application/json\n---\npayload map (e) -> {\n  id: e.id,\n  \"type\": if (e is ClickEvent) \"Click\" else if (e is KeyEvent) \"Key\" else \"Unknown\"\n}",
+    "explanation": {
+      "approach": "`type Name = { ... }` declares a shape once, and `value is Name` tests any value against it — that is the whole mechanism, no constructors involved. The check is structural and open: a value with extra fields the type never mentioned still matches, but a missing required field or one with the wrong type does not. The part that actually trips people up is naming the output field: the natural name for a classification result is `type`, and `type` is a reserved word wherever DataWeave expects a bare identifier for an object key. It has to be quoted. The other thing the exercise forces is a decision about order: once a value can satisfy two declared types at once, whichever `is` check runs first wins, so the order of the checks is part of the answer, not an implementation detail.",
+      "snippets": [
+        {
+          "label": "`is` is structural and open on extra fields",
+          "script": "%dw 2.0\ntype ClickEvent = { x: Number, y: Number }\noutput application/json\n---\n{\n  matches: { x: 1, y: 2 } is ClickEvent,\n  extraFieldStillMatches: { x: 1, y: 2, id: \"E1\" } is ClickEvent,\n  missingField: { x: 1 } is ClickEvent,\n  wrongType: { x: \"1\", y: 2 } is ClickEvent\n}",
+          "expect": {
+            "output": "{ \"matches\": true, \"extraFieldStillMatches\": true, \"missingField\": false, \"wrongType\": false }"
+          },
+          "note": "An id field ClickEvent never declared does not break the match. Only a required field being absent, or present with the wrong type, does."
+        },
+        {
+          "label": "`type` as a bare object key does not compile",
+          "script": "%dw 2.0\noutput application/json\n---\n{ type: \"Click\" }",
+          "expect": {
+            "error": true
+          },
+          "note": "CompilationException: the name `type` is a reserved word. This is not about the type SYSTEM at all — it is the plain object-literal syntax rejecting the identifier, and it is exactly the key this question needs to produce."
+        },
+        {
+          "label": "quoting the key is all it takes",
+          "script": "%dw 2.0\noutput application/json\n---\n{ \"type\": \"Click\" }",
+          "expect": {
+            "output": "{ \"type\": \"Click\" }"
+          },
+          "note": "A quoted string in key position is not an identifier, so the reserved-word rule does not apply to it. Same field, same value, and it compiles."
+        },
+        {
+          "label": "the order of the `is` checks decides the ambiguous case",
+          "script": "%dw 2.0\ntype ClickEvent = { x: Number, y: Number }\ntype KeyEvent = { key: String }\noutput application/json\n---\n{\n  clickFirst: if ({x:1,y:2,key:\"Enter\"} is ClickEvent) \"Click\" else if ({x:1,y:2,key:\"Enter\"} is KeyEvent) \"Key\" else \"Unknown\",\n  keyFirst: if ({x:1,y:2,key:\"Enter\"} is KeyEvent) \"Key\" else if ({x:1,y:2,key:\"Enter\"} is ClickEvent) \"Click\" else \"Unknown\"\n}",
+          "expect": {
+            "output": "{ \"clickFirst\": \"Click\", \"keyFirst\": \"Key\" }"
+          },
+          "note": "Same event, both shapes satisfied, opposite answers depending only on which `is` test is written first. The question resolves this by requiring Click to win, so that check has to come first."
+        }
+      ]
+    }
+  },
+  {
+    "id": "meter-reading-salvage",
+    "unit": "error-handling",
+    "tier": "extra",
+    "title": "Salvage the good meter readings from a bad batch",
+    "topics": [
+      "try",
+      "dw::Runtime"
+    ],
+    "prompt": "A batch of raw meter readings arrives as `{ id, value }`, where `value` is a String that is supposed to represent a number but sometimes is not — empty, `null`, or text.\n\nReturn `{ ok, failed }`: `ok` is an array of `{ id, value }` for every reading whose `value` coerces to a Number, with `value` as that Number; `failed` is an array of just the `id`s whose `value` does not coerce. One bad reading must not stop the rest of the batch from being processed.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[\n  { \"id\": \"M1\", \"value\": \"12.5\" },\n  { \"id\": \"M2\", \"value\": \"abc\" },\n  { \"id\": \"M3\", \"value\": \"7\" }\n]",
+        "output": "{\"ok\":[{\"id\":\"M1\",\"value\":12.5},{\"id\":\"M3\",\"value\":7}],\"failed\":[\"M2\"]}"
+      },
+      {
+        "input": "[\n  { \"id\": \"M4\", \"value\": \"\" }\n]",
+        "output": "{\"ok\":[],\"failed\":[\"M4\"]}"
+      },
+      {
+        "input": "[\n  { \"id\": \"M6\", \"value\": null }\n]",
+        "output": "{\"ok\":[],\"failed\":[\"M6\"]}"
+      },
+      {
+        "input": "[\n  { \"id\": \"M5\", \"value\": \"-3.5\" },\n  { \"id\": \"M7\", \"value\": \"0\" }\n]",
+        "output": "{\"ok\":[{\"id\":\"M5\",\"value\":-3.5},{\"id\":\"M7\",\"value\":0}],\"failed\":[]}"
+      },
+      {
+        "input": "[]",
+        "output": "{\"ok\":[],\"failed\":[]}"
+      }
+    ],
+    "hints": [
+      "Coercing a bad String with `as Number` throws — it does not return null or a sentinel value. Left alone, that exception unwinds the whole script, not just the one record it happened on.",
+      "`dw::Runtime` has a `try` function: `try(() -> someExpression)` runs the expression and comes back with `{ success: true, result }` or `{ success: false, error }` instead of throwing. Wrap the risky coercion in a zero-argument lambda and pass it to `try`.",
+      "Checking `value != null` and `!isEmpty(value)` first does not help — a String like `\"abc\"` is neither null nor empty, and `as Number` throws on it anyway. The only thing that actually contains the failure is running the coercion inside `try` and branching on `.success`."
+    ],
+    "solution": "%dw 2.0\nimport * from dw::Runtime\noutput application/json\nvar results = payload map (r) -> { id: r.id, t: try(() -> r.value as Number) }\n---\n{\n  ok: (results filter ($.t.success)) map { id: $.id, value: $.t.result },\n  failed: (results filter (!$.t.success)) map $.id\n}",
+    "explanation": {
+      "approach": "`as Number` on a bad String does not return `null` or fail quietly — it throws, and by default that exception propagates out of the whole script, not just out of the one record that caused it. `dw::Runtime` has `try(() -> expr)`, a function that runs a zero-argument lambda and catches whatever it throws, coming back with `{ success: true, result }` or `{ success: false, error }` either way. Wrapping just the risky coercion in `try` — not the whole record, and not a hand-rolled null/empty check first — is what lets the rest of the batch keep going.",
+      "snippets": [
+        {
+          "label": "try on a coercion that succeeds",
+          "script": "%dw 2.0\nimport * from dw::Runtime\noutput application/json\n---\n{ success: try(() -> \"12.5\" as Number).success, result: try(() -> \"12.5\" as Number).result }",
+          "expect": {
+            "output": "{ \"success\": true, \"result\": 12.5 }"
+          },
+          "note": "try never throws itself. On success it hands back the result under `.result`, alongside `success: true`."
+        },
+        {
+          "label": "try on a coercion that fails",
+          "script": "%dw 2.0\nimport * from dw::Runtime\noutput application/json\n---\n{ success: try(() -> \"abc\" as Number).success, kind: try(() -> \"abc\" as Number).error.kind, message: try(() -> \"abc\" as Number).error.message }",
+          "expect": {
+            "output": "{ \"success\": false, \"kind\": \"InvalidNumberException\", \"message\": \"Cannot coerce String (abc) to Number\" }"
+          },
+          "note": "The same exception that would otherwise abort the script shows up as data under `.error`, and `success` is `false` instead of the script halting."
+        },
+        {
+          "label": "without try, one bad row aborts the whole array",
+          "script": "%dw 2.0\noutput application/json\n---\npayload map (r) -> { id: r.id, value: r.value as Number }",
+          "payload": "[{\"id\":\"M1\",\"value\":\"12.5\"},{\"id\":\"M2\",\"value\":\"abc\"},{\"id\":\"M3\",\"value\":\"7\"}]",
+          "expect": {
+            "error": true
+          },
+          "note": "M1 and M3 are perfectly good readings, but M2 alone is enough to throw the whole map expression, and with it the whole output. There is no partial result."
+        },
+        {
+          "label": "null coerces no better than a bad string",
+          "script": "%dw 2.0\nimport * from dw::Runtime\noutput application/json\n---\n{ success: try(() -> null as Number).success, kind: try(() -> null as Number).error.kind, message: try(() -> null as Number).error.message }",
+          "expect": {
+            "output": "{ \"success\": false, \"kind\": \"UnsupportedTypeCoercionException\", \"message\": \"Cannot coerce Null (null) to Number\" }"
+          },
+          "note": "A missing value is just another way this throws, with a different exception kind. `try` catches it the same way, with no special-casing needed for null."
+        },
+        {
+          "label": "checking for null and empty first does not prevent the throw",
+          "script": "%dw 2.0\noutput application/json\n---\nif (\"abc\" != null and !isEmpty(\"abc\")) \"abc\" as Number else -1",
+          "expect": {
+            "error": true
+          },
+          "note": "\"abc\" passes both guards — it is neither null nor empty — and the coercion still throws. The guard catches the wrong condition; only wrapping the coercion itself in try actually contains the failure."
+        }
+      ]
+    }
+  },
+  {
+    "id": "generic-key-rewrite",
+    "unit": "generic-key-rewrite",
+    "tier": "max",
+    "title": "Rename every key, everywhere, at any depth",
+    "topics": [
+      "fun",
+      "mapObject",
+      "recursion"
+    ],
+    "prompt": "You are given JSON of unknown shape — objects nested inside arrays nested inside objects, to any depth. Every key that uses `snake_case` has to come out `camelCase`, no matter how deep it sits.\n\nOnly keys change. A value is left exactly as it is, even if it happens to be a string that itself looks like `snake_case` — `\"account_status\": \"in_progress\"` becomes `\"accountStatus\": \"in_progress\"`, not `\"accountStatus\": \"inProgress\"`.\n\nThe input is not always an object at the top. It can be an array, and arrays can hold plain scalars as well as objects — a list of tags, for instance, sitting next to a list of line items.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "{\n  \"user_id\": 1,\n  \"full_name\": \"Ada Lovelace\",\n  \"shipping_address\": {\n    \"street_name\": \"5th Ave\",\n    \"zip_code\": \"10001\"\n  },\n  \"phone_numbers\": [\"555-1000\", \"555-2000\"]\n}",
+        "output": "{\"userId\":1,\"fullName\":\"Ada Lovelace\",\"shippingAddress\":{\"streetName\":\"5th Ave\",\"zipCode\":\"10001\"},\"phoneNumbers\":[\"555-1000\",\"555-2000\"]}"
+      },
+      {
+        "input": "[{\"order_id\":\"O1\",\"line_items\":[{\"item_sku\":\"A1\",\"unit_price\":9.99},{\"item_sku\":\"A2\",\"unit_price\":3.5}],\"special_tags\":[\"gift_wrap\",\"priority_ship\"]}]",
+        "output": "[{\"orderId\":\"O1\",\"lineItems\":[{\"itemSku\":\"A1\",\"unitPrice\":9.99},{\"itemSku\":\"A2\",\"unitPrice\":3.5}],\"specialTags\":[\"gift_wrap\",\"priority_ship\"]}]"
+      },
+      {
+        "input": "{}",
+        "output": "{}"
+      },
+      {
+        "input": "\"just_a_string\"",
+        "output": "\"just_a_string\""
+      },
+      {
+        "input": "{\"first_name\": null, \"account_status\": \"in_progress\"}",
+        "output": "{\"firstName\": null, \"accountStatus\": \"in_progress\"}"
+      }
+    ],
+    "hints": [
+      "You don't know the depth or the shape ahead of time, so this can't be a fixed chain of selectors — it needs something that looks at whatever it's handed, and calls itself again on whatever's inside.",
+      "Write it as one function with three branches: an Object recurses into its values while renaming its own keys, an Array recurses into its elements, and anything else — a String, a Number, `null` — is returned as-is. Nothing in core loops for you; the branching by type is what does the walking.",
+      "`dw::util::Tree`'s `mapLeafValues` looks tailor-made for a generic walk, but check what it actually touches before reaching for it: it rewrites the leaf VALUES, not the keys along the way, so it does not do this job. And when your Array branch hits an element, don't assume that element is an Object — `special_tags` is an array of plain strings, and calling an object-only function on one of those is what breaks a first attempt that otherwise looks right."
+    ],
+    "solution": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\nfun rewrite(v) = v match {\n  case o is Object -> o mapObject ((val, key) -> { (camelKey(key)): rewrite(val) })\n  case a is Array -> a map rewrite($)\n  else -> v\n}\n---\nrewrite(payload)",
+    "explanation": {
+      "approach": "There is no built-in that walks arbitrary JSON and renames keys — the shape isn't known until you're looking at the value in front of you, so the walk has to be written as a recursive function with one branch per kind of value: an Object renames its own keys with `mapObject` and recurses into each value; an Array just recurses into each element, unchanged in kind; anything else (`String`, `Number`, `Boolean`, `null`) is a leaf and comes back untouched. `dw::util::Tree`'s `mapLeafValues` looks like it should help — it also walks a whole structure — but it transforms leaf VALUES, and this task is about KEYS, so it doesn't apply here. The part that actually catches people is the Array branch: it's tempting to assume every array holds more objects, but an array can just as easily hold scalars, and calling an object-only function on a scalar element is a hard error, not a smaller correct answer.",
+      "snippets": [
+        {
+          "label": "camelKey on its own, including a mid-word digit",
+          "script": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\n---\n{\n  a: camelKey(\"user_id\"),\n  b: camelKey(\"full_name\"),\n  c: camelKey(\"item_2_id\"),\n  d: camelKey(\"already\")\n}",
+          "expect": {
+            "output": "{ \"a\": \"userId\", \"b\": \"fullName\", \"c\": \"item2Id\", \"d\": \"already\" }"
+          },
+          "note": "Splitting on `_` and capitalizing the first letter of every part after the first — a key with no underscore at all just comes back unchanged, which is what `camelKey(\"already\")` shows."
+        },
+        {
+          "label": "The full recursive walk on the sample",
+          "script": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\nfun rewrite(v) = v match {\n  case o is Object -> o mapObject ((val, key) -> { (camelKey(key)): rewrite(val) })\n  case a is Array -> a map rewrite($)\n  else -> v\n}\n---\nrewrite(payload)",
+          "payload": "{\"user_id\":1,\"shipping_address\":{\"street_name\":\"5th Ave\"},\"phone_numbers\":[\"555-1000\",\"555-2000\"]}",
+          "expect": {
+            "output": "{ \"userId\": 1, \"shippingAddress\": { \"streetName\": \"5th Ave\" }, \"phoneNumbers\": [\"555-1000\", \"555-2000\"] }"
+          },
+          "note": "Object keys are renamed at every level; the array of phone numbers passes through the Array branch and each String inside hits `else`, so the numbers themselves are untouched."
+        },
+        {
+          "label": "mapLeafValues walks the whole tree too, but it never sees the keys",
+          "script": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\nmapLeafValues({user_id: 1, full_name: \"Ada\"}, (v, p) -> v)",
+          "expect": {
+            "output": "{ \"user_id\": 1, \"full_name\": \"Ada\" }"
+          },
+          "note": "Even though the callback runs on every leaf, the keys `user_id` and `full_name` come back exactly as they went in — `mapLeafValues` is a value-mapper, not a key-mapper, so it cannot do this task no matter what the callback does."
+        },
+        {
+          "label": "Why the Array branch can't assume every element is an Object",
+          "script": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\nfun rewrite(v) = v match {\n  case o is Object -> o mapObject ((val, key) -> { (camelKey(key)): rewrite(val) })\n  case a is Array -> a map ((elem) -> elem mapObject ((val, key) -> { (camelKey(key)): rewrite(val) }))\n  else -> v\n}\n---\nrewrite(payload)",
+          "payload": "{\"user_id\":1,\"contact_info\":{\"phone_numbers\":[\"555-1000\",\"555-2000\"]}}",
+          "expect": {
+            "error": true
+          },
+          "note": "This version renames nested objects fine right up until the Array branch reaches `phone_numbers`, whose elements are Strings. Calling `mapObject` on a String is `UnexpectedFunctionCallTypesException`, not a partial result — the whole script fails on a payload that looks perfectly ordinary."
+        },
+        {
+          "label": "A scalar at the top has no keys to rename",
+          "script": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\nfun rewrite(v) = v match {\n  case o is Object -> o mapObject ((val, key) -> { (camelKey(key)): rewrite(val) })\n  case a is Array -> a map rewrite($)\n  else -> v\n}\n---\nrewrite(payload)",
+          "payload": "\"just_a_string\"",
+          "expect": {
+            "output": "\"just_a_string\""
+          },
+          "note": "A bare String hits the `else` branch immediately and comes back unchanged. It looks like it might get run through `camelKey` by mistake, since it's shaped like a key, but the function never treats a value as a key."
+        },
+        {
+          "label": "null is a value like any other, and its key still gets renamed",
+          "script": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\nfun rewrite(v) = v match {\n  case o is Object -> o mapObject ((val, key) -> { (camelKey(key)): rewrite(val) })\n  case a is Array -> a map rewrite($)\n  else -> v\n}\n---\nrewrite(payload)",
+          "payload": "{\"first_name\": null, \"account_status\": \"in_progress\"}",
+          "expect": {
+            "output": "{ \"firstName\": null, \"accountStatus\": \"in_progress\" }"
+          },
+          "note": "`first_name`'s key is renamed even though its value is `null` — the recursion doesn't skip a key just because there was nothing to walk into. And `account_status`'s value, `\"in_progress\"`, keeps its underscore: only the key beside it changed."
+        }
+      ]
+    }
+  },
+  {
+    "id": "denormalize-orders",
+    "unit": "denormalize",
+    "tier": "max",
+    "title": "Nested orders out as flat CSV rows",
+    "topics": [
+      "flatMap",
+      "write",
+      "application/csv"
+    ],
+    "prompt": "Each order in the input is `{ order_id, customer, line_items }`, where `line_items` is an array of `{ sku, qty, price }`.\n\nProduce a CSV with one row per line item — `orderId, customer, sku, qty, price` — where `orderId` and `customer` are repeated on every row that came from that order. An order with no line items contributes no rows at all. A line item missing a field leaves that cell empty rather than failing the row.",
+    "inputMime": "application/json",
+    "outputMime": "application/csv",
+    "compare": "text",
+    "starter": "%dw 2.0\noutput application/csv\n---\n",
+    "cases": [
+      {
+        "input": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[{\"sku\":\"A1\",\"qty\":2,\"price\":9.99},{\"sku\":\"A2\",\"qty\":1,\"price\":3.5}]},{\"order_id\":\"O2\",\"customer\":\"Bo\",\"line_items\":[{\"sku\":\"B1\",\"qty\":5,\"price\":1.25}]}]",
+        "output": "orderId,customer,sku,qty,price\r\nO1,Ada,A1,2,9.99\r\nO1,Ada,A2,1,3.5\r\nO2,Bo,B1,5,1.25\r\n"
+      },
+      {
+        "input": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[]},{\"order_id\":\"O2\",\"customer\":\"Bo\",\"line_items\":[{\"sku\":\"B1\",\"qty\":5,\"price\":1.25}]}]",
+        "output": "orderId,customer,sku,qty,price\r\nO2,Bo,B1,5,1.25\r\n"
+      },
+      {
+        "input": "[{\"order_id\":\"O1\",\"customer\":\"Ada\"},{\"order_id\":\"O2\",\"customer\":\"Bo\",\"line_items\":[{\"sku\":\"B1\",\"qty\":5,\"price\":1.25}]}]",
+        "output": "orderId,customer,sku,qty,price\r\nO2,Bo,B1,5,1.25\r\n"
+      },
+      {
+        "input": "[]",
+        "output": ""
+      },
+      {
+        "input": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[{\"sku\":\"A1\",\"qty\":2}]}]",
+        "output": "orderId,customer,sku,qty,price\r\nO1,Ada,A1,2,\r\n"
+      }
+    ],
+    "hints": [
+      "The output has more rows than the input has orders — each order can expand into several rows, or none. That's a shape where you map over the outer list, then map again over something inside each element, and merge the two levels of results back into one flat list.",
+      "`flatMap` is `map` followed by one level of flattening in a single step: the outer function returns an array of rows for each order, and `flatMap` concatenates all of those arrays into one. An order with an empty `line_items` array returns an empty array of rows, which contributes nothing — which is exactly the behavior the empty-order case needs, for free.",
+      "Name the outer order in the lambda — `(order) -> ...` — and read `order.order_id` and `order.customer` from that name inside the inner map, not from `$`. Inside a nested `map`, `$` always means the innermost element, the line item, so `$.order_id` there is `null`: the parent's fields have to be captured before the inner map shadows `$`."
+    ],
+    "solution": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> {\n  orderId: order.order_id,\n  customer: order.customer,\n  sku: li.sku,\n  qty: li.qty,\n  price: li.price\n}))",
+    "explanation": {
+      "approach": "The row count here is decided by the children, not the parents: one order can become zero rows, one row, or five. That rules out a plain `map`, which always produces exactly one output element per input element — the tool for `n` inputs to a variable number of outputs is `flatMap`, which runs a function that itself returns an array for each element, then concatenates all of those arrays into one flat list. Inside that function, the order's own fields — `order_id`, `customer` — have to be read off a named parameter, because the inner `map` over `line_items` rebinds `$` to the line item; reaching for `$.order_id` there silently reads a field that does not exist on a line item and gets `null` instead of an error.",
+      "snippets": [
+        {
+          "label": "map alone gives one array per order, not one flat list",
+          "script": "%dw 2.0\noutput application/json\n---\npayload map ((order) -> order.line_items map ((li) -> { orderId: order.order_id, sku: li.sku }))",
+          "payload": "[{\"order_id\":\"O1\",\"line_items\":[{\"sku\":\"A1\"},{\"sku\":\"A2\"}]},{\"order_id\":\"O2\",\"line_items\":[{\"sku\":\"B1\"}]}]",
+          "expect": {
+            "output": "[ [ { \"orderId\": \"O1\", \"sku\": \"A1\" }, { \"orderId\": \"O1\", \"sku\": \"A2\" } ], [ { \"orderId\": \"O2\", \"sku\": \"B1\" } ] ]"
+          },
+          "note": "Two orders in, two arrays out — nested one level too deep for a flat CSV, where every line item needs to be a sibling row, not tucked inside its parent's array."
+        },
+        {
+          "label": "flatMap flattens that one level, which is exactly one level too many",
+          "script": "%dw 2.0\noutput application/json\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> { orderId: order.order_id, sku: li.sku }))",
+          "payload": "[{\"order_id\":\"O1\",\"line_items\":[{\"sku\":\"A1\"},{\"sku\":\"A2\"}]}]",
+          "expect": {
+            "output": "[ { \"orderId\": \"O1\", \"sku\": \"A1\" }, { \"orderId\": \"O1\", \"sku\": \"A2\" } ]"
+          },
+          "note": "Same shape of function, but flattened into one list of rows, `orderId` repeated on each one — this is the sibling-rows shape the CSV writer needs."
+        },
+        {
+          "label": "The full solution as CSV",
+          "script": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> {\n  orderId: order.order_id,\n  customer: order.customer,\n  sku: li.sku,\n  qty: li.qty,\n  price: li.price\n}))",
+          "payload": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[{\"sku\":\"A1\",\"qty\":2,\"price\":9.99},{\"sku\":\"A2\",\"qty\":1,\"price\":3.5}]},{\"order_id\":\"O2\",\"customer\":\"Bo\",\"line_items\":[{\"sku\":\"B1\",\"qty\":5,\"price\":1.25}]}]",
+          "outputMime": "application/csv",
+          "compare": "text",
+          "expect": {
+            "output": "orderId,customer,sku,qty,price\r\nO1,Ada,A1,2,9.99\r\nO1,Ada,A2,1,3.5\r\nO2,Bo,B1,5,1.25\r\n"
+          },
+          "note": "Ada's two line items each get their own row, both stamped with O1 and Ada; Bo's single line item becomes a third row. The writer adds the header and the trailing CRLF on its own."
+        },
+        {
+          "label": "An order with no line items contributes nothing",
+          "script": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> {\n  orderId: order.order_id,\n  customer: order.customer,\n  sku: li.sku,\n  qty: li.qty,\n  price: li.price\n}))",
+          "payload": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[]},{\"order_id\":\"O2\",\"customer\":\"Bo\",\"line_items\":[{\"sku\":\"B1\",\"qty\":5,\"price\":1.25}]}]",
+          "outputMime": "application/csv",
+          "compare": "text",
+          "expect": {
+            "output": "orderId,customer,sku,qty,price\r\nO2,Bo,B1,5,1.25\r\n"
+          },
+          "note": "Mapping over an empty `line_items` array returns an empty array of rows, and `flatMap` concatenating an empty array in is the same as not visiting that order at all — O1 never appears."
+        },
+        {
+          "label": "$ inside the inner map means the line item, not the order",
+          "script": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> order.line_items map {\n  orderId: $.order_id,\n  customer: $.customer,\n  sku: $.sku,\n  qty: $.qty,\n  price: $.price\n})",
+          "payload": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[{\"sku\":\"A1\",\"qty\":2,\"price\":9.99}]}]",
+          "outputMime": "application/csv",
+          "compare": "text",
+          "expect": {
+            "output": "orderId,customer,sku,qty,price\r\n,,A1,2,9.99\r\n"
+          },
+          "note": "This runs and produces a row, which is what makes it dangerous: `sku`, `qty`, and `price` are correct because those fields really do live on the line item, but `$.order_id` and `$.customer` look for fields on the line item too, find nothing, and quietly write empty cells instead of throwing."
+        },
+        {
+          "label": "A line item missing a field leaves that cell empty",
+          "script": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> {\n  orderId: order.order_id,\n  customer: order.customer,\n  sku: li.sku,\n  qty: li.qty,\n  price: li.price\n}))",
+          "payload": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[{\"sku\":\"A1\",\"qty\":2}]}]",
+          "outputMime": "application/csv",
+          "compare": "text",
+          "expect": {
+            "output": "orderId,customer,sku,qty,price\r\nO1,Ada,A1,2,\r\n"
+          },
+          "note": "`li.price` on a line item with no `price` key is `null`, and the CSV writer renders a `null` cell as empty rather than the literal word null — the row still has all five columns, so the file stays rectangular."
+        }
+      ]
+    }
+  },
+  {
+    "id": "pivot-exam-scores",
+    "unit": "pivot",
+    "tier": "max",
+    "title": "Rows into columns, columns unknown in advance",
+    "topics": [
+      "groupBy",
+      "pluck",
+      "reduce",
+      "distinctBy"
+    ],
+    "prompt": "You are given exam records, each `{ student, subject, score }` — one row per student per subject they sat. Pivot this into one CSV row per student, with one column per subject.\n\nThe list of subjects is not given anywhere; it has to be discovered from the data, in the order each subject first appears. If a student has no record for some subject that other students do have, that student's cell for it is `0` — every row must have every column, or the file is not a rectangle.",
+    "inputMime": "application/json",
+    "outputMime": "application/csv",
+    "compare": "text",
+    "starter": "%dw 2.0\noutput application/csv\n---\n",
+    "cases": [
+      {
+        "input": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]",
+        "output": "student,Math,Bio\r\nAda,90,70\r\nBo,60,0\r\n"
+      },
+      {
+        "input": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60},{\"student\":\"Bo\",\"subject\":\"Chem\",\"score\":80}]",
+        "output": "student,Math,Chem\r\nAda,90,0\r\nBo,60,80\r\n"
+      },
+      {
+        "input": "[]",
+        "output": ""
+      },
+      {
+        "input": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":88.5}]",
+        "output": "student,Math\r\nAda,88.5\r\n"
+      },
+      {
+        "input": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Cy\",\"subject\":\"Math\"}]",
+        "output": "student,Math\r\nAda,90\r\nCy,0\r\n"
+      }
+    ],
+    "hints": [
+      "The columns aren't a fixed list you can type into the script — they have to be read off the data itself, once, before you build a single row. Get that list first; building it row by row as you go is how two students end up with columns in a different order.",
+      "`groupBy` gets you one bucket of records per student. For each bucket, don't just turn the records you have into columns — walk the full discovered list of subjects and look up a score for each one, so a student misses a subject rather than the subject disappearing from their row.",
+      "`(payload map $.subject) distinctBy $` gives the subjects in first-seen order — `distinctBy` keeps the first match, so that order is stable no matter which student saw a subject first. Then `reduce` over that same list, once per student, building `{ student: ... }` up one column at a time, defaulting a missing lookup to `0` rather than leaving the key out."
+    ],
+    "solution": "%dw 2.0\noutput application/csv\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+    "explanation": {
+      "approach": "The set of output columns is not known until the whole input has been looked at, so it has to be computed once, up front, rather than assembled row by row. `(payload map $.subject) distinctBy $` collects every subject exactly once, in the order it first shows up, and `distinctBy` keeping the first match is what makes that order the same regardless of which student happens to mention a subject first. From there, `groupBy $.student` buckets the records per student, and for each bucket a `reduce` over the full subject list — not over that student's own rows — builds one row with a key for every column, filling in `0` wherever that student has no matching record. Reducing over the student's own rows instead of the discovered list is the natural-looking mistake: it works until two students have different subjects, at which point the rows stop having the same columns.",
+      "snippets": [
+        {
+          "label": "Discovering the columns, in first-seen order",
+          "script": "%dw 2.0\noutput application/json\n---\n(payload map $.subject) distinctBy $",
+          "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]",
+          "expect": {
+            "output": "[ \"Math\", \"Bio\" ]"
+          },
+          "note": "Math and Bio, each once, in the order they first appear — Bo's second Math record does not add a duplicate or move anything."
+        },
+        {
+          "label": "groupBy buckets by student; the row is built by reduce over the SUBJECT list",
+          "script": "%dw 2.0\noutput application/json\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+          "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]",
+          "expect": {
+            "output": "[ { \"student\": \"Ada\", \"Math\": 90, \"Bio\": 70 }, { \"student\": \"Bo\", \"Math\": 60, \"Bio\": 0 } ]"
+          },
+          "note": "Bo never sat Bio, so filtering his rows for subject Bio finds nothing, `[0]` on that empty array is null, `.score` on null is null, and `default 0` turns that into the column value. Bo's row still has a Bio key."
+        },
+        {
+          "label": "The same result written out as the CSV the question actually asks for",
+          "script": "%dw 2.0\noutput application/csv\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+          "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]",
+          "outputMime": "application/csv",
+          "compare": "text",
+          "expect": {
+            "output": "student,Math,Bio\r\nAda,90,70\r\nBo,60,0\r\n"
+          },
+          "note": "Every row has exactly three fields in the same order, so the CSV writer's header lines up with every row underneath it."
+        },
+        {
+          "label": "The near-miss: reducing over a student's OWN rows instead of the full subject list",
+          "script": "%dw 2.0\noutput application/csv\n---\npayload groupBy $.student pluck ((rows, student) -> rows reduce ((r, acc = {student: student}) -> acc ++ {(r.subject): r.score}))",
+          "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]",
+          "outputMime": "application/csv",
+          "compare": "text",
+          "expect": {
+            "output": "student,Math,Bio\r\nAda,90,70\r\nBo,60\r\n"
+          },
+          "note": "This compiles, runs, and looks right for Ada. Bo only ever appears with a Math record, so his row only ever gets a Math key — the writer takes its header from the first row (Ada's, with Bio) and then writes Bo's shorter row underneath it misaligned, one column short, instead of erroring."
+        },
+        {
+          "label": "A subject discovered late still becomes a column for the students seen earlier",
+          "script": "%dw 2.0\noutput application/csv\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+          "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60},{\"student\":\"Bo\",\"subject\":\"Chem\",\"score\":80}]",
+          "outputMime": "application/csv",
+          "compare": "text",
+          "expect": {
+            "output": "student,Math,Chem\r\nAda,90,0\r\nBo,60,80\r\n"
+          },
+          "note": "Chem is not discovered until Bo's second record, three rows into the payload, but the discovery pass runs over the whole input before any row is built, so Ada's row — built after discovery — still gets a Chem column, filled with 0."
+        },
+        {
+          "label": "A record with no score at all still produces a column, filled with 0",
+          "script": "%dw 2.0\noutput application/csv\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+          "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Cy\",\"subject\":\"Math\"}]",
+          "outputMime": "application/csv",
+          "compare": "text",
+          "expect": {
+            "output": "student,Math\r\nAda,90\r\nCy,0\r\n"
+          },
+          "note": "Cy's record has a subject but no score field. `.score` on that record is null, same as a subject with no record at all, so `default 0` covers both a missing row and a missing field with the same fallback."
+        }
+      ]
+    }
+  },
+  {
+    "id": "expression-tree-evaluator",
+    "unit": "expression-evaluator",
+    "tier": "ultra",
+    "title": "Evaluate an expression tree",
+    "topics": [
+      "fun",
+      "match",
+      "recursion"
+    ],
+    "prompt": "The payload is an arithmetic expression tree. It is either a plain number (a leaf), or an object `{ op, l, r }` where `op` is one of `\"+\"`, `\"-\"`, `\"*\"`, `\"/\"`, and `l` and `r` are themselves expression trees — a number, or another `{ op, l, r }` node, to any depth.\n\nWrite a script that evaluates the tree down to a single number.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  ???\n}\n---\neval(payload)",
+    "cases": [
+      {
+        "input": "{ \"op\": \"+\", \"l\": { \"op\": \"*\", \"l\": 2, \"r\": 3 }, \"r\": 4 }",
+        "output": "10"
+      },
+      {
+        "input": "7",
+        "output": "7"
+      },
+      {
+        "input": "{ \"op\": \"/\", \"l\": { \"op\": \"-\", \"l\": { \"op\": \"*\", \"l\": { \"op\": \"+\", \"l\": 2, \"r\": 3 }, \"r\": 4 }, \"r\": 5 }, \"r\": 3 }",
+        "output": "5"
+      },
+      {
+        "input": "{ \"op\": \"-\", \"l\": 10, \"r\": 4 }",
+        "output": "6"
+      },
+      {
+        "input": "{ \"op\": \"/\", \"l\": 7, \"r\": 2 }",
+        "output": "3.5"
+      },
+      {
+        "input": "{ \"op\": \"*\", \"l\": -3, \"r\": { \"op\": \"+\", \"l\": 2, \"r\": 2 } }",
+        "output": "-12"
+      }
+    ],
+    "hints": [
+      "Every node in the tree is one of exactly two shapes: a plain number, or an operator with two more trees underneath it. Write one test that distinguishes those two shapes, and make the operator case handle its two sides by asking the same question of them again — not by assuming they are already numbers.",
+      "A `match` with `case n is Number` and `case o is Object` gives you the two shapes. Inside the Object case, the two sides (`o.l` and `o.r`) have to be run back through the same evaluation before you apply the operator to them — combining them first and checking their type second is the bug that only shows up once a side is itself a node.",
+      "Splitting the work into two functions — one that picks the shape, one that applies the operator once both sides are already numbers — is fine, and they can call each other (`eval` calls a helper for the Object case, and that helper calls `eval` again on `o.l` and `o.r`) with no return-type annotation on either. Keep `-` and `/` in the order the tree gives them: `o.l - o.r`, not the other way around — swapping the order is invisible on `+` and `*` because those don't care, and wrong everywhere else."
+    ],
+    "solution": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.l) - eval(o.r)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.l) / eval(o.r)\n}\n---\neval(payload)",
+    "explanation": {
+      "approach": "The tree has exactly two shapes at every level: a plain number, or a node with an operator and two more trees underneath it. `match` picks the shape with `case n is Number` and `case o is Object`. The number case is the leaf — it just returns itself. The object case cannot apply its operator to `o.l` and `o.r` directly, because those are trees too, not necessarily numbers; they have to go through `eval` again first. Splitting that into two functions — `eval` for the shape test, `evalNode` for applying the operator once both sides are already evaluated — makes them mutually recursive (`eval` calls `evalNode`, `evalNode` calls `eval`), and neither needs a return-type annotation to compile. The near-miss is applying the operator before recursing: it happens to work when both sides are already numbers, and throws the instant one of them is not.",
+      "snippets": [
+        {
+          "label": "The leaf case: a bare number evaluates to itself",
+          "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.l) - eval(o.r)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.l) / eval(o.r)\n}\n---\neval(payload)",
+          "payload": "7",
+          "expect": {
+            "output": "7"
+          },
+          "note": "No operator to apply, no recursion to do — `match` falls straight into `case n is Number` and returns it."
+        },
+        {
+          "label": "Two mutually recursive functions, no return-type annotation on either",
+          "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.l) - eval(o.r)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.l) / eval(o.r)\n}\n---\neval(payload)",
+          "payload": "{ \"op\": \"+\", \"l\": { \"op\": \"*\", \"l\": 2, \"r\": 3 }, \"r\": 4 }",
+          "expect": {
+            "output": "10"
+          },
+          "note": "`eval` calls `evalNode`, and `evalNode` calls `eval` back on `o.l` and `o.r`. Neither function declares a parameter or return type, and the pair still compiles and produces the right depth-first evaluation."
+        },
+        {
+          "label": "The near-miss: applying the operator before recursing",
+          "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> o.op match {\n    case \"+\" -> o.l + o.r\n    case \"-\" -> o.l - o.r\n    case \"*\" -> o.l * o.r\n    case \"/\" -> o.l / o.r\n  }\n}\n---\neval(payload)",
+          "payload": "{ \"op\": \"+\", \"l\": { \"op\": \"*\", \"l\": 2, \"r\": 3 }, \"r\": 4 }",
+          "expect": {
+            "error": true
+          },
+          "note": "`o.l` is itself a node, not a number, and `+` cannot be applied between an Object and a Number. This version never calls `eval` again on `o.l` or `o.r` — it just applies the operator to whatever is there."
+        },
+        {
+          "label": "The same near-miss, on a tree that happens to be only one level deep",
+          "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> o.op match {\n    case \"+\" -> o.l + o.r\n    case \"-\" -> o.l - o.r\n    case \"*\" -> o.l * o.r\n    case \"/\" -> o.l / o.r\n  }\n}\n---\neval(payload)",
+          "payload": "{ \"op\": \"+\", \"l\": 2, \"r\": 3 }",
+          "expect": {
+            "output": "5"
+          },
+          "note": "This is why the bug ships: on a flat tree `o.l` and `o.r` already are numbers, so skipping the recursive call is invisible until a deeper tree arrives."
+        },
+        {
+          "label": "Swapping the operand order is invisible on + and *, wrong everywhere else",
+          "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.r) - eval(o.l)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.r) / eval(o.l)\n}\n---\neval(payload)",
+          "payload": "{ \"op\": \"-\", \"l\": 10, \"r\": 4 }",
+          "expect": {
+            "output": "-6"
+          },
+          "note": "`10 - 4` is `6`; this version computes `4 - 10`. The sample tree's root is `+` and its nested node is `*`, both commutative, so this exact bug would pass the sample case and only shows up on a `-` or `/` node."
+        },
+        {
+          "label": "Division returns a decimal without any special-casing",
+          "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.l) - eval(o.r)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.l) / eval(o.r)\n}\n---\neval(payload)",
+          "payload": "{ \"op\": \"/\", \"l\": 7, \"r\": 2 }",
+          "expect": {
+            "output": "3.5"
+          },
+          "note": "`/` is never integer division in DataWeave, so this needs no extra handling to come out as `3.5`."
+        }
+      ]
+    }
+  },
+  {
+    "id": "record-schema-validator",
+    "unit": "schema-validator",
+    "tier": "ultra",
+    "title": "Validate a record against a schema given as data",
+    "topics": [
+      "pluck",
+      "match",
+      "is",
+      "recursion"
+    ],
+    "prompt": "The payload is `{ schema, record }`. `schema` is an object mapping field names to a rule shaped like `{ kind, required }`, where `kind` is one of `\"String\"`, `\"Number\"`, `\"Boolean\"`, `\"Object\"`, `\"Array\"`, and `required` is `true` or `false`.\n\nWhen `kind` is `\"Object\"`, the rule also has `fields` — another schema of the same shape, describing `record`'s nested value for that field. When `kind` is `\"Array\"`, the rule also has `itemKind` — one of the scalar kinds, which every element of the array must match.\n\nReturn an array of every violation found anywhere in `record`, as strings, in the form `<path> is required` or `<path> must be a <Kind>`, using a dotted path such as `user.address.city` and a bracketed index such as `tags[1]` for array elements. A field that is missing is only a violation when its rule says it is required. Find every violation, not just the first one for a field and not just the first field with a problem — a record with three things wrong reports all three.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\nfun validate(path, schema, record) =\n  ???\n---\nvalidate(\"\", payload.schema, payload.record)",
+    "cases": [
+      {
+        "input": "{ \"schema\": { \"name\": { \"kind\": \"String\", \"required\": true }, \"age\": { \"kind\": \"Number\", \"required\": true } }, \"record\": { \"age\": \"thirty\" } }",
+        "output": "[\"name is required\", \"age must be a Number\"]"
+      },
+      {
+        "input": "{ \"schema\": { \"a\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"b\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"c\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"d\": { \"kind\": \"String\", \"required\": true } } } } } } } }, \"record\": { \"a\": { \"b\": { \"c\": {} } } } }",
+        "output": "[\"a.b.c.d is required\"]"
+      },
+      {
+        "input": "{ \"schema\": { \"tags\": { \"kind\": \"Array\", \"required\": true, \"itemKind\": \"String\" } }, \"record\": { \"tags\": [\"a\", 1, \"c\", true] } }",
+        "output": "[\"tags[1] must be a String\", \"tags[3] must be a String\"]"
+      },
+      {
+        "input": "{ \"schema\": {}, \"record\": { \"anything\": 123 } }",
+        "output": "[]"
+      },
+      {
+        "input": "{ \"schema\": { \"name\": { \"kind\": \"String\", \"required\": true }, \"active\": { \"kind\": \"Boolean\", \"required\": false } }, \"record\": { \"name\": \"Ana\" } }",
+        "output": "[]"
+      },
+      {
+        "input": "{ \"schema\": { \"order\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"id\": { \"kind\": \"Number\", \"required\": true }, \"tags\": { \"kind\": \"Array\", \"required\": false, \"itemKind\": \"String\" } } } }, \"record\": { \"order\": { \"tags\": [\"ok\", 5] } } }",
+        "output": "[\"order.id is required\", \"order.tags[1] must be a String\"]"
+      }
+    ],
+    "hints": [
+      "For each field the schema mentions, look up the matching value in the record and ask the same two questions: is it missing when it shouldn't be, and if it's present, does it have the shape the rule describes. That question is identical at every depth — the only thing that changes going into a nested Object field is which schema and which value you're asking it about.",
+      "Each field resolves to its own small array of errors — often empty. The overall answer is every one of those little arrays, flattened into one, which is a job for `pluck` (it hands you the rule and the field name for every entry) rather than a variable you keep appending to as you go.",
+      "`match` on `rule.kind` picks the check. `\"Object\"` and `\"Array\"` are not leaves: for `\"Object\"`, call the validator again on `rule.fields` and the nested value, with the path extended by the field's name; for `\"Array\"`, check `rule.itemKind` against every element and collect all of their errors. A version that only confirms the value IS an Object, or IS an Array, without going one level further in, matches a flat schema exactly and reports nothing at all for anything nested inside one."
+    ],
+    "solution": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else if (rule.kind == \"Object\")\n      (if (v is Object) validate(\"$(p).\", rule.fields default {}, v) else [\"$(p) must be an Object\"])\n    else if (rule.kind == \"Array\")\n      (if (v is Array) flatten(v map ((item, idx) -> check(\"$(p)[$(idx)]\", rule.itemKind default \"String\", item))) else [\"$(p) must be an Array\"])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+    "explanation": {
+      "approach": "Each field in the schema resolves to its own small array of errors — empty when that field is fine — and the overall result is every one of those arrays flattened together, so nothing needs a running total that grows as the walk proceeds. `pluck` supplies the `(rule, field)` pairs; for each one, `record[field]` is looked up and tested for missing-when-required, then, if it is present, matched against `rule.kind`. Three of the five kinds are leaves and get checked with `is` directly. The other two are not: `\"Object\"` means there is a nested schema (`rule.fields`) and a nested value, and `validate` is called again on exactly those, with the path extended by the field's own name; `\"Array\"` means every element gets checked against `rule.itemKind` and all of those results get flattened in too. The near-miss stops at confirming the field's own container type and never goes back inside it — which behaves identically to the real thing on a schema that happens not to nest, and silently drops every violation that lives one level deeper.",
+      "snippets": [
+        {
+          "label": "The sample: a missing field and a wrong type, both reported",
+          "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else if (rule.kind == \"Object\")\n      (if (v is Object) validate(\"$(p).\", rule.fields default {}, v) else [\"$(p) must be an Object\"])\n    else if (rule.kind == \"Array\")\n      (if (v is Array) flatten(v map ((item, idx) -> check(\"$(p)[$(idx)]\", rule.itemKind default \"String\", item))) else [\"$(p) must be an Array\"])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+          "payload": "{ \"schema\": { \"name\": { \"kind\": \"String\", \"required\": true }, \"age\": { \"kind\": \"Number\", \"required\": true } }, \"record\": { \"age\": \"thirty\" } }",
+          "expect": {
+            "output": "[\"name is required\", \"age must be a Number\"]"
+          },
+          "note": "Two independent problems on two independent fields, both present in the result — neither one stops the walk before the other is found."
+        },
+        {
+          "label": "An empty schema has nothing to check",
+          "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else if (rule.kind == \"Object\")\n      (if (v is Object) validate(\"$(p).\", rule.fields default {}, v) else [\"$(p) must be an Object\"])\n    else if (rule.kind == \"Array\")\n      (if (v is Array) flatten(v map ((item, idx) -> check(\"$(p)[$(idx)]\", rule.itemKind default \"String\", item))) else [\"$(p) must be an Array\"])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+          "payload": "{ \"schema\": {}, \"record\": { \"anything\": 123 } }",
+          "expect": {
+            "output": "[]"
+          },
+          "note": "`pluck` over an empty object produces nothing to flatten, whatever the record itself contains — there is no rule to hold it to."
+        },
+        {
+          "label": "Errors from two different nested branches both survive",
+          "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else if (rule.kind == \"Object\")\n      (if (v is Object) validate(\"$(p).\", rule.fields default {}, v) else [\"$(p) must be an Object\"])\n    else if (rule.kind == \"Array\")\n      (if (v is Array) flatten(v map ((item, idx) -> check(\"$(p)[$(idx)]\", rule.itemKind default \"String\", item))) else [\"$(p) must be an Array\"])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+          "payload": "{ \"schema\": { \"user\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"name\": { \"kind\": \"String\", \"required\": true }, \"address\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"city\": { \"kind\": \"String\", \"required\": true } } } } } }, \"record\": { \"user\": { \"address\": {} } } }",
+          "expect": {
+            "output": "[\"user.name is required\", \"user.address.city is required\"]"
+          },
+          "note": "`user.name` is missing and `user.address.city` is missing two levels down — both come back, with the path built up one field at a time as `validate` calls itself."
+        },
+        {
+          "label": "The near-miss on that same nested payload: silence",
+          "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+          "payload": "{ \"schema\": { \"user\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"name\": { \"kind\": \"String\", \"required\": true }, \"address\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"city\": { \"kind\": \"String\", \"required\": true } } } } } }, \"record\": { \"user\": { \"address\": {} } } }",
+          "expect": {
+            "output": "[]"
+          },
+          "note": "`user` is present and is an Object, so `check` says it's fine and stops — `rule.fields` is never looked at, so the two missing fields inside it are never found."
+        },
+        {
+          "label": "The same near-miss still catches a top-level type mismatch",
+          "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+          "payload": "{ \"schema\": { \"user\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"name\": { \"kind\": \"String\", \"required\": true } } } }, \"record\": { \"user\": \"not-an-object\" } }",
+          "expect": {
+            "output": "[\"user must be an Object\"]"
+          },
+          "note": "This is why the bug ships unnoticed: it is not silent about everything, only about what is nested. A field of the wrong container type at the top level is still caught; it is only the contents of a correctly-typed Object or Array that never get looked at."
+        },
+        {
+          "label": "Every bad element of an array is reported, not just the first",
+          "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else if (rule.kind == \"Object\")\n      (if (v is Object) validate(\"$(p).\", rule.fields default {}, v) else [\"$(p) must be an Object\"])\n    else if (rule.kind == \"Array\")\n      (if (v is Array) flatten(v map ((item, idx) -> check(\"$(p)[$(idx)]\", rule.itemKind default \"String\", item))) else [\"$(p) must be an Array\"])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+          "payload": "{ \"schema\": { \"tags\": { \"kind\": \"Array\", \"required\": true, \"itemKind\": \"String\" } }, \"record\": { \"tags\": [\"a\", 1, \"c\", true] } }",
+          "expect": {
+            "output": "[\"tags[1] must be a String\", \"tags[3] must be a String\"]"
+          },
+          "note": "Index `1` (the number) and index `3` (the boolean) are both wrong, and both come back — `map` runs `check` against every element independently before the results are flattened together."
         }
       ]
     }

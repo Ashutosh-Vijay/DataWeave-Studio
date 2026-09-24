@@ -45,10 +45,13 @@ function namesInProse(text) {
     for (const [, id] of span.matchAll(/(?<![\w$.:])([A-Za-z_$][\w$]*)\s*\(/g)) {
       if (FUNCTIONS.has(id)) found.add(id);
     }
-    // A bare mention like `groupBy` with no parens still counts as a claim.
-    for (const [, id] of span.matchAll(/(?<![\w$.:])([A-Za-z_$][\w$]*)(?![\w$(])/g)) {
-      if (FUNCTIONS.has(id)) found.add(id);
-    }
+    // A bare mention counts as a claim only when the backticks hold that name
+    // and nothing else — `groupBy` is a claim about a function, but writing
+    // `(value, key, index)` to describe an argument list is not, even though
+    // `index`, `type`, `now`, `min` and `max` are all real function names. The
+    // looser rule forced authors into awkward paraphrases to appease the gate.
+    const bare = span.trim();
+    if (FUNCTIONS.has(bare)) found.add(bare);
   }
   return found;
 }
@@ -127,13 +130,19 @@ for (const file of files) {
 
   // 4. nothing named in prose that no snippet demonstrated
   const executed = [q.solution, ...ran].join('\n');
-  const prose = [
+  // Scanned field by field, with fenced blocks stripped first. Joining the
+  // fields let an odd backtick in one pair with one in the next, and a ```
+  // fence threw the pairing off for everything after it — which flagged
+  // ordinary words like "every" and "contains" as undemonstrated functions.
+  const proseFields = [
     q.prompt,
     ...(q.hints ?? []),
     q.explanation?.approach ?? '',
     ...(q.explanation?.snippets ?? []).map((s) => s.note ?? ''),
-  ].join('\n');
-  const unproven = [...namesInProse(prose)].filter(
+  ].map((t) => String(t ?? '').replace(/```[\s\S]*?```/g, ' '));
+  const named = new Set();
+  for (const field of proseFields) for (const n of namesInProse(field)) named.add(n);
+  const unproven = [...named].filter(
     (n) => !new RegExp(`(?<![\\w$])${n.replace(/[:$]/g, '\\$&')}(?![\\w$])`).test(executed),
   );
   if (unproven.length) problems.push(`named in prose but never executed: ${unproven.join(', ')}`);

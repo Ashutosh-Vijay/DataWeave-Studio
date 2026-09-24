@@ -1,169 +1,277 @@
 {
-  "note": "The syllabus for practice mode. Picked up front so the set has coverage rather than forty variations on map. Every string under `verified` is an observation from this engine (2.12.2-20260715) via scripts/practice/verify-traps*.mjs — not recollection. `trap` is the reason the unit is worth a question at all.",
-  "tiers": ["easy", "medium", "hard", "extra", "max", "ultra"],
+  "note": "The syllabus for practice mode. Picked up front so the set has coverage rather than forty variations on map. Every string under `verified` is an observation from this engine (2.12.2-20260715) via scripts/practice/verify-traps*.mjs \u2014 not recollection. `trap` is the reason the unit is worth a question at all.",
+  "tiers": [
+    "easy",
+    "medium",
+    "hard",
+    "extra",
+    "max",
+    "ultra"
+  ],
   "units": [
     {
       "id": "select-and-shape",
       "tier": "easy",
       "title": "Pick fields out and build a new object",
       "functions": [],
-      "teaches": "Selectors and object construction — the 80% of real DataWeave.",
+      "teaches": "Selectors and object construction \u2014 the 80% of real DataWeave.",
       "trap": "A key that isn't there is `null`, not an error, so a typo ships silently.",
-      "verified": ["key order is preserved as written: { z: 1, a: 2, m: 3 } stays z,a,m", "payload.missing -> null"]
+      "verified": [
+        "key order is preserved as written: { z: 1, a: 2, m: 3 } stays z,a,m",
+        "payload.missing -> null"
+      ]
     },
     {
       "id": "map-basics",
       "tier": "easy",
       "title": "Transform every element of an array",
-      "functions": ["map"],
+      "functions": [
+        "map"
+      ],
       "teaches": "`map`, the lambda form and the `$`/`$$` shorthand.",
-      "trap": "`$$` is the index in `map` but the KEY in `mapObject` — same symbol, different thing.",
-      "verified": ["map over null -> null (no error)"]
+      "trap": "`$$` is the index in `map` but the KEY in `mapObject` \u2014 same symbol, different thing.",
+      "verified": [
+        "map over null -> null (no error)"
+      ]
     },
     {
       "id": "filter-and-null",
       "tier": "easy",
       "title": "Keep only the rows that qualify",
-      "functions": ["filter", "isEmpty"],
+      "functions": [
+        "filter",
+        "isEmpty"
+      ],
       "teaches": "`filter` and the difference between empty and absent.",
       "trap": "Every array function returns null for a null input instead of failing, so a wrong selector produces an empty-looking result rather than a stack trace.",
-      "verified": ["filter on null -> null", "sizeOf(null) -> null"]
+      "verified": [
+        "filter on null -> null",
+        "sizeOf(null) -> null"
+      ]
     },
     {
       "id": "default-and-missing",
       "tier": "easy",
       "title": "Supply a fallback for a missing field",
-      "functions": ["default"],
+      "functions": [
+        "default"
+      ],
       "teaches": "`default` and what actually counts as missing.",
       "trap": "`default` only fires on null. An empty string and `false` are values, and both pass straight through.",
-      "verified": ["null default 'fallback' -> 'fallback'", "'' default 'fallback' -> ''", "false default 'fallback' -> false"]
+      "verified": [
+        "null default 'fallback' -> 'fallback'",
+        "'' default 'fallback' -> ''",
+        "false default 'fallback' -> false"
+      ]
     },
     {
       "id": "string-basics",
       "tier": "easy",
       "title": "Clean up and recombine text",
-      "functions": ["upper", "lower", "trim", "splitBy", "joinBy"],
+      "functions": [
+        "upper",
+        "lower",
+        "trim",
+        "splitBy",
+        "joinBy"
+      ],
       "teaches": "The string functions that appear in nearly every mapping.",
       "trap": "`splitBy` takes a String or a Regex and the two behave differently on a separator with regex meaning, such as `.` or `|`.",
-      "verified": ["'hello'[0] -> 'h'", "'hello'[1 to 3] -> 'ell'"]
+      "verified": [
+        "'hello'[0] -> 'h'",
+        "'hello'[1 to 3] -> 'ell'"
+      ]
     },
     {
       "id": "numbers-and-rounding",
       "tier": "easy",
       "title": "Money that adds up",
-      "functions": ["round", "floor", "ceil", "sum"],
+      "functions": [
+        "round",
+        "floor",
+        "ceil",
+        "sum"
+      ],
       "teaches": "Arithmetic and formatting a number for output.",
-      "trap": "`/` is never integer division — `7 / 2` is `3.5`, and formatting it with `#` does not round it either.",
-      "verified": ["7 / 2 -> 3.5", "(7 / 2) as Number {format: '#'} -> 3.5"]
+      "trap": "`/` is never integer division \u2014 `7 / 2` is `3.5`, and formatting it with `#` does not round it either.",
+      "verified": [
+        "7 / 2 -> 3.5",
+        "(7 / 2) as Number {format: '#'} -> 3.5"
+      ]
     },
     {
       "id": "sizeof-and-slicing",
       "tier": "easy",
       "title": "First, last and the middle bit",
-      "functions": ["sizeOf"],
+      "functions": [
+        "sizeOf"
+      ],
       "teaches": "Indexing and range selectors on arrays and strings.",
-      "trap": "A negative index counts from the end rather than erroring, and an index past the end is null — so `[1,2,3][-1]` is 3 and `[1,2,3][9]` is null.",
-      "verified": ["[1,2,3][-1] -> 3", "[1,2,3][9] -> null"]
+      "trap": "A negative index counts from the end rather than erroring, and an index past the end is null \u2014 so `[1,2,3][-1]` is 3 and `[1,2,3][9]` is null.",
+      "verified": [
+        "[1,2,3][-1] -> 3",
+        "[1,2,3][9] -> null"
+      ]
     },
     {
       "id": "concat-and-remove",
       "tier": "easy",
       "title": "Join two lists, drop an entry",
-      "functions": ["++", "--"],
+      "functions": [
+        "++",
+        "--"
+      ],
       "teaches": "`++` and `--` across arrays, objects and strings.",
       "trap": "`++` will not mix kinds: appending a bare value to an array is a COMPILE error, not a silent push.",
-      "verified": ["[1] ++ 2 -> CompilationException: Unable to call `++` with (Array<1>, 2)", "[1,2,3] -- [2] -> [1,3]", "{a:1,b:2} -- ['a'] -> {b:2}"]
+      "verified": [
+        "[1] ++ 2 -> CompilationException: Unable to call `++` with (Array<1>, 2)",
+        "[1,2,3] -- [2] -> [1,3]",
+        "{a:1,b:2} -- ['a'] -> {b:2}"
+      ]
     },
-
     {
       "id": "groupby-shape",
       "tier": "medium",
       "title": "Bucket records by a field",
-      "functions": ["groupBy"],
+      "functions": [
+        "groupBy"
+      ],
       "teaches": "`groupBy` and the shape it hands back.",
-      "trap": "`groupBy` returns an OBJECT, not an array, and the grouping value is coerced to a String key — group by a number and your keys are \"1\" and \"0\".",
-      "verified": ["[1,2,3] groupBy ($ mod 2) -> { '1': [1,3], '0': [2] }"]
+      "trap": "`groupBy` returns an OBJECT, not an array, and the grouping value is coerced to a String key \u2014 group by a number and your keys are \"1\" and \"0\".",
+      "verified": [
+        "[1,2,3] groupBy ($ mod 2) -> { '1': [1,3], '0': [2] }"
+      ]
     },
     {
       "id": "reduce-seed",
       "tier": "medium",
       "title": "Fold a list into one value",
-      "functions": ["reduce"],
+      "functions": [
+        "reduce"
+      ],
       "teaches": "`reduce`, its argument order and the seed.",
-      "trap": "With no seed, reducing an empty array gives null — so a total that is usually a number is occasionally null, and it only shows up on the day a filter matches nothing.",
-      "verified": ["[] reduce ((i, acc) -> acc + i) -> null", "[] reduce ((i, acc = 0) -> acc + i) -> 0"]
+      "trap": "With no seed, reducing an empty array gives null \u2014 so a total that is usually a number is occasionally null, and it only shows up on the day a filter matches nothing.",
+      "verified": [
+        "[] reduce ((i, acc) -> acc + i) -> null",
+        "[] reduce ((i, acc = 0) -> acc + i) -> 0"
+      ]
     },
     {
       "id": "pluck-and-mapobject",
       "tier": "medium",
       "title": "Turn an object into rows",
-      "functions": ["pluck", "mapObject", "filterObject"],
+      "functions": [
+        "pluck",
+        "mapObject",
+        "filterObject"
+      ],
       "teaches": "Iterating an object rather than an array.",
-      "trap": "`pluck` produces an array and `mapObject` produces an object; both hand you `(value, key, index)` — value FIRST, which is the opposite of how the pair reads out loud.",
-      "verified": ["{a:'A'} mapObject ((v,k,i) -> {(k): [v,i]}) -> {a: ['A', 0]}", "pluck returns an Array"]
+      "trap": "`pluck` produces an array and `mapObject` produces an object; both hand you `(value, key, index)` \u2014 value FIRST, which is the opposite of how the pair reads out loud.",
+      "verified": [
+        "{a:'A'} mapObject ((v,k,i) -> {(k): [v,i]}) -> {a: ['A', 0]}",
+        "pluck returns an Array"
+      ]
     },
     {
       "id": "duplicate-keys",
       "tier": "medium",
       "title": "Two fields with the same name",
-      "functions": ["mapObject", "groupBy"],
+      "functions": [
+        "mapObject",
+        "groupBy"
+      ],
       "teaches": "That a DataWeave object is an ordered list of pairs, not a map.",
-      "trap": "Duplicate keys are LEGAL and survive to the output — `{a:1} ++ {a:2}` keeps both — so a collision produces JSON that every downstream parser reads differently instead of failing here.",
-      "verified": ["{ a: 1, a: 2 } -> { 'a': 1, 'a': 2 }", "{a:1} ++ {a:2,b:3} -> { 'a': 1, 'a': 2, 'b': 3 }", "payload mapObject { kind: $ } over two keys -> { 'kind': 1, 'kind': 2 }"]
+      "trap": "Duplicate keys are LEGAL and survive to the output \u2014 `{a:1} ++ {a:2}` keeps both \u2014 so a collision produces JSON that every downstream parser reads differently instead of failing here.",
+      "verified": [
+        "{ a: 1, a: 2 } -> { 'a': 1, 'a': 2 }",
+        "{a:1} ++ {a:2,b:3} -> { 'a': 1, 'a': 2, 'b': 3 }",
+        "payload mapObject { kind: $ } over two keys -> { 'kind': 1, 'kind': 2 }"
+      ]
     },
     {
       "id": "distinct-and-order",
       "tier": "medium",
       "title": "Dedupe and sort a feed",
-      "functions": ["distinctBy", "orderBy"],
+      "functions": [
+        "distinctBy",
+        "orderBy"
+      ],
       "teaches": "`distinctBy`, `orderBy` and how to sort descending.",
-      "trap": "There is no `orderBy desc` — you reverse with `[-1 to 0]`. And ordering a column with mixed types throws rather than sorting loosely.",
-      "verified": ["[3,'1',2] orderBy $ -> InvalidComparisonException: Types String and Number can not be compared", "([3,1,2] orderBy $)[-1 to 0] -> [3,2,1]", "distinctBy keeps the FIRST match"]
+      "trap": "There is no `orderBy desc` \u2014 you reverse with `[-1 to 0]`. And ordering a column with mixed types throws rather than sorting loosely.",
+      "verified": [
+        "[3,'1',2] orderBy $ -> InvalidComparisonException: Types String and Number can not be compared",
+        "([3,1,2] orderBy $)[-1 to 0] -> [3,2,1]",
+        "distinctBy keeps the FIRST match"
+      ]
     },
     {
       "id": "flatten-vs-flatmap",
       "tier": "medium",
       "title": "Collapse a list of lists",
-      "functions": ["flatten", "flatMap"],
+      "functions": [
+        "flatten",
+        "flatMap"
+      ],
       "teaches": "Flattening, and when `flatMap` says it better.",
-      "trap": "`flatten` goes exactly one level deep — a doubly-nested array comes back still nested.",
-      "verified": ["flatten([[1,[2,3]],[4]]) -> [1, [2,3], 4]"]
+      "trap": "`flatten` goes exactly one level deep \u2014 a doubly-nested array comes back still nested.",
+      "verified": [
+        "flatten([[1,[2,3]],[4]]) -> [1, [2,3], 4]"
+      ]
     },
     {
       "id": "conditional-fields",
       "tier": "medium",
       "title": "Include a field only when it applies",
       "functions": [],
-      "teaches": "`(key: value) if (condition)` — omitting a key rather than emitting a null.",
+      "teaches": "`(key: value) if (condition)` \u2014 omitting a key rather than emitting a null.",
       "trap": "The parentheses are part of the syntax; without them the `if` reads as part of the value and you get a null key instead of no key.",
-      "verified": ["{ a: 1, (b: 2) if (false) } -> { 'a': 1 }"]
+      "verified": [
+        "{ a: 1, (b: 2) if (false) } -> { 'a': 1 }"
+      ]
     },
     {
       "id": "update-operator",
       "tier": "medium",
       "title": "Change one field, keep the rest",
-      "functions": ["update"],
+      "functions": [
+        "update"
+      ],
       "teaches": "`update ... with` / `update { case ... }` instead of rebuilding the whole object.",
-      "trap": "Updating a key that does not exist is a silent no-op — it does not add it.",
-      "verified": ["{a:1} update { case .missing -> 99 } -> {a:1}", "{a:1} update { case .a -> 99 } -> {a:99}"]
+      "trap": "Updating a key that does not exist is a silent no-op \u2014 it does not add it.",
+      "verified": [
+        "{a:1} update { case .missing -> 99 } -> {a:1}",
+        "{a:1} update { case .a -> 99 } -> {a:99}"
+      ]
     },
     {
       "id": "type-coercion",
       "tier": "medium",
       "title": "Strings that have to become numbers",
-      "functions": ["as"],
+      "functions": [
+        "as"
+      ],
       "teaches": "`as Number`, `as Boolean`, and guarding a coercion.",
-      "trap": "A blank string is not zero and 'yes' is not true — both throw at runtime, on the one record in ten thousand that has them.",
-      "verified": ["'007' as Number -> 7", "'' as Number -> InvalidNumberException", "'abc' as Number -> InvalidNumberException", "'yes' as Boolean -> InvalidBooleanException"]
+      "trap": "A blank string is not zero and 'yes' is not true \u2014 both throw at runtime, on the one record in ten thousand that has them.",
+      "verified": [
+        "'007' as Number -> 7",
+        "'' as Number -> InvalidNumberException",
+        "'abc' as Number -> InvalidNumberException",
+        "'yes' as Boolean -> InvalidBooleanException"
+      ]
     },
     {
       "id": "csv-round-trip",
       "tier": "medium",
       "title": "A CSV in, a JSON out",
-      "functions": ["read", "write"],
+      "functions": [
+        "read",
+        "write"
+      ],
       "teaches": "Reader/writer properties: header, separator, quoting.",
       "trap": "Every value parsed from CSV is a String, including the ones that look like numbers, so arithmetic on them fails until you coerce.",
-      "verified": ["typeOf of a numeric-looking CSV column -> 'String'"]
+      "verified": [
+        "typeOf of a numeric-looking CSV column -> 'String'"
+      ]
     },
     {
       "id": "xml-selectors",
@@ -172,71 +280,113 @@
       "functions": [],
       "teaches": "`.`, `.*` and `@` on XML.",
       "trap": "`.` on a repeated element silently gives you only the FIRST one. `.*` gives all of them. A feed that usually has one child makes this bug invisible in testing.",
-      "verified": ["payload.order.item over two items -> 'a'", "payload.order.*item -> ['a','b']", "payload.order.@id -> '7'"]
+      "verified": [
+        "payload.order.item over two items -> 'a'",
+        "payload.order.*item -> ['a','b']",
+        "payload.order.@id -> '7'"
+      ]
     },
     {
       "id": "dates-formatting",
       "tier": "medium",
       "title": "Format a date the way the partner wants it",
-      "functions": ["as"],
+      "functions": [
+        "as"
+      ],
       "teaches": "Format patterns for dates and times.",
-      "trap": "The pattern letters are case-sensitive and three of them lie: `DD` is day-of-YEAR, `mm` is minutes, and `YYYY` is the ISO week-year — which disagrees with the calendar year at the end of December.",
-      "verified": ["|2027-03-05| with 'dd' -> '05' but with 'DD' -> '64'", "|2027-03-05| with 'MM' -> '03'; 10:07 with 'mm' -> '07'", "|2026-12-31| with 'yyyy' -> '2026' but with 'YYYY' -> '2027'"]
+      "trap": "The pattern letters are case-sensitive and three of them lie: `DD` is day-of-YEAR, `mm` is minutes, and `YYYY` is the ISO week-year \u2014 which disagrees with the calendar year at the end of December.",
+      "verified": [
+        "|2027-03-05| with 'dd' -> '05' but with 'DD' -> '64'",
+        "|2027-03-05| with 'MM' -> '03'; 10:07 with 'mm' -> '07'",
+        "|2026-12-31| with 'yyyy' -> '2026' but with 'YYYY' -> '2027'"
+      ]
     },
-
     {
       "id": "date-arithmetic",
       "tier": "hard",
       "title": "How long between these two timestamps?",
-      "functions": ["as"],
+      "functions": [
+        "as"
+      ],
       "teaches": "Periods, `|P1D|` literals and pulling a number out of a duration.",
-      "trap": "Subtracting two dates gives a Period, not a Number — and adding a month to the 31st clamps to the end of the shorter month rather than overflowing.",
-      "verified": ["|2027-03-01| - |2027-02-01| -> 'PT672H', typeOf 'Period'", "|2027-01-31| + |P1M| -> '2027-02-28'"]
+      "trap": "Subtracting two dates gives a Period, not a Number \u2014 and adding a month to the 31st clamps to the end of the shorter month rather than overflowing.",
+      "verified": [
+        "|2027-03-01| - |2027-02-01| -> 'PT672H', typeOf 'Period'",
+        "|2027-01-31| + |P1M| -> '2027-02-28'"
+      ]
     },
     {
       "id": "match-and-types",
       "tier": "hard",
       "title": "Branch on the shape of the data",
-      "functions": ["match"],
+      "functions": [
+        "match"
+      ],
       "teaches": "`match` with `case x is Type`, guards, and `else`.",
       "trap": "Cases are tried in order and the first match wins, so a broad `is Number` above a specific guard makes the guard dead code.",
-      "verified": ["5 match { case n is Number -> 'num' case a if (a > 0) -> 'pos' else -> 'other' } -> 'num'"]
+      "verified": [
+        "5 match { case n is Number -> 'num' case a if (a > 0) -> 'pos' else -> 'other' } -> 'num'",
+        "list-destructuring patterns DO NOT PARSE: `case [h] ->` and `case [h, t...] ->` both give CompilationException: Invalid input \"match { case [h,\", expected Function Call",
+        "what works: `case x is Type`, `case x if (...)`, `case null`, `else`"
+      ]
     },
     {
       "id": "do-and-scope",
       "tier": "hard",
       "title": "Name an intermediate result",
-      "functions": ["do"],
+      "functions": [
+        "do"
+      ],
       "teaches": "`do { var ... --- ... }` for a local binding inside an expression.",
       "trap": "A `var` at the header is computed once for the whole script; one inside a `do` inside a `map` is computed per element. Which you want changes the answer and the runtime.",
-      "verified": ["do { var n = 2 --- payload.x * n } with x=21 -> 42"]
+      "verified": [
+        "do { var n = 2 --- payload.x * n } with x=21 -> 42"
+      ]
     },
     {
       "id": "recursion",
       "tier": "hard",
       "title": "Walk a tree of unknown depth",
-      "functions": ["fun"],
+      "functions": [
+        "fun"
+      ],
       "teaches": "Writing a recursive function over nested data.",
-      "trap": "The recursion has to test for the leaf case with `is Array` / `is Object` — there is no loop construct to fall back on.",
-      "verified": ["a recursive fun depth(v) compiles with NO return-type annotation and returns 3 for [[1,[2]]]"]
+      "trap": "The recursion has to test for the leaf case with `is Array` / `is Object` \u2014 there is no loop construct to fall back on.",
+      "verified": [
+        "a recursive fun depth(v) compiles with NO return-type annotation and returns 3 for [[1,[2]]]",
+        "mutual recursion (two funs calling each other) also compiles with no return-type annotations"
+      ]
     },
     {
       "id": "tree-module",
       "tier": "hard",
       "title": "Touch every leaf, whatever the shape",
-      "functions": ["mapLeafValues"],
-      "teaches": "`dw::util::Tree` — the module that does the generic walk for you.",
+      "functions": [
+        "mapLeafValues"
+      ],
+      "teaches": "`dw::util::Tree` \u2014 the module that does the generic walk for you.",
       "trap": "It is not in core; without the import the name simply does not resolve.",
-      "verified": ["import * from dw::util::Tree; mapLeafValues({a:{b:'x'},c:['y']}, (v,p) -> upper(v as String)) -> {a:{b:'X'},c:['Y']}"]
+      "verified": [
+        "import * from dw::util::Tree; mapLeafValues({a:{b:'x'},c:['y']}, (v,p) -> upper(v as String)) -> {a:{b:'X'},c:['Y']}"
+      ]
     },
     {
       "id": "joins",
       "tier": "hard",
       "title": "Enrich one list from another",
-      "functions": ["leftJoin", "innerJoin"],
+      "functions": [
+        "leftJoin",
+        "join",
+        "outerJoin"
+      ],
       "teaches": "`dw::core::Arrays` joins instead of a nested filter per row.",
-      "trap": "`leftJoin` is not in core, its key lambdas must both produce Strings, and the result is `{l: ..., r: ...}` pairs rather than merged objects.",
-      "verified": ["bare leftJoin -> CompilationException: Unable to resolve reference", "with the import -> [{l:{id:1}, r:{id:1,n:'x'}}, {l:{id:2}}]"]
+      "trap": "`leftJoin` is not in core, and the inner join is called `join` \u2014 there is no `innerJoin`. The result is `{l: ..., r: ...}` pairs rather than merged objects, so merging them is part of the work.",
+      "verified": [
+        "bare leftJoin -> CompilationException: Unable to resolve reference",
+        "with `import * from dw::core::Arrays` -> [{l:{id:1}, r:{id:1,n:'x'}}, {l:{id:2}}]",
+        "dw_functions.json has join / leftJoin / outerJoin in module `arrays` \u2014 innerJoin does not exist",
+        "the signature declares the key lambdas return String, but Number keys match anyway at runtime \u2014 do NOT claim String is required"
+      ]
     },
     {
       "id": "dynamic-keys",
@@ -244,8 +394,10 @@
       "title": "Field names that come from the data",
       "functions": [],
       "teaches": "Computed keys `(expr): value` and building an object from a list of pairs.",
-      "trap": "A computed key needs the parentheses, and nothing stops two rows producing the same key — see duplicate-keys.",
-      "verified": ["computed keys via mapObject ((v,k,i) -> { (k): ... }) round-trip correctly"]
+      "trap": "A computed key needs the parentheses, and nothing stops two rows producing the same key \u2014 see duplicate-keys.",
+      "verified": [
+        "computed keys via mapObject ((v,k,i) -> { (k): ... }) round-trip correctly"
+      ]
     },
     {
       "id": "xml-namespaces",
@@ -260,26 +412,38 @@
       "id": "precision",
       "tier": "hard",
       "title": "Totals that have to be exact",
-      "functions": ["sum", "round"],
+      "functions": [
+        "sum",
+        "round"
+      ],
       "teaches": "DataWeave numbers are arbitrary precision, not IEEE doubles.",
-      "trap": "This one runs the other way: `0.1 + 0.2 == 0.3` is TRUE here, so habits carried from JavaScript or Java make people add rounding that is not needed — and that rounding is what introduces the error.",
-      "verified": ["0.1 + 0.2 -> 0.3", "(0.1 + 0.2) == 0.3 -> true"]
+      "trap": "This one runs the other way: `0.1 + 0.2 == 0.3` is TRUE here, so habits carried from JavaScript or Java make people add rounding that is not needed \u2014 and that rounding is what introduces the error.",
+      "verified": [
+        "0.1 + 0.2 -> 0.3",
+        "(0.1 + 0.2) == 0.3 -> true"
+      ]
     },
     {
       "id": "nested-aggregation",
       "tier": "hard",
       "title": "A summary report, two levels deep",
-      "functions": ["groupBy", "pluck", "reduce", "sum"],
-      "teaches": "Chaining groupBy → pluck → reduce into a report.",
-      "trap": "After `groupBy` you are holding an object, so the next step has to be `pluck`/`mapObject`, not `map` — and `map` on an object does not fail loudly.",
+      "functions": [
+        "groupBy",
+        "pluck",
+        "reduce",
+        "sum"
+      ],
+      "teaches": "Chaining groupBy \u2192 pluck \u2192 reduce into a report.",
+      "trap": "After `groupBy` you are holding an object, so the next step has to be `pluck`/`mapObject`, not `map` \u2014 and `map` on an object does not fail loudly.",
       "verified": []
     },
-
     {
       "id": "flat-file",
       "tier": "extra",
       "title": "A fixed-width file from a mainframe",
-      "functions": ["read"],
+      "functions": [
+        "read"
+      ],
       "teaches": "The flat-file reader and a schema with column widths.",
       "trap": "Padding is significant: the trim is yours to do, and a field read one column short is silently wrong rather than an error.",
       "verified": []
@@ -288,16 +452,22 @@
       "id": "multi-format-embed",
       "tier": "extra",
       "title": "A CSV attachment inside a JSON envelope",
-      "functions": ["write", "read"],
+      "functions": [
+        "write",
+        "read"
+      ],
       "teaches": "`write` to embed one format inside another mid-transform.",
-      "trap": "`write` gives you a String, so the result is an escaped blob — which is the point, and also why it looks broken the first time.",
+      "trap": "`write` gives you a String, so the result is an escaped blob \u2014 which is the point, and also why it looks broken the first time.",
       "verified": []
     },
     {
       "id": "higher-order",
       "tier": "extra",
       "title": "Pass a rule in as an argument",
-      "functions": ["fun", "then"],
+      "functions": [
+        "fun",
+        "then"
+      ],
       "teaches": "Functions as values, partial application, `then` pipelines.",
       "trap": "A lambda's parameter types are inferred from the call site, so an unused-looking annotation is sometimes what makes it compile.",
       "verified": []
@@ -306,27 +476,37 @@
       "id": "custom-types",
       "tier": "extra",
       "title": "Declare the shape you expect",
-      "functions": ["is"],
+      "functions": [
+        "is"
+      ],
       "teaches": "`type` declarations and checking a payload against one.",
-      "trap": "`type` is a reserved word as a KEY, so a schema example that uses `type:` as a field name will not compile — quote it or rename it.",
-      "verified": ["{ type: 'Odd' } -> CompilationException: The name `type` is a reserved word"]
+      "trap": "`type` is a reserved word as a KEY, so a schema example that uses `type:` as a field name will not compile \u2014 quote it or rename it.",
+      "verified": [
+        "{ type: 'Odd' } -> CompilationException: The name `type` is a reserved word"
+      ]
     },
     {
       "id": "error-handling",
       "tier": "extra",
       "title": "Fail one record, not the batch",
-      "functions": ["try", "fail"],
+      "functions": [
+        "try",
+        "fail"
+      ],
       "teaches": "`dw::Runtime`'s `try` to contain a per-record failure.",
       "trap": "Without it, one bad coercion in one row aborts the entire transform.",
       "verified": []
     },
-
     {
       "id": "generic-key-rewrite",
       "tier": "max",
       "title": "Rename every key, everywhere, at any depth",
-      "functions": ["mapObject", "map", "fun"],
-      "teaches": "A recursive transform over arbitrary JSON — snake_case to camelCase throughout.",
+      "functions": [
+        "mapObject",
+        "map",
+        "fun"
+      ],
+      "teaches": "A recursive transform over arbitrary JSON \u2014 snake_case to camelCase throughout.",
       "trap": "It has to handle objects, arrays, and scalars, and it must not rename the VALUES; most first attempts break on an array of scalars.",
       "verified": []
     },
@@ -334,7 +514,10 @@
       "id": "denormalize",
       "tier": "max",
       "title": "Nested orders out as flat CSV rows",
-      "functions": ["flatMap", "write"],
+      "functions": [
+        "flatMap",
+        "write"
+      ],
       "teaches": "One row per line item, with the parent's fields repeated.",
       "trap": "The row count comes from the children, so the parent fields have to be captured in scope before the inner map.",
       "verified": []
@@ -343,17 +526,23 @@
       "id": "pivot",
       "tier": "max",
       "title": "Rows into columns, columns unknown in advance",
-      "functions": ["groupBy", "pluck", "reduce"],
+      "functions": [
+        "groupBy",
+        "pluck",
+        "reduce"
+      ],
       "teaches": "Building an object whose keys are discovered from the data.",
       "trap": "Rows missing a column must still emit it, or the CSV writer produces ragged lines from the first row's header.",
       "verified": []
     },
-
     {
       "id": "expression-evaluator",
       "tier": "ultra",
       "title": "Evaluate an expression tree",
-      "functions": ["match", "fun"],
+      "functions": [
+        "match",
+        "fun"
+      ],
       "teaches": "Recursion plus pattern matching: interpret `{op: '+', l: ..., r: ...}` down to a number.",
       "trap": "Mutual recursion and the leaf case; the type checker needs help once the function returns more than one type.",
       "verified": []
@@ -362,7 +551,11 @@
       "id": "schema-validator",
       "tier": "ultra",
       "title": "Validate a payload against a schema given as data",
-      "functions": ["mapObject", "match", "is"],
+      "functions": [
+        "mapObject",
+        "match",
+        "is"
+      ],
       "teaches": "Walking two structures at once and collecting every error, not just the first.",
       "trap": "Accumulating errors across a recursive walk without a mutable variable is the whole problem.",
       "verified": []
