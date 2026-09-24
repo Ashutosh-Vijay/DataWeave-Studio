@@ -1,0 +1,91 @@
+{
+  "id": "subscription-days",
+  "unit": "date-arithmetic",
+  "tier": "hard",
+  "title": "How many days did each subscription run",
+  "topics": ["Period", "as"],
+  "prompt": "Each subscription has a `start` and an `end` date, as `yyyy-MM-dd` strings.\n\nReturn an array of `{ id, days }`, where `days` is the **whole number of days** from `start` to `end`.\n\nA subscription that starts and ends on the same day ran for `0` days. Spans cross month and year boundaries.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[\n  { \"id\": \"S1\", \"start\": \"2027-02-01\", \"end\": \"2027-03-01\" },\n  { \"id\": \"S2\", \"start\": \"2027-01-31\", \"end\": \"2027-03-15\" },\n  { \"id\": \"S3\", \"start\": \"2027-03-01\", \"end\": \"2027-03-01\" }\n]",
+      "output": "[{\"id\":\"S1\",\"days\":28},{\"id\":\"S2\",\"days\":43},{\"id\":\"S3\",\"days\":0}]"
+    },
+    {
+      "input": "[\n  { \"id\": \"S4\", \"start\": \"2027-12-01\", \"end\": \"2028-01-01\" }\n]",
+      "output": "[{\"id\":\"S4\",\"days\":31}]"
+    },
+    {
+      "input": "[\n  { \"id\": \"S5\", \"start\": \"2028-02-01\", \"end\": \"2028-03-01\" }\n]",
+      "output": "[{\"id\":\"S5\",\"days\":29}]"
+    },
+    {
+      "input": "[\n  { \"id\": \"S6\", \"start\": \"2027-01-01\", \"end\": \"2028-01-01\" }\n]",
+      "output": "[{\"id\":\"S6\",\"days\":365}]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Subtracting one date from another works. Look at what the result *is* before trying to turn it into a number.",
+    "The result is a Period, and a Period has parts you can select.",
+    "There is a `between` function in `dw::core::Periods` that looks like exactly what you want. Try it, and check its answer against the sample — the two do not agree."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map {\n  id: $.id,\n  days: (($.end as Date) - ($.start as Date)).days\n}",
+  "mustFail": [
+    {
+      "why": "hardcodes the sample answer",
+      "script": "%dw 2.0\noutput application/json\n---\n[{\"id\":\"S1\",\"days\":28},{\"id\":\"S2\",\"days\":43},{\"id\":\"S3\",\"days\":0}]"
+    },
+    {
+      "why": "uses between(), whose .days is the leftover days after whole months",
+      "script": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\npayload map { id: $.id, days: between($.end as Date, $.start as Date).days }"
+    }
+  ],
+  "explanation": {
+    "approach": "DataWeave gives you two different subtractions between dates, and they mean different things. One produces a **duration** — an elapsed amount of time. The other produces a **calendar period** — years, months and days, the way a person reads a gap off a calendar. The task asks for whole days, which is the first one. Reaching for the function whose name matches the question gets you the second.",
+    "snippets": [
+      {
+        "label": "What subtracting two dates gives you",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  value: |2027-03-01| - |2027-02-01|,\n  kind: typeOf(|2027-03-01| - |2027-02-01|)\n}",
+        "expect": { "output": "{ \"value\": \"PT672H\", \"kind\": \"Period\" }" },
+        "note": "Not a number — a Period, printed as `PT672H`. It is an elapsed duration held in hours, and 672 hours is 28 days. This is why the answer cannot just be `end - start`."
+      },
+      {
+        "label": "Pulling days out of that duration",
+        "script": "%dw 2.0\noutput application/json\n---\n(|2027-03-01| - |2027-02-01|).days",
+        "expect": { "output": "28" },
+        "note": "A Period is selectable, and `.days` converts the whole elapsed duration into days. That is the answer."
+      },
+      {
+        "label": "Why not between(), which is the obvious candidate",
+        "script": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\n{\n  period: between(|2027-03-01|, |2027-02-01|),\n  days: between(|2027-03-01|, |2027-02-01|).days\n}",
+        "expect": { "output": "{ \"period\": \"P1M\", \"days\": 0 }" },
+        "note": "`between` gives a calendar period: `P1M`, one month. Its `.days` is the **leftover** days after the whole months are taken out — and here there are none, so it is 0. The function named for the job returns zero for a month-long subscription, and it does it silently."
+      },
+      {
+        "label": "The same trap with a remainder, which is how it survives review",
+        "script": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\n{\n  period: between(|2027-03-15|, |2027-01-31|),\n  days: between(|2027-03-15|, |2027-01-31|).days,\n  correct: (|2027-03-15| - |2027-01-31|).days\n}",
+        "expect": { "output": "{ \"period\": \"P1M15D\", \"days\": 15, \"correct\": 43 }" },
+        "note": "This is the dangerous shape. `between` returns 15 rather than 0, so it looks like a plausible number rather than an obvious bug — and it is off by 28. A test whose only fixture is a mid-month span would pass."
+      },
+      {
+        "label": "The `as Date` is not load-bearing here",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map { id: $.id, days: ($.end - $.start).days }",
+        "payload": "[{\"id\":\"S1\",\"start\":\"2027-02-01\",\"end\":\"2027-03-01\"}]",
+        "expect": { "output": "[ { \"id\": \"S1\", \"days\": 28 } ]" },
+        "note": "Dropping the coercions still works on this input. Keep them anyway: they say in the script that these strings are dates, and they fail loudly on the day a record arrives with `\"\"` or `\"01/02/2027\"` in it instead of quietly doing something else."
+      },
+      {
+        "label": "Leap years come out right without any help",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  leap: (|2028-03-01| - |2028-02-01|).days,\n  common: (|2027-03-01| - |2027-02-01|).days\n}",
+        "expect": { "output": "{ \"leap\": 29, \"common\": 28 }" },
+        "note": "Worth confirming rather than assuming. The duration is measured between two real instants, so February's length is already accounted for — there is nothing to special-case."
+      }
+    ]
+  }
+}
