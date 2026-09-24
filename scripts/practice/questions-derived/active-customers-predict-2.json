@@ -1,0 +1,35 @@
+{
+  "id": "active-customers-predict-2",
+  "unit": "filter-and-null",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "The tempting alternative, and what it actually returns",
+  "topics": [
+    "filter",
+    "map"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload map (if ($.status == \"active\") $.name else null)",
+    "payload": "[{\"name\":\"Ada\",\"status\":\"active\"},{\"name\":\"Bo\",\"status\":\"inactive\"},{\"name\":\"Cy\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map (if ($.status == \"active\") $.name else null)",
+  "explanation": {
+    "approach": "`map` always returns one element per input element — it cannot drop anything. The rejected rows come back as nulls and the array is still length 3. This is the single most common way this task is got wrong.",
+    "snippets": [
+      {
+        "label": "The tempting alternative, and what it actually returns",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map (if ($.status == \"active\") $.name else null)",
+        "payload": "[{\"name\":\"Ada\",\"status\":\"active\"},{\"name\":\"Bo\",\"status\":\"inactive\"},{\"name\":\"Cy\"}]",
+        "expect": {
+          "output": "[ \"Ada\", null, null ]"
+        },
+        "note": "`map` always returns one element per input element — it cannot drop anything. The rejected rows come back as nulls and the array is still length 3. This is the single most common way this task is got wrong."
+      }
+    ]
+  },
+  "derivedFrom": "active-customers"
+}

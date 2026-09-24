@@ -1,0 +1,37 @@
+{
+  "id": "record-schema-validator-predict-5",
+  "unit": "schema-validator",
+  "mode": "predict",
+  "tier": "max",
+  "title": "Every bad element of an array is reported, not just the first",
+  "topics": [
+    "pluck",
+    "match",
+    "is",
+    "recursion"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else if (rule.kind == \"Object\")\n      (if (v is Object) validate(\"$(p).\", rule.fields default {}, v) else [\"$(p) must be an Object\"])\n    else if (rule.kind == \"Array\")\n      (if (v is Array) flatten(v map ((item, idx) -> check(\"$(p)[$(idx)]\", rule.itemKind default \"String\", item))) else [\"$(p) must be an Array\"])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+    "payload": "{ \"schema\": { \"tags\": { \"kind\": \"Array\", \"required\": true, \"itemKind\": \"String\" } }, \"record\": { \"tags\": [\"a\", 1, \"c\", true] } }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else if (rule.kind == \"Object\")\n      (if (v is Object) validate(\"$(p).\", rule.fields default {}, v) else [\"$(p) must be an Object\"])\n    else if (rule.kind == \"Array\")\n      (if (v is Array) flatten(v map ((item, idx) -> check(\"$(p)[$(idx)]\", rule.itemKind default \"String\", item))) else [\"$(p) must be an Array\"])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+  "explanation": {
+    "approach": "Index `1` (the number) and index `3` (the boolean) are both wrong, and both come back — `map` runs `check` against every element independently before the results are flattened together.",
+    "snippets": [
+      {
+        "label": "Every bad element of an array is reported, not just the first",
+        "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else if (rule.kind == \"Object\")\n      (if (v is Object) validate(\"$(p).\", rule.fields default {}, v) else [\"$(p) must be an Object\"])\n    else if (rule.kind == \"Array\")\n      (if (v is Array) flatten(v map ((item, idx) -> check(\"$(p)[$(idx)]\", rule.itemKind default \"String\", item))) else [\"$(p) must be an Array\"])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+        "payload": "{ \"schema\": { \"tags\": { \"kind\": \"Array\", \"required\": true, \"itemKind\": \"String\" } }, \"record\": { \"tags\": [\"a\", 1, \"c\", true] } }",
+        "expect": {
+          "output": "[\"tags[1] must be a String\", \"tags[3] must be a String\"]"
+        },
+        "note": "Index `1` (the number) and index `3` (the boolean) are both wrong, and both come back — `map` runs `check` against every element independently before the results are flattened together."
+      }
+    ]
+  },
+  "derivedFrom": "record-schema-validator"
+}

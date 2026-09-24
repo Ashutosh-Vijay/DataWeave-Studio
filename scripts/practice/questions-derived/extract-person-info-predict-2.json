@@ -1,0 +1,35 @@
+{
+  "id": "extract-person-info-predict-2",
+  "unit": "select-and-shape",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "A person missing all three fields",
+  "topics": [
+    "selectors",
+    "object construction"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload map {name: $.name, age: $.age, city: $.city}",
+    "payload": "[{}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map {name: $.name, age: $.age, city: $.city}",
+  "explanation": {
+    "approach": "Every field access returns null, so you get an object with all nulls. This is not an error — the output is still valid JSON.",
+    "snippets": [
+      {
+        "label": "A person missing all three fields",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map {name: $.name, age: $.age, city: $.city}",
+        "payload": "[{}]",
+        "expect": {
+          "output": "[ { \"name\": null, \"age\": null, \"city\": null } ]"
+        },
+        "note": "Every field access returns null, so you get an object with all nulls. This is not an error — the output is still valid JSON."
+      }
+    ]
+  },
+  "derivedFrom": "extract-person-info"
+}

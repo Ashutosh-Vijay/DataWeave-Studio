@@ -1,0 +1,34 @@
+{
+  "id": "enrich-orders-with-customers-predict-3",
+  "unit": "joins",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "Selecting through the missing key still gives null",
+  "topics": [
+    "leftJoin",
+    "dw::core::Arrays",
+    "object merging"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\n(leftJoin([{orderId:'O3',customerId:99}], [{id:1,name:'Ann'}], (o) -> o.customerId as String, (c) -> c.id as String))[0].r.name"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\n(leftJoin([{orderId:'O3',customerId:99}], [{id:1,name:'Ann'}], (o) -> o.customerId as String, (c) -> c.id as String))[0].r.name",
+  "explanation": {
+    "approach": "`.r` is absent, and DataWeave selectors on a missing or null value keep returning null rather than erroring. `$.r.name` already does the right thing for an unmatched order with no extra handling.",
+    "snippets": [
+      {
+        "label": "Selecting through the missing key still gives null",
+        "script": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\n(leftJoin([{orderId:'O3',customerId:99}], [{id:1,name:'Ann'}], (o) -> o.customerId as String, (c) -> c.id as String))[0].r.name",
+        "expect": {
+          "output": "null"
+        },
+        "note": "`.r` is absent, and DataWeave selectors on a missing or null value keep returning null rather than erroring. `$.r.name` already does the right thing for an unmatched order with no extra handling."
+      }
+    ]
+  },
+  "derivedFrom": "enrich-orders-with-customers"
+}

@@ -1,0 +1,33 @@
+{
+  "id": "meter-reading-salvage-predict-1",
+  "unit": "error-handling",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "try on a coercion that fails",
+  "topics": [
+    "try",
+    "dw::Runtime"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\nimport * from dw::Runtime\noutput application/json\n---\n{ success: try(() -> \"abc\" as Number).success, kind: try(() -> \"abc\" as Number).error.kind, message: try(() -> \"abc\" as Number).error.message }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\nimport * from dw::Runtime\noutput application/json\n---\n{ success: try(() -> \"abc\" as Number).success, kind: try(() -> \"abc\" as Number).error.kind, message: try(() -> \"abc\" as Number).error.message }",
+  "explanation": {
+    "approach": "The same exception that would otherwise abort the script shows up as data under `.error`, and `success` is `false` instead of the script halting.",
+    "snippets": [
+      {
+        "label": "try on a coercion that fails",
+        "script": "%dw 2.0\nimport * from dw::Runtime\noutput application/json\n---\n{ success: try(() -> \"abc\" as Number).success, kind: try(() -> \"abc\" as Number).error.kind, message: try(() -> \"abc\" as Number).error.message }",
+        "expect": {
+          "output": "{ \"success\": false, \"kind\": \"InvalidNumberException\", \"message\": \"Cannot coerce String (abc) to Number\" }"
+        },
+        "note": "The same exception that would otherwise abort the script shows up as data under `.error`, and `success` is `false` instead of the script halting."
+      }
+    ]
+  },
+  "derivedFrom": "meter-reading-salvage"
+}

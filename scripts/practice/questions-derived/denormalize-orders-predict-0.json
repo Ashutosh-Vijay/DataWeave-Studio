@@ -1,0 +1,36 @@
+{
+  "id": "denormalize-orders-predict-0",
+  "unit": "denormalize",
+  "mode": "predict",
+  "tier": "extra",
+  "title": "map alone gives one array per order, not one flat list",
+  "topics": [
+    "flatMap",
+    "write",
+    "application/csv"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/csv",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload map ((order) -> order.line_items map ((li) -> { orderId: order.order_id, sku: li.sku }))",
+    "payload": "[{\"order_id\":\"O1\",\"line_items\":[{\"sku\":\"A1\"},{\"sku\":\"A2\"}]},{\"order_id\":\"O2\",\"line_items\":[{\"sku\":\"B1\"}]}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map ((order) -> order.line_items map ((li) -> { orderId: order.order_id, sku: li.sku }))",
+  "explanation": {
+    "approach": "Two orders in, two arrays out — nested one level too deep for a flat CSV, where every line item needs to be a sibling row, not tucked inside its parent's array.",
+    "snippets": [
+      {
+        "label": "map alone gives one array per order, not one flat list",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map ((order) -> order.line_items map ((li) -> { orderId: order.order_id, sku: li.sku }))",
+        "payload": "[{\"order_id\":\"O1\",\"line_items\":[{\"sku\":\"A1\"},{\"sku\":\"A2\"}]},{\"order_id\":\"O2\",\"line_items\":[{\"sku\":\"B1\"}]}]",
+        "expect": {
+          "output": "[ [ { \"orderId\": \"O1\", \"sku\": \"A1\" }, { \"orderId\": \"O1\", \"sku\": \"A2\" } ], [ { \"orderId\": \"O2\", \"sku\": \"B1\" } ] ]"
+        },
+        "note": "Two orders in, two arrays out — nested one level too deep for a flat CSV, where every line item needs to be a sibling row, not tucked inside its parent's array."
+      }
+    ]
+  },
+  "derivedFrom": "denormalize-orders"
+}

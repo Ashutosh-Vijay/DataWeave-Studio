@@ -1,0 +1,33 @@
+{
+  "id": "order-csv-envelope-predict-2",
+  "unit": "multi-format-embed",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "the fix is rebuilding the row before writing it",
+  "topics": [
+    "write",
+    "read"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nvar raw = {price: 3, sku: \"F6\", qty: 4}\n---\nwrite([{ sku: raw.sku, qty: raw.qty, price: raw.price }], \"application/csv\")"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nvar raw = {price: 3, sku: \"F6\", qty: 4}\n---\nwrite([{ sku: raw.sku, qty: raw.qty, price: raw.price }], \"application/csv\")",
+  "explanation": {
+    "approach": "Same data, rebuilt as `{ sku, qty, price }` first. The column order is now the one the object literal states, not whatever order the source happened to arrive in.",
+    "snippets": [
+      {
+        "label": "the fix is rebuilding the row before writing it",
+        "script": "%dw 2.0\noutput application/json\nvar raw = {price: 3, sku: \"F6\", qty: 4}\n---\nwrite([{ sku: raw.sku, qty: raw.qty, price: raw.price }], \"application/csv\")",
+        "expect": {
+          "output": "\"sku,qty,price\\r\\nF6,4,3\\r\\n\""
+        },
+        "note": "Same data, rebuilt as `{ sku, qty, price }` first. The column order is now the one the object literal states, not whatever order the source happened to arrive in."
+      }
+    ]
+  },
+  "derivedFrom": "order-csv-envelope"
+}

@@ -15,7 +15,7 @@
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-const DIR = 'scripts/practice/questions';
+const DIRS = ['scripts/practice/questions', 'scripts/practice/questions-derived'];
 const OUT = 'src/practiceQuestions.json';
 const TIERS = ['easy', 'medium', 'hard', 'extra', 'max', 'ultra'];
 
@@ -26,14 +26,28 @@ const units = new Map(
 const questions = [];
 const problems = [];
 
-for (const file of readdirSync(DIR).filter((f) => f.endsWith('.json') && !f.startsWith('_'))) {
-  const q = JSON.parse(readFileSync(join(DIR, file), 'utf8'));
+const allFiles = DIRS.flatMap((dir) => {
+  try {
+    return readdirSync(dir)
+      .filter((f) => f.endsWith('.json') && !f.startsWith('_'))
+      .map((f) => join(dir, f));
+  } catch {
+    return [];
+  }
+});
+
+for (const file of allFiles) {
+  const q = JSON.parse(readFileSync(file, 'utf8'));
 
   if (!q.id) problems.push(`${file}: no id`);
   if (!TIERS.includes(q.tier)) problems.push(`${q.id}: unknown tier "${q.tier}"`);
   if (!units.has(q.unit)) problems.push(`${q.id}: unit "${q.unit}" is not in the curriculum`);
-  if ((q.cases ?? []).length < 2) problems.push(`${q.id}: needs a hidden case, has ${(q.cases ?? []).length}`);
-  if (!q.solution) problems.push(`${q.id}: no reference solution`);
+  if ((q.mode ?? 'build') !== 'predict') {
+    if ((q.cases ?? []).length < 2) problems.push(`${q.id}: needs a hidden case, has ${(q.cases ?? []).length}`);
+    if (!q.solution) problems.push(`${q.id}: no reference solution`);
+  } else if (!q.given?.script) {
+    problems.push(`${q.id}: a predict question needs a script to read`);
+  }
   if (questions.some((o) => o.id === q.id)) problems.push(`${q.id}: duplicate id`);
 
   const { mustFail, ...shipped } = q;

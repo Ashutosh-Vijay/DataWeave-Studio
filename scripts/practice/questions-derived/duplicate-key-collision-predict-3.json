@@ -1,0 +1,35 @@
+{
+  "id": "duplicate-key-collision-predict-3",
+  "unit": "duplicate-keys",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Checking the object contents",
+  "topics": [
+    "duplicate keys",
+    "object construction"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload reduce ((tag, obj = {}) -> obj ++ { (tag.name): tag.value })",
+    "payload": "[{\"name\":\"color\",\"value\":\"red\"},{\"name\":\"color\",\"value\":\"blue\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload reduce ((tag, obj = {}) -> obj ++ { (tag.name): tag.value })",
+  "explanation": {
+    "approach": "Both keys survive in the output. This is unlike a traditional map where the second value would overwrite the first. DataWeave treats objects as ordered lists of pairs, so both remain.",
+    "snippets": [
+      {
+        "label": "Checking the object contents",
+        "script": "%dw 2.0\noutput application/json\n---\npayload reduce ((tag, obj = {}) -> obj ++ { (tag.name): tag.value })",
+        "payload": "[{\"name\":\"color\",\"value\":\"red\"},{\"name\":\"color\",\"value\":\"blue\"}]",
+        "expect": {
+          "output": "{\n  \"color\": \"red\",\n  \"color\": \"blue\"\n}"
+        },
+        "note": "Both keys survive in the output. This is unlike a traditional map where the second value would overwrite the first. DataWeave treats objects as ordered lists of pairs, so both remain."
+      }
+    ]
+  },
+  "derivedFrom": "duplicate-key-collision"
+}

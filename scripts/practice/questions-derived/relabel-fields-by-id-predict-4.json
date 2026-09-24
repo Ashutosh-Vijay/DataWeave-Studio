@@ -1,0 +1,37 @@
+{
+  "id": "relabel-fields-by-id-predict-4",
+  "unit": "dynamic-keys",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "The wrong way: forgetting the parentheses when renaming",
+  "topics": [
+    "computed keys",
+    "mapObject",
+    "duplicate keys"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.data mapObject ((v, k, i) -> { k: v })",
+    "payload": "{\"data\":{\"f1\":\"Alice\",\"f2\":\"42 Main St\",\"f3\":\"Loves DataWeave\",\"f7\":\"Great support\"},\"labels\":{\"f1\":\"name\",\"f2\":\"address\",\"f3\":\"comments\",\"f7\":\"comments\"}}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.data mapObject ((v, k, i) -> { k: v })",
+  "explanation": {
+    "approach": "Every entry lands under the literal key `k`, because the bare identifier was never turned into an expression. The labels lookup does not even run.",
+    "snippets": [
+      {
+        "label": "The wrong way: forgetting the parentheses when renaming",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.data mapObject ((v, k, i) -> { k: v })",
+        "payload": "{\"data\":{\"f1\":\"Alice\",\"f2\":\"42 Main St\",\"f3\":\"Loves DataWeave\",\"f7\":\"Great support\"},\"labels\":{\"f1\":\"name\",\"f2\":\"address\",\"f3\":\"comments\",\"f7\":\"comments\"}}",
+        "expect": {
+          "output": "{\n  \"k\": \"Alice\",\n  \"k\": \"42 Main St\",\n  \"k\": \"Loves DataWeave\",\n  \"k\": \"Great support\"\n}"
+        },
+        "compare": "text",
+        "note": "Every entry lands under the literal key `k`, because the bare identifier was never turned into an expression. The labels lookup does not even run."
+      }
+    ]
+  },
+  "derivedFrom": "relabel-fields-by-id"
+}

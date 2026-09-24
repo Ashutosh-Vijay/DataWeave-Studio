@@ -1,0 +1,35 @@
+{
+  "id": "mainframe-payroll-extract-predict-4",
+  "unit": "flat-file",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "One column short is silent, not an error",
+  "topics": [
+    "read",
+    "range selectors",
+    "fixed-width",
+    "trim"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "text/plain",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nvar layout = [ { name: \"name\", start: 6, length: 19 } ]\nfun field(line, start, length) = trim(line[start to (start + length - 1)])\n---\nfield(\"E00002Bartholomew Chen III0001500.75SAL\", 6, 19)"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nvar layout = [ { name: \"name\", start: 6, length: 19 } ]\nfun field(line, start, length) = trim(line[start to (start + length - 1)])\n---\nfield(\"E00002Bartholomew Chen III0001500.75SAL\", 6, 19)",
+  "explanation": {
+    "approach": "r2's name is exactly 20 characters — \"Bartholomew Chen III\" — with no padding to spare. Reading only 19 of them drops the trailing \"I\" and returns a different, still-plausible-looking name. No exception, no null — just a wrong answer, and only on the one row with no slack in it.",
+    "snippets": [
+      {
+        "label": "One column short is silent, not an error",
+        "script": "%dw 2.0\noutput application/json\nvar layout = [ { name: \"name\", start: 6, length: 19 } ]\nfun field(line, start, length) = trim(line[start to (start + length - 1)])\n---\nfield(\"E00002Bartholomew Chen III0001500.75SAL\", 6, 19)",
+        "expect": {
+          "output": "\"Bartholomew Chen II\""
+        },
+        "note": "r2's name is exactly 20 characters — \"Bartholomew Chen III\" — with no padding to spare. Reading only 19 of them drops the trailing \"I\" and returns a different, still-plausible-looking name. No exception, no null — just a wrong answer, and only on the one row with no slack in it."
+      }
+    ]
+  },
+  "derivedFrom": "mainframe-payroll-extract"
+}

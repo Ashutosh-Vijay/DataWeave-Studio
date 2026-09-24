@@ -1,0 +1,37 @@
+{
+  "id": "record-schema-validator-predict-0",
+  "unit": "schema-validator",
+  "mode": "predict",
+  "tier": "max",
+  "title": "The sample: a missing field and a wrong type, both reported",
+  "topics": [
+    "pluck",
+    "match",
+    "is",
+    "recursion"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else if (rule.kind == \"Object\")\n      (if (v is Object) validate(\"$(p).\", rule.fields default {}, v) else [\"$(p) must be an Object\"])\n    else if (rule.kind == \"Array\")\n      (if (v is Array) flatten(v map ((item, idx) -> check(\"$(p)[$(idx)]\", rule.itemKind default \"String\", item))) else [\"$(p) must be an Array\"])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+    "payload": "{ \"schema\": { \"name\": { \"kind\": \"String\", \"required\": true }, \"age\": { \"kind\": \"Number\", \"required\": true } }, \"record\": { \"age\": \"thirty\" } }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else if (rule.kind == \"Object\")\n      (if (v is Object) validate(\"$(p).\", rule.fields default {}, v) else [\"$(p) must be an Object\"])\n    else if (rule.kind == \"Array\")\n      (if (v is Array) flatten(v map ((item, idx) -> check(\"$(p)[$(idx)]\", rule.itemKind default \"String\", item))) else [\"$(p) must be an Array\"])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+  "explanation": {
+    "approach": "Two independent problems on two independent fields, both present in the result — neither one stops the walk before the other is found.",
+    "snippets": [
+      {
+        "label": "The sample: a missing field and a wrong type, both reported",
+        "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else if (rule.kind == \"Object\")\n      (if (v is Object) validate(\"$(p).\", rule.fields default {}, v) else [\"$(p) must be an Object\"])\n    else if (rule.kind == \"Array\")\n      (if (v is Array) flatten(v map ((item, idx) -> check(\"$(p)[$(idx)]\", rule.itemKind default \"String\", item))) else [\"$(p) must be an Array\"])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+        "payload": "{ \"schema\": { \"name\": { \"kind\": \"String\", \"required\": true }, \"age\": { \"kind\": \"Number\", \"required\": true } }, \"record\": { \"age\": \"thirty\" } }",
+        "expect": {
+          "output": "[\"name is required\", \"age must be a Number\"]"
+        },
+        "note": "Two independent problems on two independent fields, both present in the result — neither one stops the walk before the other is found."
+      }
+    ]
+  },
+  "derivedFrom": "record-schema-validator"
+}

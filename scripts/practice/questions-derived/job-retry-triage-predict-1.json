@@ -1,0 +1,34 @@
+{
+  "id": "job-retry-triage-predict-1",
+  "unit": "match-and-types",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "The threshold has to go inside the guard's condition instead",
+  "topics": [
+    "match",
+    "is",
+    "else"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n10 match {\n  case n if (n is Number and n >= 3) -> \"big\"\n  case n is Number -> \"num\"\n  else -> \"other\"\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n10 match {\n  case n if (n is Number and n >= 3) -> \"big\"\n  case n is Number -> \"num\"\n  else -> \"other\"\n}",
+  "explanation": {
+    "approach": "`is` works fine as a plain boolean check inside a guard's `(...)`. Listed first, this guard gets a chance to run before the broader `is Number` case below it.",
+    "snippets": [
+      {
+        "label": "The threshold has to go inside the guard's condition instead",
+        "script": "%dw 2.0\noutput application/json\n---\n10 match {\n  case n if (n is Number and n >= 3) -> \"big\"\n  case n is Number -> \"num\"\n  else -> \"other\"\n}",
+        "expect": {
+          "output": "\"big\""
+        },
+        "note": "`is` works fine as a plain boolean check inside a guard's `(...)`. Listed first, this guard gets a chance to run before the broader `is Number` case below it."
+      }
+    ]
+  },
+  "derivedFrom": "job-retry-triage"
+}

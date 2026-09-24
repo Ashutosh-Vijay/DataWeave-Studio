@@ -1,0 +1,35 @@
+{
+  "id": "extract-from-object-predict-1",
+  "unit": "pluck-and-mapobject",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "The parameter order",
+  "topics": [
+    "pluck",
+    "mapObject"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} pluck ((value, key) -> { key: key, value: value })",
+    "payload": null
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} pluck ((value, key) -> { key: key, value: value })",
+  "explanation": {
+    "approach": "The lambda receives the VALUE first, then the KEY. If you swap them, `key` will hold the price and `value` will hold the product ID.",
+    "snippets": [
+      {
+        "label": "The parameter order",
+        "script": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} pluck ((value, key) -> { key: key, value: value })",
+        "payload": null,
+        "expect": {
+          "output": "[ { \"key\": \"a\", \"value\": \"apple\" }, { \"key\": \"b\", \"value\": \"banana\" } ]"
+        },
+        "note": "The lambda receives the VALUE first, then the KEY. If you swap them, `key` will hold the price and `value` will hold the product ID."
+      }
+    ]
+  },
+  "derivedFrom": "extract-from-object"
+}

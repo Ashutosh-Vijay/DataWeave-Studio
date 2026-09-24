@@ -1,0 +1,36 @@
+{
+  "id": "generic-key-rewrite-predict-5",
+  "unit": "generic-key-rewrite",
+  "mode": "predict",
+  "tier": "extra",
+  "title": "null is a value like any other, and its key still gets renamed",
+  "topics": [
+    "fun",
+    "mapObject",
+    "recursion"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\nfun rewrite(v) = v match {\n  case o is Object -> o mapObject ((val, key) -> { (camelKey(key)): rewrite(val) })\n  case a is Array -> a map rewrite($)\n  else -> v\n}\n---\nrewrite(payload)",
+    "payload": "{\"first_name\": null, \"account_status\": \"in_progress\"}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\nfun rewrite(v) = v match {\n  case o is Object -> o mapObject ((val, key) -> { (camelKey(key)): rewrite(val) })\n  case a is Array -> a map rewrite($)\n  else -> v\n}\n---\nrewrite(payload)",
+  "explanation": {
+    "approach": "`first_name`'s key is renamed even though its value is `null` — the recursion doesn't skip a key just because there was nothing to walk into. And `account_status`'s value, `\"in_progress\"`, keeps its underscore: only the key beside it changed.",
+    "snippets": [
+      {
+        "label": "null is a value like any other, and its key still gets renamed",
+        "script": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\nfun rewrite(v) = v match {\n  case o is Object -> o mapObject ((val, key) -> { (camelKey(key)): rewrite(val) })\n  case a is Array -> a map rewrite($)\n  else -> v\n}\n---\nrewrite(payload)",
+        "payload": "{\"first_name\": null, \"account_status\": \"in_progress\"}",
+        "expect": {
+          "output": "{ \"firstName\": null, \"accountStatus\": \"in_progress\" }"
+        },
+        "note": "`first_name`'s key is renamed even though its value is `null` — the recursion doesn't skip a key just because there was nothing to walk into. And `account_status`'s value, `\"in_progress\"`, keeps its underscore: only the key beside it changed."
+      }
+    ]
+  },
+  "derivedFrom": "generic-key-rewrite"
+}

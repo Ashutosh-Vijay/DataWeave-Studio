@@ -1,0 +1,33 @@
+{
+  "id": "change-status-field-predict-3",
+  "unit": "update-operator",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "An object with no status field",
+  "topics": [
+    "update",
+    "case"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{id: 2, priority: 1} update {\n  case .status -> \"inactive\"\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{id: 2, priority: 1} update {\n  case .status -> \"inactive\"\n}",
+  "explanation": {
+    "approach": "Since this object has no `status` field, the `update` does nothing. Both `id` and `priority` are unchanged. This is why the trap matters: the missing field silently breaks the logic.",
+    "snippets": [
+      {
+        "label": "An object with no status field",
+        "script": "%dw 2.0\noutput application/json\n---\n{id: 2, priority: 1} update {\n  case .status -> \"inactive\"\n}",
+        "expect": {
+          "output": "{\n  \"id\": 2,\n  \"priority\": 1\n}"
+        },
+        "note": "Since this object has no `status` field, the `update` does nothing. Both `id` and `priority` are unchanged. This is why the trap matters: the missing field silently breaks the logic."
+      }
+    ]
+  },
+  "derivedFrom": "change-status-field"
+}

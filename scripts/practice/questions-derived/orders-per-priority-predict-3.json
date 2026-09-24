@@ -1,0 +1,36 @@
+{
+  "id": "orders-per-priority-predict-3",
+  "unit": "groupby-shape",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "The named-parameter form",
+  "topics": [
+    "groupBy",
+    "mapObject",
+    "sizeOf"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority mapObject ((orders, priority) -> { (priority): sizeOf(orders) })",
+    "payload": "[{\"id\":\"A\",\"priority\":1},{\"id\":\"B\",\"priority\":2},{\"id\":\"C\",\"priority\":1}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority mapObject ((orders, priority) -> { (priority): sizeOf(orders) })",
+  "explanation": {
+    "approach": "Same result. Note the order: **value first, then key**, which is the opposite of how 'key-value' reads. Getting this backwards is a common source of confusion, and because both are often Strings it may not fail — it just produces nonsense.",
+    "snippets": [
+      {
+        "label": "The named-parameter form",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority mapObject ((orders, priority) -> { (priority): sizeOf(orders) })",
+        "payload": "[{\"id\":\"A\",\"priority\":1},{\"id\":\"B\",\"priority\":2},{\"id\":\"C\",\"priority\":1}]",
+        "expect": {
+          "output": "{ \"1\": 2, \"2\": 1 }"
+        },
+        "note": "Same result. Note the order: **value first, then key**, which is the opposite of how 'key-value' reads. Getting this backwards is a common source of confusion, and because both are often Strings it may not fail — it just produces nonsense."
+      }
+    ]
+  },
+  "derivedFrom": "orders-per-priority"
+}

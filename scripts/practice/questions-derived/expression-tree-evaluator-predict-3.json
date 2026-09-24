@@ -1,0 +1,36 @@
+{
+  "id": "expression-tree-evaluator-predict-3",
+  "unit": "expression-evaluator",
+  "mode": "predict",
+  "tier": "max",
+  "title": "The same near-miss, on a tree that happens to be only one level deep",
+  "topics": [
+    "fun",
+    "match",
+    "recursion"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> o.op match {\n    case \"+\" -> o.l + o.r\n    case \"-\" -> o.l - o.r\n    case \"*\" -> o.l * o.r\n    case \"/\" -> o.l / o.r\n  }\n}\n---\neval(payload)",
+    "payload": "{ \"op\": \"+\", \"l\": 2, \"r\": 3 }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> o.op match {\n    case \"+\" -> o.l + o.r\n    case \"-\" -> o.l - o.r\n    case \"*\" -> o.l * o.r\n    case \"/\" -> o.l / o.r\n  }\n}\n---\neval(payload)",
+  "explanation": {
+    "approach": "This is why the bug ships: on a flat tree `o.l` and `o.r` already are numbers, so skipping the recursive call is invisible until a deeper tree arrives.",
+    "snippets": [
+      {
+        "label": "The same near-miss, on a tree that happens to be only one level deep",
+        "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> o.op match {\n    case \"+\" -> o.l + o.r\n    case \"-\" -> o.l - o.r\n    case \"*\" -> o.l * o.r\n    case \"/\" -> o.l / o.r\n  }\n}\n---\neval(payload)",
+        "payload": "{ \"op\": \"+\", \"l\": 2, \"r\": 3 }",
+        "expect": {
+          "output": "5"
+        },
+        "note": "This is why the bug ships: on a flat tree `o.l` and `o.r` already are numbers, so skipping the recursive call is invisible until a deeper tree arrives."
+      }
+    ]
+  },
+  "derivedFrom": "expression-tree-evaluator"
+}

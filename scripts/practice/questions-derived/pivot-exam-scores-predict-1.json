@@ -1,0 +1,37 @@
+{
+  "id": "pivot-exam-scores-predict-1",
+  "unit": "pivot",
+  "mode": "predict",
+  "tier": "extra",
+  "title": "groupBy buckets by student; the row is built by reduce over the SUBJECT list",
+  "topics": [
+    "groupBy",
+    "pluck",
+    "reduce",
+    "distinctBy"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/csv",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+    "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+  "explanation": {
+    "approach": "Bo never sat Bio, so filtering his rows for subject Bio finds nothing, `[0]` on that empty array is null, `.score` on null is null, and `default 0` turns that into the column value. Bo's row still has a Bio key.",
+    "snippets": [
+      {
+        "label": "groupBy buckets by student; the row is built by reduce over the SUBJECT list",
+        "script": "%dw 2.0\noutput application/json\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+        "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]",
+        "expect": {
+          "output": "[ { \"student\": \"Ada\", \"Math\": 90, \"Bio\": 70 }, { \"student\": \"Bo\", \"Math\": 60, \"Bio\": 0 } ]"
+        },
+        "note": "Bo never sat Bio, so filtering his rows for subject Bio finds nothing, `[0]` on that empty array is null, `.score` on null is null, and `default 0` turns that into the column value. Bo's row still has a Bio key."
+      }
+    ]
+  },
+  "derivedFrom": "pivot-exam-scores"
+}

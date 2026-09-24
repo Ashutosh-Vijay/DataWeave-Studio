@@ -1,0 +1,32 @@
+{
+  "id": "first-and-last-items-predict-3",
+  "unit": "sizeof-and-slicing",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "A range is different from an index",
+  "topics": [
+    "sizeOf"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{single: [1,2,3][0], range: [1,2,3][0 to 0]}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{single: [1,2,3][0], range: [1,2,3][0 to 0]}",
+  "explanation": {
+    "approach": "[0] returns the item itself, [0 to 0] returns an array with one item. For this task, you want [0] and [-1], not ranges.",
+    "snippets": [
+      {
+        "label": "A range is different from an index",
+        "script": "%dw 2.0\noutput application/json\n---\n{single: [1,2,3][0], range: [1,2,3][0 to 0]}",
+        "expect": {
+          "output": "{ \"single\": 1, \"range\": [ 1 ] }"
+        },
+        "note": "[0] returns the item itself, [0 to 0] returns an array with one item. For this task, you want [0] and [-1], not ranges."
+      }
+    ]
+  },
+  "derivedFrom": "first-and-last-items"
+}

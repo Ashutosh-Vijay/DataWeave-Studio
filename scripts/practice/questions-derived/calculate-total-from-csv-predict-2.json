@@ -1,0 +1,38 @@
+{
+  "id": "calculate-total-from-csv-predict-2",
+  "unit": "csv-round-trip",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "The same data, the same lack of coercion, a wrong answer",
+  "topics": [
+    "read",
+    "sum",
+    "max",
+    "as"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/csv",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nmax(payload map $.amount)",
+    "payload": "name,amount\na,10\nb,9\nc,25.50\n"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nmax(payload map $.amount)",
+  "explanation": {
+    "approach": "The largest amount is 25.50, and this returns \"9\". `max` compares rather than calculates, and comparing text puts \"9\" after \"25.50\" the same way \"z\" comes after \"ab\". Note the quotes in the answer — it did not even come back as a number.",
+    "snippets": [
+      {
+        "label": "The same data, the same lack of coercion, a wrong answer",
+        "script": "%dw 2.0\noutput application/json\n---\nmax(payload map $.amount)",
+        "payload": "name,amount\na,10\nb,9\nc,25.50\n",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "\"9\""
+        },
+        "note": "The largest amount is 25.50, and this returns \"9\". `max` compares rather than calculates, and comparing text puts \"9\" after \"25.50\" the same way \"z\" comes after \"ab\". Note the quotes in the answer — it did not even come back as a number."
+      }
+    ]
+  },
+  "derivedFrom": "calculate-total-from-csv"
+}

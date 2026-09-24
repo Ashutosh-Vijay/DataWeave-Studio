@@ -1,0 +1,34 @@
+{
+  "id": "format-date-parts-predict-3",
+  "unit": "dates-formatting",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Day-of-month is always 2 digits",
+  "topics": [
+    "date formatting",
+    "format patterns",
+    "as String"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{\n  jan1: |2027-01-01| as String {format: 'dd'},\n  dec31: |2027-12-31| as String {format: 'dd'}\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{\n  jan1: |2027-01-01| as String {format: 'dd'},\n  dec31: |2027-12-31| as String {format: 'dd'}\n}",
+  "explanation": {
+    "approach": "The day-of-month is always between 01 and 31, with padding to 2 digits. Easy to understand but easy to confuse with the similar-looking day-of-year formats.",
+    "snippets": [
+      {
+        "label": "Day-of-month is always 2 digits",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  jan1: |2027-01-01| as String {format: 'dd'},\n  dec31: |2027-12-31| as String {format: 'dd'}\n}",
+        "expect": {
+          "output": "{\"jan1\":\"01\",\"dec31\":\"31\"}"
+        },
+        "note": "The day-of-month is always between 01 and 31, with padding to 2 digits. Easy to understand but easy to confuse with the similar-looking day-of-year formats."
+      }
+    ]
+  },
+  "derivedFrom": "format-date-parts"
+}

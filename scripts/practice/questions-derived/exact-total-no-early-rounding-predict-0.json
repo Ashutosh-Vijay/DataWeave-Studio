@@ -1,0 +1,34 @@
+{
+  "id": "exact-total-no-early-rounding-predict-0",
+  "unit": "precision",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "0.1 + 0.2 is exact here",
+  "topics": [
+    "sum",
+    "round",
+    "as String {format}"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ v: 0.1 + 0.2, eq: (0.1 + 0.2) == 0.3, t: typeOf(0.1 + 0.2) }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ v: 0.1 + 0.2, eq: (0.1 + 0.2) == 0.3, t: typeOf(0.1 + 0.2) }",
+  "explanation": {
+    "approach": "No floating-point residue, and the type is still a plain Number. The habit of guarding against `0.1 + 0.2 !== 0.3` comes from other languages and does not apply here.",
+    "snippets": [
+      {
+        "label": "0.1 + 0.2 is exact here",
+        "script": "%dw 2.0\noutput application/json\n---\n{ v: 0.1 + 0.2, eq: (0.1 + 0.2) == 0.3, t: typeOf(0.1 + 0.2) }",
+        "expect": {
+          "output": "{ \"v\": 0.3, \"eq\": true, \"t\": \"Number\" }"
+        },
+        "note": "No floating-point residue, and the type is still a plain Number. The habit of guarding against `0.1 + 0.2 !== 0.3` comes from other languages and does not apply here."
+      }
+    ]
+  },
+  "derivedFrom": "exact-total-no-early-rounding"
+}

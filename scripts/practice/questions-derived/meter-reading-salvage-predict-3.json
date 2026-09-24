@@ -1,0 +1,33 @@
+{
+  "id": "meter-reading-salvage-predict-3",
+  "unit": "error-handling",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "null coerces no better than a bad string",
+  "topics": [
+    "try",
+    "dw::Runtime"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\nimport * from dw::Runtime\noutput application/json\n---\n{ success: try(() -> null as Number).success, kind: try(() -> null as Number).error.kind, message: try(() -> null as Number).error.message }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\nimport * from dw::Runtime\noutput application/json\n---\n{ success: try(() -> null as Number).success, kind: try(() -> null as Number).error.kind, message: try(() -> null as Number).error.message }",
+  "explanation": {
+    "approach": "A missing value is just another way this throws, with a different exception kind. `try` catches it the same way, with no special-casing needed for null.",
+    "snippets": [
+      {
+        "label": "null coerces no better than a bad string",
+        "script": "%dw 2.0\nimport * from dw::Runtime\noutput application/json\n---\n{ success: try(() -> null as Number).success, kind: try(() -> null as Number).error.kind, message: try(() -> null as Number).error.message }",
+        "expect": {
+          "output": "{ \"success\": false, \"kind\": \"UnsupportedTypeCoercionException\", \"message\": \"Cannot coerce Null (null) to Number\" }"
+        },
+        "note": "A missing value is just another way this throws, with a different exception kind. `try` catches it the same way, with no special-casing needed for null."
+      }
+    ]
+  },
+  "derivedFrom": "meter-reading-salvage"
+}

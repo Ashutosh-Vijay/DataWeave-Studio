@@ -1,0 +1,32 @@
+{
+  "id": "first-and-last-items-predict-6",
+  "unit": "sizeof-and-slicing",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "There is no negative zero",
+  "topics": [
+    "sizeOf"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ zero: [1,2,3][0], negZero: [1,2,3][-0], negOne: [1,2,3][-1] }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ zero: [1,2,3][0], negZero: [1,2,3][-0], negOne: [1,2,3][-1] }",
+  "explanation": {
+    "approach": "Counting back from the end starts at -1, not -0, because -0 and 0 are the same number. So `[-0]` quietly gives you the FIRST element — the one place where reaching for the end lands you at the start.",
+    "snippets": [
+      {
+        "label": "There is no negative zero",
+        "script": "%dw 2.0\noutput application/json\n---\n{ zero: [1,2,3][0], negZero: [1,2,3][-0], negOne: [1,2,3][-1] }",
+        "expect": {
+          "output": "{ \"zero\": 1, \"negZero\": 1, \"negOne\": 3 }"
+        },
+        "note": "Counting back from the end starts at -1, not -0, because -0 and 0 are the same number. So `[-0]` quietly gives you the FIRST element — the one place where reaching for the end lands you at the start."
+      }
+    ]
+  },
+  "derivedFrom": "first-and-last-items"
+}

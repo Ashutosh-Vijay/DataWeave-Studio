@@ -1,0 +1,102 @@
+{
+  "id": "namespaced-customer-status-debug-1",
+  "unit": "xml-namespaces",
+  "mode": "debug",
+  "tier": "hard",
+  "title": "Fix it: a customer status field that exists twice",
+  "topics": [
+    "ns",
+    "namespace-qualified selectors",
+    "@id"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nA legacy SOAP service returns customer records. Each `<cust:Customer>` element carries a business `id` attribute, a `<cust:Name>`, and a `<cust:Status>` (its lifecycle status, e.g. `ACTIVE`). Some records also carry an unrelated `<audit:Status>` from a separate compliance system, sitting as a sibling of `<cust:Status>` — it is a different field that happens to share the same local name.\n\nReturn an array of `{ id, name, status }`, where `status` is always the **customer** status (the `cust` namespace one), never the audit one, regardless of which element comes first in the document.\n\nThe two namespaces are declared on the root `<soap:Envelope>` element; read the sample input to find their URIs.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\nns soap http://schemas.xmlsoap.org/soap/envelope/\nns cust http://acme.com/customer\n---\npayload.soap#Envelope.soap#Body.cust#GetCustomersResponse.*cust#Customer map {\n  id: $.@id,\n  name: $.cust#Name,\n  status: $.Status\n}",
+  "cases": [
+    {
+      "input": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:cust=\"http://acme.com/customer\" xmlns:audit=\"http://acme.com/audit\">\n  <soap:Body>\n    <cust:GetCustomersResponse>\n      <cust:Customer id=\"C-1\">\n        <cust:Name>Alice Chen</cust:Name>\n        <audit:Status>REVIEWED</audit:Status>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n      <cust:Customer id=\"C-2\">\n        <cust:Name>Bob Martinez</cust:Name>\n        <audit:Status>FLAGGED</audit:Status>\n        <cust:Status>SUSPENDED</cust:Status>\n      </cust:Customer>\n    </cust:GetCustomersResponse>\n  </soap:Body>\n</soap:Envelope>",
+      "output": "[{\"id\":\"C-1\",\"name\":\"Alice Chen\",\"status\":\"ACTIVE\"},{\"id\":\"C-2\",\"name\":\"Bob Martinez\",\"status\":\"SUSPENDED\"}]"
+    },
+    {
+      "input": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:cust=\"http://acme.com/customer\" xmlns:audit=\"http://acme.com/audit\">\n  <soap:Body>\n    <cust:GetCustomersResponse>\n      <cust:Customer id=\"C-3\">\n        <cust:Name>Carol Nguyen</cust:Name>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n    </cust:GetCustomersResponse>\n  </soap:Body>\n</soap:Envelope>",
+      "output": "[{\"id\":\"C-3\",\"name\":\"Carol Nguyen\",\"status\":\"ACTIVE\"}]"
+    },
+    {
+      "input": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:cust=\"http://acme.com/customer\" xmlns:audit=\"http://acme.com/audit\">\n  <soap:Body>\n    <cust:GetCustomersResponse>\n      <cust:Customer id=\"C-4\">\n        <cust:Name>Dan Osei</cust:Name>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n      <cust:Customer id=\"C-5\">\n        <cust:Name>Eve Park</cust:Name>\n        <audit:Status>REVIEWED</audit:Status>\n        <cust:Status>PENDING</cust:Status>\n      </cust:Customer>\n      <cust:Customer id=\"C-6\">\n        <cust:Name>Faisal Rahman</cust:Name>\n        <cust:Status>SUSPENDED</cust:Status>\n        <audit:Status>FLAGGED</audit:Status>\n      </cust:Customer>\n    </cust:GetCustomersResponse>\n  </soap:Body>\n</soap:Envelope>",
+      "output": "[{\"id\":\"C-4\",\"name\":\"Dan Osei\",\"status\":\"ACTIVE\"},{\"id\":\"C-5\",\"name\":\"Eve Park\",\"status\":\"PENDING\"},{\"id\":\"C-6\",\"name\":\"Faisal Rahman\",\"status\":\"SUSPENDED\"}]"
+    },
+    {
+      "input": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:cust=\"http://acme.com/customer\" xmlns:audit=\"http://acme.com/audit\">\n  <soap:Body>\n    <cust:GetCustomersResponse>\n      <cust:Customer id=\"C-7\">\n        <cust:Name>Grace Kim</cust:Name>\n        <cust:Status>CLOSED</cust:Status>\n      </cust:Customer>\n      <cust:Customer id=\"C-8\">\n        <cust:Name>Hassan Ali</cust:Name>\n        <audit:Status>REVIEWED</audit:Status>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n      <cust:Customer id=\"C-9\">\n        <cust:Name>Irene Wu</cust:Name>\n        <cust:Status>PENDING</cust:Status>\n        <audit:Status>FLAGGED</audit:Status>\n      </cust:Customer>\n      <cust:Customer id=\"C-10\">\n        <cust:Name>Jorge Diaz</cust:Name>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n    </cust:GetCustomersResponse>\n  </soap:Body>\n</soap:Envelope>",
+      "output": "[{\"id\":\"C-7\",\"name\":\"Grace Kim\",\"status\":\"CLOSED\"},{\"id\":\"C-8\",\"name\":\"Hassan Ali\",\"status\":\"ACTIVE\"},{\"id\":\"C-9\",\"name\":\"Irene Wu\",\"status\":\"PENDING\"},{\"id\":\"C-10\",\"name\":\"Jorge Diaz\",\"status\":\"ACTIVE\"}]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "uses a bare .Status selector, which matches whichever Status element (cust or audit) happens to come first in document order"
+  ],
+  "solution": "%dw 2.0\noutput application/json\nns soap http://schemas.xmlsoap.org/soap/envelope/\nns cust http://acme.com/customer\nns audit http://acme.com/audit\n---\npayload.soap#Envelope.soap#Body.cust#GetCustomersResponse.*cust#Customer map {\n  id: $.@id,\n  name: $.cust#Name,\n  status: $.cust#Status\n}",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\nns soap http://schemas.xmlsoap.org/soap/envelope/\nns cust http://acme.com/customer\n---\npayload.soap#Envelope.soap#Body.cust#GetCustomersResponse.*cust#Customer map {\n  id: $.@id,\n  name: $.cust#Name,\n  status: $.Status\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "A namespace-qualified element is identified by its local name AND its namespace URI together — the two form one key. But a selector written without a namespace prefix, like `.Status`, only ever asks about the local name. When a document has exactly one element with that local name, the distinction never comes up and the bare selector looks perfectly fine. It only breaks once a second element with the same local name — in a different namespace — enters the document, and it breaks silently: it just returns whichever one appears first, with no error to flag the ambiguity.",
+    "snippets": [
+      {
+        "label": "Two elements, same local name, different namespaces",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.root.Status",
+        "payload": "<root xmlns:a=\"http://a.com\" xmlns:b=\"http://b.com\"><a:Status>OK</a:Status><b:Status>FAIL</b:Status></root>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "\"OK\""
+        },
+        "note": "The bare `.Status` selector matches `a:Status` simply because it is the first sibling in the document — not because it belongs to any particular namespace. `b:Status` is silently skipped."
+      },
+      {
+        "label": "Qualifying both selectors resolves the ambiguity",
+        "script": "%dw 2.0\noutput application/json\nns a http://a.com\nns b http://b.com\n---\n{ aStatus: payload.root.a#Status, bStatus: payload.root.b#Status }",
+        "payload": "<root xmlns:a=\"http://a.com\" xmlns:b=\"http://b.com\"><a:Status>OK</a:Status><b:Status>FAIL</b:Status></root>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "{ \"aStatus\": \"OK\", \"bStatus\": \"FAIL\" }"
+        },
+        "note": "Once each selector names both the prefix and the local name, each one reaches exactly the element it means."
+      },
+      {
+        "label": "The wrong approach on the sample input",
+        "script": "%dw 2.0\noutput application/json\nns soap http://schemas.xmlsoap.org/soap/envelope/\nns cust http://acme.com/customer\n---\npayload.soap#Envelope.soap#Body.cust#GetCustomersResponse.*cust#Customer map {\n  id: $.@id,\n  name: $.cust#Name,\n  status: $.Status\n}",
+        "payload": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:cust=\"http://acme.com/customer\" xmlns:audit=\"http://acme.com/audit\">\n  <soap:Body>\n    <cust:GetCustomersResponse>\n      <cust:Customer id=\"C-1\">\n        <cust:Name>Alice Chen</cust:Name>\n        <audit:Status>REVIEWED</audit:Status>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n      <cust:Customer id=\"C-2\">\n        <cust:Name>Bob Martinez</cust:Name>\n        <audit:Status>FLAGGED</audit:Status>\n        <cust:Status>SUSPENDED</cust:Status>\n      </cust:Customer>\n    </cust:GetCustomersResponse>\n  </soap:Body>\n</soap:Envelope>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "[ { \"id\": \"C-1\", \"name\": \"Alice Chen\", \"status\": \"REVIEWED\" }, { \"id\": \"C-2\", \"name\": \"Bob Martinez\", \"status\": \"FLAGGED\" } ]"
+        },
+        "note": "Both customers come back with the audit system's status instead of their own, because in this feed `audit:Status` happens to be written before `cust:Status` inside each `Customer`. The output is well-formed JSON with plausible-looking values — nothing about it looks like a bug."
+      },
+      {
+        "label": "The same bug is invisible when the audit field is absent",
+        "script": "%dw 2.0\noutput application/json\nns soap http://schemas.xmlsoap.org/soap/envelope/\nns cust http://acme.com/customer\n---\npayload.soap#Envelope.soap#Body.cust#GetCustomersResponse.*cust#Customer map {\n  id: $.@id,\n  name: $.cust#Name,\n  status: $.Status\n}",
+        "payload": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:cust=\"http://acme.com/customer\" xmlns:audit=\"http://acme.com/audit\">\n  <soap:Body>\n    <cust:GetCustomersResponse>\n      <cust:Customer id=\"C-3\">\n        <cust:Name>Carol Nguyen</cust:Name>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n    </cust:GetCustomersResponse>\n  </soap:Body>\n</soap:Envelope>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "[ { \"id\": \"C-3\", \"name\": \"Carol Nguyen\", \"status\": \"ACTIVE\" } ]"
+        },
+        "note": "With no `audit:Status` sibling, `cust:Status` is the only element with that local name, so the bare selector reaches it and the wrong script happens to produce the right answer. A test suite built only from records like this one would never catch the bug."
+      },
+      {
+        "label": "The correct, namespace-qualified extraction",
+        "script": "%dw 2.0\noutput application/json\nns soap http://schemas.xmlsoap.org/soap/envelope/\nns cust http://acme.com/customer\nns audit http://acme.com/audit\n---\npayload.soap#Envelope.soap#Body.cust#GetCustomersResponse.*cust#Customer map {\n  id: $.@id,\n  name: $.cust#Name,\n  status: $.cust#Status\n}",
+        "payload": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:cust=\"http://acme.com/customer\" xmlns:audit=\"http://acme.com/audit\">\n  <soap:Body>\n    <cust:GetCustomersResponse>\n      <cust:Customer id=\"C-1\">\n        <cust:Name>Alice Chen</cust:Name>\n        <audit:Status>REVIEWED</audit:Status>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n      <cust:Customer id=\"C-2\">\n        <cust:Name>Bob Martinez</cust:Name>\n        <audit:Status>FLAGGED</audit:Status>\n        <cust:Status>SUSPENDED</cust:Status>\n      </cust:Customer>\n    </cust:GetCustomersResponse>\n  </soap:Body>\n</soap:Envelope>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "[ { \"id\": \"C-1\", \"name\": \"Alice Chen\", \"status\": \"ACTIVE\" }, { \"id\": \"C-2\", \"name\": \"Bob Martinez\", \"status\": \"SUSPENDED\" } ]"
+        },
+        "note": "`cust#Status` names the namespace as part of the selector, so it reaches the customer's own status regardless of which sibling was written first."
+      }
+    ]
+  },
+  "derivedFrom": "namespaced-customer-status"
+}

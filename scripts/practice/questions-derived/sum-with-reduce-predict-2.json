@@ -1,0 +1,35 @@
+{
+  "id": "sum-with-reduce-predict-2",
+  "unit": "reduce-seed",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Without a seed, empty means null",
+  "topics": [
+    "reduce",
+    "seed"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[] reduce ((item, total) -> total + item)",
+    "payload": null
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[] reduce ((item, total) -> total + item)",
+  "explanation": {
+    "approach": "With no seed, reducing an empty array gives null. On non-empty arrays this would fail at runtime when trying to add null, but on an empty array it simply returns null.",
+    "snippets": [
+      {
+        "label": "Without a seed, empty means null",
+        "script": "%dw 2.0\noutput application/json\n---\n[] reduce ((item, total) -> total + item)",
+        "payload": null,
+        "expect": {
+          "output": "null"
+        },
+        "note": "With no seed, reducing an empty array gives null. On non-empty arrays this would fail at runtime when trying to add null, but on an empty array it simply returns null."
+      }
+    ]
+  },
+  "derivedFrom": "sum-with-reduce"
+}

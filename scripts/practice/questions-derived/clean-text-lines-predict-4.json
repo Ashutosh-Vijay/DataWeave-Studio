@@ -1,0 +1,36 @@
+{
+  "id": "clean-text-lines-predict-4",
+  "unit": "string-basics",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "trim() behavior",
+  "topics": [
+    "upper",
+    "lower",
+    "trim",
+    "splitBy",
+    "joinBy"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "text/plain",
+  "outputMime": "text/plain",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{untrimmed: \" hello \", trimmed: trim(\" hello \")}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{untrimmed: \" hello \", trimmed: trim(\" hello \")}",
+  "explanation": {
+    "approach": "trim() removes whitespace from both ends. It does not affect spaces inside the word.",
+    "snippets": [
+      {
+        "label": "trim() behavior",
+        "script": "%dw 2.0\noutput application/json\n---\n{untrimmed: \" hello \", trimmed: trim(\" hello \")}",
+        "expect": {
+          "output": "{ \"untrimmed\": \" hello \", \"trimmed\": \"hello\" }"
+        },
+        "note": "trim() removes whitespace from both ends. It does not affect spaces inside the word."
+      }
+    ]
+  },
+  "derivedFrom": "clean-text-lines"
+}

@@ -1,0 +1,114 @@
+{
+  "id": "expression-tree-evaluator-debug-1",
+  "unit": "expression-evaluator",
+  "mode": "debug",
+  "tier": "ultra",
+  "title": "Fix it: evaluate an expression tree",
+  "topics": [
+    "fun",
+    "match",
+    "recursion"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nThe payload is an arithmetic expression tree. It is either a plain number (a leaf), or an object `{ op, l, r }` where `op` is one of `\"+\"`, `\"-\"`, `\"*\"`, `\"/\"`, and `l` and `r` are themselves expression trees — a number, or another `{ op, l, r }` node, to any depth.\n\nWrite a script that evaluates the tree down to a single number.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> o.op match {\n    case \"+\" -> o.l + o.r\n    case \"-\" -> o.l - o.r\n    case \"*\" -> o.l * o.r\n    case \"/\" -> o.l / o.r\n  }\n}\n---\neval(payload)",
+  "cases": [
+    {
+      "input": "{ \"op\": \"+\", \"l\": { \"op\": \"*\", \"l\": 2, \"r\": 3 }, \"r\": 4 }",
+      "output": "10"
+    },
+    {
+      "input": "7",
+      "output": "7"
+    },
+    {
+      "input": "{ \"op\": \"/\", \"l\": { \"op\": \"-\", \"l\": { \"op\": \"*\", \"l\": { \"op\": \"+\", \"l\": 2, \"r\": 3 }, \"r\": 4 }, \"r\": 5 }, \"r\": 3 }",
+      "output": "5"
+    },
+    {
+      "input": "{ \"op\": \"-\", \"l\": 10, \"r\": 4 }",
+      "output": "6"
+    },
+    {
+      "input": "{ \"op\": \"/\", \"l\": 7, \"r\": 2 }",
+      "output": "3.5"
+    },
+    {
+      "input": "{ \"op\": \"*\", \"l\": -3, \"r\": { \"op\": \"+\", \"l\": 2, \"r\": 2 } }",
+      "output": "-12"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "handles one level: combines o.l and o.r directly instead of recursing into them first, so it throws the moment either side is itself a node rather than a number"
+  ],
+  "solution": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.l) - eval(o.r)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.l) / eval(o.r)\n}\n---\neval(payload)",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> o.op match {\n    case \"+\" -> o.l + o.r\n    case \"-\" -> o.l - o.r\n    case \"*\" -> o.l * o.r\n    case \"/\" -> o.l / o.r\n  }\n}\n---\neval(payload)"
+    }
+  ],
+  "explanation": {
+    "approach": "The tree has exactly two shapes at every level: a plain number, or a node with an operator and two more trees underneath it. `match` picks the shape with `case n is Number` and `case o is Object`. The number case is the leaf — it just returns itself. The object case cannot apply its operator to `o.l` and `o.r` directly, because those are trees too, not necessarily numbers; they have to go through `eval` again first. Splitting that into two functions — `eval` for the shape test, `evalNode` for applying the operator once both sides are already evaluated — makes them mutually recursive (`eval` calls `evalNode`, `evalNode` calls `eval`), and neither needs a return-type annotation to compile. The near-miss is applying the operator before recursing: it happens to work when both sides are already numbers, and throws the instant one of them is not.",
+    "snippets": [
+      {
+        "label": "The leaf case: a bare number evaluates to itself",
+        "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.l) - eval(o.r)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.l) / eval(o.r)\n}\n---\neval(payload)",
+        "payload": "7",
+        "expect": {
+          "output": "7"
+        },
+        "note": "No operator to apply, no recursion to do — `match` falls straight into `case n is Number` and returns it."
+      },
+      {
+        "label": "Two mutually recursive functions, no return-type annotation on either",
+        "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.l) - eval(o.r)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.l) / eval(o.r)\n}\n---\neval(payload)",
+        "payload": "{ \"op\": \"+\", \"l\": { \"op\": \"*\", \"l\": 2, \"r\": 3 }, \"r\": 4 }",
+        "expect": {
+          "output": "10"
+        },
+        "note": "`eval` calls `evalNode`, and `evalNode` calls `eval` back on `o.l` and `o.r`. Neither function declares a parameter or return type, and the pair still compiles and produces the right depth-first evaluation."
+      },
+      {
+        "label": "The near-miss: applying the operator before recursing",
+        "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> o.op match {\n    case \"+\" -> o.l + o.r\n    case \"-\" -> o.l - o.r\n    case \"*\" -> o.l * o.r\n    case \"/\" -> o.l / o.r\n  }\n}\n---\neval(payload)",
+        "payload": "{ \"op\": \"+\", \"l\": { \"op\": \"*\", \"l\": 2, \"r\": 3 }, \"r\": 4 }",
+        "expect": {
+          "error": true
+        },
+        "note": "`o.l` is itself a node, not a number, and `+` cannot be applied between an Object and a Number. This version never calls `eval` again on `o.l` or `o.r` — it just applies the operator to whatever is there."
+      },
+      {
+        "label": "The same near-miss, on a tree that happens to be only one level deep",
+        "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> o.op match {\n    case \"+\" -> o.l + o.r\n    case \"-\" -> o.l - o.r\n    case \"*\" -> o.l * o.r\n    case \"/\" -> o.l / o.r\n  }\n}\n---\neval(payload)",
+        "payload": "{ \"op\": \"+\", \"l\": 2, \"r\": 3 }",
+        "expect": {
+          "output": "5"
+        },
+        "note": "This is why the bug ships: on a flat tree `o.l` and `o.r` already are numbers, so skipping the recursive call is invisible until a deeper tree arrives."
+      },
+      {
+        "label": "Swapping the operand order is invisible on + and *, wrong everywhere else",
+        "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.r) - eval(o.l)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.r) / eval(o.l)\n}\n---\neval(payload)",
+        "payload": "{ \"op\": \"-\", \"l\": 10, \"r\": 4 }",
+        "expect": {
+          "output": "-6"
+        },
+        "note": "`10 - 4` is `6`; this version computes `4 - 10`. The sample tree's root is `+` and its nested node is `*`, both commutative, so this exact bug would pass the sample case and only shows up on a `-` or `/` node."
+      },
+      {
+        "label": "Division returns a decimal without any special-casing",
+        "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.l) - eval(o.r)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.l) / eval(o.r)\n}\n---\neval(payload)",
+        "payload": "{ \"op\": \"/\", \"l\": 7, \"r\": 2 }",
+        "expect": {
+          "output": "3.5"
+        },
+        "note": "`/` is never integer division in DataWeave, so this needs no extra handling to come out as `3.5`."
+      }
+    ]
+  },
+  "derivedFrom": "expression-tree-evaluator"
+}

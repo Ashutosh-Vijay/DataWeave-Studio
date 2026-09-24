@@ -1,0 +1,36 @@
+{
+  "id": "sum-nested-numbers-predict-0",
+  "unit": "recursion",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "No return-type annotation needed, even though it's recursive",
+  "topics": [
+    "fun",
+    "recursion",
+    "match"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> sumAll(value)))\n  case a is Array -> sum(a map ((item) -> sumAll(item)))\n  case n is Number -> n\n  else -> 0\n}\n---\nsumAll(payload)",
+    "payload": "{\"a\":{\"b\":[1,2,{\"c\":3}]},\"d\":\"text\",\"e\":[[4,5],null,true]}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> sumAll(value)))\n  case a is Array -> sum(a map ((item) -> sumAll(item)))\n  case n is Number -> n\n  else -> 0\n}\n---\nsumAll(payload)",
+  "explanation": {
+    "approach": "`fun sumAll(v) = ...` declares neither the parameter's type nor the return type, and it still compiles and recurses correctly.",
+    "snippets": [
+      {
+        "label": "No return-type annotation needed, even though it's recursive",
+        "script": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> sumAll(value)))\n  case a is Array -> sum(a map ((item) -> sumAll(item)))\n  case n is Number -> n\n  else -> 0\n}\n---\nsumAll(payload)",
+        "payload": "{\"a\":{\"b\":[1,2,{\"c\":3}]},\"d\":\"text\",\"e\":[[4,5],null,true]}",
+        "expect": {
+          "output": "15"
+        },
+        "note": "`fun sumAll(v) = ...` declares neither the parameter's type nor the return type, and it still compiles and recurses correctly."
+      }
+    ]
+  },
+  "derivedFrom": "sum-nested-numbers"
+}

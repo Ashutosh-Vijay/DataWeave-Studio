@@ -1,0 +1,87 @@
+{
+  "id": "event-shape-classifier-debug-2",
+  "unit": "custom-types",
+  "mode": "debug",
+  "tier": "extra",
+  "title": "Fix it: classify raw events by their shape",
+  "topics": [
+    "type",
+    "is"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nA raw event feed mixes several shapes with no discriminator field to tell them apart — only the fields present say what an event is.\n\nDeclare a `ClickEvent` type with `x` and `y`, both Numbers, and a `KeyEvent` type with `key`, a String. For each event, return `{ id, type }`, where `type` is `\"Click\"` if it matches `ClickEvent`, `\"Key\"` if it matches `KeyEvent`, or `\"Unknown\"` otherwise. An event can only be classified by checking it against the declared types with `is` — there is no field named `type` on the input to read.\n\nIf an event matches both shapes at once, classify it as `\"Click\"`.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\ntype ClickEvent = { x: Number, y: Number }\ntype KeyEvent = { key: String }\noutput application/json\n---\npayload map (e) -> {\n  id: e.id,\n  \"type\": if (e is KeyEvent) \"Key\" else if (e is ClickEvent) \"Click\" else \"Unknown\"\n}",
+  "cases": [
+    {
+      "input": "[\n  { \"id\": \"E1\", \"x\": 10, \"y\": 20 },\n  { \"id\": \"E2\", \"key\": \"Enter\" },\n  { \"id\": \"E3\", \"foo\": \"bar\" }\n]",
+      "output": "[{\"id\":\"E1\",\"type\":\"Click\"},{\"id\":\"E2\",\"type\":\"Key\"},{\"id\":\"E3\",\"type\":\"Unknown\"}]"
+    },
+    {
+      "input": "[\n  { \"id\": \"E4\", \"x\": 1, \"y\": 2, \"key\": \"Enter\" }\n]",
+      "output": "[{\"id\":\"E4\",\"type\":\"Click\"}]"
+    },
+    {
+      "input": "[\n  { \"id\": \"E5\", \"x\": \"10\", \"y\": 20 }\n]",
+      "output": "[{\"id\":\"E5\",\"type\":\"Unknown\"}]"
+    },
+    {
+      "input": "[\n  { \"id\": \"E6\", \"x\": 5 }\n]",
+      "output": "[{\"id\":\"E6\",\"type\":\"Unknown\"}]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "checks KeyEvent before ClickEvent, so an event matching both is misclassified as Key instead of the required Click"
+  ],
+  "solution": "%dw 2.0\ntype ClickEvent = { x: Number, y: Number }\ntype KeyEvent = { key: String }\noutput application/json\n---\npayload map (e) -> {\n  id: e.id,\n  \"type\": if (e is ClickEvent) \"Click\" else if (e is KeyEvent) \"Key\" else \"Unknown\"\n}",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\ntype ClickEvent = { x: Number, y: Number }\ntype KeyEvent = { key: String }\noutput application/json\n---\npayload map (e) -> {\n  id: e.id,\n  \"type\": if (e is KeyEvent) \"Key\" else if (e is ClickEvent) \"Click\" else \"Unknown\"\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "`type Name = { ... }` declares a shape once, and `value is Name` tests any value against it — that is the whole mechanism, no constructors involved. The check is structural and open: a value with extra fields the type never mentioned still matches, but a missing required field or one with the wrong type does not. The part that actually trips people up is naming the output field: the natural name for a classification result is `type`, and `type` is a reserved word wherever DataWeave expects a bare identifier for an object key. It has to be quoted. The other thing the exercise forces is a decision about order: once a value can satisfy two declared types at once, whichever `is` check runs first wins, so the order of the checks is part of the answer, not an implementation detail.",
+    "snippets": [
+      {
+        "label": "`is` is structural and open on extra fields",
+        "script": "%dw 2.0\ntype ClickEvent = { x: Number, y: Number }\noutput application/json\n---\n{\n  matches: { x: 1, y: 2 } is ClickEvent,\n  extraFieldStillMatches: { x: 1, y: 2, id: \"E1\" } is ClickEvent,\n  missingField: { x: 1 } is ClickEvent,\n  wrongType: { x: \"1\", y: 2 } is ClickEvent\n}",
+        "expect": {
+          "output": "{ \"matches\": true, \"extraFieldStillMatches\": true, \"missingField\": false, \"wrongType\": false }"
+        },
+        "note": "An id field ClickEvent never declared does not break the match. Only a required field being absent, or present with the wrong type, does."
+      },
+      {
+        "label": "`type` as a bare object key does not compile",
+        "script": "%dw 2.0\noutput application/json\n---\n{ type: \"Click\" }",
+        "expect": {
+          "error": true
+        },
+        "note": "CompilationException: the name `type` is a reserved word. This is not about the type SYSTEM at all — it is the plain object-literal syntax rejecting the identifier, and it is exactly the key this question needs to produce."
+      },
+      {
+        "label": "quoting the key is all it takes",
+        "script": "%dw 2.0\noutput application/json\n---\n{ \"type\": \"Click\" }",
+        "expect": {
+          "output": "{ \"type\": \"Click\" }"
+        },
+        "note": "A quoted string in key position is not an identifier, so the reserved-word rule does not apply to it. Same field, same value, and it compiles."
+      },
+      {
+        "label": "the order of the `is` checks decides the ambiguous case",
+        "script": "%dw 2.0\ntype ClickEvent = { x: Number, y: Number }\ntype KeyEvent = { key: String }\noutput application/json\n---\n{\n  clickFirst: if ({x:1,y:2,key:\"Enter\"} is ClickEvent) \"Click\" else if ({x:1,y:2,key:\"Enter\"} is KeyEvent) \"Key\" else \"Unknown\",\n  keyFirst: if ({x:1,y:2,key:\"Enter\"} is KeyEvent) \"Key\" else if ({x:1,y:2,key:\"Enter\"} is ClickEvent) \"Click\" else \"Unknown\"\n}",
+        "expect": {
+          "output": "{ \"clickFirst\": \"Click\", \"keyFirst\": \"Key\" }"
+        },
+        "note": "Same event, both shapes satisfied, opposite answers depending only on which `is` test is written first. The question resolves this by requiring Click to win, so that check has to come first."
+      }
+    ]
+  },
+  "derivedFrom": "event-shape-classifier"
+}

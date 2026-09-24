@@ -26,7 +26,8 @@ import { join } from 'node:path';
 import { openEngine } from '../dwEngine.mjs';
 import { gradeSubmission, outputsMatch } from '../../src/practiceGrading.ts';
 
-const DIR = 'scripts/practice/questions';
+/** Hand-written first, then the ones derived from them by derive.mjs. */
+const DIRS = ['scripts/practice/questions', 'scripts/practice/questions-derived'];
 const norm = (s) => s.replace(/\s+/g, ' ').trim();
 
 // Known function names, so prose can say "an array" without being accused of
@@ -57,15 +58,28 @@ function namesInProse(text) {
 }
 
 const wanted = process.argv.slice(2);
-const files = readdirSync(DIR)
-  .filter((f) => f.endsWith('.json'))
-  .filter((f) => !wanted.length || wanted.includes(f.replace('.json', '')));
+const files = DIRS.flatMap((dir) => {
+  let names = [];
+  try {
+    names = readdirSync(dir);
+  } catch {
+    return []; // questions-derived is generated, so it may not exist yet
+  }
+  return names
+    .filter((f) => f.endsWith('.json'))
+    // `_`-prefixed files are scratch and stay out of a full run — but an id
+    // asked for by name is always honoured, or the selftest's own temporary
+    // question gets skipped and the gate silently verifies nothing. It did.
+    .filter((f) => (wanted.length ? wanted.includes(f.replace('.json', '')) : !f.startsWith('_')))
+    .map((f) => join(dir, f));
+});
 
 const dw = await openEngine();
 let failures = 0;
 
 for (const file of files) {
-  const q = JSON.parse(readFileSync(join(DIR, file), 'utf8'));
+  const q = JSON.parse(readFileSync(file, 'utf8'));
+  const mode = q.mode ?? 'build';
   const problems = [];
   console.log(`\n── ${q.id}  [${q.tier}]  ${q.title}`);
 
@@ -78,6 +92,26 @@ for (const file of files) {
         outputMime: q.outputMime ?? 'application/json',
       }),
     );
+
+  // A predict question has no cases: it is graded against whatever the engine
+  // returns at the moment you answer, so what must be true here is only that
+  // the script it asks you to read actually runs.
+  if (mode === 'predict') {
+    const r = await dw.run(q.given.script, {
+      payload: q.given.payload ?? '{}',
+      payloadMime: q.inputMime ?? 'application/json',
+      outputMime: q.outputMime ?? 'application/json',
+    });
+    if (!r.ok) problems.push(`the script it asks you to read does not run: ${r.error.split('\n')[0]}`);
+    else if (!r.output.trim()) problems.push('the script it asks you to read returns nothing');
+    else console.log(`   given        runs, returns ${norm(r.output).slice(0, 55)} (${r.ms}ms)`);
+
+    if (problems.length) {
+      failures += problems.length;
+      for (const p of problems) console.log(`   ✗ ${p}`);
+    }
+    continue;
+  }
 
   // 1. the reference solution
   const ref = await gradeScript(q.solution);

@@ -22,10 +22,37 @@ export interface PracticeCase {
   output: string;
 }
 
+/**
+ * What kind of thing you are being asked to do.
+ *
+ * The first forty questions were all `build`, and that is the real reason the
+ * set felt short rather than the count: every one of them was "write this from
+ * scratch", which is the slowest and most effortful interaction there is. A
+ * mode is a different *shape* of question over the same material, and it is
+ * what makes one more feel like one more.
+ *
+ * - `build`   — write the transform. The original.
+ * - `debug`   — here is a script that is wrong; make it pass. The editor starts
+ *               with the broken code. Graded identically to `build`, so it
+ *               costs no new grading at all.
+ * - `predict` — here is a script and a payload; say what it returns, without
+ *               running it. Fast, and it teaches reading rather than writing.
+ */
+export type PracticeMode = 'build' | 'debug' | 'predict';
+
 export interface PracticeQuestion {
   id: string;
   /** The curriculum unit this came from — see scripts/practice/curriculum.json. */
   unit: string;
+  /** Defaults to `build` — the forty original questions predate modes. */
+  mode?: PracticeMode;
+  /**
+   * `predict` only: the script and payload being read. The expected answer is
+   * NOT stored — it is whatever this engine returns when the script is run,
+   * which keeps the one rule intact and means a stored answer cannot drift
+   * away from what the engine actually does.
+   */
+  given?: { script: string; payload?: string };
   tier: 'easy' | 'medium' | 'hard' | 'extra' | 'max' | 'ultra';
   title: string;
   topics?: string[];
@@ -135,6 +162,43 @@ export function outputsMatch(got: string, want: string, compare: 'json' | 'text'
   } catch {
     return got.trim() === want.trim();
   }
+}
+
+/**
+ * Mark a `predict` answer against what the engine really returned.
+ *
+ * Lenient in the two ways that are about typing rather than understanding:
+ * formatting is ignored (`outputsMatch` parses both sides), and an answer
+ * wrapped in nothing but quotes or stray whitespace still counts. It is NOT
+ * lenient about the value, including the difference between `1` and `"1"` —
+ * that distinction is half of what these questions teach.
+ *
+ * `typed` is compared against `actual`, which the caller obtained by running
+ * the script. Nothing here decides what the right answer is.
+ */
+export function gradePrediction(
+  typed: string,
+  actual: { ok: boolean; output: string },
+  expectedError = false,
+): { correct: boolean; because: string } {
+  const said = typed.trim();
+  if (!said) return { correct: false, because: 'Nothing typed yet.' };
+
+  // "it errors" is a legitimate prediction, and the only one available when the
+  // script does not produce a value at all.
+  const saidError = /^(error|it errors?|fails?|exception|compile error)\b/i.test(said);
+  if (!actual.ok || expectedError) {
+    return saidError
+      ? { correct: true, because: 'It does error.' }
+      : { correct: false, because: 'This one does not return a value at all — it errors.' };
+  }
+  if (saidError) {
+    return { correct: false, because: 'It runs fine and returns a value.' };
+  }
+
+  return outputsMatch(said, actual.output)
+    ? { correct: true, because: 'That is what it returns.' }
+    : { correct: false, because: 'Not what it returns.' };
 }
 
 export interface CaseResult {

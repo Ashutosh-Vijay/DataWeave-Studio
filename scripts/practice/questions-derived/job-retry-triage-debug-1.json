@@ -1,0 +1,96 @@
+{
+  "id": "job-retry-triage-debug-1",
+  "unit": "match-and-types",
+  "mode": "debug",
+  "tier": "hard",
+  "title": "Fix it: triage a queue of retrying jobs",
+  "topics": [
+    "match",
+    "is",
+    "else"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nA queue of background jobs, each with an `id` and a `retries` count. The record is not always clean: `retries` might be a number (attempts so far), `null` (never attempted), or something else entirely if the record is corrupted (a string, a boolean, an object, ...).\n\nReturn an array of `{ id, status }`, where `status` is:\n\n- `\"NEW\"` if `retries` is `null`\n- `\"ESCALATE\"` if `retries` is a number `>= 3`\n- `\"RETRYING\"` if `retries` is any other number\n- `\"INVALID\"` for anything else\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\npayload map (job) -> {\n  id: job.id,\n  status: job.retries match {\n    case n is Number -> \"RETRYING\"\n    case n if (n is Number and n >= 3) -> \"ESCALATE\"\n    case null -> \"NEW\"\n    else -> \"INVALID\"\n  }\n}",
+  "cases": [
+    {
+      "input": "[\n  { \"id\": \"J1\", \"retries\": null },\n  { \"id\": \"J2\", \"retries\": 1 },\n  { \"id\": \"J3\", \"retries\": \"N/A\" }\n]",
+      "output": "[{\"id\":\"J1\",\"status\":\"NEW\"},{\"id\":\"J2\",\"status\":\"RETRYING\"},{\"id\":\"J3\",\"status\":\"INVALID\"}]"
+    },
+    {
+      "input": "[\n  { \"id\": \"J4\", \"retries\": 3 },\n  { \"id\": \"J5\", \"retries\": 10 },\n  { \"id\": \"J6\", \"retries\": 2 }\n]",
+      "output": "[{\"id\":\"J4\",\"status\":\"ESCALATE\"},{\"id\":\"J5\",\"status\":\"ESCALATE\"},{\"id\":\"J6\",\"status\":\"RETRYING\"}]"
+    },
+    {
+      "input": "[\n  { \"id\": \"J7\", \"retries\": true },\n  { \"id\": \"J8\", \"retries\": {} },\n  { \"id\": \"J9\", \"retries\": 0 }\n]",
+      "output": "[{\"id\":\"J7\",\"status\":\"INVALID\"},{\"id\":\"J8\",\"status\":\"INVALID\"},{\"id\":\"J9\",\"status\":\"RETRYING\"}]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    },
+    {
+      "input": "[\n  { \"id\": \"J10\", \"retries\": -2 },\n  { \"id\": \"J11\", \"retries\": 2.999 },\n  { \"id\": \"J12\", \"retries\": 3.0 }\n]",
+      "output": "[{\"id\":\"J10\",\"status\":\"RETRYING\"},{\"id\":\"J11\",\"status\":\"RETRYING\"},{\"id\":\"J12\",\"status\":\"ESCALATE\"}]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "puts the plain `is Number` case above the escalation guard, so no number can ever reach ESCALATE"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map (job) -> {\n  id: job.id,\n  status: job.retries match {\n    case n if (n is Number and n >= 3) -> \"ESCALATE\"\n    case n is Number -> \"RETRYING\"\n    case null -> \"NEW\"\n    else -> \"INVALID\"\n  }\n}",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map (job) -> {\n  id: job.id,\n  status: job.retries match {\n    case n is Number -> \"RETRYING\"\n    case n if (n is Number and n >= 3) -> \"ESCALATE\"\n    case null -> \"NEW\"\n    else -> \"INVALID\"\n  }\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "`match` is tried top to bottom and stops at the first case that fits — it is not \"find the most specific case\", it is \"find the first one\". A case can test a type with `is Type`, or test an arbitrary condition with `if (...)`, but DataWeave does not let a single case do both at once; `case n is Number if (n >= 3)` is a compile error, not a stricter case. To get both a type check and a threshold on the same branch, the type check has to move inside the guard's own condition with `and`. Once that branch exists, it has to be listed before the plain `is Number` case — a bare `is Number` case placed first will catch every number, including the ones the guarded case further down was written to catch, and that guarded case becomes unreachable code that never causes an error and never runs.",
+    "snippets": [
+      {
+        "label": "A case cannot combine `is Type` and a guard",
+        "script": "%dw 2.0\noutput application/json\n---\n10 match {\n  case n is Number if (n >= 3) -> \"escalate\"\n  else -> \"other\"\n}",
+        "expect": {
+          "error": true
+        },
+        "note": "This is not \"Number, and also at least 3\" — it simply does not compile. The type test and the guard cannot live on the same case."
+      },
+      {
+        "label": "The threshold has to go inside the guard's condition instead",
+        "script": "%dw 2.0\noutput application/json\n---\n10 match {\n  case n if (n is Number and n >= 3) -> \"big\"\n  case n is Number -> \"num\"\n  else -> \"other\"\n}",
+        "expect": {
+          "output": "\"big\""
+        },
+        "note": "`is` works fine as a plain boolean check inside a guard's `(...)`. Listed first, this guard gets a chance to run before the broader `is Number` case below it."
+      },
+      {
+        "label": "Swap the order and the guard goes dead",
+        "script": "%dw 2.0\noutput application/json\n---\n10 match {\n  case n is Number -> \"num\"\n  case n if (n >= 3) -> \"big\"\n  else -> \"other\"\n}",
+        "expect": {
+          "output": "\"num\""
+        },
+        "note": "Same two cases, reversed order. `10` satisfies both, but `match` stops at the first fit — `case n is Number` — so the guarded case below it never runs, for any number at all, not just this one."
+      },
+      {
+        "label": "`null` gets its own case, not `is Number`",
+        "script": "%dw 2.0\noutput application/json\n---\nnull match {\n  case n is Number -> \"num\"\n  case null -> \"isNull\"\n  else -> \"other\"\n}",
+        "expect": {
+          "output": "\"isNull\""
+        },
+        "note": "`null` is matched with the literal `case null`, and it has to come before `else` or it would fall into that instead."
+      },
+      {
+        "label": "Everything else falls to `else`",
+        "script": "%dw 2.0\noutput application/json\n---\ntrue match {\n  case n is Number -> \"num\"\n  case null -> \"isNull\"\n  else -> \"other\"\n}",
+        "expect": {
+          "output": "\"other\""
+        },
+        "note": "A Boolean matches none of the specific cases, so it lands on `else` — this is where a corrupted `retries` field (a string, a boolean, an object) ends up as `INVALID`."
+      }
+    ]
+  },
+  "derivedFrom": "job-retry-triage"
+}

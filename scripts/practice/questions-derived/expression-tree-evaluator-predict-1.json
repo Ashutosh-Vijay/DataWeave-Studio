@@ -1,0 +1,36 @@
+{
+  "id": "expression-tree-evaluator-predict-1",
+  "unit": "expression-evaluator",
+  "mode": "predict",
+  "tier": "max",
+  "title": "Two mutually recursive functions, no return-type annotation on either",
+  "topics": [
+    "fun",
+    "match",
+    "recursion"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.l) - eval(o.r)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.l) / eval(o.r)\n}\n---\neval(payload)",
+    "payload": "{ \"op\": \"+\", \"l\": { \"op\": \"*\", \"l\": 2, \"r\": 3 }, \"r\": 4 }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.l) - eval(o.r)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.l) / eval(o.r)\n}\n---\neval(payload)",
+  "explanation": {
+    "approach": "`eval` calls `evalNode`, and `evalNode` calls `eval` back on `o.l` and `o.r`. Neither function declares a parameter or return type, and the pair still compiles and produces the right depth-first evaluation.",
+    "snippets": [
+      {
+        "label": "Two mutually recursive functions, no return-type annotation on either",
+        "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.l) - eval(o.r)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.l) / eval(o.r)\n}\n---\neval(payload)",
+        "payload": "{ \"op\": \"+\", \"l\": { \"op\": \"*\", \"l\": 2, \"r\": 3 }, \"r\": 4 }",
+        "expect": {
+          "output": "10"
+        },
+        "note": "`eval` calls `evalNode`, and `evalNode` calls `eval` back on `o.l` and `o.r`. Neither function declares a parameter or return type, and the pair still compiles and produces the right depth-first evaluation."
+      }
+    ]
+  },
+  "derivedFrom": "expression-tree-evaluator"
+}

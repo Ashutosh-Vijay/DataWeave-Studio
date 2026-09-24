@@ -1,0 +1,34 @@
+{
+  "id": "array-merge-and-remove-predict-2",
+  "unit": "concat-and-remove",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Both operands are required to be arrays",
+  "topics": [
+    "++",
+    "--",
+    "arrays"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[1, 2] ++ [3, 4]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[1, 2] ++ [3, 4]",
+  "explanation": {
+    "approach": "`++` joins the right array into the left. Both must be arrays — scalar values are not auto-wrapped.",
+    "snippets": [
+      {
+        "label": "Both operands are required to be arrays",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2] ++ [3, 4]",
+        "expect": {
+          "output": "[1, 2, 3, 4]"
+        },
+        "note": "`++` joins the right array into the left. Both must be arrays — scalar values are not auto-wrapped."
+      }
+    ]
+  },
+  "derivedFrom": "array-merge-and-remove"
+}

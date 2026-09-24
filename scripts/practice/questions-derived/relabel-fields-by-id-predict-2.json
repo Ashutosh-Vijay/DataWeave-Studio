@@ -1,0 +1,34 @@
+{
+  "id": "relabel-fields-by-id-predict-2",
+  "unit": "dynamic-keys",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "With parentheses, the key becomes the variable's value",
+  "topics": [
+    "computed keys",
+    "mapObject",
+    "duplicate keys"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\ndo { var k = 'x' --- { (k): 1 } }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\ndo { var k = 'x' --- { (k): 1 } }",
+  "explanation": {
+    "approach": "The parentheses are what turn `k` from a field name into an expression to evaluate. This is the whole trick a computed key relies on.",
+    "snippets": [
+      {
+        "label": "With parentheses, the key becomes the variable's value",
+        "script": "%dw 2.0\noutput application/json\n---\ndo { var k = 'x' --- { (k): 1 } }",
+        "expect": {
+          "output": "{ \"x\": 1 }"
+        },
+        "note": "The parentheses are what turn `k` from a field name into an expression to evaluate. This is the whole trick a computed key relies on."
+      }
+    ]
+  },
+  "derivedFrom": "relabel-fields-by-id"
+}

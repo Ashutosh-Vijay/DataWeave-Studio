@@ -1,0 +1,33 @@
+{
+  "id": "redact-nested-emails-predict-1",
+  "unit": "tree-module",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "The generic walk, on a small fixture",
+  "topics": [
+    "dw::util::Tree",
+    "mapLeafValues"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\nmapLeafValues({a:{b:'x'},c:['y']}, (v,p) -> upper(v as String))"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\nmapLeafValues({a:{b:'x'},c:['y']}, (v,p) -> upper(v as String))",
+  "explanation": {
+    "approach": "One leaf is two objects deep (`a.b`), the other is inside an array (`c[0]`). Both get the callback. That is the walk this module gives you for free.",
+    "snippets": [
+      {
+        "label": "The generic walk, on a small fixture",
+        "script": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\nmapLeafValues({a:{b:'x'},c:['y']}, (v,p) -> upper(v as String))",
+        "expect": {
+          "output": "{ \"a\": { \"b\": \"X\" }, \"c\": [ \"Y\" ] }"
+        },
+        "note": "One leaf is two objects deep (`a.b`), the other is inside an array (`c[0]`). Both get the callback. That is the walk this module gives you for free."
+      }
+    ]
+  },
+  "derivedFrom": "redact-nested-emails"
+}

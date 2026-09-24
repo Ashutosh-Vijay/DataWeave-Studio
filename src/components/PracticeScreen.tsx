@@ -28,6 +28,7 @@ import { useEditorFont } from '../hooks/useEditorFont';
 import type { TraceRow } from '../hooks/useDWRunner';
 import {
   gradeSubmission,
+  gradePrediction,
   nextUnsolved,
   type GradeResult,
   type PracticeQuestion,
@@ -375,6 +376,9 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
    */
   const [trace, setTrace] = useState<TraceRow[] | null>(null);
   const [result, setResult] = useState<GradeResult | null>(null);
+  /** `predict` mode: what you typed, and how it compared to the engine. */
+  const [guess, setGuess] = useState('');
+  const [verdict, setVerdict] = useState<{ correct: boolean; because: string; actual: string } | null>(null);
   const [hintsShown, setHintsShown] = useState(0);
   const [showSolution, setShowSolution] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
@@ -412,6 +416,8 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
     setSampleOut(null);
     setTrace(null);
     setResult(null);
+    setGuess('');
+    setVerdict(null);
     setHintsShown(0);
     setShowSolution(false);
     setShowExplanation(false);
@@ -465,7 +471,7 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
   );
 
   const handleRun = async () => {
-    if (!question) return;
+    if (!question?.cases.length) return;
     setRunning(true);
     setResult(null);
     setTrace(null);
@@ -516,13 +522,52 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
    * the moment you can see it evaluating to null.
    */
   const handleTrace = async () => {
-    if (!question) return;
+    if (!question?.cases.length) return;
     setRunning(true);
     setResult(null);
     try {
       const r = await runOnce(question.cases[0].input, question, script, true);
       setSampleOut({ ok: r.ok, text: r.ok ? r.output : (r.error ?? 'failed') });
       setTrace(r.trace ?? []);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  /**
+   * Mark a prediction. The script is run now rather than compared against a
+   * stored answer, so the expected value is whatever this engine really does
+   * — there is nothing saved that could drift away from it.
+   */
+  const handleCheck = async () => {
+    if (!question?.given) return;
+    setRunning(true);
+    try {
+      const r = await runOnce(question.given.payload ?? '{}', question, question.given.script);
+      const v = gradePrediction(guess, r);
+      setVerdict({ ...v, actual: r.ok ? r.output : (r.error ?? 'it errored') });
+
+      const prev = progress[question.id] ?? { solved: false, viewedSolution: false, attempts: 0 };
+      const next: Progress = {
+        solved: prev.solved || v.correct,
+        viewedSolution: prev.viewedSolution,
+        attempts: prev.attempts + 1,
+      };
+      const updated = { ...progress, [question.id]: next };
+      setProgress(updated);
+      saveProgress(updated);
+
+      const log = trimLog([...events, { t: Date.now(), id: question.id, solved: v.correct }]);
+      setEvents(log);
+      try {
+        localStorage.setItem(ACTIVITY_KEY, JSON.stringify(log));
+      } catch {
+        /* blocked storage */
+      }
+      if (v.correct) {
+        setStopped(true);
+        setShowExplanation(true);
+      }
     } finally {
       setRunning(false);
     }
@@ -752,19 +797,26 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
 
               <Prose text={question.prompt} />
 
-              <div className="mt-4">
-                <div className="text-[10px] uppercase tracking-[0.6px] font-semibold text-content-faint mb-1">Sample input</div>
-                <pre className="rounded p-2.5 text-[11.5px] font-mono whitespace-pre-wrap break-words leading-relaxed border" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)', color: 'var(--content)' }}>
-                  {question.cases[0].input}
-                </pre>
-                <div className="text-[10px] uppercase tracking-[0.6px] font-semibold text-content-faint mb-1 mt-3">Expected output</div>
-                <pre className="rounded p-2.5 text-[11.5px] font-mono whitespace-pre-wrap break-words leading-relaxed border" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)', color: 'var(--content)' }}>
-                  {question.cases[0].output}
-                </pre>
-                <div className="text-[11px] text-content-ghost mt-1.5">
-                  Submit runs {question.cases.length - 1} more case{question.cases.length === 2 ? '' : 's'} you cannot see.
+              {/* A predict question has no cases — it asks you to read a
+                  script, not to satisfy one. Reading cases[0] unconditionally
+                  took the whole screen down with an error boundary. */}
+              {question.cases.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-[10px] uppercase tracking-[0.6px] font-semibold text-content-faint mb-1">Sample input</div>
+                  <pre className="rounded p-2.5 text-[11.5px] font-mono whitespace-pre-wrap break-words leading-relaxed border" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)', color: 'var(--content)' }}>
+                    {question.cases[0].input}
+                  </pre>
+                  <div className="text-[10px] uppercase tracking-[0.6px] font-semibold text-content-faint mb-1 mt-3">Expected output</div>
+                  <pre className="rounded p-2.5 text-[11.5px] font-mono whitespace-pre-wrap break-words leading-relaxed border" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)', color: 'var(--content)' }}>
+                    {question.cases[0].output}
+                  </pre>
+                  {question.cases.length > 1 && (
+                    <div className="text-[11px] text-content-ghost mt-1.5">
+                      Submit runs {question.cases.length - 1} more case{question.cases.length === 2 ? '' : 's'} you cannot see.
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
 
               {/* hints, one at a time */}
               {(question.hints ?? []).length > 0 && (
@@ -834,7 +886,86 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
             </div>
           </div>
 
-          {/* right: write and run */}
+          {/* right: read it and say what it returns, or write and run */}
+          {question.mode === 'predict' ? (
+            <div className="flex-1 flex flex-col min-w-0">
+              <div className="h-9 shrink-0 flex items-center gap-2 px-3.5 border-b border-line-subtle">
+                <span className="text-[11px] font-medium text-content-secondary flex-1">
+                  Read this
+                </span>
+              </div>
+              <div className="px-3.5 py-3 overflow-auto">
+                <pre
+                  className="rounded p-2.5 text-[12px] font-mono whitespace-pre-wrap break-words leading-relaxed border"
+                  style={{ background: 'var(--surface-2)', borderColor: 'var(--line)', color: 'var(--content)' }}
+                >
+                  {question.given?.script}
+                </pre>
+                {question.given?.payload && (
+                  <>
+                    <div className="text-[10px] uppercase tracking-[0.6px] font-semibold text-content-faint mt-3 mb-1">
+                      Payload
+                    </div>
+                    <pre
+                      className="rounded p-2.5 text-[11.5px] font-mono whitespace-pre-wrap break-words leading-relaxed border"
+                      style={{ background: 'var(--surface-2)', borderColor: 'var(--line)', color: 'var(--content)' }}
+                    >
+                      {question.given.payload}
+                    </pre>
+                  </>
+                )}
+
+                <div className="mt-4">
+                  <label className="text-[12px] text-content-secondary block mb-1.5">
+                    What does it return? Type the value, or <code className="font-mono text-[11.5px]">error</code>.
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      value={guess}
+                      onChange={(e) => setGuess(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !running) handleCheck(); }}
+                      placeholder='e.g. [ "Ada" ]'
+                      spellCheck={false}
+                      className="flex-1 h-8 px-2.5 rounded-md border text-[12.5px] font-mono bg-surface text-content"
+                      style={{ borderColor: 'var(--line)' }}
+                    />
+                    <button
+                      onClick={handleCheck}
+                      disabled={running || !guess.trim()}
+                      className="h-8 px-3 rounded-md text-[12px] font-medium cursor-pointer disabled:opacity-40"
+                      style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+                    >
+                      {running ? 'Checking…' : 'Check'}
+                    </button>
+                  </div>
+                </div>
+
+                {verdict && (
+                  <div
+                    className="mt-3 rounded-lg border px-3.5 py-3"
+                    style={{
+                      background: `color-mix(in oklch, var(--${verdict.correct ? 'ok' : 'err'}) 6%, transparent)`,
+                      borderColor: `color-mix(in oklch, var(--${verdict.correct ? 'ok' : 'err'}) 25%, transparent)`,
+                    }}
+                  >
+                    <div
+                      className="text-[13px] font-semibold"
+                      style={{ color: verdict.correct ? 'var(--ok)' : 'var(--err)' }}
+                    >
+                      {verdict.correct ? 'Correct' : verdict.because}
+                    </div>
+                    {/* Wrong or right, you get to see the real thing — being
+                        told "no" without being shown the answer teaches
+                        nothing. */}
+                    <div className="text-[11px] text-content-faint mt-2 mb-1">The engine returns</div>
+                    <pre className="text-[11.5px] font-mono whitespace-pre-wrap break-words" style={{ color: 'var(--content-secondary)' }}>
+                      {verdict.actual}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
           <div className="flex-1 flex flex-col min-w-0">
             <div className="h-9 shrink-0 flex items-center gap-2 px-3.5 border-b border-line-subtle">
               <span className="text-[11px] font-medium text-content-secondary flex-1">Your script</span>
@@ -986,6 +1117,7 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
               )}
             </div>
           </div>
+          )}
         </div>
       )}
     </div>

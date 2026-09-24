@@ -1,0 +1,34 @@
+{
+  "id": "enrich-orders-with-customers-predict-2",
+  "unit": "joins",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "An order with no matching customer has no r key at all",
+  "topics": [
+    "leftJoin",
+    "dw::core::Arrays",
+    "object merging"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nleftJoin([{orderId:'O3',customerId:99}], [{id:1,name:'Ann'}], (o) -> o.customerId as String, (c) -> c.id as String)"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nleftJoin([{orderId:'O3',customerId:99}], [{id:1,name:'Ann'}], (o) -> o.customerId as String, (c) -> c.id as String)",
+  "explanation": {
+    "approach": "Customer 99 does not exist, so the pair for order O3 has an `l` and nothing else — there is no `r` field to be null, it is simply absent.",
+    "snippets": [
+      {
+        "label": "An order with no matching customer has no r key at all",
+        "script": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nleftJoin([{orderId:'O3',customerId:99}], [{id:1,name:'Ann'}], (o) -> o.customerId as String, (c) -> c.id as String)",
+        "expect": {
+          "output": "[{\"l\":{\"orderId\":\"O3\",\"customerId\":99}}]"
+        },
+        "note": "Customer 99 does not exist, so the pair for order O3 has an `l` and nothing else — there is no `r` field to be null, it is simply absent."
+      }
+    ]
+  },
+  "derivedFrom": "enrich-orders-with-customers"
+}

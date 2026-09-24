@@ -1,0 +1,33 @@
+{
+  "id": "event-shape-classifier-predict-3",
+  "unit": "custom-types",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "the order of the `is` checks decides the ambiguous case",
+  "topics": [
+    "type",
+    "is"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\ntype ClickEvent = { x: Number, y: Number }\ntype KeyEvent = { key: String }\noutput application/json\n---\n{\n  clickFirst: if ({x:1,y:2,key:\"Enter\"} is ClickEvent) \"Click\" else if ({x:1,y:2,key:\"Enter\"} is KeyEvent) \"Key\" else \"Unknown\",\n  keyFirst: if ({x:1,y:2,key:\"Enter\"} is KeyEvent) \"Key\" else if ({x:1,y:2,key:\"Enter\"} is ClickEvent) \"Click\" else \"Unknown\"\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\ntype ClickEvent = { x: Number, y: Number }\ntype KeyEvent = { key: String }\noutput application/json\n---\n{\n  clickFirst: if ({x:1,y:2,key:\"Enter\"} is ClickEvent) \"Click\" else if ({x:1,y:2,key:\"Enter\"} is KeyEvent) \"Key\" else \"Unknown\",\n  keyFirst: if ({x:1,y:2,key:\"Enter\"} is KeyEvent) \"Key\" else if ({x:1,y:2,key:\"Enter\"} is ClickEvent) \"Click\" else \"Unknown\"\n}",
+  "explanation": {
+    "approach": "Same event, both shapes satisfied, opposite answers depending only on which `is` test is written first. The question resolves this by requiring Click to win, so that check has to come first.",
+    "snippets": [
+      {
+        "label": "the order of the `is` checks decides the ambiguous case",
+        "script": "%dw 2.0\ntype ClickEvent = { x: Number, y: Number }\ntype KeyEvent = { key: String }\noutput application/json\n---\n{\n  clickFirst: if ({x:1,y:2,key:\"Enter\"} is ClickEvent) \"Click\" else if ({x:1,y:2,key:\"Enter\"} is KeyEvent) \"Key\" else \"Unknown\",\n  keyFirst: if ({x:1,y:2,key:\"Enter\"} is KeyEvent) \"Key\" else if ({x:1,y:2,key:\"Enter\"} is ClickEvent) \"Click\" else \"Unknown\"\n}",
+        "expect": {
+          "output": "{ \"clickFirst\": \"Click\", \"keyFirst\": \"Key\" }"
+        },
+        "note": "Same event, both shapes satisfied, opposite answers depending only on which `is` test is written first. The question resolves this by requiring Click to win, so that check has to come first."
+      }
+    ]
+  },
+  "derivedFrom": "event-shape-classifier"
+}

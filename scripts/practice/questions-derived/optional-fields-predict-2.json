@@ -1,0 +1,32 @@
+{
+  "id": "optional-fields-predict-2",
+  "unit": "conditional-fields",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "When all optionals are empty",
+  "topics": [],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, (phone: payload.phone) if (payload.phone != \"\"), (title: payload.title) if (payload.title != \"\") }",
+    "payload": "{ \"name\": \"Charlie\", \"phone\": \"\", \"title\": \"\" }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, (phone: payload.phone) if (payload.phone != \"\"), (title: payload.title) if (payload.title != \"\") }",
+  "explanation": {
+    "approach": "Both optional fields are empty, so they are dropped entirely. No null values appear.",
+    "snippets": [
+      {
+        "label": "When all optionals are empty",
+        "script": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, (phone: payload.phone) if (payload.phone != \"\"), (title: payload.title) if (payload.title != \"\") }",
+        "payload": "{ \"name\": \"Charlie\", \"phone\": \"\", \"title\": \"\" }",
+        "expect": {
+          "output": "{ \"name\": \"Charlie\" }"
+        },
+        "note": "Both optional fields are empty, so they are dropped entirely. No null values appear."
+      }
+    ]
+  },
+  "derivedFrom": "optional-fields"
+}

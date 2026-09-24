@@ -1,0 +1,35 @@
+{
+  "id": "extract-person-info-predict-4",
+  "unit": "select-and-shape",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Order is preserved",
+  "topics": [
+    "selectors",
+    "object construction"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload map {city: $.city, name: $.name, age: $.age}",
+    "payload": "[{\"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map {city: $.city, name: $.name, age: $.age}",
+  "explanation": {
+    "approach": "The output keys appear in the order you wrote them, not the order they appeared in the input. `city` first, then `name`, then `age`.",
+    "snippets": [
+      {
+        "label": "Order is preserved",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map {city: $.city, name: $.name, age: $.age}",
+        "payload": "[{\"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\"}]",
+        "expect": {
+          "output": "[ { \"city\": \"NYC\", \"name\": \"Alice\", \"age\": 30 } ]"
+        },
+        "note": "The output keys appear in the order you wrote them, not the order they appeared in the input. `city` first, then `name`, then `age`."
+      }
+    ]
+  },
+  "derivedFrom": "extract-person-info"
+}

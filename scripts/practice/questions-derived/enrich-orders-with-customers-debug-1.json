@@ -1,0 +1,107 @@
+{
+  "id": "enrich-orders-with-customers-debug-1",
+  "unit": "joins",
+  "mode": "debug",
+  "tier": "hard",
+  "title": "Fix it: enrich orders with the customer that placed them",
+  "topics": [
+    "leftJoin",
+    "dw::core::Arrays",
+    "object merging"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nYou are given `payload.orders`, an array of `{ orderId, customerId }`, and `payload.customers`, an array of `{ id, name }`.\n\nReturn an array of `{ orderId, customerId, customerName }`, one entry per order, in the order the orders appear.\n\nIf an order's `customerId` does not match any customer, `customerName` is `null`. A customer that no order references does not appear in the output at all.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\npayload.orders\n  map ((o) -> do {\n    var match = (payload.customers filter ($.id == o.customerId))[0]\n    ---\n    { orderId: o.orderId, customerId: o.customerId, customerName: match.name }\n  })\n  filter ($.customerName != null)",
+  "cases": [
+    {
+      "input": "{\"orders\":[{\"orderId\":\"O1\",\"customerId\":1},{\"orderId\":\"O2\",\"customerId\":2}],\"customers\":[{\"id\":1,\"name\":\"Ann\"},{\"id\":2,\"name\":\"Bo\"}]}",
+      "output": "[{\"orderId\":\"O1\",\"customerId\":1,\"customerName\":\"Ann\"},{\"orderId\":\"O2\",\"customerId\":2,\"customerName\":\"Bo\"}]"
+    },
+    {
+      "input": "{\"orders\":[{\"orderId\":\"O3\",\"customerId\":99}],\"customers\":[{\"id\":1,\"name\":\"Ann\"}]}",
+      "output": "[{\"orderId\":\"O3\",\"customerId\":99,\"customerName\":null}]"
+    },
+    {
+      "input": "{\"orders\":[{\"orderId\":\"O1\",\"customerId\":1}],\"customers\":[{\"id\":1,\"name\":\"Ann\"},{\"id\":2,\"name\":\"Bo\"}]}",
+      "output": "[{\"orderId\":\"O1\",\"customerId\":1,\"customerName\":\"Ann\"}]"
+    },
+    {
+      "input": "{\"orders\":[],\"customers\":[{\"id\":1,\"name\":\"Ann\"}]}",
+      "output": "[]"
+    },
+    {
+      "input": "{\"orders\":[{\"orderId\":\"O1\",\"customerId\":1},{\"orderId\":\"O2\",\"customerId\":1},{\"orderId\":\"O3\",\"customerId\":5}],\"customers\":[{\"id\":1,\"name\":\"Ann\"},{\"id\":2,\"name\":\"Bo\"}]}",
+      "output": "[{\"orderId\":\"O1\",\"customerId\":1,\"customerName\":\"Ann\"},{\"orderId\":\"O2\",\"customerId\":1,\"customerName\":\"Ann\"},{\"orderId\":\"O3\",\"customerId\":5,\"customerName\":null}]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "a nested filter per row finds the right match, but then drops any order that had none, silently losing unmatched left rows"
+  ],
+  "solution": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nleftJoin(payload.orders, payload.customers, (o) -> o.customerId as String, (c) -> c.id as String)\n  map { orderId: $.l.orderId, customerId: $.l.customerId, customerName: $.r.name }",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\npayload.orders\n  map ((o) -> do {\n    var match = (payload.customers filter ($.id == o.customerId))[0]\n    ---\n    { orderId: o.orderId, customerId: o.customerId, customerName: match.name }\n  })\n  filter ($.customerName != null)"
+    }
+  ],
+  "explanation": {
+    "approach": "`leftJoin` is not part of core DataWeave — it lives in `dw::core::Arrays` and has to be imported. Its job is narrower than 'give me the merged rows': it walks the left array and, for each item, attaches the right item whose key matches, if one exists. What comes back is a pair, `{l: ..., r: ...}` — one item from each side, never a single merged object — and when nothing on the right matches, the pair simply has no `r` at all rather than `r: null`. Turning that into the shape this question wants, and handling both edges — an order with no customer, and a customer no order points to — is the actual work.",
+    "snippets": [
+      {
+        "label": "Without the import, the name does not resolve",
+        "script": "%dw 2.0\noutput application/json\n---\nleftJoin([{id:'1'}],[{id:'1'}],(l)->l.id,(r)->r.id)",
+        "expect": {
+          "error": true
+        },
+        "note": "`leftJoin` is not in core. Calling it without `import * from dw::core::Arrays` is a compile error, not a runtime one."
+      },
+      {
+        "label": "What leftJoin actually returns: pairs, not merged rows",
+        "script": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nleftJoin(payload.orders, payload.customers, (o) -> o.customerId as String, (c) -> c.id as String)",
+        "payload": "{\"orders\":[{\"orderId\":\"O1\",\"customerId\":1},{\"orderId\":\"O2\",\"customerId\":2}],\"customers\":[{\"id\":1,\"name\":\"Ann\"},{\"id\":2,\"name\":\"Bo\"}]}",
+        "expect": {
+          "output": "[{\"l\":{\"orderId\":\"O1\",\"customerId\":1},\"r\":{\"id\":1,\"name\":\"Ann\"}},{\"l\":{\"orderId\":\"O2\",\"customerId\":2},\"r\":{\"id\":2,\"name\":\"Bo\"}}]"
+        },
+        "note": "Every element is `{l, r}` — the left order and the matched customer, sitting side by side rather than combined. Building `{ orderId, customerId, customerName }` out of this is a separate step."
+      },
+      {
+        "label": "An order with no matching customer has no r key at all",
+        "script": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nleftJoin([{orderId:'O3',customerId:99}], [{id:1,name:'Ann'}], (o) -> o.customerId as String, (c) -> c.id as String)",
+        "expect": {
+          "output": "[{\"l\":{\"orderId\":\"O3\",\"customerId\":99}}]"
+        },
+        "note": "Customer 99 does not exist, so the pair for order O3 has an `l` and nothing else — there is no `r` field to be null, it is simply absent."
+      },
+      {
+        "label": "Selecting through the missing key still gives null",
+        "script": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\n(leftJoin([{orderId:'O3',customerId:99}], [{id:1,name:'Ann'}], (o) -> o.customerId as String, (c) -> c.id as String))[0].r.name",
+        "expect": {
+          "output": "null"
+        },
+        "note": "`.r` is absent, and DataWeave selectors on a missing or null value keep returning null rather than erroring. `$.r.name` already does the right thing for an unmatched order with no extra handling."
+      },
+      {
+        "label": "The plausible wrong approach: a nested filter per row",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.orders\n  map ((o) -> do {\n    var match = (payload.customers filter ($.id == o.customerId))[0]\n    ---\n    { orderId: o.orderId, customerId: o.customerId, customerName: match.name }\n  })\n  filter ($.customerName != null)",
+        "payload": "{\"orders\":[{\"orderId\":\"O1\",\"customerId\":1},{\"orderId\":\"O3\",\"customerId\":99}],\"customers\":[{\"id\":1,\"name\":\"Ann\"}]}",
+        "expect": {
+          "output": "[{\"orderId\":\"O1\",\"customerId\":1,\"customerName\":\"Ann\"}]"
+        },
+        "note": "This looks reasonable and passes on data where everything matches. But the trailing `filter` that was meant to clean up ends up deleting order O3 entirely, because it has no customer and so no way to tell 'unmatched' apart from 'exclude this row'. The question asked for O3 to appear with `customerName: null` — it just vanished instead."
+      },
+      {
+        "label": "The full answer",
+        "script": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nleftJoin(payload.orders, payload.customers, (o) -> o.customerId as String, (c) -> c.id as String)\n  map { orderId: $.l.orderId, customerId: $.l.customerId, customerName: $.r.name }",
+        "payload": "{\"orders\":[{\"orderId\":\"O1\",\"customerId\":1},{\"orderId\":\"O2\",\"customerId\":2}],\"customers\":[{\"id\":1,\"name\":\"Ann\"},{\"id\":2,\"name\":\"Bo\"}]}",
+        "expect": {
+          "output": "[{\"orderId\":\"O1\",\"customerId\":1,\"customerName\":\"Ann\"},{\"orderId\":\"O2\",\"customerId\":2,\"customerName\":\"Bo\"}]"
+        },
+        "note": "The join finds the pairs; the `map` afterward flattens each `{l, r}` pair into the final shape, and `$.r.name` reads as null on its own for any order that had no match."
+      }
+    ]
+  },
+  "derivedFrom": "enrich-orders-with-customers"
+}

@@ -1,0 +1,108 @@
+{
+  "id": "generic-key-rewrite-debug-2",
+  "unit": "generic-key-rewrite",
+  "mode": "debug",
+  "tier": "max",
+  "title": "Fix it: rename every key, everywhere, at any depth",
+  "topics": [
+    "fun",
+    "mapObject",
+    "recursion"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nYou are given JSON of unknown shape — objects nested inside arrays nested inside objects, to any depth. Every key that uses `snake_case` has to come out `camelCase`, no matter how deep it sits.\n\nOnly keys change. A value is left exactly as it is, even if it happens to be a string that itself looks like `snake_case` — `\"account_status\": \"in_progress\"` becomes `\"accountStatus\": \"in_progress\"`, not `\"accountStatus\": \"inProgress\"`.\n\nThe input is not always an object at the top. It can be an array, and arrays can hold plain scalars as well as objects — a list of tags, for instance, sitting next to a list of line items.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\nfun rewrite(v) = v match {\n  case o is Object -> o mapObject ((val, key) -> { (camelKey(key)): rewrite(val) })\n  case a is Array -> a map rewrite($)\n  case s is String -> camelKey(s)\n  else -> v\n}\n---\nrewrite(payload)",
+  "cases": [
+    {
+      "input": "{\n  \"user_id\": 1,\n  \"full_name\": \"Ada Lovelace\",\n  \"shipping_address\": {\n    \"street_name\": \"5th Ave\",\n    \"zip_code\": \"10001\"\n  },\n  \"phone_numbers\": [\"555-1000\", \"555-2000\"]\n}",
+      "output": "{\"userId\":1,\"fullName\":\"Ada Lovelace\",\"shippingAddress\":{\"streetName\":\"5th Ave\",\"zipCode\":\"10001\"},\"phoneNumbers\":[\"555-1000\",\"555-2000\"]}"
+    },
+    {
+      "input": "[{\"order_id\":\"O1\",\"line_items\":[{\"item_sku\":\"A1\",\"unit_price\":9.99},{\"item_sku\":\"A2\",\"unit_price\":3.5}],\"special_tags\":[\"gift_wrap\",\"priority_ship\"]}]",
+      "output": "[{\"orderId\":\"O1\",\"lineItems\":[{\"itemSku\":\"A1\",\"unitPrice\":9.99},{\"itemSku\":\"A2\",\"unitPrice\":3.5}],\"specialTags\":[\"gift_wrap\",\"priority_ship\"]}]"
+    },
+    {
+      "input": "{}",
+      "output": "{}"
+    },
+    {
+      "input": "\"just_a_string\"",
+      "output": "\"just_a_string\""
+    },
+    {
+      "input": "{\"first_name\": null, \"account_status\": \"in_progress\"}",
+      "output": "{\"firstName\": null, \"accountStatus\": \"in_progress\"}"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "renames values as well as keys, by running camelKey on every String it meets instead of only on keys — account_status: \"in_progress\" comes out with the value mangled too"
+  ],
+  "solution": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\nfun rewrite(v) = v match {\n  case o is Object -> o mapObject ((val, key) -> { (camelKey(key)): rewrite(val) })\n  case a is Array -> a map rewrite($)\n  else -> v\n}\n---\nrewrite(payload)",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\nfun rewrite(v) = v match {\n  case o is Object -> o mapObject ((val, key) -> { (camelKey(key)): rewrite(val) })\n  case a is Array -> a map rewrite($)\n  case s is String -> camelKey(s)\n  else -> v\n}\n---\nrewrite(payload)"
+    }
+  ],
+  "explanation": {
+    "approach": "There is no built-in that walks arbitrary JSON and renames keys — the shape isn't known until you're looking at the value in front of you, so the walk has to be written as a recursive function with one branch per kind of value: an Object renames its own keys with `mapObject` and recurses into each value; an Array just recurses into each element, unchanged in kind; anything else (`String`, `Number`, `Boolean`, `null`) is a leaf and comes back untouched. `dw::util::Tree`'s `mapLeafValues` looks like it should help — it also walks a whole structure — but it transforms leaf VALUES, and this task is about KEYS, so it doesn't apply here. The part that actually catches people is the Array branch: it's tempting to assume every array holds more objects, but an array can just as easily hold scalars, and calling an object-only function on a scalar element is a hard error, not a smaller correct answer.",
+    "snippets": [
+      {
+        "label": "camelKey on its own, including a mid-word digit",
+        "script": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\n---\n{\n  a: camelKey(\"user_id\"),\n  b: camelKey(\"full_name\"),\n  c: camelKey(\"item_2_id\"),\n  d: camelKey(\"already\")\n}",
+        "expect": {
+          "output": "{ \"a\": \"userId\", \"b\": \"fullName\", \"c\": \"item2Id\", \"d\": \"already\" }"
+        },
+        "note": "Splitting on `_` and capitalizing the first letter of every part after the first — a key with no underscore at all just comes back unchanged, which is what `camelKey(\"already\")` shows."
+      },
+      {
+        "label": "The full recursive walk on the sample",
+        "script": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\nfun rewrite(v) = v match {\n  case o is Object -> o mapObject ((val, key) -> { (camelKey(key)): rewrite(val) })\n  case a is Array -> a map rewrite($)\n  else -> v\n}\n---\nrewrite(payload)",
+        "payload": "{\"user_id\":1,\"shipping_address\":{\"street_name\":\"5th Ave\"},\"phone_numbers\":[\"555-1000\",\"555-2000\"]}",
+        "expect": {
+          "output": "{ \"userId\": 1, \"shippingAddress\": { \"streetName\": \"5th Ave\" }, \"phoneNumbers\": [\"555-1000\", \"555-2000\"] }"
+        },
+        "note": "Object keys are renamed at every level; the array of phone numbers passes through the Array branch and each String inside hits `else`, so the numbers themselves are untouched."
+      },
+      {
+        "label": "mapLeafValues walks the whole tree too, but it never sees the keys",
+        "script": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\nmapLeafValues({user_id: 1, full_name: \"Ada\"}, (v, p) -> v)",
+        "expect": {
+          "output": "{ \"user_id\": 1, \"full_name\": \"Ada\" }"
+        },
+        "note": "Even though the callback runs on every leaf, the keys `user_id` and `full_name` come back exactly as they went in — `mapLeafValues` is a value-mapper, not a key-mapper, so it cannot do this task no matter what the callback does."
+      },
+      {
+        "label": "Why the Array branch can't assume every element is an Object",
+        "script": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\nfun rewrite(v) = v match {\n  case o is Object -> o mapObject ((val, key) -> { (camelKey(key)): rewrite(val) })\n  case a is Array -> a map ((elem) -> elem mapObject ((val, key) -> { (camelKey(key)): rewrite(val) }))\n  else -> v\n}\n---\nrewrite(payload)",
+        "payload": "{\"user_id\":1,\"contact_info\":{\"phone_numbers\":[\"555-1000\",\"555-2000\"]}}",
+        "expect": {
+          "error": true
+        },
+        "note": "This version renames nested objects fine right up until the Array branch reaches `phone_numbers`, whose elements are Strings. Calling `mapObject` on a String is `UnexpectedFunctionCallTypesException`, not a partial result — the whole script fails on a payload that looks perfectly ordinary."
+      },
+      {
+        "label": "A scalar at the top has no keys to rename",
+        "script": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\nfun rewrite(v) = v match {\n  case o is Object -> o mapObject ((val, key) -> { (camelKey(key)): rewrite(val) })\n  case a is Array -> a map rewrite($)\n  else -> v\n}\n---\nrewrite(payload)",
+        "payload": "\"just_a_string\"",
+        "expect": {
+          "output": "\"just_a_string\""
+        },
+        "note": "A bare String hits the `else` branch immediately and comes back unchanged. It looks like it might get run through `camelKey` by mistake, since it's shaped like a key, but the function never treats a value as a key."
+      },
+      {
+        "label": "null is a value like any other, and its key still gets renamed",
+        "script": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\nfun rewrite(v) = v match {\n  case o is Object -> o mapObject ((val, key) -> { (camelKey(key)): rewrite(val) })\n  case a is Array -> a map rewrite($)\n  else -> v\n}\n---\nrewrite(payload)",
+        "payload": "{\"first_name\": null, \"account_status\": \"in_progress\"}",
+        "expect": {
+          "output": "{ \"firstName\": null, \"accountStatus\": \"in_progress\" }"
+        },
+        "note": "`first_name`'s key is renamed even though its value is `null` — the recursion doesn't skip a key just because there was nothing to walk into. And `account_status`'s value, `\"in_progress\"`, keeps its underscore: only the key beside it changed."
+      }
+    ]
+  },
+  "derivedFrom": "generic-key-rewrite"
+}

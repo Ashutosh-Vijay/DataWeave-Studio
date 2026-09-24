@@ -1,0 +1,106 @@
+{
+  "id": "region-category-totals-debug-1",
+  "unit": "nested-aggregation",
+  "mode": "debug",
+  "tier": "hard",
+  "title": "Fix it: a sales summary, two levels deep",
+  "topics": [
+    "groupBy",
+    "mapObject",
+    "sum"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nYou are given an array of sales records, each `{ region, category, amount }`. Build a summary object where each key is a `region`, and each value is an object mapping `category` to the sum of `amount` for that region and category.\n\nFor example, two `West` records in `Widgets` and one in `Gadgets` become `{ \"West\": { \"Widgets\": <sum>, \"Gadgets\": <sum> } }`. A region that only ever appears with one category still produces an object, just with one key.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n(payload groupBy $.region) map {\n  (($$)): $ groupBy $.category\n}",
+  "cases": [
+    {
+      "input": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"West\",\"category\":\"Gadgets\",\"amount\":40},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]",
+      "output": "{\"West\":{\"Widgets\":100,\"Gadgets\":40},\"East\":{\"Widgets\":90}}"
+    },
+    {
+      "input": "[{\"region\":\"North\",\"category\":\"Widgets\",\"amount\":25}]",
+      "output": "{\"North\":{\"Widgets\":25}}"
+    },
+    {
+      "input": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":10},{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":15},{\"region\":\"West\",\"category\":\"Gadgets\",\"amount\":5},{\"region\":\"East\",\"category\":\"Gadgets\",\"amount\":8},{\"region\":\"South\",\"category\":\"Widgets\",\"amount\":2}]",
+      "output": "{\"West\":{\"Widgets\":25,\"Gadgets\":5},\"East\":{\"Gadgets\":8},\"South\":{\"Widgets\":2}}"
+    },
+    {
+      "input": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":1},{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":2},{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":3}]",
+      "output": "{\"West\":{\"Widgets\":6}}"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "calls map directly on the object groupBy returns, which is a hard engine error, not a smaller or partial result"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region mapObject ((lines, region) -> {\n  (region): lines groupBy $.category mapObject ((catLines, category) -> {\n    (category): sum(catLines.amount)\n  })\n})",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\n(payload groupBy $.region) map {\n  (($$)): $ groupBy $.category\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "`groupBy` never returns an Array — it returns an Object whose keys are the grouping values and whose values are the Arrays of matching items. That means the next step in the chain has to be something that iterates an Object, which is `pluck` (Object to Array) or `mapObject` (Object to Object), never `map` (Array to Array). A two-level report just applies this twice: group by region into an Object of Arrays, then inside each Array group by category and reduce each bucket to a single number with `sum`.",
+    "snippets": [
+      {
+        "label": "Check the shape before you chain anything onto it",
+        "script": "%dw 2.0\noutput application/json\n---\n{ raw: typeOf(payload), grouped: typeOf(payload groupBy $.region) }",
+        "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]",
+        "expect": {
+          "output": "{ \"raw\": \"Array\", \"grouped\": \"Object\" }"
+        },
+        "note": "An Array goes in and an Object comes out. That one line decides everything after it: the next step has to be an object function, and reaching for `map` here is an error rather than a wrong answer."
+      },
+      {
+        "label": "What groupBy actually hands back",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region",
+        "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]",
+        "expect": {
+          "output": "{ \"West\": [ { \"region\": \"West\", \"category\": \"Widgets\", \"amount\": 100 } ], \"East\": [ { \"region\": \"East\", \"category\": \"Widgets\", \"amount\": 90 } ] }"
+        },
+        "note": "An Object, keyed by region, each value still the Array of full records that matched. Nothing has been summed yet."
+      },
+      {
+        "label": "Calling map on that Object",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload groupBy $.region) map $",
+        "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]",
+        "expect": {
+          "error": true
+        },
+        "note": "`UnexpectedFunctionCallTypesException`: map wants an Array and was handed an Object. This is not a wrong answer that runs — it does not run at all, which is exactly why it is easy to write without noticing: the mistake shows up as a stack trace, not a bad number."
+      },
+      {
+        "label": "mapObject, going Object to Object, is the shape that fits",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region mapObject ((lines, region) -> {\n  (region): sum(lines.amount)\n})",
+        "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"West\",\"category\":\"Gadgets\",\"amount\":40},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]",
+        "expect": {
+          "output": "{ \"West\": 140, \"East\": 90 }"
+        },
+        "note": "This is one level of aggregation — a single total per region. It compiles and runs, but it throws away the category breakdown the report actually needs; West's Widgets and Gadgets are already merged into 140 before there is any chance to split them back out."
+      },
+      {
+        "label": "The full two-level chain",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region mapObject ((lines, region) -> {\n  (region): lines groupBy $.category mapObject ((catLines, category) -> {\n    (category): sum(catLines.amount)\n  })\n})",
+        "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"West\",\"category\":\"Gadgets\",\"amount\":40},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]",
+        "expect": {
+          "output": "{ \"West\": { \"Widgets\": 100, \"Gadgets\": 40 }, \"East\": { \"Widgets\": 90 } }"
+        },
+        "note": "The inner `groupBy $.category mapObject ...` runs once per region, on that region's own Array of records, before its result becomes the value stored under `(region)`."
+      },
+      {
+        "label": "pluck is the Object-to-Array alternative, useful for a flatter report",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region pluck ((lines, region) -> { region: region, total: sum(lines.amount) })",
+        "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"West\",\"category\":\"Gadgets\",\"amount\":40},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]",
+        "expect": {
+          "output": "[ { \"region\": \"West\", \"total\": 140 }, { \"region\": \"East\", \"total\": 90 } ] "
+        },
+        "note": "Same grouped Object, but `pluck` turns it into an Array of `{region, total}` rows instead of a nested Object. Neither `pluck` nor `mapObject` is `map` in disguise — each names what the input actually is."
+      }
+    ]
+  },
+  "derivedFrom": "region-category-totals"
+}

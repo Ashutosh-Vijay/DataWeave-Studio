@@ -1,0 +1,37 @@
+{
+  "id": "namespaced-customer-status-predict-1",
+  "unit": "xml-namespaces",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "Qualifying both selectors resolves the ambiguity",
+  "topics": [
+    "ns",
+    "namespace-qualified selectors",
+    "@id"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nns a http://a.com\nns b http://b.com\n---\n{ aStatus: payload.root.a#Status, bStatus: payload.root.b#Status }",
+    "payload": "<root xmlns:a=\"http://a.com\" xmlns:b=\"http://b.com\"><a:Status>OK</a:Status><b:Status>FAIL</b:Status></root>"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nns a http://a.com\nns b http://b.com\n---\n{ aStatus: payload.root.a#Status, bStatus: payload.root.b#Status }",
+  "explanation": {
+    "approach": "Once each selector names both the prefix and the local name, each one reaches exactly the element it means.",
+    "snippets": [
+      {
+        "label": "Qualifying both selectors resolves the ambiguity",
+        "script": "%dw 2.0\noutput application/json\nns a http://a.com\nns b http://b.com\n---\n{ aStatus: payload.root.a#Status, bStatus: payload.root.b#Status }",
+        "payload": "<root xmlns:a=\"http://a.com\" xmlns:b=\"http://b.com\"><a:Status>OK</a:Status><b:Status>FAIL</b:Status></root>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "{ \"aStatus\": \"OK\", \"bStatus\": \"FAIL\" }"
+        },
+        "note": "Once each selector names both the prefix and the local name, each one reaches exactly the element it means."
+      }
+    ]
+  },
+  "derivedFrom": "namespaced-customer-status"
+}

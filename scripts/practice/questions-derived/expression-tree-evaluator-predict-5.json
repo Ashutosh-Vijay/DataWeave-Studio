@@ -1,0 +1,36 @@
+{
+  "id": "expression-tree-evaluator-predict-5",
+  "unit": "expression-evaluator",
+  "mode": "predict",
+  "tier": "max",
+  "title": "Division returns a decimal without any special-casing",
+  "topics": [
+    "fun",
+    "match",
+    "recursion"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.l) - eval(o.r)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.l) / eval(o.r)\n}\n---\neval(payload)",
+    "payload": "{ \"op\": \"/\", \"l\": 7, \"r\": 2 }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.l) - eval(o.r)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.l) / eval(o.r)\n}\n---\neval(payload)",
+  "explanation": {
+    "approach": "`/` is never integer division in DataWeave, so this needs no extra handling to come out as `3.5`.",
+    "snippets": [
+      {
+        "label": "Division returns a decimal without any special-casing",
+        "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.l) - eval(o.r)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.l) / eval(o.r)\n}\n---\neval(payload)",
+        "payload": "{ \"op\": \"/\", \"l\": 7, \"r\": 2 }",
+        "expect": {
+          "output": "3.5"
+        },
+        "note": "`/` is never integer division in DataWeave, so this needs no extra handling to come out as `3.5`."
+      }
+    ]
+  },
+  "derivedFrom": "expression-tree-evaluator"
+}

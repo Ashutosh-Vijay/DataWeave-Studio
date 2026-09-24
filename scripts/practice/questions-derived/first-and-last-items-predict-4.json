@@ -1,0 +1,32 @@
+{
+  "id": "first-and-last-items-predict-4",
+  "unit": "sizeof-and-slicing",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "sizeOf tells you the length",
+  "topics": [
+    "sizeOf"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{array: [10, 20, 30, 40], size: sizeOf([10, 20, 30, 40])}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{array: [10, 20, 30, 40], size: sizeOf([10, 20, 30, 40])}",
+  "explanation": {
+    "approach": "sizeOf returns the count. But for the last item, negative indexing is simpler than calculating sizeOf(payload) - 1.",
+    "snippets": [
+      {
+        "label": "sizeOf tells you the length",
+        "script": "%dw 2.0\noutput application/json\n---\n{array: [10, 20, 30, 40], size: sizeOf([10, 20, 30, 40])}",
+        "expect": {
+          "output": "{ \"array\": [ 10, 20, 30, 40 ], \"size\": 4 }"
+        },
+        "note": "sizeOf returns the count. But for the last item, negative indexing is simpler than calculating sizeOf(payload) - 1."
+      }
+    ]
+  },
+  "derivedFrom": "first-and-last-items"
+}

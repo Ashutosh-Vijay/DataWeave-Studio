@@ -1,0 +1,32 @@
+{
+  "id": "first-and-last-items-predict-2",
+  "unit": "sizeof-and-slicing",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "An index past the end is null",
+  "topics": [
+    "sizeOf"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[1,2,3][9]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[1,2,3][9]",
+  "explanation": {
+    "approach": "Out-of-bounds access does not throw an error; it just returns null. This is useful for defensive coding.",
+    "snippets": [
+      {
+        "label": "An index past the end is null",
+        "script": "%dw 2.0\noutput application/json\n---\n[1,2,3][9]",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Out-of-bounds access does not throw an error; it just returns null. This is useful for defensive coding."
+      }
+    ]
+  },
+  "derivedFrom": "first-and-last-items"
+}

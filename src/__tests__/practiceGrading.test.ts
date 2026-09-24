@@ -3,6 +3,7 @@ import {
   deepEqual,
   outputsMatch,
   gradeSubmission,
+  gradePrediction,
   nextUnsolved,
   type PracticeQuestion,
   type RunOutcome,
@@ -212,5 +213,59 @@ describe('nextUnsolved', () => {
   it('returns null when there is nowhere to go', () => {
     expect(nextUnsolved(set.slice(0, 1), 'a', () => false)).toBeNull();
     expect(nextUnsolved(set, 'missing', () => false)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
+ * A predict question shows you a script and asks what it returns. It must be
+ * lenient about typing and strict about understanding — the difference between
+ * `1` and `"1"` is half of what these questions exist to teach.
+ */
+describe('gradePrediction', () => {
+  const ran = (output: string) => ({ ok: true, output });
+  const threw = { ok: false, output: '' };
+
+  it('accepts the right answer typed in any reasonable shape', () => {
+    expect(gradePrediction('{"a":1}', ran('{\n  "a": 1\n}')).correct).toBe(true);
+    expect(gradePrediction('  [ 1, 2 ]  ', ran('[1,2]')).correct).toBe(true);
+    expect(gradePrediction('{"b":2,"a":1}', ran('{"a":1,"b":2}')).correct).toBe(true);
+  });
+
+  it('rejects a different value', () => {
+    expect(gradePrediction('[1,2,3]', ran('[1,2]')).correct).toBe(false);
+  });
+
+  it('keeps the string/number distinction, which is the whole lesson', () => {
+    expect(gradePrediction('{"1":2}', ran('{"1":2}')).correct).toBe(true);
+    expect(gradePrediction('{"a":1}', ran('{"a":"1"}')).correct).toBe(false);
+  });
+
+  it('lets "it errors" be the answer when the script really does', () => {
+    expect(gradePrediction('error', threw).correct).toBe(true);
+    expect(gradePrediction('It errors', threw).correct).toBe(true);
+    expect(gradePrediction('compile error', threw).correct).toBe(true);
+  });
+
+  it('does not let "error" pass when the script runs fine', () => {
+    const r = gradePrediction('error', ran('[1]'));
+    expect(r.correct).toBe(false);
+    expect(r.because).toMatch(/returns a value/);
+  });
+
+  it('does not let a value pass when the script errors', () => {
+    const r = gradePrediction('[1]', threw);
+    expect(r.correct).toBe(false);
+    expect(r.because).toMatch(/errors/);
+  });
+
+  it('treats an empty answer as unanswered rather than wrong', () => {
+    expect(gradePrediction('   ', ran('[1]')).because).toMatch(/Nothing typed/);
+  });
+
+  it('honours expectedError even when the run happened to succeed', () => {
+    // Belt and braces: a question can declare the answer is an error.
+    expect(gradePrediction('error', ran('anything'), true).correct).toBe(true);
   });
 });

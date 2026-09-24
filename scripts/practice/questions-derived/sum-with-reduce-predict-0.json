@@ -1,0 +1,35 @@
+{
+  "id": "sum-with-reduce-predict-0",
+  "unit": "reduce-seed",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "How reduce processes elements",
+  "topics": [
+    "reduce",
+    "seed"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[10, 20, 30] reduce ((element, acc = 0) -> acc + element)",
+    "payload": null
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[10, 20, 30] reduce ((element, acc = 0) -> acc + element)",
+  "explanation": {
+    "approach": "Each element gets added to `acc`, which starts at 0. After the first pass, acc is 10. After the second, 30. After the third, 60.",
+    "snippets": [
+      {
+        "label": "How reduce processes elements",
+        "script": "%dw 2.0\noutput application/json\n---\n[10, 20, 30] reduce ((element, acc = 0) -> acc + element)",
+        "payload": null,
+        "expect": {
+          "output": "60"
+        },
+        "note": "Each element gets added to `acc`, which starts at 0. After the first pass, acc is 10. After the second, 30. After the third, 60."
+      }
+    ]
+  },
+  "derivedFrom": "sum-with-reduce"
+}

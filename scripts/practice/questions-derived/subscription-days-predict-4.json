@@ -1,0 +1,35 @@
+{
+  "id": "subscription-days-predict-4",
+  "unit": "date-arithmetic",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "The `as Date` is not load-bearing here",
+  "topics": [
+    "Period",
+    "as"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload map { id: $.id, days: ($.end - $.start).days }",
+    "payload": "[{\"id\":\"S1\",\"start\":\"2027-02-01\",\"end\":\"2027-03-01\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map { id: $.id, days: ($.end - $.start).days }",
+  "explanation": {
+    "approach": "Dropping the coercions still works on this input. Keep them anyway: they say in the script that these strings are dates, and they fail loudly on the day a record arrives with `\"\"` or `\"01/02/2027\"` in it instead of quietly doing something else.",
+    "snippets": [
+      {
+        "label": "The `as Date` is not load-bearing here",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map { id: $.id, days: ($.end - $.start).days }",
+        "payload": "[{\"id\":\"S1\",\"start\":\"2027-02-01\",\"end\":\"2027-03-01\"}]",
+        "expect": {
+          "output": "[ { \"id\": \"S1\", \"days\": 28 } ]"
+        },
+        "note": "Dropping the coercions still works on this input. Keep them anyway: they say in the script that these strings are dates, and they fail loudly on the day a record arrives with `\"\"` or `\"01/02/2027\"` in it instead of quietly doing something else."
+      }
+    ]
+  },
+  "derivedFrom": "subscription-days"
+}

@@ -1,0 +1,36 @@
+{
+  "id": "region-category-totals-predict-3",
+  "unit": "nested-aggregation",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "mapObject, going Object to Object, is the shape that fits",
+  "topics": [
+    "groupBy",
+    "mapObject",
+    "sum"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region mapObject ((lines, region) -> {\n  (region): sum(lines.amount)\n})",
+    "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"West\",\"category\":\"Gadgets\",\"amount\":40},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region mapObject ((lines, region) -> {\n  (region): sum(lines.amount)\n})",
+  "explanation": {
+    "approach": "This is one level of aggregation — a single total per region. It compiles and runs, but it throws away the category breakdown the report actually needs; West's Widgets and Gadgets are already merged into 140 before there is any chance to split them back out.",
+    "snippets": [
+      {
+        "label": "mapObject, going Object to Object, is the shape that fits",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region mapObject ((lines, region) -> {\n  (region): sum(lines.amount)\n})",
+        "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"West\",\"category\":\"Gadgets\",\"amount\":40},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]",
+        "expect": {
+          "output": "{ \"West\": 140, \"East\": 90 }"
+        },
+        "note": "This is one level of aggregation — a single total per region. It compiles and runs, but it throws away the category breakdown the report actually needs; West's Widgets and Gadgets are already merged into 140 before there is any chance to split them back out."
+      }
+    ]
+  },
+  "derivedFrom": "region-category-totals"
+}

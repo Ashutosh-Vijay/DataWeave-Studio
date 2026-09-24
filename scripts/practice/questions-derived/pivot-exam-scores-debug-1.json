@@ -1,0 +1,120 @@
+{
+  "id": "pivot-exam-scores-debug-1",
+  "unit": "pivot",
+  "mode": "debug",
+  "tier": "max",
+  "title": "Fix it: rows into columns, columns unknown in advance",
+  "topics": [
+    "groupBy",
+    "pluck",
+    "reduce",
+    "distinctBy"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nYou are given exam records, each `{ student, subject, score }` — one row per student per subject they sat. Pivot this into one CSV row per student, with one column per subject.\n\nThe list of subjects is not given anywhere; it has to be discovered from the data, in the order each subject first appears. If a student has no record for some subject that other students do have, that student's cell for it is `0` — every row must have every column, or the file is not a rectangle.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/csv",
+  "compare": "text",
+  "starter": "%dw 2.0\noutput application/csv\n---\npayload groupBy $.student pluck ((rows, student) -> rows reduce ((r, acc = {student: student}) -> acc ++ {(r.subject): r.score}))",
+  "cases": [
+    {
+      "input": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]",
+      "output": "student,Math,Bio\r\nAda,90,70\r\nBo,60,0\r\n"
+    },
+    {
+      "input": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60},{\"student\":\"Bo\",\"subject\":\"Chem\",\"score\":80}]",
+      "output": "student,Math,Chem\r\nAda,90,0\r\nBo,60,80\r\n"
+    },
+    {
+      "input": "[]",
+      "output": ""
+    },
+    {
+      "input": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":88.5}]",
+      "output": "student,Math\r\nAda,88.5\r\n"
+    },
+    {
+      "input": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Cy\",\"subject\":\"Math\"}]",
+      "output": "student,Math\r\nAda,90\r\nCy,0\r\n"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "builds each row only from the subjects that student actually has, instead of the full discovered list, so a student missing a subject produces a row with fewer columns than the others and the CSV comes out ragged"
+  ],
+  "solution": "%dw 2.0\noutput application/csv\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/csv\n---\npayload groupBy $.student pluck ((rows, student) -> rows reduce ((r, acc = {student: student}) -> acc ++ {(r.subject): r.score}))"
+    }
+  ],
+  "explanation": {
+    "approach": "The set of output columns is not known until the whole input has been looked at, so it has to be computed once, up front, rather than assembled row by row. `(payload map $.subject) distinctBy $` collects every subject exactly once, in the order it first shows up, and `distinctBy` keeping the first match is what makes that order the same regardless of which student happens to mention a subject first. From there, `groupBy $.student` buckets the records per student, and for each bucket a `reduce` over the full subject list — not over that student's own rows — builds one row with a key for every column, filling in `0` wherever that student has no matching record. Reducing over the student's own rows instead of the discovered list is the natural-looking mistake: it works until two students have different subjects, at which point the rows stop having the same columns.",
+    "snippets": [
+      {
+        "label": "Discovering the columns, in first-seen order",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload map $.subject) distinctBy $",
+        "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]",
+        "expect": {
+          "output": "[ \"Math\", \"Bio\" ]"
+        },
+        "note": "Math and Bio, each once, in the order they first appear — Bo's second Math record does not add a duplicate or move anything."
+      },
+      {
+        "label": "groupBy buckets by student; the row is built by reduce over the SUBJECT list",
+        "script": "%dw 2.0\noutput application/json\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+        "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]",
+        "expect": {
+          "output": "[ { \"student\": \"Ada\", \"Math\": 90, \"Bio\": 70 }, { \"student\": \"Bo\", \"Math\": 60, \"Bio\": 0 } ]"
+        },
+        "note": "Bo never sat Bio, so filtering his rows for subject Bio finds nothing, `[0]` on that empty array is null, `.score` on null is null, and `default 0` turns that into the column value. Bo's row still has a Bio key."
+      },
+      {
+        "label": "The same result written out as the CSV the question actually asks for",
+        "script": "%dw 2.0\noutput application/csv\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+        "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]",
+        "outputMime": "application/csv",
+        "compare": "text",
+        "expect": {
+          "output": "student,Math,Bio\r\nAda,90,70\r\nBo,60,0\r\n"
+        },
+        "note": "Every row has exactly three fields in the same order, so the CSV writer's header lines up with every row underneath it."
+      },
+      {
+        "label": "The near-miss: reducing over a student's OWN rows instead of the full subject list",
+        "script": "%dw 2.0\noutput application/csv\n---\npayload groupBy $.student pluck ((rows, student) -> rows reduce ((r, acc = {student: student}) -> acc ++ {(r.subject): r.score}))",
+        "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]",
+        "outputMime": "application/csv",
+        "compare": "text",
+        "expect": {
+          "output": "student,Math,Bio\r\nAda,90,70\r\nBo,60\r\n"
+        },
+        "note": "This compiles, runs, and looks right for Ada. Bo only ever appears with a Math record, so his row only ever gets a Math key — the writer takes its header from the first row (Ada's, with Bio) and then writes Bo's shorter row underneath it misaligned, one column short, instead of erroring."
+      },
+      {
+        "label": "A subject discovered late still becomes a column for the students seen earlier",
+        "script": "%dw 2.0\noutput application/csv\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+        "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60},{\"student\":\"Bo\",\"subject\":\"Chem\",\"score\":80}]",
+        "outputMime": "application/csv",
+        "compare": "text",
+        "expect": {
+          "output": "student,Math,Chem\r\nAda,90,0\r\nBo,60,80\r\n"
+        },
+        "note": "Chem is not discovered until Bo's second record, three rows into the payload, but the discovery pass runs over the whole input before any row is built, so Ada's row — built after discovery — still gets a Chem column, filled with 0."
+      },
+      {
+        "label": "A record with no score at all still produces a column, filled with 0",
+        "script": "%dw 2.0\noutput application/csv\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+        "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Cy\",\"subject\":\"Math\"}]",
+        "outputMime": "application/csv",
+        "compare": "text",
+        "expect": {
+          "output": "student,Math\r\nAda,90\r\nCy,0\r\n"
+        },
+        "note": "Cy's record has a subject but no score field. `.score` on that record is null, same as a subject with no record at all, so `default 0` covers both a missing row and a missing field with the same fallback."
+      }
+    ]
+  },
+  "derivedFrom": "pivot-exam-scores"
+}

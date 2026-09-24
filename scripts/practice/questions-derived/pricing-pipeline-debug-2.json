@@ -1,0 +1,97 @@
+{
+  "id": "pricing-pipeline-debug-2",
+  "unit": "higher-order",
+  "mode": "debug",
+  "tier": "extra",
+  "title": "Fix it: run a list of pricing rules through a pipeline",
+  "topics": [
+    "fun",
+    "then",
+    "partial application",
+    "reduce"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nEach order has a `base` price and a `rules` array. Each rule is `{ op, amount }`, where `op` is `\"add\"`, `\"mul\"`, or `\"sub\"`. Starting from `base`, apply the rules **in the order given** — an `\"add\"` adds `amount`, `\"mul\"` multiplies by `amount`, `\"sub\"` subtracts `amount`. An `op` that is none of those three leaves the running total unchanged.\n\nReturn an array of `{ id, total }`. An order with no rules keeps its `base` as `total`.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\npayload map (o) -> {\n  id: o.id,\n  total: (o.base + sum((o.rules filter ($.op == \"add\")) map $.amount) - sum((o.rules filter ($.op == \"sub\")) map $.amount)) * ((o.rules filter ($.op == \"mul\")) map $.amount reduce ((n, p = 1) -> p * n))\n}",
+  "cases": [
+    {
+      "input": "[\n  { \"id\": \"O1\", \"base\": 100, \"rules\": [ { \"op\": \"add\", \"amount\": 10 }, { \"op\": \"mul\", \"amount\": 2 } ] },\n  { \"id\": \"O2\", \"base\": 50, \"rules\": [] }\n]",
+      "output": "[{\"id\":\"O1\",\"total\":220},{\"id\":\"O2\",\"total\":50}]"
+    },
+    {
+      "input": "[\n  { \"id\": \"O3\", \"base\": 100, \"rules\": [ { \"op\": \"mul\", \"amount\": 2 }, { \"op\": \"add\", \"amount\": 10 } ] }\n]",
+      "output": "[{\"id\":\"O3\",\"total\":210}]"
+    },
+    {
+      "input": "[\n  { \"id\": \"O4\", \"base\": 100, \"rules\": [ { \"op\": \"sub\", \"amount\": 30 }, { \"op\": \"weird\", \"amount\": 999 } ] }\n]",
+      "output": "[{\"id\":\"O4\",\"total\":70}]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    },
+    {
+      "input": "[\n  { \"id\": \"O5\", \"base\": 10, \"rules\": [ { \"op\": \"add\", \"amount\": 1 }, { \"op\": \"add\", \"amount\": 2 }, { \"op\": \"mul\", \"amount\": 3 }, { \"op\": \"sub\", \"amount\": 5 } ] }\n]",
+      "output": "[{\"id\":\"O5\",\"total\":34}]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "groups rules by operation and applies each group as a batch, which happens to match when rules are add-then-mul but is wrong the moment the order is anything else"
+  ],
+  "solution": "%dw 2.0\noutput application/json\nfun applyOp(op: String, amount: Number) = (x: Number) -> op match {\n  case \"add\" -> x + amount\n  case \"mul\" -> x * amount\n  case \"sub\" -> x - amount\n  else -> x\n}\n---\npayload map (o) -> {\n  id: o.id,\n  total: o.rules reduce ((r, acc = o.base) -> then(acc, applyOp(r.op, r.amount)))\n}",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map (o) -> {\n  id: o.id,\n  total: (o.base + sum((o.rules filter ($.op == \"add\")) map $.amount) - sum((o.rules filter ($.op == \"sub\")) map $.amount)) * ((o.rules filter ($.op == \"mul\")) map $.amount reduce ((n, p = 1) -> p * n))\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "A rule is a step in a pipeline, and the natural way to represent a step is a one-argument function: give `applyOp` the operation and amount, and it hands back a function from price to price without running it yet — that is partial application. `then` is DataWeave's way to compose a value with a callback: `then(x, f)` is exactly `f(x)`, and folding the rules array with `reduce`, calling `then` once per rule, builds the pipeline in the order the rules appear. The trap is that `then` has two faces. Its function-call form, `then(acc, applyOp(...))`, accepts any callback, including one that came from calling a named function. Its infix form, `acc then applyOp(...)`, does not — it only works when the right-hand side is a lambda written out inline, and fails the moment it is a call to a `fun`, whether or not that call still takes more arguments. The two forms are not interchangeable despite looking like the same operation written two ways.",
+    "snippets": [
+      {
+        "label": "Partial application: a function that returns a function",
+        "script": "%dw 2.0\noutput application/json\nfun applyOp(op: String, amount: Number) = (x: Number) -> op match {\n  case \"add\" -> x + amount\n  case \"mul\" -> x * amount\n  else -> x\n}\n---\n{ kind: typeOf(applyOp(\"add\", 5)), result: (applyOp(\"add\", 5))(10) }",
+        "expect": {
+          "output": "{ \"kind\": \"Function\", \"result\": 15 }"
+        },
+        "note": "applyOp(\"add\", 5) does not compute a number — it returns a Function, still waiting for `x`. Calling that result with (10) is what actually runs the addition."
+      },
+      {
+        "label": "then's function-call form composes it",
+        "script": "%dw 2.0\noutput application/json\nfun applyOp(op: String, amount: Number) = (x: Number) -> op match {\n  case \"add\" -> x + amount\n  case \"mul\" -> x * amount\n  else -> x\n}\n---\nthen(10, applyOp(\"add\", 5))",
+        "expect": {
+          "output": "15"
+        },
+        "note": "then(10, applyOp(\"add\", 5)) is then(10, f) where f is the function from the previous snippet — it runs f(10) and gets 15. This is the form the pipeline is built from."
+      },
+      {
+        "label": "The infix spelling of the exact same thing does not compile",
+        "script": "%dw 2.0\noutput application/json\nfun applyOp(op: String, amount: Number) = (x: Number) -> op match {\n  case \"add\" -> x + amount\n  case \"mul\" -> x * amount\n  else -> x\n}\n---\n10 then applyOp(\"add\", 5)",
+        "expect": {
+          "error": true
+        },
+        "note": "Same values, same callback, written as `10 then applyOp(\"add\", 5)` instead of `then(10, applyOp(\"add\", 5))`. It fails with UnsupportedTypeCoercionException: Cannot coerce Function to String. Infix `then` does not accept a callback produced by calling a named function — bare or applied, with or without type annotations, it fails the same way. This is why the pipeline has to be built with the function-call form, not the infix one."
+      },
+      {
+        "label": "Infix then is fine with a lambda written out inline",
+        "script": "%dw 2.0\noutput application/json\n---\n10 then ((x) -> x + 5)",
+        "expect": {
+          "output": "15"
+        },
+        "note": "The only difference from the previous snippet is that the callback here is a lambda literal instead of a call to `applyOp`. It compiles and runs. `then` itself is not broken — only its infix form's tolerance for where the callback comes from is limited."
+      },
+      {
+        "label": "Order changes the answer, which is why grouping by operation is wrong",
+        "script": "%dw 2.0\noutput application/json\nfun applyOp(op: String, amount: Number) = (x: Number) -> op match {\n  case \"add\" -> x + amount\n  case \"mul\" -> x * amount\n  else -> x\n}\nfun pipeline(base, rules) = rules reduce ((r, acc = base) -> then(acc, applyOp(r.op, r.amount)))\n---\n{\n  addThenMul: pipeline(100, [{op: \"add\", amount: 10}, {op: \"mul\", amount: 2}]),\n  mulThenAdd: pipeline(100, [{op: \"mul\", amount: 2}, {op: \"add\", amount: 10}])\n}",
+        "expect": {
+          "output": "{ \"addThenMul\": 220, \"mulThenAdd\": 210 }"
+        },
+        "note": "Same two rules, opposite order, different totals — 220 against 210. An approach that sums all the adds and multiplies by all the muls as separate batches cannot tell these two apart, because it throws away the order the rules came in."
+      }
+    ]
+  },
+  "derivedFrom": "pricing-pipeline"
+}

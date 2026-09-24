@@ -1,0 +1,34 @@
+{
+  "id": "job-retry-triage-predict-3",
+  "unit": "match-and-types",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "`null` gets its own case, not `is Number`",
+  "topics": [
+    "match",
+    "is",
+    "else"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nnull match {\n  case n is Number -> \"num\"\n  case null -> \"isNull\"\n  else -> \"other\"\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nnull match {\n  case n is Number -> \"num\"\n  case null -> \"isNull\"\n  else -> \"other\"\n}",
+  "explanation": {
+    "approach": "`null` is matched with the literal `case null`, and it has to come before `else` or it would fall into that instead.",
+    "snippets": [
+      {
+        "label": "`null` gets its own case, not `is Number`",
+        "script": "%dw 2.0\noutput application/json\n---\nnull match {\n  case n is Number -> \"num\"\n  case null -> \"isNull\"\n  else -> \"other\"\n}",
+        "expect": {
+          "output": "\"isNull\""
+        },
+        "note": "`null` is matched with the literal `case null`, and it has to come before `else` or it would fall into that instead."
+      }
+    ]
+  },
+  "derivedFrom": "job-retry-triage"
+}

@@ -1,0 +1,119 @@
+{
+  "id": "denormalize-orders-debug-1",
+  "unit": "denormalize",
+  "mode": "debug",
+  "tier": "max",
+  "title": "Fix it: nested orders out as flat csv rows",
+  "topics": [
+    "flatMap",
+    "write",
+    "application/csv"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nEach order in the input is `{ order_id, customer, line_items }`, where `line_items` is an array of `{ sku, qty, price }`.\n\nProduce a CSV with one row per line item — `orderId, customer, sku, qty, price` — where `orderId` and `customer` are repeated on every row that came from that order. An order with no line items contributes no rows at all. A line item missing a field leaves that cell empty rather than failing the row.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/csv",
+  "compare": "text",
+  "starter": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> order.line_items map {\n  orderId: $.order_id,\n  customer: $.customer,\n  sku: $.sku,\n  qty: $.qty,\n  price: $.price\n})",
+  "cases": [
+    {
+      "input": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[{\"sku\":\"A1\",\"qty\":2,\"price\":9.99},{\"sku\":\"A2\",\"qty\":1,\"price\":3.5}]},{\"order_id\":\"O2\",\"customer\":\"Bo\",\"line_items\":[{\"sku\":\"B1\",\"qty\":5,\"price\":1.25}]}]",
+      "output": "orderId,customer,sku,qty,price\r\nO1,Ada,A1,2,9.99\r\nO1,Ada,A2,1,3.5\r\nO2,Bo,B1,5,1.25\r\n"
+    },
+    {
+      "input": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[]},{\"order_id\":\"O2\",\"customer\":\"Bo\",\"line_items\":[{\"sku\":\"B1\",\"qty\":5,\"price\":1.25}]}]",
+      "output": "orderId,customer,sku,qty,price\r\nO2,Bo,B1,5,1.25\r\n"
+    },
+    {
+      "input": "[{\"order_id\":\"O1\",\"customer\":\"Ada\"},{\"order_id\":\"O2\",\"customer\":\"Bo\",\"line_items\":[{\"sku\":\"B1\",\"qty\":5,\"price\":1.25}]}]",
+      "output": "orderId,customer,sku,qty,price\r\nO2,Bo,B1,5,1.25\r\n"
+    },
+    {
+      "input": "[]",
+      "output": ""
+    },
+    {
+      "input": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[{\"sku\":\"A1\",\"qty\":2}]}]",
+      "output": "orderId,customer,sku,qty,price\r\nO1,Ada,A1,2,\r\n"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "uses $ inside the inner map instead of naming the order, so $.order_id and $.customer resolve against the line item and come out blank on every row"
+  ],
+  "solution": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> {\n  orderId: order.order_id,\n  customer: order.customer,\n  sku: li.sku,\n  qty: li.qty,\n  price: li.price\n}))",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> order.line_items map {\n  orderId: $.order_id,\n  customer: $.customer,\n  sku: $.sku,\n  qty: $.qty,\n  price: $.price\n})"
+    }
+  ],
+  "explanation": {
+    "approach": "The row count here is decided by the children, not the parents: one order can become zero rows, one row, or five. That rules out a plain `map`, which always produces exactly one output element per input element — the tool for `n` inputs to a variable number of outputs is `flatMap`, which runs a function that itself returns an array for each element, then concatenates all of those arrays into one flat list. Inside that function, the order's own fields — `order_id`, `customer` — have to be read off a named parameter, because the inner `map` over `line_items` rebinds `$` to the line item; reaching for `$.order_id` there silently reads a field that does not exist on a line item and gets `null` instead of an error.",
+    "snippets": [
+      {
+        "label": "map alone gives one array per order, not one flat list",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map ((order) -> order.line_items map ((li) -> { orderId: order.order_id, sku: li.sku }))",
+        "payload": "[{\"order_id\":\"O1\",\"line_items\":[{\"sku\":\"A1\"},{\"sku\":\"A2\"}]},{\"order_id\":\"O2\",\"line_items\":[{\"sku\":\"B1\"}]}]",
+        "expect": {
+          "output": "[ [ { \"orderId\": \"O1\", \"sku\": \"A1\" }, { \"orderId\": \"O1\", \"sku\": \"A2\" } ], [ { \"orderId\": \"O2\", \"sku\": \"B1\" } ] ]"
+        },
+        "note": "Two orders in, two arrays out — nested one level too deep for a flat CSV, where every line item needs to be a sibling row, not tucked inside its parent's array."
+      },
+      {
+        "label": "flatMap flattens that one level, which is exactly one level too many",
+        "script": "%dw 2.0\noutput application/json\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> { orderId: order.order_id, sku: li.sku }))",
+        "payload": "[{\"order_id\":\"O1\",\"line_items\":[{\"sku\":\"A1\"},{\"sku\":\"A2\"}]}]",
+        "expect": {
+          "output": "[ { \"orderId\": \"O1\", \"sku\": \"A1\" }, { \"orderId\": \"O1\", \"sku\": \"A2\" } ]"
+        },
+        "note": "Same shape of function, but flattened into one list of rows, `orderId` repeated on each one — this is the sibling-rows shape the CSV writer needs."
+      },
+      {
+        "label": "The full solution as CSV",
+        "script": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> {\n  orderId: order.order_id,\n  customer: order.customer,\n  sku: li.sku,\n  qty: li.qty,\n  price: li.price\n}))",
+        "payload": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[{\"sku\":\"A1\",\"qty\":2,\"price\":9.99},{\"sku\":\"A2\",\"qty\":1,\"price\":3.5}]},{\"order_id\":\"O2\",\"customer\":\"Bo\",\"line_items\":[{\"sku\":\"B1\",\"qty\":5,\"price\":1.25}]}]",
+        "outputMime": "application/csv",
+        "compare": "text",
+        "expect": {
+          "output": "orderId,customer,sku,qty,price\r\nO1,Ada,A1,2,9.99\r\nO1,Ada,A2,1,3.5\r\nO2,Bo,B1,5,1.25\r\n"
+        },
+        "note": "Ada's two line items each get their own row, both stamped with O1 and Ada; Bo's single line item becomes a third row. The writer adds the header and the trailing CRLF on its own."
+      },
+      {
+        "label": "An order with no line items contributes nothing",
+        "script": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> {\n  orderId: order.order_id,\n  customer: order.customer,\n  sku: li.sku,\n  qty: li.qty,\n  price: li.price\n}))",
+        "payload": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[]},{\"order_id\":\"O2\",\"customer\":\"Bo\",\"line_items\":[{\"sku\":\"B1\",\"qty\":5,\"price\":1.25}]}]",
+        "outputMime": "application/csv",
+        "compare": "text",
+        "expect": {
+          "output": "orderId,customer,sku,qty,price\r\nO2,Bo,B1,5,1.25\r\n"
+        },
+        "note": "Mapping over an empty `line_items` array returns an empty array of rows, and `flatMap` concatenating an empty array in is the same as not visiting that order at all — O1 never appears."
+      },
+      {
+        "label": "$ inside the inner map means the line item, not the order",
+        "script": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> order.line_items map {\n  orderId: $.order_id,\n  customer: $.customer,\n  sku: $.sku,\n  qty: $.qty,\n  price: $.price\n})",
+        "payload": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[{\"sku\":\"A1\",\"qty\":2,\"price\":9.99}]}]",
+        "outputMime": "application/csv",
+        "compare": "text",
+        "expect": {
+          "output": "orderId,customer,sku,qty,price\r\n,,A1,2,9.99\r\n"
+        },
+        "note": "This runs and produces a row, which is what makes it dangerous: `sku`, `qty`, and `price` are correct because those fields really do live on the line item, but `$.order_id` and `$.customer` look for fields on the line item too, find nothing, and quietly write empty cells instead of throwing."
+      },
+      {
+        "label": "A line item missing a field leaves that cell empty",
+        "script": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> {\n  orderId: order.order_id,\n  customer: order.customer,\n  sku: li.sku,\n  qty: li.qty,\n  price: li.price\n}))",
+        "payload": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[{\"sku\":\"A1\",\"qty\":2}]}]",
+        "outputMime": "application/csv",
+        "compare": "text",
+        "expect": {
+          "output": "orderId,customer,sku,qty,price\r\nO1,Ada,A1,2,\r\n"
+        },
+        "note": "`li.price` on a line item with no `price` key is `null`, and the CSV writer renders a `null` cell as empty rather than the literal word null — the row still has all five columns, so the file stays rectangular."
+      }
+    ]
+  },
+  "derivedFrom": "denormalize-orders"
+}

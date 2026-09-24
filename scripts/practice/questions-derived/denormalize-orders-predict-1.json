@@ -1,0 +1,36 @@
+{
+  "id": "denormalize-orders-predict-1",
+  "unit": "denormalize",
+  "mode": "predict",
+  "tier": "extra",
+  "title": "flatMap flattens that one level, which is exactly one level too many",
+  "topics": [
+    "flatMap",
+    "write",
+    "application/csv"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/csv",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> { orderId: order.order_id, sku: li.sku }))",
+    "payload": "[{\"order_id\":\"O1\",\"line_items\":[{\"sku\":\"A1\"},{\"sku\":\"A2\"}]}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> { orderId: order.order_id, sku: li.sku }))",
+  "explanation": {
+    "approach": "Same shape of function, but flattened into one list of rows, `orderId` repeated on each one — this is the sibling-rows shape the CSV writer needs.",
+    "snippets": [
+      {
+        "label": "flatMap flattens that one level, which is exactly one level too many",
+        "script": "%dw 2.0\noutput application/json\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> { orderId: order.order_id, sku: li.sku }))",
+        "payload": "[{\"order_id\":\"O1\",\"line_items\":[{\"sku\":\"A1\"},{\"sku\":\"A2\"}]}]",
+        "expect": {
+          "output": "[ { \"orderId\": \"O1\", \"sku\": \"A1\" }, { \"orderId\": \"O1\", \"sku\": \"A2\" } ]"
+        },
+        "note": "Same shape of function, but flattened into one list of rows, `orderId` repeated on each one — this is the sibling-rows shape the CSV writer needs."
+      }
+    ]
+  },
+  "derivedFrom": "denormalize-orders"
+}

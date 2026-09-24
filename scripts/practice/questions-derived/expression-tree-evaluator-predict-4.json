@@ -1,0 +1,36 @@
+{
+  "id": "expression-tree-evaluator-predict-4",
+  "unit": "expression-evaluator",
+  "mode": "predict",
+  "tier": "max",
+  "title": "Swapping the operand order is invisible on + and *, wrong everywhere else",
+  "topics": [
+    "fun",
+    "match",
+    "recursion"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.r) - eval(o.l)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.r) / eval(o.l)\n}\n---\neval(payload)",
+    "payload": "{ \"op\": \"-\", \"l\": 10, \"r\": 4 }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.r) - eval(o.l)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.r) / eval(o.l)\n}\n---\neval(payload)",
+  "explanation": {
+    "approach": "`10 - 4` is `6`; this version computes `4 - 10`. The sample tree's root is `+` and its nested node is `*`, both commutative, so this exact bug would pass the sample case and only shows up on a `-` or `/` node.",
+    "snippets": [
+      {
+        "label": "Swapping the operand order is invisible on + and *, wrong everywhere else",
+        "script": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.r) - eval(o.l)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.r) / eval(o.l)\n}\n---\neval(payload)",
+        "payload": "{ \"op\": \"-\", \"l\": 10, \"r\": 4 }",
+        "expect": {
+          "output": "-6"
+        },
+        "note": "`10 - 4` is `6`; this version computes `4 - 10`. The sample tree's root is `+` and its nested node is `*`, both commutative, so this exact bug would pass the sample case and only shows up on a `-` or `/` node."
+      }
+    ]
+  },
+  "derivedFrom": "expression-tree-evaluator"
+}

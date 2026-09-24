@@ -1,0 +1,35 @@
+{
+  "id": "merge-nested-lists-predict-4",
+  "unit": "flatten-vs-flatmap",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Empty arrays inside",
+  "topics": [
+    "flatten",
+    "flatMap"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nflatten(payload)",
+    "payload": "[[], [1], []]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nflatten(payload)",
+  "explanation": {
+    "approach": "Empty arrays contribute nothing to the flattened result — they just disappear.",
+    "snippets": [
+      {
+        "label": "Empty arrays inside",
+        "script": "%dw 2.0\noutput application/json\n---\nflatten(payload)",
+        "payload": "[[], [1], []]",
+        "expect": {
+          "output": "[ 1 ]"
+        },
+        "note": "Empty arrays contribute nothing to the flattened result — they just disappear."
+      }
+    ]
+  },
+  "derivedFrom": "merge-nested-lists"
+}

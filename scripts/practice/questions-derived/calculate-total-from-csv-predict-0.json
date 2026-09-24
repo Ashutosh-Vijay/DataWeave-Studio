@@ -1,0 +1,38 @@
+{
+  "id": "calculate-total-from-csv-predict-0",
+  "unit": "csv-round-trip",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "What the column really is",
+  "topics": [
+    "read",
+    "sum",
+    "max",
+    "as"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/csv",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload map typeOf($.amount)",
+    "payload": "name,amount\na,10\nb,9\nc,25.50\n"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map typeOf($.amount)",
+  "explanation": {
+    "approach": "No surprise yet. A CSV has no types — every field is text, including the ones that look like numbers.",
+    "snippets": [
+      {
+        "label": "What the column really is",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map typeOf($.amount)",
+        "payload": "name,amount\na,10\nb,9\nc,25.50\n",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "[ \"String\", \"String\", \"String\" ]"
+        },
+        "note": "No surprise yet. A CSV has no types — every field is text, including the ones that look like numbers."
+      }
+    ]
+  },
+  "derivedFrom": "calculate-total-from-csv"
+}

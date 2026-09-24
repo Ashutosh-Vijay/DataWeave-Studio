@@ -1,0 +1,36 @@
+{
+  "id": "enrich-orders-with-customers-predict-4",
+  "unit": "joins",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "The plausible wrong approach: a nested filter per row",
+  "topics": [
+    "leftJoin",
+    "dw::core::Arrays",
+    "object merging"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.orders\n  map ((o) -> do {\n    var match = (payload.customers filter ($.id == o.customerId))[0]\n    ---\n    { orderId: o.orderId, customerId: o.customerId, customerName: match.name }\n  })\n  filter ($.customerName != null)",
+    "payload": "{\"orders\":[{\"orderId\":\"O1\",\"customerId\":1},{\"orderId\":\"O3\",\"customerId\":99}],\"customers\":[{\"id\":1,\"name\":\"Ann\"}]}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.orders\n  map ((o) -> do {\n    var match = (payload.customers filter ($.id == o.customerId))[0]\n    ---\n    { orderId: o.orderId, customerId: o.customerId, customerName: match.name }\n  })\n  filter ($.customerName != null)",
+  "explanation": {
+    "approach": "This looks reasonable and passes on data where everything matches. But the trailing `filter` that was meant to clean up ends up deleting order O3 entirely, because it has no customer and so no way to tell 'unmatched' apart from 'exclude this row'. The question asked for O3 to appear with `customerName: null` — it just vanished instead.",
+    "snippets": [
+      {
+        "label": "The plausible wrong approach: a nested filter per row",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.orders\n  map ((o) -> do {\n    var match = (payload.customers filter ($.id == o.customerId))[0]\n    ---\n    { orderId: o.orderId, customerId: o.customerId, customerName: match.name }\n  })\n  filter ($.customerName != null)",
+        "payload": "{\"orders\":[{\"orderId\":\"O1\",\"customerId\":1},{\"orderId\":\"O3\",\"customerId\":99}],\"customers\":[{\"id\":1,\"name\":\"Ann\"}]}",
+        "expect": {
+          "output": "[{\"orderId\":\"O1\",\"customerId\":1,\"customerName\":\"Ann\"}]"
+        },
+        "note": "This looks reasonable and passes on data where everything matches. But the trailing `filter` that was meant to clean up ends up deleting order O3 entirely, because it has no customer and so no way to tell 'unmatched' apart from 'exclude this row'. The question asked for O3 to appear with `customerName: null` — it just vanished instead."
+      }
+    ]
+  },
+  "derivedFrom": "enrich-orders-with-customers"
+}

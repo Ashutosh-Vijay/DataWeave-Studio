@@ -1,0 +1,38 @@
+{
+  "id": "calculate-total-from-csv-predict-4",
+  "unit": "csv-round-trip",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Coerce once, up front",
+  "topics": [
+    "read",
+    "sum",
+    "max",
+    "as"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/csv",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ sumBoth: sum(payload map ($.amount as Number)), maxBoth: max(payload map ($.amount as Number)) }",
+    "payload": "name,amount\na,10\nb,9\nc,25.50\n"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ sumBoth: sum(payload map ($.amount as Number)), maxBoth: max(payload map ($.amount as Number)) }",
+  "explanation": {
+    "approach": "Converting at the point you read the column, rather than at the point you happen to need a number, is what makes the rest of the script safe. It also fixes the output type: `highest` is now 25.5 rather than \"25.50\".",
+    "snippets": [
+      {
+        "label": "Coerce once, up front",
+        "script": "%dw 2.0\noutput application/json\n---\n{ sumBoth: sum(payload map ($.amount as Number)), maxBoth: max(payload map ($.amount as Number)) }",
+        "payload": "name,amount\na,10\nb,9\nc,25.50\n",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "{ \"sumBoth\": 44.5, \"maxBoth\": 25.5 }"
+        },
+        "note": "Converting at the point you read the column, rather than at the point you happen to need a number, is what makes the rest of the script safe. It also fixes the output type: `highest` is now 25.5 rather than \"25.50\"."
+      }
+    ]
+  },
+  "derivedFrom": "calculate-total-from-csv"
+}

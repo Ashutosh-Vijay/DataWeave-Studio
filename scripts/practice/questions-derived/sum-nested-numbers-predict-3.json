@@ -1,0 +1,34 @@
+{
+  "id": "sum-nested-numbers-predict-3",
+  "unit": "recursion",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "The same wrong version looks correct on flat data",
+  "topics": [
+    "fun",
+    "recursion",
+    "match"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> if (value is Number) value else 0))\n  case a is Array -> sum(a map ((item) -> if (item is Number) item else 0))\n  else -> 0\n}\n---\nsumAll({\"a\": 1, \"b\": 2, \"c\": 3})"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> if (value is Number) value else 0))\n  case a is Array -> sum(a map ((item) -> if (item is Number) item else 0))\n  else -> 0\n}\n---\nsumAll({\"a\": 1, \"b\": 2, \"c\": 3})",
+  "explanation": {
+    "approach": "This is exactly why the bug survives a quick check — a flat object has nothing nested inside it to expose the missing recursive call.",
+    "snippets": [
+      {
+        "label": "The same wrong version looks correct on flat data",
+        "script": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> if (value is Number) value else 0))\n  case a is Array -> sum(a map ((item) -> if (item is Number) item else 0))\n  else -> 0\n}\n---\nsumAll({\"a\": 1, \"b\": 2, \"c\": 3})",
+        "expect": {
+          "output": "6"
+        },
+        "note": "This is exactly why the bug survives a quick check — a flat object has nothing nested inside it to expose the missing recursive call."
+      }
+    ]
+  },
+  "derivedFrom": "sum-nested-numbers"
+}

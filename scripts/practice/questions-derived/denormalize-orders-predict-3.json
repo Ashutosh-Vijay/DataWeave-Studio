@@ -1,0 +1,38 @@
+{
+  "id": "denormalize-orders-predict-3",
+  "unit": "denormalize",
+  "mode": "predict",
+  "tier": "extra",
+  "title": "An order with no line items contributes nothing",
+  "topics": [
+    "flatMap",
+    "write",
+    "application/csv"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/csv",
+  "given": {
+    "script": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> {\n  orderId: order.order_id,\n  customer: order.customer,\n  sku: li.sku,\n  qty: li.qty,\n  price: li.price\n}))",
+    "payload": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[]},{\"order_id\":\"O2\",\"customer\":\"Bo\",\"line_items\":[{\"sku\":\"B1\",\"qty\":5,\"price\":1.25}]}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> {\n  orderId: order.order_id,\n  customer: order.customer,\n  sku: li.sku,\n  qty: li.qty,\n  price: li.price\n}))",
+  "explanation": {
+    "approach": "Mapping over an empty `line_items` array returns an empty array of rows, and `flatMap` concatenating an empty array in is the same as not visiting that order at all — O1 never appears.",
+    "snippets": [
+      {
+        "label": "An order with no line items contributes nothing",
+        "script": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> {\n  orderId: order.order_id,\n  customer: order.customer,\n  sku: li.sku,\n  qty: li.qty,\n  price: li.price\n}))",
+        "payload": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[]},{\"order_id\":\"O2\",\"customer\":\"Bo\",\"line_items\":[{\"sku\":\"B1\",\"qty\":5,\"price\":1.25}]}]",
+        "outputMime": "application/csv",
+        "compare": "text",
+        "expect": {
+          "output": "orderId,customer,sku,qty,price\r\nO2,Bo,B1,5,1.25\r\n"
+        },
+        "note": "Mapping over an empty `line_items` array returns an empty array of rows, and `flatMap` concatenating an empty array in is the same as not visiting that order at all — O1 never appears."
+      }
+    ]
+  },
+  "derivedFrom": "denormalize-orders"
+}

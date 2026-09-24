@@ -1,0 +1,97 @@
+{
+  "id": "format-date-parts-debug-1",
+  "unit": "dates-formatting",
+  "mode": "debug",
+  "tier": "medium",
+  "title": "Fix it: extract specific parts of a date",
+  "topics": [
+    "date formatting",
+    "format patterns",
+    "as String"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nYou are given a date string. Format it into separate parts.\n\nReturn a JSON object with:\n- `day`: the day of the month (\"01\" through \"31\")\n- `month`: the month (\"01\" through \"12\")\n- `dayOfYear`: the day of the year (\"001\" through \"366\")\n- `year`: the calendar year (\"2027\")\n\nMust be exactly 2 digits for day and month, exactly 3 digits for day-of-year, exactly 4 digits for year.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\ndo {\n  var d = payload as Date\n  ---\n  {\n    day: d as String {format: 'dd'},\n    month: d as String {format: 'MM'},\n    dayOfYear: d as String {format: 'DD'},\n    year: d as String {format: 'yyyy'}\n  }\n}",
+  "cases": [
+    {
+      "input": "\"2027-03-05\"",
+      "output": "{\n  \"day\": \"05\",\n  \"month\": \"03\",\n  \"dayOfYear\": \"064\",\n  \"year\": \"2027\"\n}"
+    },
+    {
+      "input": "\"2026-01-01\"",
+      "output": "{\n  \"day\": \"01\",\n  \"month\": \"01\",\n  \"dayOfYear\": \"001\",\n  \"year\": \"2026\"\n}"
+    },
+    {
+      "input": "\"2025-12-31\"",
+      "output": "{\n  \"day\": \"31\",\n  \"month\": \"12\",\n  \"dayOfYear\": \"365\",\n  \"year\": \"2025\"\n}"
+    },
+    {
+      "input": "\"2024-02-29\"",
+      "output": "{\n  \"day\": \"29\",\n  \"month\": \"02\",\n  \"dayOfYear\": \"060\",\n  \"year\": \"2024\"\n}"
+    },
+    {
+      "input": "\"2027-06-15\"",
+      "output": "{\n  \"day\": \"15\",\n  \"month\": \"06\",\n  \"dayOfYear\": \"166\",\n  \"year\": \"2027\"\n}"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "uses DD (day-of-year, 2 letters) instead of DDD (3 letters) — both are day-of-year but different padding"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var d = payload as Date\n  ---\n  {\n    day: d as String {format: 'dd'},\n    month: d as String {format: 'MM'},\n    dayOfYear: d as String {format: 'DDD'},\n    year: d as String {format: 'yyyy'}\n  }\n}",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\ndo {\n  var d = payload as Date\n  ---\n  {\n    day: d as String {format: 'dd'},\n    month: d as String {format: 'MM'},\n    dayOfYear: d as String {format: 'DD'},\n    year: d as String {format: 'yyyy'}\n  }\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "Date formatting patterns are case-sensitive and the number of repeated letters controls the padding. `dd` is day-of-month (\"01\"-\"31\"), `DD` is day-of-year without leading zero (\"1\"-\"366\"), `DDD` is day-of-year with padding (\"001\"-\"366\"), `MM` is month (\"01\"-\"12\"), and `mm` (lowercase) is minutes in a time. Lowercase `yyyy` is the calendar year; uppercase `YYYY` is the ISO week-year, which can differ at the year boundary.",
+    "snippets": [
+      {
+        "label": "DD vs DDD format",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  withDD: |2027-03-05| as String {format: 'DD'},\n  withDDD: |2027-03-05| as String {format: 'DDD'}\n}",
+        "expect": {
+          "output": "{\"withDD\":\"64\",\"withDDD\":\"064\"}"
+        },
+        "note": "Same date, different padding. `DD` gives \"64\", `DDD` gives \"064\". Day-of-year is the same (64th day), just different widths."
+      },
+      {
+        "label": "MM vs mm",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  month: |2027-03-05| as String {format: 'MM'},\n  minutes: |10:07:30| as String {format: 'mm'}\n}",
+        "expect": {
+          "output": "{\"month\":\"03\",\"minutes\":\"07\"}"
+        },
+        "note": "`MM` on a date gives the month. `mm` on a time gives the minutes. Same letters, opposite case, completely different meaning."
+      },
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\ndo {\n  var d = payload as Date\n  ---\n  {\n    day: d as String {format: 'dd'},\n    month: d as String {format: 'MM'},\n    dayOfYear: d as String {format: 'DDD'},\n    year: d as String {format: 'yyyy'}\n  }\n}",
+        "payload": "\"2027-03-05\"",
+        "expect": {
+          "output": "{\"day\":\"05\",\"month\":\"03\",\"dayOfYear\":\"064\",\"year\":\"2027\"}"
+        },
+        "note": "Store the date in a variable first, then format it multiple ways. The variable inside the object holds the date, and each format call extracts a different part."
+      },
+      {
+        "label": "Day-of-month is always 2 digits",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  jan1: |2027-01-01| as String {format: 'dd'},\n  dec31: |2027-12-31| as String {format: 'dd'}\n}",
+        "expect": {
+          "output": "{\"jan1\":\"01\",\"dec31\":\"31\"}"
+        },
+        "note": "The day-of-month is always between 01 and 31, with padding to 2 digits. Easy to understand but easy to confuse with the similar-looking day-of-year formats."
+      },
+      {
+        "label": "Day-of-month vs day-of-year in a leap year",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  jan1_dayOfMonth: |2024-01-01| as String {format: 'dd'},\n  dec31_dayOfMonth: |2024-12-31| as String {format: 'dd'},\n  dec31_dayOfYear: |2024-12-31| as String {format: 'DDD'}\n}",
+        "expect": {
+          "output": "{\"jan1_dayOfMonth\":\"01\",\"dec31_dayOfMonth\":\"31\",\"dec31_dayOfYear\":\"366\"}"
+        },
+        "note": "December 31 of a leap year is the 366th day. The day-of-month is 31 (within December), while day-of-year is 366 (within the entire year)."
+      }
+    ]
+  },
+  "derivedFrom": "format-date-parts"
+}

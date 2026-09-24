@@ -1,0 +1,36 @@
+{
+  "id": "array-merge-and-remove-predict-4",
+  "unit": "concat-and-remove",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "The wrong-order case that reveals the trap",
+  "topics": [
+    "++",
+    "--",
+    "arrays"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n(payload.first -- payload.remove) ++ payload.second",
+    "payload": "{\"first\":[1,2],\"second\":[2],\"remove\":[2]}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload.first -- payload.remove) ++ payload.second",
+  "explanation": {
+    "approach": "Remove from `first` first, then merge. But `second` contains 2, which should have been removed — it comes back in the merge. The right answer filters the final result: `[1] ++ [2] -- [2] -> []`.",
+    "snippets": [
+      {
+        "label": "The wrong-order case that reveals the trap",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload.first -- payload.remove) ++ payload.second",
+        "payload": "{\"first\":[1,2],\"second\":[2],\"remove\":[2]}",
+        "expect": {
+          "output": "[1, 2]"
+        },
+        "note": "Remove from `first` first, then merge. But `second` contains 2, which should have been removed — it comes back in the merge. The right answer filters the final result: `[1] ++ [2] -- [2] -> []`."
+      }
+    ]
+  },
+  "derivedFrom": "array-merge-and-remove"
+}

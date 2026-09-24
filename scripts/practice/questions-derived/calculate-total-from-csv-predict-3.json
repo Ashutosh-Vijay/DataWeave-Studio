@@ -1,0 +1,38 @@
+{
+  "id": "calculate-total-from-csv-predict-3",
+  "unit": "csv-round-trip",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Sorting has the same problem, and it is easier to miss",
+  "topics": [
+    "read",
+    "sum",
+    "max",
+    "as"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/csv",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n(payload orderBy $.amount) map $.amount",
+    "payload": "name,amount\na,10\nb,9\nc,25.50\n"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload orderBy $.amount) map $.amount",
+  "explanation": {
+    "approach": "Ascending order that puts 9 last. On a page of results this looks like a sort that nearly worked, which is worse than one that obviously did not.",
+    "snippets": [
+      {
+        "label": "Sorting has the same problem, and it is easier to miss",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload orderBy $.amount) map $.amount",
+        "payload": "name,amount\na,10\nb,9\nc,25.50\n",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "[ \"10\", \"25.50\", \"9\" ]"
+        },
+        "note": "Ascending order that puts 9 last. On a page of results this looks like a sort that nearly worked, which is worse than one that obviously did not."
+      }
+    ]
+  },
+  "derivedFrom": "calculate-total-from-csv"
+}

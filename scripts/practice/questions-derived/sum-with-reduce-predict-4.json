@@ -1,0 +1,35 @@
+{
+  "id": "sum-with-reduce-predict-4",
+  "unit": "reduce-seed",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "The alternative: sum function",
+  "topics": [
+    "reduce",
+    "seed"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nsum(payload map $.amount)",
+    "payload": "[{\"id\":\"A\",\"amount\":10},{\"id\":\"B\",\"amount\":20},{\"id\":\"C\",\"amount\":15}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nsum(payload map $.amount)",
+  "explanation": {
+    "approach": "An alternative path: extract the amounts into an array, then pass it to `sum`. `sum` also returns 0 for an empty array, but `reduce` gives you more control over each step.",
+    "snippets": [
+      {
+        "label": "The alternative: sum function",
+        "script": "%dw 2.0\noutput application/json\n---\nsum(payload map $.amount)",
+        "payload": "[{\"id\":\"A\",\"amount\":10},{\"id\":\"B\",\"amount\":20},{\"id\":\"C\",\"amount\":15}]",
+        "expect": {
+          "output": "45"
+        },
+        "note": "An alternative path: extract the amounts into an array, then pass it to `sum`. `sum` also returns 0 for an empty array, but `reduce` gives you more control over each step."
+      }
+    ]
+  },
+  "derivedFrom": "sum-with-reduce"
+}

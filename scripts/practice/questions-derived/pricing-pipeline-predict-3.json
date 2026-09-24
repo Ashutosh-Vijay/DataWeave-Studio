@@ -1,0 +1,35 @@
+{
+  "id": "pricing-pipeline-predict-3",
+  "unit": "higher-order",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "Infix then is fine with a lambda written out inline",
+  "topics": [
+    "fun",
+    "then",
+    "partial application",
+    "reduce"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n10 then ((x) -> x + 5)"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n10 then ((x) -> x + 5)",
+  "explanation": {
+    "approach": "The only difference from the previous snippet is that the callback here is a lambda literal instead of a call to `applyOp`. It compiles and runs. `then` itself is not broken — only its infix form's tolerance for where the callback comes from is limited.",
+    "snippets": [
+      {
+        "label": "Infix then is fine with a lambda written out inline",
+        "script": "%dw 2.0\noutput application/json\n---\n10 then ((x) -> x + 5)",
+        "expect": {
+          "output": "15"
+        },
+        "note": "The only difference from the previous snippet is that the callback here is a lambda literal instead of a call to `applyOp`. It compiles and runs. `then` itself is not broken — only its infix form's tolerance for where the callback comes from is limited."
+      }
+    ]
+  },
+  "derivedFrom": "pricing-pipeline"
+}

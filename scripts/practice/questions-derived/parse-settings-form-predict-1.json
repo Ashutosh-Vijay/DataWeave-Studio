@@ -1,0 +1,34 @@
+{
+  "id": "parse-settings-form-predict-1",
+  "unit": "type-coercion",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "String to number with leading zeros",
+  "topics": [
+    "as",
+    "Number",
+    "Boolean"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n\"007\" as Number"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"007\" as Number",
+  "explanation": {
+    "approach": "Leading zeros are allowed and are simply removed. The result is the numeric value 7, not a string anymore.",
+    "snippets": [
+      {
+        "label": "String to number with leading zeros",
+        "script": "%dw 2.0\noutput application/json\n---\n\"007\" as Number",
+        "expect": {
+          "output": "7"
+        },
+        "note": "Leading zeros are allowed and are simply removed. The result is the numeric value 7, not a string anymore."
+      }
+    ]
+  },
+  "derivedFrom": "parse-settings-form"
+}

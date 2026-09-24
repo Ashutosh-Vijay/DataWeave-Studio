@@ -1,0 +1,35 @@
+{
+  "id": "total-with-rounding-predict-5",
+  "unit": "numbers-and-rounding",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Why this matters for money",
+  "topics": [
+    "sum",
+    "round",
+    "floor",
+    "ceil"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nsum([0.1, 0.2, 0.3])"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nsum([0.1, 0.2, 0.3])",
+  "explanation": {
+    "approach": "DataWeave uses arbitrary-precision arithmetic, so 0.1 + 0.2 + 0.3 is exactly 0.6. But if you use the result in a price list, you need it rounded to cents, which is round(...) for dollars.",
+    "snippets": [
+      {
+        "label": "Why this matters for money",
+        "script": "%dw 2.0\noutput application/json\n---\nsum([0.1, 0.2, 0.3])",
+        "expect": {
+          "output": "0.6"
+        },
+        "note": "DataWeave uses arbitrary-precision arithmetic, so 0.1 + 0.2 + 0.3 is exactly 0.6. But if you use the result in a price list, you need it rounded to cents, which is round(...) for dollars."
+      }
+    ]
+  },
+  "derivedFrom": "total-with-rounding"
+}

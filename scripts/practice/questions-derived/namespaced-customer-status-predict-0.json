@@ -1,0 +1,37 @@
+{
+  "id": "namespaced-customer-status-predict-0",
+  "unit": "xml-namespaces",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "Two elements, same local name, different namespaces",
+  "topics": [
+    "ns",
+    "namespace-qualified selectors",
+    "@id"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.root.Status",
+    "payload": "<root xmlns:a=\"http://a.com\" xmlns:b=\"http://b.com\"><a:Status>OK</a:Status><b:Status>FAIL</b:Status></root>"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.root.Status",
+  "explanation": {
+    "approach": "The bare `.Status` selector matches `a:Status` simply because it is the first sibling in the document — not because it belongs to any particular namespace. `b:Status` is silently skipped.",
+    "snippets": [
+      {
+        "label": "Two elements, same local name, different namespaces",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.root.Status",
+        "payload": "<root xmlns:a=\"http://a.com\" xmlns:b=\"http://b.com\"><a:Status>OK</a:Status><b:Status>FAIL</b:Status></root>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "\"OK\""
+        },
+        "note": "The bare `.Status` selector matches `a:Status` simply because it is the first sibling in the document — not because it belongs to any particular namespace. `b:Status` is silently skipped."
+      }
+    ]
+  },
+  "derivedFrom": "namespaced-customer-status"
+}

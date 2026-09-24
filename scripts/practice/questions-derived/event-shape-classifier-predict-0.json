@@ -1,0 +1,33 @@
+{
+  "id": "event-shape-classifier-predict-0",
+  "unit": "custom-types",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "`is` is structural and open on extra fields",
+  "topics": [
+    "type",
+    "is"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\ntype ClickEvent = { x: Number, y: Number }\noutput application/json\n---\n{\n  matches: { x: 1, y: 2 } is ClickEvent,\n  extraFieldStillMatches: { x: 1, y: 2, id: \"E1\" } is ClickEvent,\n  missingField: { x: 1 } is ClickEvent,\n  wrongType: { x: \"1\", y: 2 } is ClickEvent\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\ntype ClickEvent = { x: Number, y: Number }\noutput application/json\n---\n{\n  matches: { x: 1, y: 2 } is ClickEvent,\n  extraFieldStillMatches: { x: 1, y: 2, id: \"E1\" } is ClickEvent,\n  missingField: { x: 1 } is ClickEvent,\n  wrongType: { x: \"1\", y: 2 } is ClickEvent\n}",
+  "explanation": {
+    "approach": "An id field ClickEvent never declared does not break the match. Only a required field being absent, or present with the wrong type, does.",
+    "snippets": [
+      {
+        "label": "`is` is structural and open on extra fields",
+        "script": "%dw 2.0\ntype ClickEvent = { x: Number, y: Number }\noutput application/json\n---\n{\n  matches: { x: 1, y: 2 } is ClickEvent,\n  extraFieldStillMatches: { x: 1, y: 2, id: \"E1\" } is ClickEvent,\n  missingField: { x: 1 } is ClickEvent,\n  wrongType: { x: \"1\", y: 2 } is ClickEvent\n}",
+        "expect": {
+          "output": "{ \"matches\": true, \"extraFieldStillMatches\": true, \"missingField\": false, \"wrongType\": false }"
+        },
+        "note": "An id field ClickEvent never declared does not break the match. Only a required field being absent, or present with the wrong type, does."
+      }
+    ]
+  },
+  "derivedFrom": "event-shape-classifier"
+}

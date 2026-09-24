@@ -1,0 +1,33 @@
+{
+  "id": "event-shape-classifier-predict-2",
+  "unit": "custom-types",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "quoting the key is all it takes",
+  "topics": [
+    "type",
+    "is"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ \"type\": \"Click\" }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ \"type\": \"Click\" }",
+  "explanation": {
+    "approach": "A quoted string in key position is not an identifier, so the reserved-word rule does not apply to it. Same field, same value, and it compiles.",
+    "snippets": [
+      {
+        "label": "quoting the key is all it takes",
+        "script": "%dw 2.0\noutput application/json\n---\n{ \"type\": \"Click\" }",
+        "expect": {
+          "output": "{ \"type\": \"Click\" }"
+        },
+        "note": "A quoted string in key position is not an identifier, so the reserved-word rule does not apply to it. Same field, same value, and it compiles."
+      }
+    ]
+  },
+  "derivedFrom": "event-shape-classifier"
+}

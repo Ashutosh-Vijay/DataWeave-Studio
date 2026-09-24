@@ -1,0 +1,34 @@
+{
+  "id": "exact-total-no-early-rounding-predict-1",
+  "unit": "precision",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "Sum first, round once, at the end",
+  "topics": [
+    "sum",
+    "round",
+    "as String {format}"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nsum([10.125, 10.125, 10.125]) as String {format: \"0.00\"}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nsum([10.125, 10.125, 10.125]) as String {format: \"0.00\"}",
+  "explanation": {
+    "approach": "The exact sum is 30.375. Formatting it to two decimals in one step rounds it once, giving 30.38.",
+    "snippets": [
+      {
+        "label": "Sum first, round once, at the end",
+        "script": "%dw 2.0\noutput application/json\n---\nsum([10.125, 10.125, 10.125]) as String {format: \"0.00\"}",
+        "expect": {
+          "output": "\"30.38\""
+        },
+        "note": "The exact sum is 30.375. Formatting it to two decimals in one step rounds it once, giving 30.38."
+      }
+    ]
+  },
+  "derivedFrom": "exact-total-no-early-rounding"
+}

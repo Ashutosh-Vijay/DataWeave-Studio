@@ -1,0 +1,38 @@
+{
+  "id": "clean-text-lines-predict-2",
+  "unit": "string-basics",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "The wrong way: forgetting to trim",
+  "topics": [
+    "upper",
+    "lower",
+    "trim",
+    "splitBy",
+    "joinBy"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "text/plain",
+  "outputMime": "text/plain",
+  "given": {
+    "script": "%dw 2.0\noutput text/plain\n---\npayload splitBy \"|\" map (upper($[0]) ++ lower($[1 to -1])) joinBy \"\\n\"",
+    "payload": " alice | BOB | Carol "
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput text/plain\n---\npayload splitBy \"|\" map (upper($[0]) ++ lower($[1 to -1])) joinBy \"\\n\"",
+  "explanation": {
+    "approach": "Without trim(), each name still has its spaces. When you apply the formula to \" alice \", the first char is a space and the rest is \"alice \", so you get space + lowercase(alice ), which gives \" alice \". The spaces are untouched.",
+    "snippets": [
+      {
+        "label": "The wrong way: forgetting to trim",
+        "script": "%dw 2.0\noutput text/plain\n---\npayload splitBy \"|\" map (upper($[0]) ++ lower($[1 to -1])) joinBy \"\\n\"",
+        "payload": " alice | BOB | Carol ",
+        "expect": {
+          "output": " alice \n bob \n carol "
+        },
+        "note": "Without trim(), each name still has its spaces. When you apply the formula to \" alice \", the first char is a space and the rest is \"alice \", so you get space + lowercase(alice ), which gives \" alice \". The spaces are untouched."
+      }
+    ]
+  },
+  "derivedFrom": "clean-text-lines"
+}

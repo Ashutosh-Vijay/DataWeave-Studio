@@ -1,0 +1,34 @@
+{
+  "id": "exact-total-no-early-rounding-predict-4",
+  "unit": "precision",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "A case where early rounding does not happen to move the total",
+  "topics": [
+    "sum",
+    "round",
+    "as String {format}"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{\n  correct: sum([19.995, -5.005, 3.01]) as String {format: \"0.00\"},\n  early: sum([19.995, -5.005, 3.01] map ((round($ * 100)) / 100)) as String {format: \"0.00\"}\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{\n  correct: sum([19.995, -5.005, 3.01]) as String {format: \"0.00\"},\n  early: sum([19.995, -5.005, 3.01] map ((round($ * 100)) / 100)) as String {format: \"0.00\"}\n}",
+  "explanation": {
+    "approach": "The two approaches do not always disagree — here the per-amount rounding errors cancel out. That is what makes the habit dangerous: it passes most of the time, and only a specific mix of amounts, like three that each end in .125, exposes the cent it drops or adds.",
+    "snippets": [
+      {
+        "label": "A case where early rounding does not happen to move the total",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  correct: sum([19.995, -5.005, 3.01]) as String {format: \"0.00\"},\n  early: sum([19.995, -5.005, 3.01] map ((round($ * 100)) / 100)) as String {format: \"0.00\"}\n}",
+        "expect": {
+          "output": "{ \"correct\": \"18.00\", \"early\": \"18.00\" }"
+        },
+        "note": "The two approaches do not always disagree — here the per-amount rounding errors cancel out. That is what makes the habit dangerous: it passes most of the time, and only a specific mix of amounts, like three that each end in .125, exposes the cent it drops or adds."
+      }
+    ]
+  },
+  "derivedFrom": "exact-total-no-early-rounding"
+}

@@ -1,0 +1,33 @@
+{
+  "id": "subscription-days-predict-5",
+  "unit": "date-arithmetic",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "Leap years come out right without any help",
+  "topics": [
+    "Period",
+    "as"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{\n  leap: (|2028-03-01| - |2028-02-01|).days,\n  common: (|2027-03-01| - |2027-02-01|).days\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{\n  leap: (|2028-03-01| - |2028-02-01|).days,\n  common: (|2027-03-01| - |2027-02-01|).days\n}",
+  "explanation": {
+    "approach": "Worth confirming rather than assuming. The duration is measured between two real instants, so February's length is already accounted for — there is nothing to special-case.",
+    "snippets": [
+      {
+        "label": "Leap years come out right without any help",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  leap: (|2028-03-01| - |2028-02-01|).days,\n  common: (|2027-03-01| - |2027-02-01|).days\n}",
+        "expect": {
+          "output": "{ \"leap\": 29, \"common\": 28 }"
+        },
+        "note": "Worth confirming rather than assuming. The duration is measured between two real instants, so February's length is already accounted for — there is nothing to special-case."
+      }
+    ]
+  },
+  "derivedFrom": "subscription-days"
+}

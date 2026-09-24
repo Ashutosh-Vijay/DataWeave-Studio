@@ -1,0 +1,35 @@
+{
+  "id": "merge-nested-lists-predict-2",
+  "unit": "flatten-vs-flatmap",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "When an item is itself nested deeper",
+  "topics": [
+    "flatten",
+    "flatMap"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nflatten(payload)",
+    "payload": "[[1, [2, 3]], [4]]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nflatten(payload)",
+  "explanation": {
+    "approach": "The doubly-nested `[2, 3]` stays as-is. `flatten` does exactly one level — see the trap in the curriculum.",
+    "snippets": [
+      {
+        "label": "When an item is itself nested deeper",
+        "script": "%dw 2.0\noutput application/json\n---\nflatten(payload)",
+        "payload": "[[1, [2, 3]], [4]]",
+        "expect": {
+          "output": "[ 1, [ 2, 3 ], 4 ]"
+        },
+        "note": "The doubly-nested `[2, 3]` stays as-is. `flatten` does exactly one level — see the trap in the curriculum."
+      }
+    ]
+  },
+  "derivedFrom": "merge-nested-lists"
+}

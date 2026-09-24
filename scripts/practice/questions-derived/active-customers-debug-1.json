@@ -1,0 +1,99 @@
+{
+  "id": "active-customers-debug-1",
+  "unit": "filter-and-null",
+  "mode": "debug",
+  "tier": "easy",
+  "title": "Fix it: active customers only",
+  "topics": [
+    "filter",
+    "map"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nA CRM export gives you an array of customers. Return an **array of the names** of the customers whose `status` is exactly `\"active\"`.\n\nSome records have no `status` field at all. Those are not active.\n\nKeep the original order.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\npayload map (if ($.status == \"active\") $.name else null)",
+  "cases": [
+    {
+      "input": "[\n  { \"name\": \"Ada\", \"status\": \"active\" },\n  { \"name\": \"Bo\", \"status\": \"inactive\" },\n  { \"name\": \"Cy\" }\n]",
+      "output": "[\"Ada\"]"
+    },
+    {
+      "input": "[\n  { \"name\": \"Dev\", \"status\": \"active\" },\n  { \"name\": \"Eve\", \"status\": \"active\" }\n]",
+      "output": "[\"Dev\",\"Eve\"]"
+    },
+    {
+      "input": "[\n  { \"name\": \"Fay\", \"status\": \"suspended\" },\n  { \"name\": \"Gil\" }\n]",
+      "output": "[]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    },
+    {
+      "input": "[\n  { \"name\": \"Hal\", \"status\": \"Active\" },\n  { \"name\": \"Ivy\", \"status\": \"active\" }\n]",
+      "output": "[\"Ivy\"]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "maps before filtering, so the rejected rows become nulls instead of disappearing"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload filter ($.status == \"active\") map $.name",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map (if ($.status == \"active\") $.name else null)"
+    }
+  ],
+  "explanation": {
+    "approach": "Two independent jobs — decide *which* records survive, and decide *what* each surviving record becomes. `filter` does the first, `map` does the second, and chaining them left to right reads in the order you thought of them.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filter ($.status == \"active\") map $.name",
+        "payload": "[{\"name\":\"Ada\",\"status\":\"active\"},{\"name\":\"Bo\",\"status\":\"inactive\"},{\"name\":\"Cy\"}]",
+        "expect": {
+          "output": "[ \"Ada\" ]"
+        },
+        "note": "`filter` keeps elements, `map` replaces them. Reading it aloud gives you the sentence in the task."
+      },
+      {
+        "label": "Why the missing field needs no guard",
+        "script": "%dw 2.0\noutput application/json\n---\nnull == \"active\"",
+        "expect": {
+          "output": "false"
+        },
+        "note": "`Cy` has no `status`, so `$.status` is `null` — a missing key is null, not an error. Comparing null to a string is simply false, so the record drops out on its own. An `if ($.status != null and ...)` guard would be dead weight."
+      },
+      {
+        "label": "The tempting alternative, and what it actually returns",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map (if ($.status == \"active\") $.name else null)",
+        "payload": "[{\"name\":\"Ada\",\"status\":\"active\"},{\"name\":\"Bo\",\"status\":\"inactive\"},{\"name\":\"Cy\"}]",
+        "expect": {
+          "output": "[ \"Ada\", null, null ]"
+        },
+        "note": "`map` always returns one element per input element — it cannot drop anything. The rejected rows come back as nulls and the array is still length 3. This is the single most common way this task is got wrong."
+      },
+      {
+        "label": "The long form, if the shorthand is not comfortable yet",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filter ((c) -> c.status == \"active\") map ((c) -> c.name)",
+        "payload": "[{\"name\":\"Ada\",\"status\":\"active\"},{\"name\":\"Bo\",\"status\":\"inactive\"},{\"name\":\"Cy\"}]",
+        "expect": {
+          "output": "[ \"Ada\" ]"
+        },
+        "note": "Identical result. Naming the parameter is worth it once the lambdas nest and two `$`s would mean two different things."
+      },
+      {
+        "label": "What happens if the selector is wrong",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.customers filter ($.status == \"active\")",
+        "payload": "[{\"name\":\"Ada\",\"status\":\"active\"}]",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Worth seeing once. `payload.customers` does not exist here, and filtering null gives null rather than an error — so a mistyped selector produces an empty-looking result instead of a stack trace. Every array function behaves this way."
+      }
+    ]
+  },
+  "derivedFrom": "active-customers"
+}

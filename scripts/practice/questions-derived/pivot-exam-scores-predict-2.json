@@ -1,0 +1,39 @@
+{
+  "id": "pivot-exam-scores-predict-2",
+  "unit": "pivot",
+  "mode": "predict",
+  "tier": "extra",
+  "title": "The same result written out as the CSV the question actually asks for",
+  "topics": [
+    "groupBy",
+    "pluck",
+    "reduce",
+    "distinctBy"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/csv",
+  "given": {
+    "script": "%dw 2.0\noutput application/csv\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+    "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/csv\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+  "explanation": {
+    "approach": "Every row has exactly three fields in the same order, so the CSV writer's header lines up with every row underneath it.",
+    "snippets": [
+      {
+        "label": "The same result written out as the CSV the question actually asks for",
+        "script": "%dw 2.0\noutput application/csv\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+        "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]",
+        "outputMime": "application/csv",
+        "compare": "text",
+        "expect": {
+          "output": "student,Math,Bio\r\nAda,90,70\r\nBo,60,0\r\n"
+        },
+        "note": "Every row has exactly three fields in the same order, so the CSV writer's header lines up with every row underneath it."
+      }
+    ]
+  },
+  "derivedFrom": "pivot-exam-scores"
+}

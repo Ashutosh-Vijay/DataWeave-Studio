@@ -1,0 +1,38 @@
+{
+  "id": "read-repeated-xml-elements-predict-4",
+  "unit": "xml-selectors",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Attribute on an array element",
+  "topics": [
+    "XML",
+    "selectors",
+    ".*",
+    "@"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.order.*line map $.@currency",
+    "payload": "<order id=\"X\"><line currency=\"USD\">A</line><line currency=\"EUR\">B</line></order>"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.order.*line map $.@currency",
+  "explanation": {
+    "approach": "First get the array with `.*line`, then `map` over it and read `@currency` from each element.",
+    "snippets": [
+      {
+        "label": "Attribute on an array element",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.order.*line map $.@currency",
+        "payload": "<order id=\"X\"><line currency=\"USD\">A</line><line currency=\"EUR\">B</line></order>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "[\"USD\", \"EUR\"]"
+        },
+        "note": "First get the array with `.*line`, then `map` over it and read `@currency` from each element."
+      }
+    ]
+  },
+  "derivedFrom": "read-repeated-xml-elements"
+}

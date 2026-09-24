@@ -1,0 +1,35 @@
+{
+  "id": "total-with-rounding-predict-4",
+  "unit": "numbers-and-rounding",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "floor vs ceil vs round",
+  "topics": [
+    "sum",
+    "round",
+    "floor",
+    "ceil"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{val: 5.5, floored: floor(5.5), ceiled: ceil(5.5), rounded: round(5.5)}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{val: 5.5, floored: floor(5.5), ceiled: ceil(5.5), rounded: round(5.5)}",
+  "explanation": {
+    "approach": "floor always goes down, ceil always goes up, round goes to the nearest integer (0.5 rounds up).",
+    "snippets": [
+      {
+        "label": "floor vs ceil vs round",
+        "script": "%dw 2.0\noutput application/json\n---\n{val: 5.5, floored: floor(5.5), ceiled: ceil(5.5), rounded: round(5.5)}",
+        "expect": {
+          "output": "{ \"val\": 5.5, \"floored\": 5, \"ceiled\": 6, \"rounded\": 6 }"
+        },
+        "note": "floor always goes down, ceil always goes up, round goes to the nearest integer (0.5 rounds up)."
+      }
+    ]
+  },
+  "derivedFrom": "total-with-rounding"
+}

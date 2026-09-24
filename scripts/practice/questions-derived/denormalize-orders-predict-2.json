@@ -1,0 +1,38 @@
+{
+  "id": "denormalize-orders-predict-2",
+  "unit": "denormalize",
+  "mode": "predict",
+  "tier": "extra",
+  "title": "The full solution as CSV",
+  "topics": [
+    "flatMap",
+    "write",
+    "application/csv"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/csv",
+  "given": {
+    "script": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> {\n  orderId: order.order_id,\n  customer: order.customer,\n  sku: li.sku,\n  qty: li.qty,\n  price: li.price\n}))",
+    "payload": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[{\"sku\":\"A1\",\"qty\":2,\"price\":9.99},{\"sku\":\"A2\",\"qty\":1,\"price\":3.5}]},{\"order_id\":\"O2\",\"customer\":\"Bo\",\"line_items\":[{\"sku\":\"B1\",\"qty\":5,\"price\":1.25}]}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> {\n  orderId: order.order_id,\n  customer: order.customer,\n  sku: li.sku,\n  qty: li.qty,\n  price: li.price\n}))",
+  "explanation": {
+    "approach": "Ada's two line items each get their own row, both stamped with O1 and Ada; Bo's single line item becomes a third row. The writer adds the header and the trailing CRLF on its own.",
+    "snippets": [
+      {
+        "label": "The full solution as CSV",
+        "script": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> {\n  orderId: order.order_id,\n  customer: order.customer,\n  sku: li.sku,\n  qty: li.qty,\n  price: li.price\n}))",
+        "payload": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[{\"sku\":\"A1\",\"qty\":2,\"price\":9.99},{\"sku\":\"A2\",\"qty\":1,\"price\":3.5}]},{\"order_id\":\"O2\",\"customer\":\"Bo\",\"line_items\":[{\"sku\":\"B1\",\"qty\":5,\"price\":1.25}]}]",
+        "outputMime": "application/csv",
+        "compare": "text",
+        "expect": {
+          "output": "orderId,customer,sku,qty,price\r\nO1,Ada,A1,2,9.99\r\nO1,Ada,A2,1,3.5\r\nO2,Bo,B1,5,1.25\r\n"
+        },
+        "note": "Ada's two line items each get their own row, both stamped with O1 and Ada; Bo's single line item becomes a third row. The writer adds the header and the trailing CRLF on its own."
+      }
+    ]
+  },
+  "derivedFrom": "denormalize-orders"
+}
