@@ -28,6 +28,7 @@ import { useEditorFont } from '../hooks/useEditorFont';
 import type { TraceRow } from '../hooks/useDWRunner';
 import {
   gradeSubmission,
+  nextUnsolved,
   type GradeResult,
   type PracticeQuestion,
 } from '../practiceGrading';
@@ -38,22 +39,31 @@ const QUESTIONS = QUESTIONS_JSON as unknown as PracticeQuestion[];
 const TIERS = ['easy', 'medium', 'hard', 'extra', 'max', 'ultra'] as const;
 type Tier = (typeof TIERS)[number];
 
-/** What a tier is worth, and what colour it reads as. */
-const TIER_META: Record<Tier, { points: number; colour: string; label: string }> = {
-  easy:   { points: 10,  colour: 'var(--ok)',      label: 'Easy' },
-  medium: { points: 20,  colour: 'var(--cyan)',    label: 'Medium' },
-  hard:   { points: 35,  colour: 'var(--warn)',    label: 'Hard' },
-  extra:  { points: 50,  colour: 'var(--accent)',  label: 'Extra' },
-  max:    { points: 75,  colour: 'var(--err)',     label: 'Max' },
-  ultra:  { points: 100, colour: 'var(--err)', label: 'Ultra' },
+/** How each tier reads, and what it means. */
+const TIER_META: Record<Tier, { colour: string; label: string; blurb: string }> = {
+  easy:   { colour: 'var(--ok)',     label: 'Easy',   blurb: 'One idea at a time' },
+  medium: { colour: 'var(--cyan)',   label: 'Medium', blurb: 'Two ideas, and a shape that surprises you' },
+  hard:   { colour: 'var(--warn)',   label: 'Hard',   blurb: 'Something a working Mule developer hits' },
+  extra:  { colour: 'var(--accent)', label: 'Extra',  blurb: 'Needs a technique, not just a function' },
+  max:    { colour: 'var(--err)',    label: 'Max',    blurb: 'Recursive, or a shape discovered from the data' },
+  ultra:  { colour: 'var(--err)',    label: 'Ultra',  blurb: 'Write an interpreter in a mapping language' },
 };
 
+/**
+ * What is remembered about a question.
+ *
+ * Deliberately NOT a best time. Offline, with the solution one click away and
+ * nobody to compare against, a fastest-time measures how recently you re-opened
+ * the page — re-entering a question and pasting the answer scored three
+ * seconds. Same for points: they only mean something on a site with a
+ * leaderboard, and adding one would need a server, which is the opposite of
+ * the point of this. What is worth knowing is which ideas you have covered.
+ */
 interface Progress {
   solved: boolean;
-  /** Solving after reading the answer is still worth recording, just not points. */
+  /** Solved after reading the answer still counts as done — just differently. */
   viewedSolution: boolean;
   attempts: number;
-  bestSeconds?: number;
 }
 
 const STORE = 'dw-practice-progress-v1';
@@ -137,7 +147,16 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
   const [hintsShown, setHintsShown] = useState(0);
   const [showSolution, setShowSolution] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  /**
+   * Time on this attempt. It is shown, never stored and never compared.
+   *
+   * `stopped` is latched separately from `result` on purpose: Trace clears the
+   * result so the verdict card makes way for the trace, and keying the clock
+   * off `result?.solved` meant pressing Trace after solving started it running
+   * again.
+   */
   const [seconds, setSeconds] = useState(0);
+  const [stopped, setStopped] = useState(false);
   const startedAt = useRef<number>(0);
 
   const question = useMemo(() => QUESTIONS.find((q) => q.id === openId) ?? null, [openId]);
@@ -165,14 +184,15 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
     setShowSolution(false);
     setShowExplanation(false);
     setSeconds(0);
+    setStopped(false);
     startedAt.current = Date.now();
   }, [question]);
 
   useEffect(() => {
-    if (!question || result?.solved) return;
+    if (!question || stopped) return;
     const t = setInterval(() => setSeconds(Math.floor((Date.now() - startedAt.current) / 1000)), 1000);
     return () => clearInterval(t);
-  }, [question, result?.solved]);
+  }, [question, stopped]);
 
   /** One engine run. The same shape the Run button uses. */
   const runOnce = useCallback(
@@ -252,32 +272,39 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
       const r = await gradeSubmission(question, (c) => runOnce(c.input, question, script));
       setResult(r);
 
-      const elapsed = Math.floor((Date.now() - startedAt.current) / 1000);
       const prev = progress[question.id] ?? { solved: false, viewedSolution: false, attempts: 0 };
       const next: Progress = {
         solved: prev.solved || r.solved,
         viewedSolution: prev.viewedSolution || showSolution,
         attempts: prev.attempts + 1,
-        bestSeconds: r.solved ? Math.min(prev.bestSeconds ?? Infinity, elapsed) : prev.bestSeconds,
       };
       const updated = { ...progress, [question.id]: next };
       setProgress(updated);
       saveProgress(updated);
-      if (r.solved) setShowExplanation(true);
+      if (r.solved) {
+        setShowExplanation(true);
+        setStopped(true);
+      }
     } finally {
       setRunning(false);
     }
   };
 
-  const score = useMemo(
-    () =>
-      QUESTIONS.reduce((total, q) => {
-        const p = progress[q.id];
-        return p?.solved && !p.viewedSolution ? total + TIER_META[q.tier as Tier].points : total;
-      }, 0),
-    [progress],
-  );
   const solvedCount = QUESTIONS.filter((q) => progress[q.id]?.solved).length;
+  /**
+   * Coverage of the syllabus, which is the one number here that means
+   * something: each question is the only one for its curriculum unit, so this
+   * is how many distinct ideas you have actually worked through.
+   */
+  const topicsCovered = new Set(
+    QUESTIONS.filter((q) => progress[q.id]?.solved).map((q) => q.unit),
+  ).size;
+  const topicsTotal = new Set(QUESTIONS.map((q) => q.unit)).size;
+
+  /** Where "Next" goes: the next thing you have not done, wrapping around. */
+  const upNext = question
+    ? nextUnsolved(QUESTIONS, question.id, (id) => !!progress[id]?.solved)
+    : null;
 
   if (!open) return null;
 
@@ -321,12 +348,35 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
         )}
         <span className="flex-1" />
         {question ? (
-          <span className="text-[11px] font-mono text-content-faint tabular-nums">
-            {String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}
-          </span>
+          <>
+            <span
+              className="text-[11px] font-mono text-content-faint tabular-nums"
+              title={stopped ? 'Stopped — you solved it' : 'Time on this attempt. Not recorded, not compared.'}
+              style={{ opacity: stopped ? 0.55 : 1 }}
+            >
+              {String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}
+            </span>
+            {upNext && (
+              <button
+                onClick={() => setOpenId(upNext.id)}
+                title={`Next: ${upNext.title}`}
+                className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] cursor-pointer transition-colors"
+                style={
+                  // After a solve this is the obvious thing to do next, so it
+                  // stops being a quiet link and becomes the accented one.
+                  result?.solved
+                    ? { background: 'var(--accent)', color: 'var(--accent-ink)' }
+                    : { color: 'var(--content-faint)' }
+                }
+              >
+                Next
+                <Icons.ChevronRight size={12} />
+              </button>
+            )}
+          </>
         ) : (
           <span className="text-[11px] text-content-faint">
-            {solvedCount}/{QUESTIONS.length} solved · {score} points
+            {solvedCount}/{QUESTIONS.length} solved · {topicsCovered}/{topicsTotal} topics covered
           </span>
         )}
         <WindowControls />
@@ -353,7 +403,7 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
                       {TIER_META[tier].label}
                     </span>
                     <span className="text-[11px] text-content-ghost">
-                      {inTier.filter((q) => progress[q.id]?.solved).length}/{inTier.length} · {TIER_META[tier].points} points each
+                      {inTier.filter((q) => progress[q.id]?.solved).length}/{inTier.length} · {TIER_META[tier].blurb}
                     </span>
                   </div>
                   <div className="rounded-lg border border-line overflow-hidden">
@@ -375,11 +425,6 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
                           {p?.viewedSolution && (
                             <span className="text-[10px] text-content-ghost">solution seen</span>
                           )}
-                          {p?.bestSeconds !== undefined && (
-                            <span className="text-[10.5px] font-mono text-content-faint tabular-nums">
-                              {Math.floor(p.bestSeconds / 60)}m{String(p.bestSeconds % 60).padStart(2, '0')}s
-                            </span>
-                          )}
                           {(q.topics ?? []).slice(0, 2).map((t) => (
                             <span key={t} className="text-[10px] font-mono text-content-ghost hidden sm:inline">{t}</span>
                           ))}
@@ -398,6 +443,21 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
           {/* left: the task */}
           <div className="w-[42%] min-w-[320px] flex flex-col border-r border-line overflow-auto">
             <div className="px-5 py-4">
+              {/* The primer, for someone meeting the idea here for the first
+                  time. Collapsed by default so it never gets in the way of
+                  somebody who already knows, and open by default on the first
+                  tier, where a beginner actually is. */}
+              {question.basics && (
+                <details className="mb-3.5 rounded-lg border border-line overflow-hidden" open={question.tier === 'easy'}>
+                  <summary className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.6px] text-content-faint bg-surface-2 cursor-pointer select-none">
+                    New to this? Start here
+                  </summary>
+                  <div className="px-3.5 py-3">
+                    <Prose text={question.basics} />
+                  </div>
+                </details>
+              )}
+
               <Prose text={question.prompt} />
 
               <div className="mt-4">
@@ -450,7 +510,7 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
                       {question.solution}
                     </pre>
                     <div className="text-[11px] text-content-ghost mt-1.5">
-                      Solution viewed — this one scores nothing for the rest of the session.
+                      Solution viewed — submissions are disabled for the rest of this session.
                     </div>
                   </>
                 )}

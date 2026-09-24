@@ -6,9 +6,11 @@ before it is allowed near the app. Nothing here ships — it produces the bundle
 that does.
 
 ```
-node scripts/practice/verify-questions.mjs        # the gate — run before committing content
-node scripts/practice/selftest.mjs                # proves the gate can fail
-node scripts/practice/verify-traps.mjs            # the engine facts the syllabus rests on
+npm run practice:verify          # the gate — run before committing content
+npm run practice:verify -- <id>  # just one question, while drafting it
+npm run practice:bundle          # questions/*.json -> src/practiceQuestions.json
+npm run practice:selftest        # proves the gate can still fail
+node scripts/practice/dw.mjs <jobs.json>   # ask the engine a batch of things
 ```
 
 ## The one rule
@@ -33,7 +35,7 @@ output-out — the one shape a suite cannot see — and a script's body is not
 importable, so a suite cannot invoke a submission either.
 
 So grading is what LeetCode actually does: run the submitted script once per
-hidden case, compare the output (`grade.mjs`). `dw::test` stays a feature of the
+hidden case, compare the output. `dw::test` stays a feature of the
 app that the practice set can *teach*, not the machinery underneath it.
 
 **2. Writing traps from memory does not work, even with care.** Two of the
@@ -74,11 +76,34 @@ from one that cannot fail.
 | file | what it is |
 |---|---|
 | `curriculum.json` | 40 units — the syllabus, picked up front so the set has coverage instead of forty variations on `map` |
-| `questions/*.json` | one question each: prompt, cases, hints, solution, `mustFail`, explanation |
-| `grade.mjs` | run a submission against the hidden cases |
-| `verify-questions.mjs` | the gate |
+| `questions/*.json` | one question each: `basics`, prompt, cases, hints, solution, `mustFail`, explanation |
+| `verify-questions.mjs` | the gate. Runs under vite-node so it uses the APP's grader (`src/practiceGrading.ts`) rather than a second copy |
+| `bundle.mjs` | collects the questions into the file the app imports; drops `mustFail` |
+| `dw.mjs` | one-shot engine CLI for drafting — a batch of snippets, one JVM |
 | `selftest.mjs` | proves the gate bites |
 | `verify-traps*.mjs`, `probe-*.mjs` | how the engine facts were established |
+
+## Every new question teaches the basics first
+
+The set is ordered as a course, and somebody working through it may be meeting
+`groupBy` — or `payload` — for the very first time. A question that assumes the
+concept only teaches people who already knew it.
+
+So a new question carries a **`basics`** field: a short primer, in plain words,
+for someone who has never seen this idea. It renders above the task behind
+*"New to this? Start here"*, collapsed by default (open on the Easy tier), so it
+never gets in the way of someone who already knows.
+
+Write it for a person heading towards a MuleSoft certification who has not
+written DataWeave before. Say what the thing *is* and what it is *for* before
+any trap or subtlety — those belong in the explanation, after they have tried.
+
+It is prose, so **check 4 applies to it**: any function it names must appear in
+a snippet that ran.
+
+The original 40 predate this and do not have one. That is fine and they are not
+being retrofitted; the gate prints a note rather than failing. New ones should
+have it.
 
 ## Question shape
 

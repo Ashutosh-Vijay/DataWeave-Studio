@@ -3,6 +3,7 @@ import {
   deepEqual,
   outputsMatch,
   gradeSubmission,
+  nextUnsolved,
   type PracticeQuestion,
   type RunOutcome,
 } from '../practiceGrading';
@@ -171,5 +172,45 @@ describe('gradeSubmission', () => {
       '[]': { ok: true, output: '[]', ms: 2 },
     }));
     expect(r.ms).toBe(17);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
+ * "Next" exists because finishing a question used to leave you on a dead end
+ * with nothing to click. It should hand you the next thing you have NOT done,
+ * not merely the next row, or it walks you back through solved questions.
+ */
+describe('nextUnsolved', () => {
+  const set = ['a', 'b', 'c', 'd'].map(
+    (id) => ({ ...QUESTION, id, unit: id }) as PracticeQuestion,
+  );
+
+  it('skips over solved questions', () => {
+    const solved = (id: string) => id === 'b';
+    expect(nextUnsolved(set, 'a', solved)?.id).toBe('c');
+  });
+
+  it('wraps around to the start rather than stopping at the end', () => {
+    expect(nextUnsolved(set, 'd', () => false)?.id).toBe('a');
+  });
+
+  it('wraps past solved ones too', () => {
+    const solved = (id: string) => id === 'a' || id === 'b';
+    expect(nextUnsolved(set, 'c', solved)?.id).toBe('d');
+    expect(nextUnsolved(set, 'd', solved)?.id).toBe('c');
+  });
+
+  it('still moves on when everything is solved, instead of getting stuck', () => {
+    // Otherwise the button vanishes for anyone who has finished the set, which
+    // is the one person most likely to be browsing back through it.
+    expect(nextUnsolved(set, 'b', () => true)?.id).toBe('c');
+    expect(nextUnsolved(set, 'd', () => true)?.id).toBe('a');
+  });
+
+  it('returns null when there is nowhere to go', () => {
+    expect(nextUnsolved(set.slice(0, 1), 'a', () => false)).toBeNull();
+    expect(nextUnsolved(set, 'missing', () => false)).toBeNull();
   });
 });

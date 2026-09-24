@@ -136,6 +136,7 @@ for (const file of files) {
   // ordinary words like "every" and "contains" as undemonstrated functions.
   const proseFields = [
     q.prompt,
+    q.basics ?? '',
     ...(q.hints ?? []),
     q.explanation?.approach ?? '',
     ...(q.explanation?.snippets ?? []).map((s) => s.note ?? ''),
@@ -147,6 +148,11 @@ for (const file of files) {
   );
   if (unproven.length) problems.push(`named in prose but never executed: ${unproven.join(', ')}`);
   else console.log(`   prose        every name it uses appears in a snippet that ran`);
+
+  // Not a failure: the first 40 were written before `basics` existed, and
+  // retrofitting them is a separate job from writing the next ones. New
+  // questions are expected to have one — see the README.
+  if (!q.basics) console.log(`   note         no "basics" primer — fine for the original set, expected on new ones`);
 
   if (problems.length) {
     failures += problems.length;

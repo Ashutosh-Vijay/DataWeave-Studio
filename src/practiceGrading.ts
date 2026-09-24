@@ -31,6 +31,17 @@ export interface PracticeQuestion {
   topics?: string[];
   /** Markdown. */
   prompt: string;
+  /**
+   * A primer for someone meeting this idea for the first time, shown above the
+   * task behind "New to this?".
+   *
+   * The set is ordered as a course, and somebody working through it towards a
+   * MuleSoft certification may be meeting `groupBy` — or `payload` — for the
+   * first time here. A question that assumes the concept teaches only people
+   * who already knew it. Optional: questions written before this existed do not
+   * have one, and the block is simply absent.
+   */
+  basics?: string;
   inputMime?: string;
   outputMime?: string;
   starter?: string;
@@ -60,6 +71,28 @@ export interface PracticeQuestion {
       note?: string;
     }[];
   };
+}
+
+/**
+ * The next question worth opening after this one.
+ *
+ * Prefers the next unsolved question in course order, wrapping to the start, so
+ * finishing one hands you the next thing you have not done rather than the next
+ * thing alphabetically. Falls back to the plain next question when everything
+ * else is solved, and returns null when there is only one.
+ */
+export function nextUnsolved(
+  questions: PracticeQuestion[],
+  currentId: string,
+  solved: (id: string) => boolean,
+): PracticeQuestion | null {
+  const here = questions.findIndex((q) => q.id === currentId);
+  if (here < 0 || questions.length < 2) return null;
+  for (let step = 1; step < questions.length; step++) {
+    const q = questions[(here + step) % questions.length];
+    if (!solved(q.id)) return q;
+  }
+  return questions[(here + 1) % questions.length];
 }
 
 /**
