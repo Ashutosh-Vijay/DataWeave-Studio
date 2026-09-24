@@ -1,0 +1,2417 @@
+[
+  {
+    "id": "extract-person-info",
+    "unit": "select-and-shape",
+    "tier": "easy",
+    "title": "Extract person info and reshape",
+    "topics": [
+      "selectors",
+      "object construction"
+    ],
+    "prompt": "You have an array of person records with some fields that might be missing. Build a new array where each person is represented as an object with `name`, `age`, and `city` fields.\n\nIf a field is missing, include it as `null` in the output.\n\nKeep the original order.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[{\"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\"}, {\"name\": \"Bob\", \"city\": \"LA\"}]",
+        "output": "[{\"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\"}, {\"name\": \"Bob\", \"age\": null, \"city\": \"LA\"}]"
+      },
+      {
+        "input": "[{\"name\": \"Carol\", \"age\": 25, \"city\": \"Chicago\"}]",
+        "output": "[{\"name\": \"Carol\", \"age\": 25, \"city\": \"Chicago\"}]"
+      },
+      {
+        "input": "[{\"age\": 28, \"city\": \"Boston\"}, {\"name\": \"Dave\", \"age\": 35}]",
+        "output": "[{\"name\": null, \"age\": 28, \"city\": \"Boston\"}, {\"name\": \"Dave\", \"age\": 35, \"city\": null}]"
+      },
+      {
+        "input": "[]",
+        "output": "[]"
+      },
+      {
+        "input": "[{\"name\": \"Eve\"}]",
+        "output": "[{\"name\": \"Eve\", \"age\": null, \"city\": null}]"
+      }
+    ],
+    "hints": [
+      "Grab each person from the array and pick out the three fields you need. If a field does not exist, accessing it will not crash — it will just be `null`.",
+      "Use `map` to transform each person. Inside the map, build a new object with the three fields: `{name: ..., age: ..., city: ...}`.",
+      "You do not need to guard against missing fields. `$.fieldName` will silently return `null` if the field is not there. A typo in your selector will produce a null in the output instead of an error — that is the trap."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\npayload map {name: $.name, age: $.age, city: $.city}",
+    "explanation": {
+      "approach": "Each person in the input is an object with various fields. Your job is to pick exactly three of them and put them in the output in a specific order. `map` transforms each person into the new shape.",
+      "snippets": [
+        {
+          "label": "The answer",
+          "script": "%dw 2.0\noutput application/json\n---\npayload map {name: $.name, age: $.age, city: $.city}",
+          "payload": "[{\"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\"}, {\"name\": \"Bob\", \"city\": \"LA\"}]",
+          "expect": {
+            "output": "[ { \"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\" }, { \"name\": \"Bob\", \"age\": null, \"city\": \"LA\" } ]"
+          },
+          "note": "Each person becomes an object with exactly three keys, in the order you wrote them. Bob has no `age` field in the input, so it becomes `null` in the output."
+        },
+        {
+          "label": "What happens when you access a missing field",
+          "script": "%dw 2.0\noutput application/json\n---\n{\"name\": \"Alice\"}.age",
+          "expect": {
+            "output": "null"
+          },
+          "note": "Accessing a field that is not there returns `null`, not an error. This is the trap: a typo in your field name ships silently as a null in the output."
+        },
+        {
+          "label": "A person missing all three fields",
+          "script": "%dw 2.0\noutput application/json\n---\npayload map {name: $.name, age: $.age, city: $.city}",
+          "payload": "[{}]",
+          "expect": {
+            "output": "[ { \"name\": null, \"age\": null, \"city\": null } ]"
+          },
+          "note": "Every field access returns null, so you get an object with all nulls. This is not an error — the output is still valid JSON."
+        },
+        {
+          "label": "What a typo looks like",
+          "script": "%dw 2.0\noutput application/json\n---\npayload map {name: $.fullName, age: $.age, city: $.city}",
+          "payload": "[{\"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\"}]",
+          "expect": {
+            "output": "[ { \"name\": null, \"age\": 30, \"city\": \"NYC\" } ]"
+          },
+          "note": "`$.fullName` does not exist, so it becomes null. No compilation error, no warning — the mapping just silently drops the name. This is why the first hint says a typo ships silently."
+        },
+        {
+          "label": "Order is preserved",
+          "script": "%dw 2.0\noutput application/json\n---\npayload map {city: $.city, name: $.name, age: $.age}",
+          "payload": "[{\"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\"}]",
+          "expect": {
+            "output": "[ { \"city\": \"NYC\", \"name\": \"Alice\", \"age\": 30 } ]"
+          },
+          "note": "The output keys appear in the order you wrote them, not the order they appeared in the input. `city` first, then `name`, then `age`."
+        }
+      ]
+    }
+  },
+  {
+    "id": "index-the-items",
+    "unit": "map-basics",
+    "tier": "easy",
+    "title": "Number each item in a list",
+    "topics": [
+      "map",
+      "index"
+    ],
+    "prompt": "You have an array of item names. For each item, build an object with two fields: `position` (starting from 1, not 0) and `item`.\n\nKeep the original order.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[\"apple\", \"banana\", \"cherry\"]",
+        "output": "[{\"position\": 1, \"item\": \"apple\"}, {\"position\": 2, \"item\": \"banana\"}, {\"position\": 3, \"item\": \"cherry\"}]"
+      },
+      {
+        "input": "[\"one\"]",
+        "output": "[{\"position\": 1, \"item\": \"one\"}]"
+      },
+      {
+        "input": "[\"x\", \"y\", \"z\", \"w\"]",
+        "output": "[{\"position\": 1, \"item\": \"x\"}, {\"position\": 2, \"item\": \"y\"}, {\"position\": 3, \"item\": \"z\"}, {\"position\": 4, \"item\": \"w\"}]"
+      },
+      {
+        "input": "[]",
+        "output": "[]"
+      },
+      {
+        "input": "[\"single\"]",
+        "output": "[{\"position\": 1, \"item\": \"single\"}]"
+      }
+    ],
+    "hints": [
+      "`map` gives you access to two things at once: the element (`$`) and its index (`$$`). You need both.",
+      "The index is zero-based, but the task asks for one-based positions. So index 0 becomes position 1, index 1 becomes position 2, and so on.",
+      "Inside your map, return an object with `position: $$ + 1` (to adjust from zero-based to one-based) and `item: $` (the element itself)."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\npayload map {position: $$ + 1, item: $}",
+    "explanation": {
+      "approach": "When you map over an array, you have access to the current element (via `$`) and its position in the array (via `$$`). The position is zero-based by default, so you add 1 to get a human-friendly one-based count. Build an object with both pieces of information.",
+      "snippets": [
+        {
+          "label": "The answer",
+          "script": "%dw 2.0\noutput application/json\n---\npayload map {position: $$ + 1, item: $}",
+          "payload": "[\"apple\", \"banana\", \"cherry\"]",
+          "expect": {
+            "output": "[ { \"position\": 1, \"item\": \"apple\" }, { \"position\": 2, \"item\": \"banana\" }, { \"position\": 3, \"item\": \"cherry\" } ]"
+          },
+          "note": "`$` is the element, `$$` is the index. Index 0 becomes position 1, index 1 becomes position 2, and so on."
+        },
+        {
+          "label": "What $$ actually is",
+          "script": "%dw 2.0\noutput application/json\n---\npayload map $$",
+          "payload": "[\"apple\", \"banana\", \"cherry\"]",
+          "expect": {
+            "output": "[ 0, 1, 2 ]"
+          },
+          "note": "`$$` is zero-based. The first element is at index 0, the second at index 1, and so on."
+        },
+        {
+          "label": "The zero-based mistake",
+          "script": "%dw 2.0\noutput application/json\n---\npayload map {position: $$, item: $}",
+          "payload": "[\"apple\", \"banana\", \"cherry\"]",
+          "expect": {
+            "output": "[ { \"position\": 0, \"item\": \"apple\" }, { \"position\": 1, \"item\": \"banana\" }, { \"position\": 2, \"item\": \"cherry\" } ]"
+          },
+          "note": "Forgetting to add 1 gives you zero-based positions. It is valid DataWeave, but it does not answer the task."
+        },
+        {
+          "label": "What happens if you only use $ without the index",
+          "script": "%dw 2.0\noutput application/json\n---\npayload map {item: $}",
+          "payload": "[\"apple\", \"banana\", \"cherry\"]",
+          "expect": {
+            "output": "[ { \"item\": \"apple\" }, { \"item\": \"banana\" }, { \"item\": \"cherry\" } ]"
+          },
+          "note": "You lose the position information entirely. `map` does not automatically include it; you have to ask for it with `$$`."
+        },
+        {
+          "label": "The long form with named parameters",
+          "script": "%dw 2.0\noutput application/json\n---\npayload map ((element, index) -> {position: index + 1, item: element})",
+          "payload": "[\"apple\", \"banana\", \"cherry\"]",
+          "expect": {
+            "output": "[ { \"position\": 1, \"item\": \"apple\" }, { \"position\": 2, \"item\": \"banana\" }, { \"position\": 3, \"item\": \"cherry\" } ]"
+          },
+          "note": "Instead of `$` and `$$`, you can name your parameters. The second parameter is the index, the first is the element. Identical result."
+        }
+      ]
+    }
+  },
+  {
+    "id": "active-customers",
+    "unit": "filter-and-null",
+    "tier": "easy",
+    "title": "Active customers only",
+    "topics": [
+      "filter",
+      "map"
+    ],
+    "prompt": "A CRM export gives you an array of customers. Return an **array of the names** of the customers whose `status` is exactly `\"active\"`.\n\nSome records have no `status` field at all. Those are not active.\n\nKeep the original order.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[\n  { \"name\": \"Ada\", \"status\": \"active\" },\n  { \"name\": \"Bo\", \"status\": \"inactive\" },\n  { \"name\": \"Cy\" }\n]",
+        "output": "[\"Ada\"]"
+      },
+      {
+        "input": "[\n  { \"name\": \"Dev\", \"status\": \"active\" },\n  { \"name\": \"Eve\", \"status\": \"active\" }\n]",
+        "output": "[\"Dev\",\"Eve\"]"
+      },
+      {
+        "input": "[\n  { \"name\": \"Fay\", \"status\": \"suspended\" },\n  { \"name\": \"Gil\" }\n]",
+        "output": "[]"
+      },
+      {
+        "input": "[]",
+        "output": "[]"
+      },
+      {
+        "input": "[\n  { \"name\": \"Hal\", \"status\": \"Active\" },\n  { \"name\": \"Ivy\", \"status\": \"active\" }\n]",
+        "output": "[\"Ivy\"]"
+      }
+    ],
+    "hints": [
+      "Two steps, and they chain left to right: narrow the array first, then take one field from each element that is left.",
+      "`$` is the current element inside both `filter` and `map`, so `$.status` and `$.name` are all you need.",
+      "You do not have to guard against the missing `status`. Ask yourself what `null == \"active\"` evaluates to."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\npayload filter ($.status == \"active\") map $.name",
+    "explanation": {
+      "approach": "Two independent jobs — decide *which* records survive, and decide *what* each surviving record becomes. `filter` does the first, `map` does the second, and chaining them left to right reads in the order you thought of them.",
+      "snippets": [
+        {
+          "label": "The answer",
+          "script": "%dw 2.0\noutput application/json\n---\npayload filter ($.status == \"active\") map $.name",
+          "payload": "[{\"name\":\"Ada\",\"status\":\"active\"},{\"name\":\"Bo\",\"status\":\"inactive\"},{\"name\":\"Cy\"}]",
+          "expect": {
+            "output": "[ \"Ada\" ]"
+          },
+          "note": "`filter` keeps elements, `map` replaces them. Reading it aloud gives you the sentence in the task."
+        },
+        {
+          "label": "Why the missing field needs no guard",
+          "script": "%dw 2.0\noutput application/json\n---\nnull == \"active\"",
+          "expect": {
+            "output": "false"
+          },
+          "note": "`Cy` has no `status`, so `$.status` is `null` — a missing key is null, not an error. Comparing null to a string is simply false, so the record drops out on its own. An `if ($.status != null and ...)` guard would be dead weight."
+        },
+        {
+          "label": "The tempting alternative, and what it actually returns",
+          "script": "%dw 2.0\noutput application/json\n---\npayload map (if ($.status == \"active\") $.name else null)",
+          "payload": "[{\"name\":\"Ada\",\"status\":\"active\"},{\"name\":\"Bo\",\"status\":\"inactive\"},{\"name\":\"Cy\"}]",
+          "expect": {
+            "output": "[ \"Ada\", null, null ]"
+          },
+          "note": "`map` always returns one element per input element — it cannot drop anything. The rejected rows come back as nulls and the array is still length 3. This is the single most common way this task is got wrong."
+        },
+        {
+          "label": "The long form, if the shorthand is not comfortable yet",
+          "script": "%dw 2.0\noutput application/json\n---\npayload filter ((c) -> c.status == \"active\") map ((c) -> c.name)",
+          "payload": "[{\"name\":\"Ada\",\"status\":\"active\"},{\"name\":\"Bo\",\"status\":\"inactive\"},{\"name\":\"Cy\"}]",
+          "expect": {
+            "output": "[ \"Ada\" ]"
+          },
+          "note": "Identical result. Naming the parameter is worth it once the lambdas nest and two `$`s would mean two different things."
+        },
+        {
+          "label": "What happens if the selector is wrong",
+          "script": "%dw 2.0\noutput application/json\n---\npayload.customers filter ($.status == \"active\")",
+          "payload": "[{\"name\":\"Ada\",\"status\":\"active\"}]",
+          "expect": {
+            "output": "null"
+          },
+          "note": "Worth seeing once. `payload.customers` does not exist here, and filtering null gives null rather than an error — so a mistyped selector produces an empty-looking result instead of a stack trace. Every array function behaves this way."
+        }
+      ]
+    }
+  },
+  {
+    "id": "config-with-defaults",
+    "unit": "default-and-missing",
+    "tier": "easy",
+    "title": "Apply defaults, but keep false and empty strings",
+    "topics": [
+      "default",
+      "null"
+    ],
+    "prompt": "A configuration object has some fields that are `null` and need fallback values. Apply defaults for the `timeout`, `retries`, and `debug` fields.\n\nBut be careful: if a field has the value `false` or an empty string `\"\"`, those are valid values and should not be replaced. Only `null` gets a default.\n\nReturn the updated object with all three fields present.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "{\"timeout\": null, \"retries\": null, \"debug\": null}",
+        "output": "{\"timeout\": 30, \"retries\": 3, \"debug\": false}"
+      },
+      {
+        "input": "{\"timeout\": 60, \"retries\": 5, \"debug\": true}",
+        "output": "{\"timeout\": 60, \"retries\": 5, \"debug\": true}"
+      },
+      {
+        "input": "{\"timeout\": false, \"retries\": 0, \"debug\": \"\"}",
+        "output": "{\"timeout\": false, \"retries\": 0, \"debug\": \"\"}"
+      },
+      {
+        "input": "{}",
+        "output": "{\"timeout\": 30, \"retries\": 3, \"debug\": false}"
+      },
+      {
+        "input": "{\"timeout\": null, \"retries\": 0, \"debug\": null}",
+        "output": "{\"timeout\": 30, \"retries\": 0, \"debug\": false}"
+      }
+    ],
+    "hints": [
+      "The `default` operator replaces only `null` values. If a field is missing, the selector returns `null`, so `default` handles both cases in one go.",
+      "`false` is a value, not a missing value. The same goes for empty strings: `'' default 'fallback'` keeps the empty string, not the fallback.",
+      "Apply `default` to each field selector: `$.timeout default 30`, `$.retries default 3`, and `$.debug default false`."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\n{timeout: payload.timeout default 30, retries: payload.retries default 3, debug: payload.debug default false}",
+    "explanation": {
+      "approach": "`default` is the right tool for this job. It checks if a value is `null` and replaces it with a fallback. Other falsy values like `false`, `0`, and empty strings are NOT null, so they pass through unchanged. Build an object with three fields, each using `default` to supply its fallback.",
+      "snippets": [
+        {
+          "label": "The answer",
+          "script": "%dw 2.0\noutput application/json\n---\n{timeout: payload.timeout default 30, retries: payload.retries default 3, debug: payload.debug default false}",
+          "payload": "{\"timeout\": null, \"retries\": null, \"debug\": null}",
+          "expect": {
+            "output": "{ \"timeout\": 30, \"retries\": 3, \"debug\": false }"
+          },
+          "note": "All three fields are null, so all three defaults kick in."
+        },
+        {
+          "label": "null gets the default",
+          "script": "%dw 2.0\noutput application/json\n---\nnull default 'fallback'",
+          "expect": {
+            "output": "\"fallback\""
+          },
+          "note": "`null` is the ONE case where `default` fires."
+        },
+        {
+          "label": "false is NOT null",
+          "script": "%dw 2.0\noutput application/json\n---\nfalse default true",
+          "expect": {
+            "output": "false"
+          },
+          "note": "`false` is a value. It is not null, so the default is ignored. `false` passes through."
+        },
+        {
+          "label": "empty string is NOT null",
+          "script": "%dw 2.0\noutput application/json\n---\n\"\" default \"fallback\"",
+          "expect": {
+            "output": "\"\""
+          },
+          "note": "Empty string is a valid value, not null. The default does not apply. This is the trap: many languages treat empty strings as falsy, but DataWeave treats them as real values."
+        },
+        {
+          "label": "zero is NOT null",
+          "script": "%dw 2.0\noutput application/json\n---\n0 default 3",
+          "expect": {
+            "output": "0"
+          },
+          "note": "Zero is a number value, not null. It passes through."
+        },
+        {
+          "label": "Missing field becomes null, then gets the default",
+          "script": "%dw 2.0\noutput application/json\n---\n{timeout: payload.missing default 30}",
+          "payload": "{}",
+          "expect": {
+            "output": "{ \"timeout\": 30 }"
+          },
+          "note": "A field that does not exist returns `null` when accessed, so `default` treats it the same as an explicit `null`."
+        }
+      ]
+    }
+  },
+  {
+    "id": "clean-text-lines",
+    "unit": "string-basics",
+    "tier": "easy",
+    "title": "Format a list of names",
+    "topics": [
+      "upper",
+      "lower",
+      "trim",
+      "splitBy",
+      "joinBy"
+    ],
+    "prompt": "You have a list of names that is formatted as a single string with a pipe separator. The names have extra spaces and are in different cases. Clean them up: trim the spaces, convert to title case (first letter uppercase, rest lowercase), and return them as a newline-separated string.\n\nTitle case formula: take the first character, uppercase it, concatenate the rest of the string in lowercase. In DataWeave, a string is an array: `s[0]` is the first character and `s[1 to -1]` is the rest.\n\nFor the sample, input `\" alice | BOB | Carol \"` should produce `Alice\\nBob\\nCarol`.",
+    "inputMime": "text/plain",
+    "outputMime": "text/plain",
+    "starter": "%dw 2.0\noutput text/plain\n---\n",
+    "cases": [
+      {
+        "input": " alice | BOB | Carol ",
+        "output": "Alice\nBob\nCarol"
+      },
+      {
+        "input": "david|EVE|frank",
+        "output": "David\nEve\nFrank"
+      },
+      {
+        "input": "  grace  ",
+        "output": "Grace"
+      },
+      {
+        "input": "single",
+        "output": "Single"
+      },
+      {
+        "input": " henry | iris | JACK ",
+        "output": "Henry\nIris\nJack"
+      }
+    ],
+    "hints": [
+      "Split the string on pipes to get individual names, then transform each one, then rejoin.",
+      "You need to trim() each name to remove spaces, then apply title case logic. Title case is: first letter uppercase, the rest lowercase.",
+      "You already have a function that takes the first character, uppercases it, and appends the rest in lowercase. Look for a function that does title-casing in one step."
+    ],
+    "solution": "%dw 2.0\noutput text/plain\n---\npayload splitBy \"|\" map (do { var n = trim($) --- upper(n[0]) ++ lower(n[1 to -1]) }) joinBy \"\\n\"",
+    "explanation": {
+      "approach": "Three chained operations: split on the separator, transform each element, join with the output separator. The trap is remembering that splitBy keeps the spaces in each name — each element needs trimming before capitalization.",
+      "snippets": [
+        {
+          "label": "The answer",
+          "script": "%dw 2.0\noutput text/plain\n---\npayload splitBy \"|\" map (do { var n = trim($) --- upper(n[0]) ++ lower(n[1 to -1]) }) joinBy \"\\n\"",
+          "payload": " alice | BOB | Carol ",
+          "expect": {
+            "output": "Alice\nBob\nCarol"
+          },
+          "note": "splitBy breaks on pipes; map transforms each (trim first, then build title case: first letter uppercase, rest lowercase); joinBy reassembles with newlines. The `do { var n = ... }` inside map lets you name the trimmed string so you can split it."
+        },
+        {
+          "label": "What splitBy actually produces",
+          "script": "%dw 2.0\noutput application/json\n---\npayload splitBy \"|\"",
+          "payload": " alice | BOB | Carol ",
+          "expect": {
+            "output": "[ \" alice \", \" BOB \", \" Carol \" ]"
+          },
+          "note": "The spaces are still there. Each element keeps its surrounding whitespace. Without trim(), the first character of \" alice \" would be processed, which is a space."
+        },
+        {
+          "label": "The wrong way: forgetting to trim",
+          "script": "%dw 2.0\noutput text/plain\n---\npayload splitBy \"|\" map (upper($[0]) ++ lower($[1 to -1])) joinBy \"\\n\"",
+          "payload": " alice | BOB | Carol ",
+          "expect": {
+            "output": " alice \n bob \n carol "
+          },
+          "note": "Without trim(), each name still has its spaces. When you apply the formula to \" alice \", the first char is a space and the rest is \"alice \", so you get space + lowercase(alice ), which gives \" alice \". The spaces are untouched."
+        },
+        {
+          "label": "String slicing: characters as array indices",
+          "script": "%dw 2.0\noutput application/json\n---\n{first: \"hello\"[0], rest: \"hello\"[1 to -1]}",
+          "expect": {
+            "output": "{ \"first\": \"h\", \"rest\": \"ello\" }"
+          },
+          "note": "[0] gets the first character, [1 to -1] gets from index 1 to the last. So for a string `n`, the formula is always upper(n[0]) ++ lower(n[1 to -1])."
+        },
+        {
+          "label": "trim() behavior",
+          "script": "%dw 2.0\noutput application/json\n---\n{untrimmed: \" hello \", trimmed: trim(\" hello \")}",
+          "expect": {
+            "output": "{ \"untrimmed\": \" hello \", \"trimmed\": \"hello\" }"
+          },
+          "note": "trim() removes whitespace from both ends. It does not affect spaces inside the word."
+        },
+        {
+          "label": "The pipe separator behavior",
+          "script": "%dw 2.0\noutput application/json\n---\n\"a|b|c\" splitBy \"|\"",
+          "expect": {
+            "output": "[ \"a\", \"b\", \"c\" ]"
+          },
+          "note": "The pipe is literal, not regex. A pipe is just a character, so `splitBy \"|\"` means 'split on this exact string'."
+        },
+        {
+          "label": "joinBy assembles back",
+          "script": "%dw 2.0\noutput text/plain\n---\n[\"Line1\", \"Line2\", \"Line3\"] joinBy \"\\n\"",
+          "expect": {
+            "output": "Line1\nLine2\nLine3"
+          },
+          "note": "The newline literal `\\n` produces actual newlines in the output, not the characters backslash and n."
+        }
+      ]
+    }
+  },
+  {
+    "id": "total-with-rounding",
+    "unit": "numbers-and-rounding",
+    "tier": "easy",
+    "title": "Sum prices and round correctly",
+    "topics": [
+      "sum",
+      "round",
+      "floor",
+      "ceil"
+    ],
+    "prompt": "You have a list of prices that may have cents. Calculate the total and round it to the nearest dollar. Use mathematical rounding (0.5 rounds up).\n\nFor the sample, the prices `[10.2, 15.75, 8.33]` total to `34.28`, which rounds to `34`.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[10.2, 15.75, 8.33]",
+        "output": "34"
+      },
+      {
+        "input": "[100, 200, 300]",
+        "output": "600"
+      },
+      {
+        "input": "[5.4, 5.5, 5.6]",
+        "output": "17"
+      },
+      {
+        "input": "[0.1, 0.2, 0.3]",
+        "output": "1"
+      },
+      {
+        "input": "[99.99, 0.01]",
+        "output": "100"
+      }
+    ],
+    "hints": [
+      "Two steps: sum all the prices, then round the result to the nearest whole number.",
+      "`sum` returns a single number from a list. `round` takes a number and returns it rounded to the nearest integer.",
+      "Test: what does `7 / 2` return in DataWeave? Is it a whole number or a decimal? And what does `round` do to that result?"
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\nround(sum(payload))",
+    "explanation": {
+      "approach": "Sum turns an array of numbers into one number. Round then adjusts that number to the nearest integer. The trap is that division in DataWeave always produces decimals — `7 / 2` is `3.5`, not `3`. Formatting with `#` does not round it either.",
+      "snippets": [
+        {
+          "label": "The answer",
+          "script": "%dw 2.0\noutput application/json\n---\nround(sum([10.2, 15.75, 8.33]))",
+          "expect": {
+            "output": "34"
+          },
+          "note": "sum gives 34.28, round gives 34. The chaining is left-to-right: sum fires first, then round."
+        },
+        {
+          "label": "What sum alone returns",
+          "script": "%dw 2.0\noutput application/json\n---\nsum([10.2, 15.75, 8.33])",
+          "expect": {
+            "output": "34.28"
+          },
+          "note": "Without rounding, you get the exact total with all decimal places. For money, this is usually wrong — you need a whole dollar amount."
+        },
+        {
+          "label": "Division is never integer division",
+          "script": "%dw 2.0\noutput application/json\n---\n7 / 2",
+          "expect": {
+            "output": "3.5"
+          },
+          "note": "Even with two whole numbers, division produces a decimal. If you want truncation, use floor. If you want rounding, use round."
+        },
+        {
+          "label": "Formatting with # does not round",
+          "script": "%dw 2.0\noutput application/json\n---\n(7 / 2) as Number {format: '#'}",
+          "expect": {
+            "output": "3.5"
+          },
+          "note": "The format string controls how the number is displayed, not its value. This still returns 3.5 even with the '#' format."
+        },
+        {
+          "label": "floor vs ceil vs round",
+          "script": "%dw 2.0\noutput application/json\n---\n{val: 5.5, floored: floor(5.5), ceiled: ceil(5.5), rounded: round(5.5)}",
+          "expect": {
+            "output": "{ \"val\": 5.5, \"floored\": 5, \"ceiled\": 6, \"rounded\": 6 }"
+          },
+          "note": "floor always goes down, ceil always goes up, round goes to the nearest integer (0.5 rounds up)."
+        },
+        {
+          "label": "Why this matters for money",
+          "script": "%dw 2.0\noutput application/json\n---\nsum([0.1, 0.2, 0.3])",
+          "expect": {
+            "output": "0.6"
+          },
+          "note": "DataWeave uses arbitrary-precision arithmetic, so 0.1 + 0.2 + 0.3 is exactly 0.6. But if you use the result in a price list, you need it rounded to cents, which is round(...) for dollars."
+        }
+      ]
+    }
+  },
+  {
+    "id": "first-and-last-items",
+    "unit": "sizeof-and-slicing",
+    "tier": "easy",
+    "title": "Extract first and last items",
+    "topics": [
+      "sizeOf"
+    ],
+    "prompt": "You have a list of items. Return an object with `first` and `last` fields containing the first and last items from the list.\n\nFor the sample, `[\"apple\", \"banana\", \"cherry\"]` should produce `{\"first\": \"apple\", \"last\": \"cherry\"}`.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[\"apple\", \"banana\", \"cherry\"]",
+        "output": "{\"first\": \"apple\", \"last\": \"cherry\"}"
+      },
+      {
+        "input": "[1, 2, 3, 4, 5]",
+        "output": "{\"first\": 1, \"last\": 5}"
+      },
+      {
+        "input": "[\"single\"]",
+        "output": "{\"first\": \"single\", \"last\": \"single\"}"
+      },
+      {
+        "input": "[null, true, false]",
+        "output": "{\"first\": null, \"last\": false}"
+      },
+      {
+        "input": "[{\"id\": 1}, {\"id\": 2}]",
+        "output": "{\"first\": {\"id\": 1}, \"last\": {\"id\": 2}}"
+      }
+    ],
+    "hints": [
+      "Two fields: `first` is payload[0], and `last` is... the last item. In DataWeave, negative indices count from the end.",
+      "The last item is at index -1. You do not need to calculate the size; just use the negative index directly.",
+      "Think about what happens if the array is empty: payload[0] would be null, and payload[-1] would also be null. That is actually correct behavior for this task."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\n{first: payload[0], last: payload[-1]}",
+    "explanation": {
+      "approach": "Index the first element with [0] and the last with [-1]. Negative indices count backward from the end, so -1 is always the last item. You do not need to know the array length.",
+      "snippets": [
+        {
+          "label": "The answer",
+          "script": "%dw 2.0\noutput application/json\n---\n{first: [\"apple\", \"banana\", \"cherry\"][0], last: [\"apple\", \"banana\", \"cherry\"][-1]}",
+          "expect": {
+            "output": "{ \"first\": \"apple\", \"last\": \"cherry\" }"
+          },
+          "note": "Index [0] is the first item, [-1] is the last. No size calculation needed."
+        },
+        {
+          "label": "Negative indexing: -1 is the last",
+          "script": "%dw 2.0\noutput application/json\n---\n[1,2,3][-1]",
+          "expect": {
+            "output": "3"
+          },
+          "note": "Negative indices count from the end. -1 is the last, -2 is second-to-last, etc."
+        },
+        {
+          "label": "An index past the end is null",
+          "script": "%dw 2.0\noutput application/json\n---\n[1,2,3][9]",
+          "expect": {
+            "output": "null"
+          },
+          "note": "Out-of-bounds access does not throw an error; it just returns null. This is useful for defensive coding."
+        },
+        {
+          "label": "A range is different from an index",
+          "script": "%dw 2.0\noutput application/json\n---\n{single: [1,2,3][0], range: [1,2,3][0 to 0]}",
+          "expect": {
+            "output": "{ \"single\": 1, \"range\": [ 1 ] }"
+          },
+          "note": "[0] returns the item itself, [0 to 0] returns an array with one item. For this task, you want [0] and [-1], not ranges."
+        },
+        {
+          "label": "sizeOf tells you the length",
+          "script": "%dw 2.0\noutput application/json\n---\n{array: [10, 20, 30, 40], size: sizeOf([10, 20, 30, 40])}",
+          "expect": {
+            "output": "{ \"array\": [ 10, 20, 30, 40 ], \"size\": 4 }"
+          },
+          "note": "sizeOf returns the count. But for the last item, negative indexing is simpler than calculating sizeOf(payload) - 1."
+        },
+        {
+          "label": "Why the tempting alternative is wrong",
+          "script": "%dw 2.0\noutput application/json\n---\n{direct: [1,2,3][-1], calc: [1,2,3][sizeOf([1,2,3]) - 1]}",
+          "expect": {
+            "output": "{ \"direct\": 3, \"calc\": 3 }"
+          },
+          "note": "Both return the same value, but negative indexing is clearer — it says 'get the last' without asking you to do arithmetic."
+        },
+        {
+          "label": "There is no negative zero",
+          "script": "%dw 2.0\noutput application/json\n---\n{ zero: [1,2,3][0], negZero: [1,2,3][-0], negOne: [1,2,3][-1] }",
+          "expect": {
+            "output": "{ \"zero\": 1, \"negZero\": 1, \"negOne\": 3 }"
+          },
+          "note": "Counting back from the end starts at -1, not -0, because -0 and 0 are the same number. So `[-0]` quietly gives you the FIRST element — the one place where reaching for the end lands you at the start."
+        }
+      ]
+    }
+  },
+  {
+    "id": "orders-per-priority",
+    "unit": "groupby-shape",
+    "tier": "medium",
+    "title": "How many orders at each priority",
+    "topics": [
+      "groupBy",
+      "mapObject",
+      "sizeOf"
+    ],
+    "prompt": "You are given an array of orders, each with a numeric `priority`.\n\nReturn **one object** whose keys are the priorities that appear, and whose values are how many orders had that priority.\n\nA priority that never appears must not appear in the output.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[\n  { \"id\": \"A\", \"priority\": 1 },\n  { \"id\": \"B\", \"priority\": 2 },\n  { \"id\": \"C\", \"priority\": 1 }\n]",
+        "output": "{ \"1\": 2, \"2\": 1 }"
+      },
+      {
+        "input": "[\n  { \"id\": \"D\", \"priority\": 3 }\n]",
+        "output": "{ \"3\": 1 }"
+      },
+      {
+        "input": "[\n  { \"id\": \"E\", \"priority\": 2 },\n  { \"id\": \"F\", \"priority\": 2 },\n  { \"id\": \"G\", \"priority\": 2 },\n  { \"id\": \"H\", \"priority\": 1 }\n]",
+        "output": "{ \"2\": 3, \"1\": 1 }"
+      },
+      {
+        "input": "[]",
+        "output": "{}"
+      }
+    ],
+    "hints": [
+      "One function puts the orders into buckets. Look at what it hands back before you try to count anything — it is not an array.",
+      "Counting the members of each bucket is `sizeOf`.",
+      "To rebuild an object from an object, `mapObject` gives you the value as `$` and the key as `$$`. A computed key needs parentheses: `($$): ...`"
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority mapObject { ($$): sizeOf($) }",
+    "explanation": {
+      "approach": "`groupBy` does the hard part; the work left over is entirely about the shape it returns. It gives you an **object** — bucket key to array of members — so the second step has to be an object function, not an array one.",
+      "snippets": [
+        {
+          "label": "Look at what groupBy returns first",
+          "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority",
+          "payload": "[{\"id\":\"A\",\"priority\":1},{\"id\":\"B\",\"priority\":2},{\"id\":\"C\",\"priority\":1}]",
+          "expect": {
+            "output": "{ \"1\": [ { \"id\": \"A\", \"priority\": 1 }, { \"id\": \"C\", \"priority\": 1 } ], \"2\": [ { \"id\": \"B\", \"priority\": 2 } ] }"
+          },
+          "note": "Two things to notice. It is an object, not an array. And the keys are the strings `\"1\"` and `\"2\"` even though `priority` was a number — an object key is always a name, so the grouping value is coerced on the way in."
+        },
+        {
+          "label": "The answer",
+          "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority mapObject { ($$): sizeOf($) }",
+          "payload": "[{\"id\":\"A\",\"priority\":1},{\"id\":\"B\",\"priority\":2},{\"id\":\"C\",\"priority\":1}]",
+          "expect": {
+            "output": "{ \"1\": 2, \"2\": 1 }"
+          },
+          "note": "Inside `mapObject`, `$` is the value (the bucket) and `$$` is the key. The parentheses around `$$` are what make it a computed key rather than a field literally named `$$`."
+        },
+        {
+          "label": "Why not map",
+          "script": "%dw 2.0\noutput application/json\n---\n(payload groupBy $.priority) map sizeOf($)",
+          "payload": "[{\"id\":\"A\",\"priority\":1},{\"id\":\"B\",\"priority\":2},{\"id\":\"C\",\"priority\":1}]",
+          "expect": {
+            "error": true
+          },
+          "note": "It does not quietly do the wrong thing — the engine refuses, because `map` has no overload for an Object. This is the good case: the mistake is caught at the point you make it."
+        },
+        {
+          "label": "The named-parameter form",
+          "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority mapObject ((orders, priority) -> { (priority): sizeOf(orders) })",
+          "payload": "[{\"id\":\"A\",\"priority\":1},{\"id\":\"B\",\"priority\":2},{\"id\":\"C\",\"priority\":1}]",
+          "expect": {
+            "output": "{ \"1\": 2, \"2\": 1 }"
+          },
+          "note": "Same result. Note the order: **value first, then key**, which is the opposite of how 'key-value' reads. Getting this backwards is a common source of confusion, and because both are often Strings it may not fail — it just produces nonsense."
+        },
+        {
+          "label": "If you want counts as an array of rows instead",
+          "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority pluck ((orders, priority) -> { priority: priority, count: sizeOf(orders) })",
+          "payload": "[{\"id\":\"A\",\"priority\":1},{\"id\":\"B\",\"priority\":2},{\"id\":\"C\",\"priority\":1}]",
+          "expect": {
+            "output": "[ { \"priority\": \"1\", \"count\": 2 }, { \"priority\": \"2\", \"count\": 1 } ]"
+          },
+          "note": "`pluck` is `mapObject`'s sibling that returns an array. Not what this task asked for, but it is the shape you usually want for a report or a CSV — and see that `priority` has come back out as a String, because that is what it became when it was a key."
+        }
+      ]
+    }
+  },
+  {
+    "id": "sum-with-reduce",
+    "unit": "reduce-seed",
+    "tier": "medium",
+    "title": "Total up a numeric field across items",
+    "topics": [
+      "reduce",
+      "seed"
+    ],
+    "prompt": "You are given an array of objects, each with a numeric `amount` field.\n\nReturn the **total** of all amounts.\n\nWhen the array is empty, your total must be 0, not null.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[{\"id\":\"A\",\"amount\":10},{\"id\":\"B\",\"amount\":20},{\"id\":\"C\",\"amount\":15}]",
+        "output": "45"
+      },
+      {
+        "input": "[{\"id\":\"D\",\"amount\":100}]",
+        "output": "100"
+      },
+      {
+        "input": "[{\"id\":\"E\",\"amount\":5},{\"id\":\"F\",\"amount\":3},{\"id\":\"G\",\"amount\":2}]",
+        "output": "10"
+      },
+      {
+        "input": "[]",
+        "output": "0"
+      }
+    ],
+    "hints": [
+      "The `reduce` function combines multiple values into a single result. It takes the element being processed and an accumulator that carries the total forward.",
+      "The seed is the starting value for your accumulator. If you do not provide one, an empty array returns null instead of your default.",
+      "The parameter order in reduce is `(element, accumulator) -> newAccumulator`. See `reduce` take a look at how the lambda's parameters are ordered."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\npayload reduce ((item, total = 0) -> total + item.amount)",
+    "explanation": {
+      "approach": "`reduce` walks an array one element at a time, passing the current element and the accumulated result to a function. The seed is the starting value — with no seed, an empty array gives null, which is not a number and causes arithmetic to fail.",
+      "snippets": [
+        {
+          "label": "How reduce processes elements",
+          "script": "%dw 2.0\noutput application/json\n---\n[10, 20, 30] reduce ((element, acc = 0) -> acc + element)",
+          "payload": null,
+          "expect": {
+            "output": "60"
+          },
+          "note": "Each element gets added to `acc`, which starts at 0. After the first pass, acc is 10. After the second, 30. After the third, 60."
+        },
+        {
+          "label": "Extracting a field first",
+          "script": "%dw 2.0\noutput application/json\n---\npayload reduce ((item, total = 0) -> total + item.amount)",
+          "payload": "[{\"id\":\"A\",\"amount\":10},{\"id\":\"B\",\"amount\":20},{\"id\":\"C\",\"amount\":15}]",
+          "expect": {
+            "output": "45"
+          },
+          "note": "The same technique, but starting with objects. You extract `item.amount` for each and add it to the running total."
+        },
+        {
+          "label": "Without a seed, empty means null",
+          "script": "%dw 2.0\noutput application/json\n---\n[] reduce ((item, total) -> total + item)",
+          "payload": null,
+          "expect": {
+            "output": "null"
+          },
+          "note": "With no seed, reducing an empty array gives null. On non-empty arrays this would fail at runtime when trying to add null, but on an empty array it simply returns null."
+        },
+        {
+          "label": "The seed as a default value",
+          "script": "%dw 2.0\noutput application/json\n---\n[] reduce ((item, total = 0) -> total + item)",
+          "payload": null,
+          "expect": {
+            "output": "0"
+          },
+          "note": "With `total = 0` as the seed, an empty array returns 0. It works with the objects too: the first element arrives at the function with `total` already 0."
+        },
+        {
+          "label": "The alternative: sum function",
+          "script": "%dw 2.0\noutput application/json\n---\nsum(payload map $.amount)",
+          "payload": "[{\"id\":\"A\",\"amount\":10},{\"id\":\"B\",\"amount\":20},{\"id\":\"C\",\"amount\":15}]",
+          "expect": {
+            "output": "45"
+          },
+          "note": "An alternative path: extract the amounts into an array, then pass it to `sum`. `sum` also returns 0 for an empty array, but `reduce` gives you more control over each step."
+        }
+      ]
+    }
+  },
+  {
+    "id": "extract-from-object",
+    "unit": "pluck-and-mapobject",
+    "tier": "medium",
+    "title": "Iterate over an object's keys and values",
+    "topics": [
+      "pluck",
+      "mapObject"
+    ],
+    "prompt": "You are given an object where each key is a product ID and the value is the price.\n\nReturn an **array** of objects, one per product, each with `id` and `price` fields.\n\nThe order must match the order in which the keys appeared in the input.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "{\"SKU-1\":9.99,\"SKU-2\":15.50,\"SKU-3\":22.00}",
+        "output": "[{\"id\":\"SKU-1\",\"price\":9.99},{\"id\":\"SKU-2\",\"price\":15.50},{\"id\":\"SKU-3\",\"price\":22.00}]"
+      },
+      {
+        "input": "{\"A\":100}",
+        "output": "[{\"id\":\"A\",\"price\":100}]"
+      },
+      {
+        "input": "{\"X\":1.50,\"Y\":2.25,\"Z\":3.00}",
+        "output": "[{\"id\":\"X\",\"price\":1.50},{\"id\":\"Y\",\"price\":2.25},{\"id\":\"Z\",\"price\":3.00}]"
+      },
+      {
+        "input": "{}",
+        "output": "[]"
+      }
+    ],
+    "hints": [
+      "You need a function that turns an object into rows. Look at `pluck` and `mapObject` — one returns an array, the other returns an object.",
+      "Both `pluck` and `mapObject` give you the value and the key as parameters. Notice their order: the value comes FIRST, the key comes second. This is the opposite of how people usually read a key-value pair out loud.",
+      "In the lambda `(value, key) -> ...`, use the key to build the `id` field and the value to build the `price` field."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\npayload pluck ((price, id) -> { id: id, price: price })",
+    "explanation": {
+      "approach": "`pluck` and `mapObject` both iterate an object. `pluck` returns an array of the results; `mapObject` returns an object. Both pass you the value first, then the key — the opposite of the way you read them in English (key-value), which is why this order surprises people.",
+      "snippets": [
+        {
+          "label": "What pluck does",
+          "script": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} pluck $",
+          "payload": null,
+          "expect": {
+            "output": "[ \"apple\", \"banana\" ]"
+          },
+          "note": "`pluck` with the shorthand `$` just returns the values as an array."
+        },
+        {
+          "label": "The parameter order",
+          "script": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} pluck ((value, key) -> { key: key, value: value })",
+          "payload": null,
+          "expect": {
+            "output": "[ { \"key\": \"a\", \"value\": \"apple\" }, { \"key\": \"b\", \"value\": \"banana\" } ]"
+          },
+          "note": "The lambda receives the VALUE first, then the KEY. If you swap them, `key` will hold the price and `value` will hold the product ID."
+        },
+        {
+          "label": "The answer",
+          "script": "%dw 2.0\noutput application/json\n---\npayload pluck ((price, id) -> { id: id, price: price })",
+          "payload": "{\"SKU-1\":9.99,\"SKU-2\":15.50}",
+          "expect": {
+            "output": "[ { \"id\": \"SKU-1\", \"price\": 9.99 }, { \"id\": \"SKU-2\", \"price\": 15.5 } ]"
+          },
+          "note": "The first parameter gets the value (the price), the second gets the key (the ID). Then you can assign them to whatever field names make sense."
+        },
+        {
+          "label": "mapObject returns an object, not an array",
+          "script": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} mapObject ((value, key) -> { (key): value })",
+          "payload": null,
+          "expect": {
+            "output": "{ \"a\": \"apple\", \"b\": \"banana\" }"
+          },
+          "note": "`mapObject` rebuilds an object instead of an array. The computed key `(key)` becomes the field name. Same parameter order as `pluck`."
+        },
+        {
+          "label": "The third parameter: index",
+          "script": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} pluck ((value, key, index) -> { position: index, key: key, value: value })",
+          "payload": null,
+          "expect": {
+            "output": "[ { \"position\": 0, \"key\": \"a\", \"value\": \"apple\" }, { \"position\": 1, \"key\": \"b\", \"value\": \"banana\" } ]"
+          },
+          "note": "Both functions also pass a third parameter: the zero-based position of the pair in the object."
+        }
+      ]
+    }
+  },
+  {
+    "id": "duplicate-key-collision",
+    "unit": "duplicate-keys",
+    "tier": "medium",
+    "title": "Two fields with the same name",
+    "compare": "text",
+    "topics": [
+      "duplicate keys",
+      "object construction"
+    ],
+    "prompt": "You are given an array of tag objects. Each has a `name` field (the category) and a `value` field.\n\nBuild an object where each field name comes from a tag's `name`, and the field value comes from that tag's `value`.\n\nThere is a catch: some names appear more than once. When a name appears twice, **both** entries must appear in the output with the same key.\n\nDataWeave objects are ordered pairs, not a map — duplicate keys survive into the JSON.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[{\"name\":\"color\",\"value\":\"red\"},{\"name\":\"size\",\"value\":\"large\"},{\"name\":\"color\",\"value\":\"blue\"}]",
+        "output": "{\n  \"color\": \"red\",\n  \"size\": \"large\",\n  \"color\": \"blue\"\n}"
+      },
+      {
+        "input": "[{\"name\":\"a\",\"value\":1}]",
+        "output": "{\n  \"a\": 1\n}"
+      },
+      {
+        "input": "[{\"name\":\"x\",\"value\":10},{\"name\":\"y\",\"value\":20},{\"name\":\"x\",\"value\":30}]",
+        "output": "{\n  \"x\": 10,\n  \"y\": 20,\n  \"x\": 30\n}"
+      },
+      {
+        "input": "[]",
+        "output": "{\n  \n}"
+      }
+    ],
+    "hints": [
+      "You need to build an object where the field names come from data. Use `reduce` with computed keys.",
+      "When you write `{(expr): value}` with parentheses around the key expression, you are building a computed key. This works with `reduce` to accumulate key-value pairs into an object.",
+      "DataWeave allows the same key to appear twice. When it does, both entries end up in the JSON output. Most JSON parsers will keep the last value, but DataWeave kept both, and that is the point."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\npayload reduce ((tag, obj = {}) -> obj ++ { (tag.name): tag.value })",
+    "explanation": {
+      "approach": "To build an object from an array, you can use `reduce` to accumulate key-value pairs. The key insight is that DataWeave objects are ordered lists of pairs, not a dictionary — so a repeated key does not overwrite; both keys survive.",
+      "snippets": [
+        {
+          "label": "A computed key",
+          "script": "%dw 2.0\noutput application/json\n---\n{(\"color\"): \"red\"}",
+          "payload": null,
+          "expect": {
+            "output": "{ \"color\": \"red\" }"
+          },
+          "note": "Parentheses around the key expression make it a computed key. The key comes from evaluating the expression, not from a literal field name."
+        },
+        {
+          "label": "Building an object from an array with reduce",
+          "script": "%dw 2.0\noutput application/json\n---\n[{\"name\":\"a\",\"value\":1},{\"name\":\"b\",\"value\":2}] reduce ((tag, obj = {}) -> obj ++ { (tag.name): tag.value })",
+          "payload": null,
+          "expect": {
+            "output": "{ \"a\": 1, \"b\": 2 }"
+          },
+          "note": "Start with an empty object. For each tag, concatenate it with a new object built from that tag's name and value. The `++` operator merges the objects."
+        },
+        {
+          "label": "The answer: duplicate keys allowed",
+          "script": "%dw 2.0\noutput application/json\n---\npayload reduce ((tag, obj = {}) -> obj ++ { (tag.name): tag.value })",
+          "payload": "[{\"name\":\"color\",\"value\":\"red\"},{\"name\":\"size\",\"value\":\"large\"},{\"name\":\"color\",\"value\":\"blue\"}]",
+          "expect": {
+            "output": "{ \"color\": \"red\", \"size\": \"large\", \"color\": \"blue\" }"
+          },
+          "note": "When the second color tag arrives, it concatenates a new pair into the object. The result is an object with two pairs named `color`, both in the output."
+        },
+        {
+          "label": "Checking the object contents",
+          "script": "%dw 2.0\noutput application/json\n---\npayload reduce ((tag, obj = {}) -> obj ++ { (tag.name): tag.value })",
+          "payload": "[{\"name\":\"color\",\"value\":\"red\"},{\"name\":\"color\",\"value\":\"blue\"}]",
+          "expect": {
+            "output": "{\n  \"color\": \"red\",\n  \"color\": \"blue\"\n}"
+          },
+          "note": "Both keys survive in the output. This is unlike a traditional map where the second value would overwrite the first. DataWeave treats objects as ordered lists of pairs, so both remain."
+        },
+        {
+          "label": "Preventing duplicates with groupBy",
+          "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.name mapObject { ($$): $.value[0] }",
+          "payload": "[{\"name\":\"color\",\"value\":\"red\"},{\"name\":\"color\",\"value\":\"blue\"}]",
+          "expect": {
+            "output": "{\n  \"color\": \"red\"\n}"
+          },
+          "note": "`groupBy` groups by the key expression and returns an object. If you want to collapse duplicates instead, group first, then pick one winner (here, the first one with `[0]`)."
+        }
+      ]
+    }
+  },
+  {
+    "id": "unique-sorted-list",
+    "unit": "distinct-and-order",
+    "tier": "medium",
+    "title": "Remove duplicates and sort ascending",
+    "topics": [
+      "distinctBy",
+      "orderBy"
+    ],
+    "prompt": "You are given an array of numbers in random order, with duplicates.\n\nReturn an array with duplicates removed, sorted in ascending order.\n\nThe first occurrence of each number is the one that appears in the output.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[3, 1, 2, 1, 3, 2, 1]",
+        "output": "[ 1, 2, 3 ]"
+      },
+      {
+        "input": "[5, 5, 5]",
+        "output": "[ 5 ]"
+      },
+      {
+        "input": "[4, 2, 3, 1]",
+        "output": "[ 1, 2, 3, 4 ]"
+      },
+      {
+        "input": "[]",
+        "output": "[ ]"
+      }
+    ],
+    "hints": [
+      "One function removes duplicates. Look at the verified facts in the curriculum to see which one keeps.",
+      "Ascending is the default direction. But if you want to reverse, check the trap.",
+      "Think about the order of operations: should you dedupe first or sort first?"
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\npayload distinctBy $ orderBy $",
+    "explanation": {
+      "approach": "`distinctBy` removes duplicates, and `orderBy` sorts. Chain them together: dedupe first, then sort. `distinctBy` returns an array and keeps the FIRST occurrence of each value.",
+      "snippets": [
+        {
+          "label": "Input with duplicates",
+          "script": "%dw 2.0\noutput application/json\n---\npayload",
+          "payload": "[3, 1, 2, 1, 3, 2, 1]",
+          "expect": {
+            "output": "[ 3, 1, 2, 1, 3, 2, 1 ]"
+          },
+          "note": "The raw input — note the duplicates and the order."
+        },
+        {
+          "label": "After distinctBy",
+          "script": "%dw 2.0\noutput application/json\n---\npayload distinctBy $",
+          "payload": "[3, 1, 2, 1, 3, 2, 1]",
+          "expect": {
+            "output": "[ 3, 1, 2 ]"
+          },
+          "note": "Duplicates gone, but order is NOT sorted yet. The first occurrence of 3, 1, and 2 is preserved."
+        },
+        {
+          "label": "The answer",
+          "script": "%dw 2.0\noutput application/json\n---\npayload distinctBy $ orderBy $",
+          "payload": "[3, 1, 2, 1, 3, 2, 1]",
+          "expect": {
+            "output": "[ 1, 2, 3 ]"
+          },
+          "note": "Chain them: dedupe first, then sort ascending."
+        },
+        {
+          "label": "Reverse sort (descending)",
+          "script": "%dw 2.0\noutput application/json\n---\n(payload distinctBy $ orderBy $)[-1 to 0]",
+          "payload": "[3, 1, 2, 1, 3, 2, 1]",
+          "expect": {
+            "output": "[ 3, 2, 1 ]"
+          },
+          "note": "To sort descending, reverse the sorted array with `[-1 to 0]`. There is no `desc` parameter — the reversal is how you do it."
+        },
+        {
+          "label": "On an empty array",
+          "script": "%dw 2.0\noutput application/json\n---\npayload distinctBy $ orderBy $",
+          "payload": "[]",
+          "expect": {
+            "output": "[ ]"
+          },
+          "note": "Edge case: both functions work on empty arrays without error."
+        }
+      ]
+    }
+  },
+  {
+    "id": "merge-nested-lists",
+    "unit": "flatten-vs-flatmap",
+    "tier": "medium",
+    "title": "Collapse a list of lists into one list",
+    "topics": [
+      "flatten",
+      "flatMap"
+    ],
+    "prompt": "You are given an array of arrays. Each inner array contains items.\n\nReturn a single flat array with all the items merged together, but STOP after one level of nesting.\n\nIf an item is itself an array (nested deeper), it stays as-is — do not flatten recursively.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[[1, 2], [3, 4], [5]]",
+        "output": "[ 1, 2, 3, 4, 5 ]"
+      },
+      {
+        "input": "[[1, [2, 3]], [4]]",
+        "output": "[ 1, [ 2, 3 ], 4 ]"
+      },
+      {
+        "input": "[[], [1], []]",
+        "output": "[ 1 ]"
+      },
+      {
+        "input": "[]",
+        "output": "[ ]"
+      }
+    ],
+    "hints": [
+      "One function flattens exactly one level. It does not recurse deeper.",
+      "The trap in the curriculum says what `flatten` returns for doubly-nested input.",
+      "When you want to flatten AND transform at the same time, `flatMap` tells you the approach."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\nflatten(payload)",
+    "explanation": {
+      "approach": "`flatten` collapses exactly one level of nesting — no more, no less. If you have a doubly-nested structure, one level stays. This is by design: it lets you flatten a list of lists without recursing into the items.",
+      "snippets": [
+        {
+          "label": "A list of lists with simple items",
+          "script": "%dw 2.0\noutput application/json\n---\npayload",
+          "payload": "[[1, 2], [3, 4], [5]]",
+          "expect": {
+            "output": "[ [ 1, 2 ], [ 3, 4 ], [ 5 ] ]"
+          },
+          "note": "Three arrays nested inside one. The job is to merge them."
+        },
+        {
+          "label": "The answer — flatten",
+          "script": "%dw 2.0\noutput application/json\n---\nflatten(payload)",
+          "payload": "[[1, 2], [3, 4], [5]]",
+          "expect": {
+            "output": "[ 1, 2, 3, 4, 5 ]"
+          },
+          "note": "`flatten` opens up exactly one level, spilling all the items into a single array."
+        },
+        {
+          "label": "When an item is itself nested deeper",
+          "script": "%dw 2.0\noutput application/json\n---\nflatten(payload)",
+          "payload": "[[1, [2, 3]], [4]]",
+          "expect": {
+            "output": "[ 1, [ 2, 3 ], 4 ]"
+          },
+          "note": "The doubly-nested `[2, 3]` stays as-is. `flatten` does exactly one level — see the trap in the curriculum."
+        },
+        {
+          "label": "If you want to flatten and transform together",
+          "script": "%dw 2.0\noutput application/json\n---\npayload flatMap ((arr) -> arr map ($ * 2))",
+          "payload": "[[1, 2], [3, 4], [5]]",
+          "expect": {
+            "output": "[ 2, 4, 6, 8, 10 ]"
+          },
+          "note": "`flatMap` applies a function to each element and then flattens one level. Here we transform each inner array by doubling its numbers, then flatten. The end result is: apply map to each inner array, then merge the results."
+        },
+        {
+          "label": "Empty arrays inside",
+          "script": "%dw 2.0\noutput application/json\n---\nflatten(payload)",
+          "payload": "[[], [1], []]",
+          "expect": {
+            "output": "[ 1 ]"
+          },
+          "note": "Empty arrays contribute nothing to the flattened result — they just disappear."
+        }
+      ]
+    }
+  },
+  {
+    "id": "optional-fields",
+    "unit": "conditional-fields",
+    "tier": "medium",
+    "title": "Include a field only when it applies",
+    "topics": [],
+    "prompt": "You are given a user record with optional fields like a phone number or a business title.\n\nReturn an object with the user's name always included, but only include the optional fields if they are not empty strings.\n\nNever emit a field with a null value — if the field should not appear, omit it entirely.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "{ \"name\": \"Alice\", \"phone\": \"555-1234\", \"title\": \"\" }",
+        "output": "{ \"name\": \"Alice\", \"phone\": \"555-1234\" }"
+      },
+      {
+        "input": "{ \"name\": \"Bob\", \"phone\": \"\", \"title\": \"Manager\" }",
+        "output": "{ \"name\": \"Bob\", \"title\": \"Manager\" }"
+      },
+      {
+        "input": "{ \"name\": \"Charlie\", \"phone\": \"\", \"title\": \"\" }",
+        "output": "{ \"name\": \"Charlie\" }"
+      },
+      {
+        "input": "{ \"name\": \"Diana\", \"phone\": \"555-9999\", \"title\": \"Director\" }",
+        "output": "{ \"name\": \"Diana\", \"phone\": \"555-9999\", \"title\": \"Director\" }"
+      }
+    ],
+    "hints": [
+      "There is a syntax for `if` inside an object that works for one key-value pair.",
+      "The parentheses matter — look at the trap in the curriculum.",
+      "Check what happens when you forget them and what the `if` actually modifies."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, (phone: payload.phone) if (payload.phone != \"\"), (title: payload.title) if (payload.title != \"\") }",
+    "explanation": {
+      "approach": "Use `(key: value) if (condition)` to include a field conditionally. The parentheses wrap the key-value pair so the `if` applies to the whole pair. Without them, the `if` applies only to the value, creating a field with a null key.",
+      "snippets": [
+        {
+          "label": "A user record with optional fields",
+          "script": "%dw 2.0\noutput application/json\n---\npayload",
+          "payload": "{ \"name\": \"Alice\", \"phone\": \"555-1234\", \"title\": \"\" }",
+          "expect": {
+            "output": "{ \"name\": \"Alice\", \"phone\": \"555-1234\", \"title\": \"\" }"
+          },
+          "note": "Some fields are empty strings — the job is to drop them from the output."
+        },
+        {
+          "label": "The answer — parentheses around the pair",
+          "script": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, (phone: payload.phone) if (payload.phone != \"\"), (title: payload.title) if (payload.title != \"\") }",
+          "payload": "{ \"name\": \"Alice\", \"phone\": \"555-1234\", \"title\": \"\" }",
+          "expect": {
+            "output": "{ \"name\": \"Alice\", \"phone\": \"555-1234\" }"
+          },
+          "note": "The `(phone: ...)` wraps both the key and value, so the `if` applies to the entire field. When `title` is empty, the whole field is omitted."
+        },
+        {
+          "label": "When all optionals are empty",
+          "script": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, (phone: payload.phone) if (payload.phone != \"\"), (title: payload.title) if (payload.title != \"\") }",
+          "payload": "{ \"name\": \"Charlie\", \"phone\": \"\", \"title\": \"\" }",
+          "expect": {
+            "output": "{ \"name\": \"Charlie\" }"
+          },
+          "note": "Both optional fields are empty, so they are dropped entirely. No null values appear."
+        },
+        {
+          "label": "Wrong approach — using a ternary instead",
+          "script": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, phone: if (payload.phone != \"\") payload.phone else null, title: if (payload.title != \"\") payload.title else null }",
+          "payload": "{ \"name\": \"Bob\", \"phone\": \"\", \"title\": \"Manager\" }",
+          "expect": {
+            "output": "{ \"name\": \"Bob\", \"phone\": null, \"title\": \"Manager\" }"
+          },
+          "note": "This creates a null value when the condition fails. The field still appears in the output with a null value — exactly what the problem asked you NOT to do. The conditional field syntax `(key: value) if (...)` omits the entire field instead."
+        },
+        {
+          "label": "A record with all fields present",
+          "script": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, (phone: payload.phone) if (payload.phone != \"\"), (title: payload.title) if (payload.title != \"\") }",
+          "payload": "{ \"name\": \"Diana\", \"phone\": \"555-9999\", \"title\": \"Director\" }",
+          "expect": {
+            "output": "{ \"name\": \"Diana\", \"phone\": \"555-9999\", \"title\": \"Director\" }"
+          },
+          "note": "All fields pass their conditions, so all appear in the output."
+        }
+      ]
+    }
+  },
+  {
+    "id": "change-status-field",
+    "unit": "update-operator",
+    "tier": "medium",
+    "title": "Update a status field without rebuilding the whole object",
+    "topics": [
+      "update",
+      "case"
+    ],
+    "prompt": "You have objects with a `status` field and various other fields. For each object, set the status to `\"inactive\"`, but keep every other field exactly as it was.\n\nSome objects might not have a `status` field at all. These should be left unchanged (since you cannot update a field that does not exist).",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\npayload map ",
+    "cases": [
+      {
+        "input": "[{\"id\": 1, \"status\": \"active\", \"name\": \"Item1\"}, {\"id\": 2, \"status\": \"pending\", \"name\": \"Item2\"}]",
+        "output": "[{\"id\": 1, \"status\": \"inactive\", \"name\": \"Item1\"}, {\"id\": 2, \"status\": \"inactive\", \"name\": \"Item2\"}]"
+      },
+      {
+        "input": "[{\"id\": 1, \"status\": \"active\", \"priority\": 1, \"tags\": [\"urgent\", \"review\"]}, {\"id\": 2, \"priority\": 2}]",
+        "output": "[{\"id\": 1, \"status\": \"inactive\", \"priority\": 1, \"tags\": [\"urgent\", \"review\"]}, {\"id\": 2, \"priority\": 2}]"
+      },
+      {
+        "input": "[{\"id\": 1, \"status\": \"active\"}, {\"id\": 2}]",
+        "output": "[{\"id\": 1, \"status\": \"inactive\"}, {\"id\": 2}]"
+      },
+      {
+        "input": "[]",
+        "output": "[]"
+      }
+    ],
+    "hints": [
+      "You need to iterate over the array. Each element goes through a transformation.",
+      "The `update` operator changes one or more fields in an object without rebuilding the whole thing.",
+      "If you try to update a field that does not exist, it silently does nothing — it does not add it. That is the trap of this unit."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\npayload map ($ update {\n  case .status -> \"inactive\"\n})",
+    "explanation": {
+      "approach": "The `update` operator modifies one or more fields in an object while leaving the rest intact. It only works on fields that already exist. If you ask it to update a field that is not there, it silently does nothing — which is the trap.",
+      "snippets": [
+        {
+          "label": "The basic update syntax",
+          "script": "%dw 2.0\noutput application/json\n---\n{id: 1, status: \"active\", name: \"Item1\"} update {\n  case .status -> \"inactive\"\n}",
+          "expect": {
+            "output": "{\n  \"id\": 1,\n  \"status\": \"inactive\",\n  \"name\": \"Item1\"\n}"
+          },
+          "note": "The `status` field changed to `inactive`, but `id` and `name` stayed the same. The `update` left everything else untouched."
+        },
+        {
+          "label": "What happens when you update a missing field",
+          "script": "%dw 2.0\noutput application/json\n---\n{id: 1, status: \"active\"} update {\n  case .missing -> \"added\"\n}",
+          "expect": {
+            "output": "{\n  \"id\": 1,\n  \"status\": \"active\"\n}"
+          },
+          "note": "The `update` did not add a `missing` field. It only modifies fields that already exist. This is the trap: the operation succeeds silently, but nothing happened."
+        },
+        {
+          "label": "Iterating with map and update together",
+          "script": "%dw 2.0\noutput application/json\n---\n[{id: 1, status: \"active\", name: \"Item1\"}, {id: 2, status: \"pending\", name: \"Item2\"}] map ($ update {\n  case .status -> \"inactive\"\n})",
+          "expect": {
+            "output": "[\n  {\n    \"id\": 1,\n    \"status\": \"inactive\",\n    \"name\": \"Item1\"\n  },\n  {\n    \"id\": 2,\n    \"status\": \"inactive\",\n    \"name\": \"Item2\"\n  }\n]"
+          },
+          "note": "Each element of the array gets the update applied. Both items now have `status: \"inactive\"`, and all other fields stayed the same."
+        },
+        {
+          "label": "An object with no status field",
+          "script": "%dw 2.0\noutput application/json\n---\n{id: 2, priority: 1} update {\n  case .status -> \"inactive\"\n}",
+          "expect": {
+            "output": "{\n  \"id\": 2,\n  \"priority\": 1\n}"
+          },
+          "note": "Since this object has no `status` field, the `update` does nothing. Both `id` and `priority` are unchanged. This is why the trap matters: the missing field silently breaks the logic."
+        },
+        {
+          "label": "Multiple case branches in one update",
+          "script": "%dw 2.0\noutput application/json\n---\n{id: 1, status: \"active\", priority: 1} update {\n  case .status -> \"inactive\"\n  case .priority -> 99\n}",
+          "expect": {
+            "output": "{\n  \"id\": 1,\n  \"status\": \"inactive\",\n  \"priority\": 99\n}"
+          },
+          "note": "You can update multiple fields at once by listing multiple `case` statements. Both `status` and `priority` changed."
+        },
+        {
+          "label": "Why update is better than rebuilding",
+          "script": "%dw 2.0\noutput application/json\n---\n{id: 1, status: \"active\", priority: 1, tags: [\"a\", \"b\"], notes: \"important\"} update {\n  case .status -> \"inactive\"\n}",
+          "expect": {
+            "output": "{\n  \"id\": 1,\n  \"status\": \"inactive\",\n  \"priority\": 1,\n  \"tags\": [\n    \"a\",\n    \"b\"\n  ],\n  \"notes\": \"important\"\n}"
+          },
+          "note": "With `update`, you specify only what changes. If someone adds a new field to this object later, your code still works. If you had hand-rebuilt it with explicit fields, the new field would be lost."
+        }
+      ]
+    }
+  },
+  {
+    "id": "parse-settings-form",
+    "unit": "type-coercion",
+    "tier": "medium",
+    "title": "Convert form input strings to the right types",
+    "topics": [
+      "as",
+      "Number",
+      "Boolean"
+    ],
+    "prompt": "You receive form data where everything comes in as a string. You need to convert the `count` field to a Number and the `enabled` field to a Boolean.\n\nOnly the strings `\"true\"` and `\"false\"` (case-sensitive) are valid booleans. Anything else — including `\"yes\"`, `\"1\"`, or an empty string — is invalid and should not be accepted.\n\nSimilarly, for numbers, only valid numeric strings are acceptable. An empty string is not zero.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\npayload map ",
+    "cases": [
+      {
+        "input": "[{\"name\": \"item1\", \"count\": \"10\", \"enabled\": \"true\"}, {\"name\": \"item2\", \"count\": \"5\", \"enabled\": \"false\"}]",
+        "output": "[{\"name\": \"item1\", \"count\": 10, \"enabled\": true}, {\"name\": \"item2\", \"count\": 5, \"enabled\": false}]"
+      },
+      {
+        "input": "[{\"name\": \"item1\", \"count\": \"007\", \"enabled\": \"true\"}, {\"name\": \"item2\", \"count\": \"0\", \"enabled\": \"false\"}]",
+        "output": "[{\"name\": \"item1\", \"count\": 7, \"enabled\": true}, {\"name\": \"item2\", \"count\": 0, \"enabled\": false}]"
+      },
+      {
+        "input": "[{\"name\": \"item1\", \"count\": \"42\", \"enabled\": \"false\"}]",
+        "output": "[{\"name\": \"item1\", \"count\": 42, \"enabled\": false}]"
+      },
+      {
+        "input": "[]",
+        "output": "[]"
+      }
+    ],
+    "hints": [
+      "Use the `as` operator to convert strings to other types.",
+      "For numbers, the syntax is `stringValue as Number`. For booleans, it is `stringValue as Boolean`.",
+      "Remember the trap: blank strings and strings like 'yes' or '1' will throw an error, not silently convert. Only '\"true\"' and '\"false\"' are valid boolean strings."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\npayload map {\n  name: $.name,\n  count: $.count as Number,\n  enabled: $.enabled as Boolean\n}",
+    "explanation": {
+      "approach": "DataWeave's `as` operator converts strings to other types, but only if the string is in the right format. The trap is that it does NOT guess at close matches — empty strings are not zero, and 'yes' is not true. This is actually helpful because it forces you to be explicit about your data validation.",
+      "snippets": [
+        {
+          "label": "Basic string to number conversion",
+          "script": "%dw 2.0\noutput application/json\n---\n\"123\" as Number",
+          "expect": {
+            "output": "123"
+          },
+          "note": "The string '123' is converted to the number 123. Now it is a numeric type, not a string."
+        },
+        {
+          "label": "String to number with leading zeros",
+          "script": "%dw 2.0\noutput application/json\n---\n\"007\" as Number",
+          "expect": {
+            "output": "7"
+          },
+          "note": "Leading zeros are allowed and are simply removed. The result is the numeric value 7, not a string anymore."
+        },
+        {
+          "label": "Empty string cannot become a number",
+          "script": "%dw 2.0\noutput application/json\n---\n\"\" as Number",
+          "expect": {
+            "error": true
+          },
+          "note": "This is the trap: empty strings are not zero. They are invalid and will throw an error."
+        },
+        {
+          "label": "Only 'true' and 'false' are valid booleans",
+          "script": "%dw 2.0\noutput application/json\n---\n\"true\" as Boolean",
+          "expect": {
+            "output": "true"
+          },
+          "note": "The strings 'true' and 'false' convert to the booleans true and false."
+        },
+        {
+          "label": "Strings like 'yes' are not valid booleans",
+          "script": "%dw 2.0\noutput application/json\n---\n\"yes\" as Boolean",
+          "expect": {
+            "error": true
+          },
+          "note": "Even though 'yes' obviously means true to a human, DataWeave only accepts the exact strings 'true' and 'false'. Anything else throws an error."
+        },
+        {
+          "label": "Full example with both conversions",
+          "script": "%dw 2.0\noutput application/json\n---\ndo {\n  var item = {name: \"item1\", count: \"10\", enabled: \"true\"}\n  ---\n  {\n    name: item.name,\n    count: item.count as Number,\n    enabled: item.enabled as Boolean\n  }\n}",
+          "expect": {
+            "output": "{\n  \"name\": \"item1\",\n  \"count\": 10,\n  \"enabled\": true\n}"
+          },
+          "note": "This is the real-world pattern: receive string data, convert the fields that need to be numbers or booleans, and keep strings as strings where they belong."
+        }
+      ]
+    }
+  },
+  {
+    "id": "calculate-total-from-csv",
+    "unit": "csv-round-trip",
+    "tier": "medium",
+    "title": "The total and the biggest number in a CSV",
+    "topics": [
+      "read",
+      "sum",
+      "max",
+      "as"
+    ],
+    "prompt": "A CSV of transactions comes in with a header row and an `amount` column.\n\nReturn `{ total, highest }` — the sum of every amount, and the largest single amount. Both must come out as **numbers**, not strings.\n\nEvery value parsed from a CSV is a String. Whether that matters depends on what you do with it, and the two halves of this task do not agree.",
+    "inputMime": "application/csv",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "name,amount\na,10\nb,9\nc,25.50\n",
+        "output": "{ \"total\": 44.5, \"highest\": 25.5 }"
+      },
+      {
+        "input": "name,amount\nx,7\n",
+        "output": "{ \"total\": 7, \"highest\": 7 }"
+      },
+      {
+        "input": "name,amount\np,100\nq,99\n",
+        "output": "{ \"total\": 199, \"highest\": 100 }"
+      },
+      {
+        "input": "name,amount\nr,5.5\ns,5.25\n",
+        "output": "{ \"total\": 10.75, \"highest\": 5.5 }"
+      }
+    ],
+    "hints": [
+      "Write the `total` half first and run it without converting anything. It will look like the String business is a myth.",
+      "Now do the `highest` half the same way, on the sample. Read the answer carefully — it is one of the amounts, just not the biggest one.",
+      "Arithmetic will coerce a String for you. Comparison will not: it compares text, and as text, \"9\" comes after \"25.50\"."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\n{\n  total: sum(payload map ($.amount as Number)),\n  highest: max(payload map ($.amount as Number))\n}",
+    "explanation": {
+      "approach": "Everything a CSV reader hands you is a String. The lesson people usually take from that is \"always coerce\", but the interesting part is *why* — because half of DataWeave will quietly coerce for you and the other half will not, and the half that does is the half you try first.",
+      "snippets": [
+        {
+          "label": "What the column really is",
+          "script": "%dw 2.0\noutput application/json\n---\npayload map typeOf($.amount)",
+          "payload": "name,amount\na,10\nb,9\nc,25.50\n",
+          "payloadMime": "application/csv",
+          "expect": {
+            "output": "[ \"String\", \"String\", \"String\" ]"
+          },
+          "note": "No surprise yet. A CSV has no types — every field is text, including the ones that look like numbers."
+        },
+        {
+          "label": "The sum works anyway, which is the trap",
+          "script": "%dw 2.0\noutput application/json\n---\nsum(payload map $.amount)",
+          "payload": "name,amount\na,10\nb,9\nc,25.50\n",
+          "payloadMime": "application/csv",
+          "expect": {
+            "output": "44.5"
+          },
+          "note": "No coercion, and the right answer. Arithmetic coerces a numeric String for you, so the first thing most people try works — and teaches them the wrong lesson."
+        },
+        {
+          "label": "The same data, the same lack of coercion, a wrong answer",
+          "script": "%dw 2.0\noutput application/json\n---\nmax(payload map $.amount)",
+          "payload": "name,amount\na,10\nb,9\nc,25.50\n",
+          "payloadMime": "application/csv",
+          "expect": {
+            "output": "\"9\""
+          },
+          "note": "The largest amount is 25.50, and this returns \"9\". `max` compares rather than calculates, and comparing text puts \"9\" after \"25.50\" the same way \"z\" comes after \"ab\". Note the quotes in the answer — it did not even come back as a number."
+        },
+        {
+          "label": "Sorting has the same problem, and it is easier to miss",
+          "script": "%dw 2.0\noutput application/json\n---\n(payload orderBy $.amount) map $.amount",
+          "payload": "name,amount\na,10\nb,9\nc,25.50\n",
+          "payloadMime": "application/csv",
+          "expect": {
+            "output": "[ \"10\", \"25.50\", \"9\" ]"
+          },
+          "note": "Ascending order that puts 9 last. On a page of results this looks like a sort that nearly worked, which is worse than one that obviously did not."
+        },
+        {
+          "label": "Coerce once, up front",
+          "script": "%dw 2.0\noutput application/json\n---\n{ sumBoth: sum(payload map ($.amount as Number)), maxBoth: max(payload map ($.amount as Number)) }",
+          "payload": "name,amount\na,10\nb,9\nc,25.50\n",
+          "payloadMime": "application/csv",
+          "expect": {
+            "output": "{ \"sumBoth\": 44.5, \"maxBoth\": 25.5 }"
+          },
+          "note": "Converting at the point you read the column, rather than at the point you happen to need a number, is what makes the rest of the script safe. It also fixes the output type: `highest` is now 25.5 rather than \"25.50\"."
+        }
+      ]
+    }
+  },
+  {
+    "id": "subscription-days",
+    "unit": "date-arithmetic",
+    "tier": "hard",
+    "title": "How many days did each subscription run",
+    "topics": [
+      "Period",
+      "as"
+    ],
+    "prompt": "Each subscription has a `start` and an `end` date, as `yyyy-MM-dd` strings.\n\nReturn an array of `{ id, days }`, where `days` is the **whole number of days** from `start` to `end`.\n\nA subscription that starts and ends on the same day ran for `0` days. Spans cross month and year boundaries.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[\n  { \"id\": \"S1\", \"start\": \"2027-02-01\", \"end\": \"2027-03-01\" },\n  { \"id\": \"S2\", \"start\": \"2027-01-31\", \"end\": \"2027-03-15\" },\n  { \"id\": \"S3\", \"start\": \"2027-03-01\", \"end\": \"2027-03-01\" }\n]",
+        "output": "[{\"id\":\"S1\",\"days\":28},{\"id\":\"S2\",\"days\":43},{\"id\":\"S3\",\"days\":0}]"
+      },
+      {
+        "input": "[\n  { \"id\": \"S4\", \"start\": \"2027-12-01\", \"end\": \"2028-01-01\" }\n]",
+        "output": "[{\"id\":\"S4\",\"days\":31}]"
+      },
+      {
+        "input": "[\n  { \"id\": \"S5\", \"start\": \"2028-02-01\", \"end\": \"2028-03-01\" }\n]",
+        "output": "[{\"id\":\"S5\",\"days\":29}]"
+      },
+      {
+        "input": "[\n  { \"id\": \"S6\", \"start\": \"2027-01-01\", \"end\": \"2028-01-01\" }\n]",
+        "output": "[{\"id\":\"S6\",\"days\":365}]"
+      },
+      {
+        "input": "[]",
+        "output": "[]"
+      }
+    ],
+    "hints": [
+      "Subtracting one date from another works. Look at what the result *is* before trying to turn it into a number.",
+      "The result is a Period, and a Period has parts you can select.",
+      "There is a `between` function in `dw::core::Periods` that looks like exactly what you want. Try it, and check its answer against the sample — the two do not agree."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\npayload map {\n  id: $.id,\n  days: (($.end as Date) - ($.start as Date)).days\n}",
+    "explanation": {
+      "approach": "DataWeave gives you two different subtractions between dates, and they mean different things. One produces a **duration** — an elapsed amount of time. The other produces a **calendar period** — years, months and days, the way a person reads a gap off a calendar. The task asks for whole days, which is the first one. Reaching for the function whose name matches the question gets you the second.",
+      "snippets": [
+        {
+          "label": "What subtracting two dates gives you",
+          "script": "%dw 2.0\noutput application/json\n---\n{\n  value: |2027-03-01| - |2027-02-01|,\n  kind: typeOf(|2027-03-01| - |2027-02-01|)\n}",
+          "expect": {
+            "output": "{ \"value\": \"PT672H\", \"kind\": \"Period\" }"
+          },
+          "note": "Not a number — a Period, printed as `PT672H`. It is an elapsed duration held in hours, and 672 hours is 28 days. This is why the answer cannot just be `end - start`."
+        },
+        {
+          "label": "Pulling days out of that duration",
+          "script": "%dw 2.0\noutput application/json\n---\n(|2027-03-01| - |2027-02-01|).days",
+          "expect": {
+            "output": "28"
+          },
+          "note": "A Period is selectable, and `.days` converts the whole elapsed duration into days. That is the answer."
+        },
+        {
+          "label": "Why not between(), which is the obvious candidate",
+          "script": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\n{\n  period: between(|2027-03-01|, |2027-02-01|),\n  days: between(|2027-03-01|, |2027-02-01|).days\n}",
+          "expect": {
+            "output": "{ \"period\": \"P1M\", \"days\": 0 }"
+          },
+          "note": "`between` gives a calendar period: `P1M`, one month. Its `.days` is the **leftover** days after the whole months are taken out — and here there are none, so it is 0. The function named for the job returns zero for a month-long subscription, and it does it silently."
+        },
+        {
+          "label": "The same trap with a remainder, which is how it survives review",
+          "script": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\n{\n  period: between(|2027-03-15|, |2027-01-31|),\n  days: between(|2027-03-15|, |2027-01-31|).days,\n  correct: (|2027-03-15| - |2027-01-31|).days\n}",
+          "expect": {
+            "output": "{ \"period\": \"P1M15D\", \"days\": 15, \"correct\": 43 }"
+          },
+          "note": "This is the dangerous shape. `between` returns 15 rather than 0, so it looks like a plausible number rather than an obvious bug — and it is off by 28. A test whose only fixture is a mid-month span would pass."
+        },
+        {
+          "label": "The `as Date` is not load-bearing here",
+          "script": "%dw 2.0\noutput application/json\n---\npayload map { id: $.id, days: ($.end - $.start).days }",
+          "payload": "[{\"id\":\"S1\",\"start\":\"2027-02-01\",\"end\":\"2027-03-01\"}]",
+          "expect": {
+            "output": "[ { \"id\": \"S1\", \"days\": 28 } ]"
+          },
+          "note": "Dropping the coercions still works on this input. Keep them anyway: they say in the script that these strings are dates, and they fail loudly on the day a record arrives with `\"\"` or `\"01/02/2027\"` in it instead of quietly doing something else."
+        },
+        {
+          "label": "Leap years come out right without any help",
+          "script": "%dw 2.0\noutput application/json\n---\n{\n  leap: (|2028-03-01| - |2028-02-01|).days,\n  common: (|2027-03-01| - |2027-02-01|).days\n}",
+          "expect": {
+            "output": "{ \"leap\": 29, \"common\": 28 }"
+          },
+          "note": "Worth confirming rather than assuming. The duration is measured between two real instants, so February's length is already accounted for — there is nothing to special-case."
+        }
+      ]
+    }
+  },
+  {
+    "id": "job-retry-triage",
+    "unit": "match-and-types",
+    "tier": "hard",
+    "title": "Triage a queue of retrying jobs",
+    "topics": [
+      "match",
+      "is",
+      "else"
+    ],
+    "prompt": "A queue of background jobs, each with an `id` and a `retries` count. The record is not always clean: `retries` might be a number (attempts so far), `null` (never attempted), or something else entirely if the record is corrupted (a string, a boolean, an object, ...).\n\nReturn an array of `{ id, status }`, where `status` is:\n\n- `\"NEW\"` if `retries` is `null`\n- `\"ESCALATE\"` if `retries` is a number `>= 3`\n- `\"RETRYING\"` if `retries` is any other number\n- `\"INVALID\"` for anything else",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[\n  { \"id\": \"J1\", \"retries\": null },\n  { \"id\": \"J2\", \"retries\": 1 },\n  { \"id\": \"J3\", \"retries\": \"N/A\" }\n]",
+        "output": "[{\"id\":\"J1\",\"status\":\"NEW\"},{\"id\":\"J2\",\"status\":\"RETRYING\"},{\"id\":\"J3\",\"status\":\"INVALID\"}]"
+      },
+      {
+        "input": "[\n  { \"id\": \"J4\", \"retries\": 3 },\n  { \"id\": \"J5\", \"retries\": 10 },\n  { \"id\": \"J6\", \"retries\": 2 }\n]",
+        "output": "[{\"id\":\"J4\",\"status\":\"ESCALATE\"},{\"id\":\"J5\",\"status\":\"ESCALATE\"},{\"id\":\"J6\",\"status\":\"RETRYING\"}]"
+      },
+      {
+        "input": "[\n  { \"id\": \"J7\", \"retries\": true },\n  { \"id\": \"J8\", \"retries\": {} },\n  { \"id\": \"J9\", \"retries\": 0 }\n]",
+        "output": "[{\"id\":\"J7\",\"status\":\"INVALID\"},{\"id\":\"J8\",\"status\":\"INVALID\"},{\"id\":\"J9\",\"status\":\"RETRYING\"}]"
+      },
+      {
+        "input": "[]",
+        "output": "[]"
+      },
+      {
+        "input": "[\n  { \"id\": \"J10\", \"retries\": -2 },\n  { \"id\": \"J11\", \"retries\": 2.999 },\n  { \"id\": \"J12\", \"retries\": 3.0 }\n]",
+        "output": "[{\"id\":\"J10\",\"status\":\"RETRYING\"},{\"id\":\"J11\",\"status\":\"RETRYING\"},{\"id\":\"J12\",\"status\":\"ESCALATE\"}]"
+      }
+    ],
+    "hints": [
+      "`match` tries its cases top to bottom and stops at the first one that fits. If two cases could both apply to the same value, the one listed first is the one that runs.",
+      "A case can test a type with `is`, or test a condition with `if`, but not both at once on the same case — `case n is Number if (n >= 3)` does not compile. Put the type check inside the guard's condition instead, with `and`.",
+      "Whichever case tests only `is Number`, with nothing else, will catch every number that reaches it — including the ones a later, more specific case was written for."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\npayload map (job) -> {\n  id: job.id,\n  status: job.retries match {\n    case n if (n is Number and n >= 3) -> \"ESCALATE\"\n    case n is Number -> \"RETRYING\"\n    case null -> \"NEW\"\n    else -> \"INVALID\"\n  }\n}",
+    "explanation": {
+      "approach": "`match` is tried top to bottom and stops at the first case that fits — it is not \"find the most specific case\", it is \"find the first one\". A case can test a type with `is Type`, or test an arbitrary condition with `if (...)`, but DataWeave does not let a single case do both at once; `case n is Number if (n >= 3)` is a compile error, not a stricter case. To get both a type check and a threshold on the same branch, the type check has to move inside the guard's own condition with `and`. Once that branch exists, it has to be listed before the plain `is Number` case — a bare `is Number` case placed first will catch every number, including the ones the guarded case further down was written to catch, and that guarded case becomes unreachable code that never causes an error and never runs.",
+      "snippets": [
+        {
+          "label": "A case cannot combine `is Type` and a guard",
+          "script": "%dw 2.0\noutput application/json\n---\n10 match {\n  case n is Number if (n >= 3) -> \"escalate\"\n  else -> \"other\"\n}",
+          "expect": {
+            "error": true
+          },
+          "note": "This is not \"Number, and also at least 3\" — it simply does not compile. The type test and the guard cannot live on the same case."
+        },
+        {
+          "label": "The threshold has to go inside the guard's condition instead",
+          "script": "%dw 2.0\noutput application/json\n---\n10 match {\n  case n if (n is Number and n >= 3) -> \"big\"\n  case n is Number -> \"num\"\n  else -> \"other\"\n}",
+          "expect": {
+            "output": "\"big\""
+          },
+          "note": "`is` works fine as a plain boolean check inside a guard's `(...)`. Listed first, this guard gets a chance to run before the broader `is Number` case below it."
+        },
+        {
+          "label": "Swap the order and the guard goes dead",
+          "script": "%dw 2.0\noutput application/json\n---\n10 match {\n  case n is Number -> \"num\"\n  case n if (n >= 3) -> \"big\"\n  else -> \"other\"\n}",
+          "expect": {
+            "output": "\"num\""
+          },
+          "note": "Same two cases, reversed order. `10` satisfies both, but `match` stops at the first fit — `case n is Number` — so the guarded case below it never runs, for any number at all, not just this one."
+        },
+        {
+          "label": "`null` gets its own case, not `is Number`",
+          "script": "%dw 2.0\noutput application/json\n---\nnull match {\n  case n is Number -> \"num\"\n  case null -> \"isNull\"\n  else -> \"other\"\n}",
+          "expect": {
+            "output": "\"isNull\""
+          },
+          "note": "`null` is matched with the literal `case null`, and it has to come before `else` or it would fall into that instead."
+        },
+        {
+          "label": "Everything else falls to `else`",
+          "script": "%dw 2.0\noutput application/json\n---\ntrue match {\n  case n is Number -> \"num\"\n  case null -> \"isNull\"\n  else -> \"other\"\n}",
+          "expect": {
+            "output": "\"other\""
+          },
+          "note": "A Boolean matches none of the specific cases, so it lands on `else` — this is where a corrupted `retries` field (a string, a boolean, an object) ends up as `INVALID`."
+        }
+      ]
+    }
+  },
+  {
+    "id": "duplicate-webhook-deliveries",
+    "unit": "do-and-scope",
+    "tier": "hard",
+    "title": "Flag repeat webhook deliveries",
+    "topics": [
+      "do",
+      "scope"
+    ],
+    "prompt": "A webhook provider delivers at least once, so the same event can show up more than once in a batch. Deliveries arrive in the order they were received, each with an `eventId`.\n\nReturn each delivery with a `duplicate` field added: `true` if the same `eventId` already appeared **earlier** in the batch, `false` if this is that event's first delivery. Only look backward — a later repeat does not make the first delivery a duplicate.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[\n  { \"eventId\": \"E1\" },\n  { \"eventId\": \"E2\" },\n  { \"eventId\": \"E1\" },\n  { \"eventId\": \"E3\" }\n]",
+        "output": "[{\"eventId\":\"E1\",\"duplicate\":false},{\"eventId\":\"E2\",\"duplicate\":false},{\"eventId\":\"E1\",\"duplicate\":true},{\"eventId\":\"E3\",\"duplicate\":false}]"
+      },
+      {
+        "input": "[\n  { \"eventId\": \"E1\" },\n  { \"eventId\": \"E2\" },\n  { \"eventId\": \"E3\" }\n]",
+        "output": "[{\"eventId\":\"E1\",\"duplicate\":false},{\"eventId\":\"E2\",\"duplicate\":false},{\"eventId\":\"E3\",\"duplicate\":false}]"
+      },
+      {
+        "input": "[\n  { \"eventId\": \"E1\" },\n  { \"eventId\": \"E1\" },\n  { \"eventId\": \"E1\" },\n  { \"eventId\": \"E1\" }\n]",
+        "output": "[{\"eventId\":\"E1\",\"duplicate\":false},{\"eventId\":\"E1\",\"duplicate\":true},{\"eventId\":\"E1\",\"duplicate\":true},{\"eventId\":\"E1\",\"duplicate\":true}]"
+      },
+      {
+        "input": "[]",
+        "output": "[]"
+      },
+      {
+        "input": "[\n  { \"eventId\": \"SOLO\" }\n]",
+        "output": "[{\"eventId\":\"SOLO\",\"duplicate\":false}]"
+      }
+    ],
+    "hints": [
+      "You need to know what happened at every position before this one — not whether the `eventId` appears anywhere in the whole batch.",
+      "`map` can hand you the index of the current element as a second parameter. A `do` block right there lets you name the slice of the array that comes before that index, without writing the slice twice.",
+      "A `var` declared in the header runs once, before the `map` starts, and has no idea which element is currently being looked at — it cannot hold 'everyone seen so far' the way a mutable loop variable would. The 'seen so far' slice has to be recomputed inside the map, for every element."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\npayload map (delivery, idx) -> delivery ++ { duplicate: do {\n  var priorIds = if (idx == 0) [] else (payload[0 to idx - 1]).eventId\n  ---\n  priorIds contains delivery.eventId\n} }",
+    "explanation": {
+      "approach": "DataWeave has no mutable loop state: a `var` declared in the header is computed exactly once, before the `map` runs at all, and a `do` block placed inside the `map` runs fresh for every element, with no memory of what earlier elements did. There is no way to build up a running 'seen so far' list by declaring it once in the header. The correct approach instead recomputes, for each element, which elements came before it by index, and checks membership only against that earlier slice. A version that asks 'does this eventId appear anywhere in the whole payload' cannot tell first occurrence from repeat, since from that question's point of view they look identical.",
+      "snippets": [
+        {
+          "label": "A header var never sees what happens per element",
+          "script": "%dw 2.0\noutput application/json\nvar seenSoFar = []\n---\npayload map (delivery) -> delivery ++ { seenSoFar: seenSoFar }",
+          "payload": "[{\"eventId\":\"E1\"},{\"eventId\":\"E2\"}]",
+          "expect": {
+            "output": "[{\"eventId\":\"E1\",\"seenSoFar\":[]},{\"eventId\":\"E2\",\"seenSoFar\":[]}]"
+          },
+          "note": "`seenSoFar` is computed once, before the map starts, and every element gets back the exact same empty value. A header var cannot accumulate anything as a map goes along — there is no hidden mutable state to update."
+        },
+        {
+          "label": "`$$` — and the slice built from it — only exists inside the map",
+          "script": "%dw 2.0\noutput application/json\nvar x = $$\n---\nx",
+          "expect": {
+            "error": true
+          },
+          "note": "The index is not available at the header at all, which is why 'everyone before this element' cannot be hoisted out of the `map` — it has no `$$` to slice from up there."
+        },
+        {
+          "label": "The correct shape: recompute the earlier slice per element",
+          "script": "%dw 2.0\noutput application/json\n---\npayload map (delivery, idx) -> delivery ++ { duplicate: do {\n  var priorIds = if (idx == 0) [] else (payload[0 to idx - 1]).eventId\n  ---\n  priorIds contains delivery.eventId\n} }",
+          "payload": "[{\"eventId\":\"E1\"},{\"eventId\":\"E2\"},{\"eventId\":\"E1\"},{\"eventId\":\"E3\"}]",
+          "expect": {
+            "output": "[{\"eventId\":\"E1\",\"duplicate\":false},{\"eventId\":\"E2\",\"duplicate\":false},{\"eventId\":\"E1\",\"duplicate\":true},{\"eventId\":\"E3\",\"duplicate\":false}]"
+          },
+          "note": "Each element gets its own fresh `priorIds`, built from only the part of the array before its own index."
+        },
+        {
+          "label": "Checking the whole list instead of just what came before",
+          "script": "%dw 2.0\noutput application/json\n---\npayload map (delivery) -> delivery ++ { duplicate: (sizeOf(payload filter ($.eventId == delivery.eventId))) > 1 }",
+          "payload": "[{\"eventId\":\"E1\"},{\"eventId\":\"E2\"},{\"eventId\":\"E1\"},{\"eventId\":\"E3\"}]",
+          "expect": {
+            "output": "[{\"eventId\":\"E1\",\"duplicate\":true},{\"eventId\":\"E2\",\"duplicate\":false},{\"eventId\":\"E1\",\"duplicate\":true},{\"eventId\":\"E3\",\"duplicate\":false}]"
+          },
+          "note": "The very first `E1` is now marked a duplicate, because this check can already see the second `E1` that has not been delivered yet from that record's own position in the list."
+        },
+        {
+          "label": "A range ending in `-1` means 'to the last element', not 'to nothing'",
+          "script": "%dw 2.0\noutput application/json\n---\n[1,2,3][0 to -1]",
+          "expect": {
+            "output": "[1,2,3]"
+          },
+          "note": "This is why the first element needs an explicit `if (idx == 0) []` instead of trusting `payload[0 to idx - 1]` to come out empty on its own — at `idx = 0` that range is `[0 to -1]`, which is the whole array, not an empty one."
+        }
+      ]
+    }
+  },
+  {
+    "id": "sum-nested-numbers",
+    "unit": "recursion",
+    "tier": "hard",
+    "title": "Sum every number, however deep it is buried",
+    "topics": [
+      "fun",
+      "recursion",
+      "match"
+    ],
+    "prompt": "A payload can nest objects inside arrays inside objects, to any depth, and the depth is not known ahead of time. Write `sumAll` that adds up every number found anywhere inside the payload, at any level, and ignores anything that isn't a number (strings, booleans, `null`).",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  ???\n}\n---\nsumAll(payload)",
+    "cases": [
+      {
+        "input": "{\n  \"a\": { \"b\": [1, 2, { \"c\": 3 }] },\n  \"d\": \"text\",\n  \"e\": [[4, 5], null, true]\n}",
+        "output": "15"
+      },
+      {
+        "input": "{}",
+        "output": "0"
+      },
+      {
+        "input": "[]",
+        "output": "0"
+      },
+      {
+        "input": "{ \"a\": \"text\", \"b\": [true, null, \"x\"] }",
+        "output": "0"
+      },
+      {
+        "input": "5",
+        "output": "5"
+      },
+      {
+        "input": "{ \"x\": [-1, 2.5, { \"y\": -3.5 }] }",
+        "output": "-2"
+      }
+    ],
+    "hints": [
+      "You don't know how deep the nesting goes ahead of time, so there's no fixed number of `.a.b.c` selectors that would work on every input — the function has to call itself.",
+      "At each call, what you were handed is either an Object, an Array, or a leaf. An Object needs every one of its values visited; an Array needs every one of its items visited; a leaf is either a Number worth keeping or something worth ignoring.",
+      "Visiting the values inside an Object is not the same as summing whichever of them happen to be Numbers directly — if one of those values is itself an Object or an Array, it has to go through the same function again, not just get type-checked and skipped."
+    ],
+    "solution": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> sumAll(value)))\n  case a is Array -> sum(a map ((item) -> sumAll(item)))\n  case n is Number -> n\n  else -> 0\n}\n---\nsumAll(payload)",
+    "explanation": {
+      "approach": "There's no loop construct that walks arbitrarily deep data on its own, so `sumAll` has to test what it was given at each call — is it an Object, an Array, or a leaf — and for the two container cases, call itself again on every value or item found inside, rather than stopping to inspect them directly. A leaf that isn't a Number contributes 0. A version that checks the type of what's directly inside an Object or Array, without calling `sumAll` again on it, behaves identically to the real thing on data that happens to be only one level deep, and silently returns 0 for anything nested any deeper than that — because a nested Object or Array is neither ignored nor a Number, and this version has no third option beyond those two.",
+      "snippets": [
+        {
+          "label": "No return-type annotation needed, even though it's recursive",
+          "script": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> sumAll(value)))\n  case a is Array -> sum(a map ((item) -> sumAll(item)))\n  case n is Number -> n\n  else -> 0\n}\n---\nsumAll(payload)",
+          "payload": "{\"a\":{\"b\":[1,2,{\"c\":3}]},\"d\":\"text\",\"e\":[[4,5],null,true]}",
+          "expect": {
+            "output": "15"
+          },
+          "note": "`fun sumAll(v) = ...` declares neither the parameter's type nor the return type, and it still compiles and recurses correctly."
+        },
+        {
+          "label": "Empty containers and non-numeric leaves both contribute zero",
+          "script": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> sumAll(value)))\n  case a is Array -> sum(a map ((item) -> sumAll(item)))\n  case n is Number -> n\n  else -> 0\n}\n---\n{ emptyObject: sumAll({}), emptyArray: sumAll([]), noNumbers: sumAll({\"a\": \"text\", \"b\": [true, null, \"x\"]}) }",
+          "expect": {
+            "output": "{\"emptyObject\":0,\"emptyArray\":0,\"noNumbers\":0}"
+          },
+          "note": "`sum` of an empty array is `0`, which is what a container with nothing numeric inside it eventually reduces to."
+        },
+        {
+          "label": "The wrong version, on the same nested payload",
+          "script": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> if (value is Number) value else 0))\n  case a is Array -> sum(a map ((item) -> if (item is Number) item else 0))\n  else -> 0\n}\n---\nsumAll(payload)",
+          "payload": "{\"a\":{\"b\":[1,2,{\"c\":3}]},\"d\":\"text\",\"e\":[[4,5],null,true]}",
+          "expect": {
+            "output": "0"
+          },
+          "note": "Nothing is directly a Number inside the top-level Object — `a` is an Object and `d` and `e` are not numbers — so this version reports 0 for a payload whose numbers add up to 15. It never looks inside `a`, `e`, or the objects nested further in."
+        },
+        {
+          "label": "The same wrong version looks correct on flat data",
+          "script": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> if (value is Number) value else 0))\n  case a is Array -> sum(a map ((item) -> if (item is Number) item else 0))\n  else -> 0\n}\n---\nsumAll({\"a\": 1, \"b\": 2, \"c\": 3})",
+          "expect": {
+            "output": "6"
+          },
+          "note": "This is exactly why the bug survives a quick check — a flat object has nothing nested inside it to expose the missing recursive call."
+        },
+        {
+          "label": "Without `else`, an unhandled leaf is a runtime error",
+          "script": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> sumAll(value)))\n  case a is Array -> sum(a map ((item) -> sumAll(item)))\n  case n is Number -> n\n}\n---\nsumAll(payload)",
+          "payload": "{\"a\":{\"b\":[1,2,{\"c\":3}]},\"d\":\"text\",\"e\":[[4,5],null,true]}",
+          "expect": {
+            "error": true
+          },
+          "note": "`case n is Number` covers numbers, but nothing covers a String, Boolean, or null leaf — `match` throws rather than falling through to some default."
+        }
+      ]
+    }
+  },
+  {
+    "id": "redact-nested-emails",
+    "unit": "tree-module",
+    "tier": "hard",
+    "title": "Redact every email address, whatever shape it's hiding in",
+    "topics": [
+      "dw::util::Tree",
+      "mapLeafValues"
+    ],
+    "prompt": "A payload arrives with no fixed shape — some fields are plain, some are nested objects, some are arrays of objects, arrays of arrays, whatever the upstream system felt like sending that day.\n\nReplace every string value that looks like an email address (it contains an `@`) with the literal string `\"REDACTED\"`, no matter how deeply it is nested. Leave every other value exactly as it is — same value, same type. A number must stay a number and a boolean must stay a boolean in the output; do not turn them into strings along the way.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "{ \"user\": { \"name\": \"Alice\", \"email\": \"alice@example.com\" }, \"id\": 7 }",
+        "output": "{ \"user\": { \"name\": \"Alice\", \"email\": \"REDACTED\" }, \"id\": 7 }"
+      },
+      {
+        "input": "{ \"notes\": [\"fine\", \"bob@example.com\"], \"count\": 2 }",
+        "output": "{ \"notes\": [\"fine\", \"REDACTED\"], \"count\": 2 }"
+      },
+      {
+        "input": "{ \"org\": { \"teams\": [ { \"lead\": \"carol@example.com\", \"members\": [\"dave@example.com\", \"erin\"] }, { \"lead\": \"frank\", \"members\": [] } ] } }",
+        "output": "{ \"org\": { \"teams\": [ { \"lead\": \"REDACTED\", \"members\": [\"REDACTED\", \"erin\"] }, { \"lead\": \"frank\", \"members\": [] } ] } }"
+      },
+      {
+        "input": "{ \"a\": null, \"b\": {}, \"c\": [] }",
+        "output": "{ \"a\": null, \"b\": {}, \"c\": [] }"
+      },
+      {
+        "input": "[\"a@b.com\", \"hello\", 5]",
+        "output": "[\"REDACTED\", \"hello\", 5]"
+      }
+    ],
+    "hints": [
+      "There is a module built exactly for walking a value of unknown shape and touching every terminal value inside it. It is not in core.",
+      "The callback runs once per leaf, however deep the leaf is — one field two levels down, one item inside an array inside an object. Not every leaf that reaches it is a String.",
+      "The function reference's own example turns every leaf into a string with `upper(value as String)`. That works there because every leaf in that example happens to already be a string. Check what your callback does to a leaf that is not one."
+    ],
+    "solution": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\npayload mapLeafValues ((v, p) -> if ((v is String) and contains(v, '@')) 'REDACTED' else v)",
+    "explanation": {
+      "approach": "The payload's shape is not fixed, so a hand-written walk has to correctly recurse into both Objects and Arrays, at every depth, or it silently skips a branch. `dw::util::Tree`'s `mapLeafValues` already does that walk: it calls the callback once for every terminal value in the structure, regardless of whether that value sits inside nested objects, inside arrays, or inside arrays of objects. The task then reduces to one decision per leaf — is this a String that contains `@`? — and the one trap is deciding what to do with everything else: it must come back unchanged, not coerced into a String.",
+      "snippets": [
+        {
+          "label": "mapLeafValues is not in core",
+          "script": "%dw 2.0\noutput application/json\n---\nmapLeafValues({a:1}, (v,p) -> v)",
+          "expect": {
+            "error": true
+          },
+          "note": "Without `import * from dw::util::Tree`, the name simply does not resolve — a plain CompilationException, with nothing in the message pointing at the missing import."
+        },
+        {
+          "label": "The generic walk, on a small fixture",
+          "script": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\nmapLeafValues({a:{b:'x'},c:['y']}, (v,p) -> upper(v as String))",
+          "expect": {
+            "output": "{ \"a\": { \"b\": \"X\" }, \"c\": [ \"Y\" ] }"
+          },
+          "note": "One leaf is two objects deep (`a.b`), the other is inside an array (`c[0]`). Both get the callback. That is the walk this module gives you for free."
+        },
+        {
+          "label": "Checking the type before matching",
+          "script": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\n{name: \"Alice\", email: \"alice@example.com\", age: 30} mapLeafValues ((v, p) -> if ((v is String) and contains(v, '@')) 'REDACTED' else v)",
+          "expect": {
+            "output": "{ \"name\": \"Alice\", \"email\": \"REDACTED\", \"age\": 30 }"
+          },
+          "note": "`age` reaches the callback too — every leaf does — but it is not a String, so the `is String` check keeps it as the number `30`, not `\"30\"`."
+        },
+        {
+          "label": "Skip the type check and coerce instead, and the numbers quietly become strings",
+          "script": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\n{name: \"Alice\", email: \"alice@example.com\", age: 30} mapLeafValues ((v, p) -> if (contains(v as String, '@')) 'REDACTED' else (v as String))",
+          "expect": {
+            "output": "{ \"name\": \"Alice\", \"email\": \"REDACTED\", \"age\": \"30\" }"
+          },
+          "note": "This is the shape of the function reference's own example, applied to data where not every leaf is already a String. `age` is still redacted correctly (30 does not contain `@`), but it comes back as `\"30\"` — a string in the output where the input had a number."
+        },
+        {
+          "label": "The walk reaches inside an array of objects two levels down",
+          "script": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\npayload mapLeafValues ((v, p) -> if ((v is String) and contains(v, '@')) 'REDACTED' else v)",
+          "payload": "{ \"org\": { \"teams\": [ { \"lead\": \"carol@example.com\", \"members\": [\"dave@example.com\", \"erin\"] }, { \"lead\": \"frank\", \"members\": [] } ] } }",
+          "expect": {
+            "output": "{ \"org\": { \"teams\": [ { \"lead\": \"REDACTED\", \"members\": [ \"REDACTED\", \"erin\" ] }, { \"lead\": \"frank\", \"members\": [ ] } ] } }"
+          },
+          "note": "Both `lead` fields and both `members` entries are leaves, whether they sit directly in an object or inside an array nested inside that object's array of teams. `mapLeafValues` does not care which."
+        },
+        {
+          "label": "Why not hand-roll it: a recursive mapObject skips arrays entirely",
+          "script": "%dw 2.0\noutput application/json\nfun redactObj(o: Object): Object = o mapObject ((v, k) -> { (k): if (v is Object) redactObj(v) else if ((v is String) and contains(v, '@')) 'REDACTED' else v })\n---\nredactObj(payload)",
+          "payload": "{ \"notes\": [\"fine\", \"bob@example.com\"], \"count\": 2 }",
+          "expect": {
+            "output": "{ \"notes\": [ \"fine\", \"bob@example.com\" ], \"count\": 2 }"
+          },
+          "note": "`redactObj` only recurses when a value `is Object`. An Array is neither an Object nor a String, so it falls into the last `else v` and comes back completely untouched — `bob@example.com` survives inside `notes` because nothing ever looked inside that array."
+        }
+      ]
+    }
+  },
+  {
+    "id": "namespaced-customer-status",
+    "unit": "xml-namespaces",
+    "tier": "hard",
+    "title": "A customer status field that exists twice",
+    "topics": [
+      "ns",
+      "namespace-qualified selectors",
+      "@id"
+    ],
+    "prompt": "A legacy SOAP service returns customer records. Each `<cust:Customer>` element carries a business `id` attribute, a `<cust:Name>`, and a `<cust:Status>` (its lifecycle status, e.g. `ACTIVE`). Some records also carry an unrelated `<audit:Status>` from a separate compliance system, sitting as a sibling of `<cust:Status>` — it is a different field that happens to share the same local name.\n\nReturn an array of `{ id, name, status }`, where `status` is always the **customer** status (the `cust` namespace one), never the audit one, regardless of which element comes first in the document.\n\nThe two namespaces are declared on the root `<soap:Envelope>` element; read the sample input to find their URIs.",
+    "inputMime": "application/xml",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:cust=\"http://acme.com/customer\" xmlns:audit=\"http://acme.com/audit\">\n  <soap:Body>\n    <cust:GetCustomersResponse>\n      <cust:Customer id=\"C-1\">\n        <cust:Name>Alice Chen</cust:Name>\n        <audit:Status>REVIEWED</audit:Status>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n      <cust:Customer id=\"C-2\">\n        <cust:Name>Bob Martinez</cust:Name>\n        <audit:Status>FLAGGED</audit:Status>\n        <cust:Status>SUSPENDED</cust:Status>\n      </cust:Customer>\n    </cust:GetCustomersResponse>\n  </soap:Body>\n</soap:Envelope>",
+        "output": "[{\"id\":\"C-1\",\"name\":\"Alice Chen\",\"status\":\"ACTIVE\"},{\"id\":\"C-2\",\"name\":\"Bob Martinez\",\"status\":\"SUSPENDED\"}]"
+      },
+      {
+        "input": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:cust=\"http://acme.com/customer\" xmlns:audit=\"http://acme.com/audit\">\n  <soap:Body>\n    <cust:GetCustomersResponse>\n      <cust:Customer id=\"C-3\">\n        <cust:Name>Carol Nguyen</cust:Name>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n    </cust:GetCustomersResponse>\n  </soap:Body>\n</soap:Envelope>",
+        "output": "[{\"id\":\"C-3\",\"name\":\"Carol Nguyen\",\"status\":\"ACTIVE\"}]"
+      },
+      {
+        "input": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:cust=\"http://acme.com/customer\" xmlns:audit=\"http://acme.com/audit\">\n  <soap:Body>\n    <cust:GetCustomersResponse>\n      <cust:Customer id=\"C-4\">\n        <cust:Name>Dan Osei</cust:Name>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n      <cust:Customer id=\"C-5\">\n        <cust:Name>Eve Park</cust:Name>\n        <audit:Status>REVIEWED</audit:Status>\n        <cust:Status>PENDING</cust:Status>\n      </cust:Customer>\n      <cust:Customer id=\"C-6\">\n        <cust:Name>Faisal Rahman</cust:Name>\n        <cust:Status>SUSPENDED</cust:Status>\n        <audit:Status>FLAGGED</audit:Status>\n      </cust:Customer>\n    </cust:GetCustomersResponse>\n  </soap:Body>\n</soap:Envelope>",
+        "output": "[{\"id\":\"C-4\",\"name\":\"Dan Osei\",\"status\":\"ACTIVE\"},{\"id\":\"C-5\",\"name\":\"Eve Park\",\"status\":\"PENDING\"},{\"id\":\"C-6\",\"name\":\"Faisal Rahman\",\"status\":\"SUSPENDED\"}]"
+      },
+      {
+        "input": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:cust=\"http://acme.com/customer\" xmlns:audit=\"http://acme.com/audit\">\n  <soap:Body>\n    <cust:GetCustomersResponse>\n      <cust:Customer id=\"C-7\">\n        <cust:Name>Grace Kim</cust:Name>\n        <cust:Status>CLOSED</cust:Status>\n      </cust:Customer>\n      <cust:Customer id=\"C-8\">\n        <cust:Name>Hassan Ali</cust:Name>\n        <audit:Status>REVIEWED</audit:Status>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n      <cust:Customer id=\"C-9\">\n        <cust:Name>Irene Wu</cust:Name>\n        <cust:Status>PENDING</cust:Status>\n        <audit:Status>FLAGGED</audit:Status>\n      </cust:Customer>\n      <cust:Customer id=\"C-10\">\n        <cust:Name>Jorge Diaz</cust:Name>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n    </cust:GetCustomersResponse>\n  </soap:Body>\n</soap:Envelope>",
+        "output": "[{\"id\":\"C-7\",\"name\":\"Grace Kim\",\"status\":\"CLOSED\"},{\"id\":\"C-8\",\"name\":\"Hassan Ali\",\"status\":\"ACTIVE\"},{\"id\":\"C-9\",\"name\":\"Irene Wu\",\"status\":\"PENDING\"},{\"id\":\"C-10\",\"name\":\"Jorge Diaz\",\"status\":\"ACTIVE\"}]"
+      }
+    ],
+    "hints": [
+      "A bare selector like `.Status` matches on local name only — it does not care which namespace the element actually belongs to.",
+      "When two different elements in the same document share a local name but live in different namespaces, a bare selector cannot tell them apart. It has to pick one.",
+      "Declare `ns cust ...` and `ns audit ...` for both URIs found on the root element, then select with `cust#Status` instead of `Status` so the namespace is part of what you're matching, not just the name."
+    ],
+    "solution": "%dw 2.0\noutput application/json\nns soap http://schemas.xmlsoap.org/soap/envelope/\nns cust http://acme.com/customer\nns audit http://acme.com/audit\n---\npayload.soap#Envelope.soap#Body.cust#GetCustomersResponse.*cust#Customer map {\n  id: $.@id,\n  name: $.cust#Name,\n  status: $.cust#Status\n}",
+    "explanation": {
+      "approach": "A namespace-qualified element is identified by its local name AND its namespace URI together — the two form one key. But a selector written without a namespace prefix, like `.Status`, only ever asks about the local name. When a document has exactly one element with that local name, the distinction never comes up and the bare selector looks perfectly fine. It only breaks once a second element with the same local name — in a different namespace — enters the document, and it breaks silently: it just returns whichever one appears first, with no error to flag the ambiguity.",
+      "snippets": [
+        {
+          "label": "Two elements, same local name, different namespaces",
+          "script": "%dw 2.0\noutput application/json\n---\npayload.root.Status",
+          "payload": "<root xmlns:a=\"http://a.com\" xmlns:b=\"http://b.com\"><a:Status>OK</a:Status><b:Status>FAIL</b:Status></root>",
+          "payloadMime": "application/xml",
+          "expect": {
+            "output": "\"OK\""
+          },
+          "note": "The bare `.Status` selector matches `a:Status` simply because it is the first sibling in the document — not because it belongs to any particular namespace. `b:Status` is silently skipped."
+        },
+        {
+          "label": "Qualifying both selectors resolves the ambiguity",
+          "script": "%dw 2.0\noutput application/json\nns a http://a.com\nns b http://b.com\n---\n{ aStatus: payload.root.a#Status, bStatus: payload.root.b#Status }",
+          "payload": "<root xmlns:a=\"http://a.com\" xmlns:b=\"http://b.com\"><a:Status>OK</a:Status><b:Status>FAIL</b:Status></root>",
+          "payloadMime": "application/xml",
+          "expect": {
+            "output": "{ \"aStatus\": \"OK\", \"bStatus\": \"FAIL\" }"
+          },
+          "note": "Once each selector names both the prefix and the local name, each one reaches exactly the element it means."
+        },
+        {
+          "label": "The wrong approach on the sample input",
+          "script": "%dw 2.0\noutput application/json\nns soap http://schemas.xmlsoap.org/soap/envelope/\nns cust http://acme.com/customer\n---\npayload.soap#Envelope.soap#Body.cust#GetCustomersResponse.*cust#Customer map {\n  id: $.@id,\n  name: $.cust#Name,\n  status: $.Status\n}",
+          "payload": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:cust=\"http://acme.com/customer\" xmlns:audit=\"http://acme.com/audit\">\n  <soap:Body>\n    <cust:GetCustomersResponse>\n      <cust:Customer id=\"C-1\">\n        <cust:Name>Alice Chen</cust:Name>\n        <audit:Status>REVIEWED</audit:Status>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n      <cust:Customer id=\"C-2\">\n        <cust:Name>Bob Martinez</cust:Name>\n        <audit:Status>FLAGGED</audit:Status>\n        <cust:Status>SUSPENDED</cust:Status>\n      </cust:Customer>\n    </cust:GetCustomersResponse>\n  </soap:Body>\n</soap:Envelope>",
+          "payloadMime": "application/xml",
+          "expect": {
+            "output": "[ { \"id\": \"C-1\", \"name\": \"Alice Chen\", \"status\": \"REVIEWED\" }, { \"id\": \"C-2\", \"name\": \"Bob Martinez\", \"status\": \"FLAGGED\" } ]"
+          },
+          "note": "Both customers come back with the audit system's status instead of their own, because in this feed `audit:Status` happens to be written before `cust:Status` inside each `Customer`. The output is well-formed JSON with plausible-looking values — nothing about it looks like a bug."
+        },
+        {
+          "label": "The same bug is invisible when the audit field is absent",
+          "script": "%dw 2.0\noutput application/json\nns soap http://schemas.xmlsoap.org/soap/envelope/\nns cust http://acme.com/customer\n---\npayload.soap#Envelope.soap#Body.cust#GetCustomersResponse.*cust#Customer map {\n  id: $.@id,\n  name: $.cust#Name,\n  status: $.Status\n}",
+          "payload": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:cust=\"http://acme.com/customer\" xmlns:audit=\"http://acme.com/audit\">\n  <soap:Body>\n    <cust:GetCustomersResponse>\n      <cust:Customer id=\"C-3\">\n        <cust:Name>Carol Nguyen</cust:Name>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n    </cust:GetCustomersResponse>\n  </soap:Body>\n</soap:Envelope>",
+          "payloadMime": "application/xml",
+          "expect": {
+            "output": "[ { \"id\": \"C-3\", \"name\": \"Carol Nguyen\", \"status\": \"ACTIVE\" } ]"
+          },
+          "note": "With no `audit:Status` sibling, `cust:Status` is the only element with that local name, so the bare selector reaches it and the wrong script happens to produce the right answer. A test suite built only from records like this one would never catch the bug."
+        },
+        {
+          "label": "The correct, namespace-qualified extraction",
+          "script": "%dw 2.0\noutput application/json\nns soap http://schemas.xmlsoap.org/soap/envelope/\nns cust http://acme.com/customer\nns audit http://acme.com/audit\n---\npayload.soap#Envelope.soap#Body.cust#GetCustomersResponse.*cust#Customer map {\n  id: $.@id,\n  name: $.cust#Name,\n  status: $.cust#Status\n}",
+          "payload": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:cust=\"http://acme.com/customer\" xmlns:audit=\"http://acme.com/audit\">\n  <soap:Body>\n    <cust:GetCustomersResponse>\n      <cust:Customer id=\"C-1\">\n        <cust:Name>Alice Chen</cust:Name>\n        <audit:Status>REVIEWED</audit:Status>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n      <cust:Customer id=\"C-2\">\n        <cust:Name>Bob Martinez</cust:Name>\n        <audit:Status>FLAGGED</audit:Status>\n        <cust:Status>SUSPENDED</cust:Status>\n      </cust:Customer>\n    </cust:GetCustomersResponse>\n  </soap:Body>\n</soap:Envelope>",
+          "payloadMime": "application/xml",
+          "expect": {
+            "output": "[ { \"id\": \"C-1\", \"name\": \"Alice Chen\", \"status\": \"ACTIVE\" }, { \"id\": \"C-2\", \"name\": \"Bob Martinez\", \"status\": \"SUSPENDED\" } ]"
+          },
+          "note": "`cust#Status` names the namespace as part of the selector, so it reaches the customer's own status regardless of which sibling was written first."
+        }
+      ]
+    }
+  },
+  {
+    "id": "exact-total-no-early-rounding",
+    "unit": "precision",
+    "tier": "hard",
+    "title": "A total that must add up to the cent",
+    "topics": [
+      "sum",
+      "round",
+      "as String {format}"
+    ],
+    "prompt": "You are given an array of transaction amounts, in dollars, as numbers (some negative, for refunds). Return `{ total }`, where `total` is the sum of all the amounts, formatted as a string with exactly two decimal places (for example `\"18.00\"`, not `\"18\"`).\n\nRound only once, at the very end, to produce the two-decimal string. Do not round any individual amount before summing — the amounts are exact, and there is nothing to protect them from.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[10.125, 10.125, 10.125]",
+        "output": "{\"total\":\"30.38\"}"
+      },
+      {
+        "input": "[]",
+        "output": "{\"total\":\"0.00\"}"
+      },
+      {
+        "input": "[19.995, -5.005, 3.01]",
+        "output": "{\"total\":\"18.00\"}"
+      },
+      {
+        "input": "[10.125, 10.125, 10.125, 10.125]",
+        "output": "{\"total\":\"40.50\"}"
+      }
+    ],
+    "hints": [
+      "This engine's numbers are exact decimals, not the IEEE doubles of JavaScript or Java — a habit like 'round early to avoid floating-point drift' is solving a problem that does not exist here.",
+      "Sum the whole array first, as-is, and only convert the total to a two-decimal string as the very last step.",
+      "If you round every amount to cents before summing 'just to be safe', try it on several amounts that each end in .125 — the total changes by a cent from what summing first and rounding once gives you."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\n{ total: sum(payload) as String {format: \"0.00\"} }",
+    "explanation": {
+      "approach": "DataWeave numbers are arbitrary-precision decimals, not IEEE 754 doubles. `0.1 + 0.2` really is `0.3` here — there is no accumulated binary rounding error to defend against. The trap runs backwards from what JavaScript or Java teach: a habit of rounding every intermediate amount 'to be safe' is not neutral. `sum` over the exact amounts and `round` (or a string format) applied once at the end give the mathematically correct total; rounding each amount first throws away precision the final answer needed, and the two totals can disagree by real money.",
+      "snippets": [
+        {
+          "label": "0.1 + 0.2 is exact here",
+          "script": "%dw 2.0\noutput application/json\n---\n{ v: 0.1 + 0.2, eq: (0.1 + 0.2) == 0.3, t: typeOf(0.1 + 0.2) }",
+          "expect": {
+            "output": "{ \"v\": 0.3, \"eq\": true, \"t\": \"Number\" }"
+          },
+          "note": "No floating-point residue, and the type is still a plain Number. The habit of guarding against `0.1 + 0.2 !== 0.3` comes from other languages and does not apply here."
+        },
+        {
+          "label": "Sum first, round once, at the end",
+          "script": "%dw 2.0\noutput application/json\n---\nsum([10.125, 10.125, 10.125]) as String {format: \"0.00\"}",
+          "expect": {
+            "output": "\"30.38\""
+          },
+          "note": "The exact sum is 30.375. Formatting it to two decimals in one step rounds it once, giving 30.38."
+        },
+        {
+          "label": "Rounding each amount to cents first, then summing",
+          "script": "%dw 2.0\noutput application/json\n---\nsum([10.125, 10.125, 10.125] map ((round($ * 100)) / 100)) as String {format: \"0.00\"}",
+          "expect": {
+            "output": "\"30.39\""
+          },
+          "note": "Each 10.125 rounds up to 10.13 on its own — `round` rounds a `.5` away from zero, and 10.125 * 100 is 1012.5. Three of those sum to 30.39, a cent more than summing the exact amounts and rounding once."
+        },
+        {
+          "label": "round() on an exact half rounds away from zero",
+          "script": "%dw 2.0\noutput application/json\n---\n[round(0.5), round(1.5), round(2.5), round(-0.5)]",
+          "expect": {
+            "output": "[ 1, 2, 3, -1 ]"
+          },
+          "note": "This is why the per-amount rounding above tips 10.125 up to 10.13 instead of down to 10.12 — and why doing it three times, before the sum, is not the same as doing it once, after."
+        },
+        {
+          "label": "A case where early rounding does not happen to move the total",
+          "script": "%dw 2.0\noutput application/json\n---\n{\n  correct: sum([19.995, -5.005, 3.01]) as String {format: \"0.00\"},\n  early: sum([19.995, -5.005, 3.01] map ((round($ * 100)) / 100)) as String {format: \"0.00\"}\n}",
+          "expect": {
+            "output": "{ \"correct\": \"18.00\", \"early\": \"18.00\" }"
+          },
+          "note": "The two approaches do not always disagree — here the per-amount rounding errors cancel out. That is what makes the habit dangerous: it passes most of the time, and only a specific mix of amounts, like three that each end in .125, exposes the cent it drops or adds."
+        }
+      ]
+    }
+  },
+  {
+    "id": "region-category-totals",
+    "unit": "nested-aggregation",
+    "tier": "hard",
+    "title": "A sales summary, two levels deep",
+    "topics": [
+      "groupBy",
+      "mapObject",
+      "sum"
+    ],
+    "prompt": "You are given an array of sales records, each `{ region, category, amount }`. Build a summary object where each key is a `region`, and each value is an object mapping `category` to the sum of `amount` for that region and category.\n\nFor example, two `West` records in `Widgets` and one in `Gadgets` become `{ \"West\": { \"Widgets\": <sum>, \"Gadgets\": <sum> } }`. A region that only ever appears with one category still produces an object, just with one key.",
+    "inputMime": "application/json",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"West\",\"category\":\"Gadgets\",\"amount\":40},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]",
+        "output": "{\"West\":{\"Widgets\":100,\"Gadgets\":40},\"East\":{\"Widgets\":90}}"
+      },
+      {
+        "input": "[{\"region\":\"North\",\"category\":\"Widgets\",\"amount\":25}]",
+        "output": "{\"North\":{\"Widgets\":25}}"
+      },
+      {
+        "input": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":10},{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":15},{\"region\":\"West\",\"category\":\"Gadgets\",\"amount\":5},{\"region\":\"East\",\"category\":\"Gadgets\",\"amount\":8},{\"region\":\"South\",\"category\":\"Widgets\",\"amount\":2}]",
+        "output": "{\"West\":{\"Widgets\":25,\"Gadgets\":5},\"East\":{\"Gadgets\":8},\"South\":{\"Widgets\":2}}"
+      },
+      {
+        "input": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":1},{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":2},{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":3}]",
+        "output": "{\"West\":{\"Widgets\":6}}"
+      }
+    ],
+    "hints": [
+      "`groupBy` hands you back an Object, keyed by whatever you grouped on — not an Array. Check `typeOf` on the result before deciding what to do with it next.",
+      "You need this shape twice: once to bucket by region, and again inside each bucket to bucket by category. Whatever turns an Object into another Object without leaving Object-land is what you want at both levels.",
+      "`map` expects an Array. Calling it directly on the result of `groupBy` is not a smaller version of the right answer — it does not run at all."
+    ],
+    "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region mapObject ((lines, region) -> {\n  (region): lines groupBy $.category mapObject ((catLines, category) -> {\n    (category): sum(catLines.amount)\n  })\n})",
+    "explanation": {
+      "approach": "`groupBy` never returns an Array — it returns an Object whose keys are the grouping values and whose values are the Arrays of matching items. That means the next step in the chain has to be something that iterates an Object, which is `pluck` (Object to Array) or `mapObject` (Object to Object), never `map` (Array to Array). A two-level report just applies this twice: group by region into an Object of Arrays, then inside each Array group by category and reduce each bucket to a single number with `sum`.",
+      "snippets": [
+        {
+          "label": "Check the shape before you chain anything onto it",
+          "script": "%dw 2.0\noutput application/json\n---\n{ raw: typeOf(payload), grouped: typeOf(payload groupBy $.region) }",
+          "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]",
+          "expect": {
+            "output": "{ \"raw\": \"Array\", \"grouped\": \"Object\" }"
+          },
+          "note": "An Array goes in and an Object comes out. That one line decides everything after it: the next step has to be an object function, and reaching for `map` here is an error rather than a wrong answer."
+        },
+        {
+          "label": "What groupBy actually hands back",
+          "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region",
+          "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]",
+          "expect": {
+            "output": "{ \"West\": [ { \"region\": \"West\", \"category\": \"Widgets\", \"amount\": 100 } ], \"East\": [ { \"region\": \"East\", \"category\": \"Widgets\", \"amount\": 90 } ] }"
+          },
+          "note": "An Object, keyed by region, each value still the Array of full records that matched. Nothing has been summed yet."
+        },
+        {
+          "label": "Calling map on that Object",
+          "script": "%dw 2.0\noutput application/json\n---\n(payload groupBy $.region) map $",
+          "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]",
+          "expect": {
+            "error": true
+          },
+          "note": "`UnexpectedFunctionCallTypesException`: map wants an Array and was handed an Object. This is not a wrong answer that runs — it does not run at all, which is exactly why it is easy to write without noticing: the mistake shows up as a stack trace, not a bad number."
+        },
+        {
+          "label": "mapObject, going Object to Object, is the shape that fits",
+          "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region mapObject ((lines, region) -> {\n  (region): sum(lines.amount)\n})",
+          "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"West\",\"category\":\"Gadgets\",\"amount\":40},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]",
+          "expect": {
+            "output": "{ \"West\": 140, \"East\": 90 }"
+          },
+          "note": "This is one level of aggregation — a single total per region. It compiles and runs, but it throws away the category breakdown the report actually needs; West's Widgets and Gadgets are already merged into 140 before there is any chance to split them back out."
+        },
+        {
+          "label": "The full two-level chain",
+          "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region mapObject ((lines, region) -> {\n  (region): lines groupBy $.category mapObject ((catLines, category) -> {\n    (category): sum(catLines.amount)\n  })\n})",
+          "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"West\",\"category\":\"Gadgets\",\"amount\":40},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]",
+          "expect": {
+            "output": "{ \"West\": { \"Widgets\": 100, \"Gadgets\": 40 }, \"East\": { \"Widgets\": 90 } }"
+          },
+          "note": "The inner `groupBy $.category mapObject ...` runs once per region, on that region's own Array of records, before its result becomes the value stored under `(region)`."
+        },
+        {
+          "label": "pluck is the Object-to-Array alternative, useful for a flatter report",
+          "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region pluck ((lines, region) -> { region: region, total: sum(lines.amount) })",
+          "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"West\",\"category\":\"Gadgets\",\"amount\":40},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]",
+          "expect": {
+            "output": "[ { \"region\": \"West\", \"total\": 140 }, { \"region\": \"East\", \"total\": 90 } ] "
+          },
+          "note": "Same grouped Object, but `pluck` turns it into an Array of `{region, total}` rows instead of a nested Object. Neither `pluck` nor `mapObject` is `map` in disguise — each names what the input actually is."
+        }
+      ]
+    }
+  },
+  {
+    "id": "mainframe-payroll-extract",
+    "unit": "flat-file",
+    "tier": "extra",
+    "title": "Parse a fixed-width payroll extract",
+    "topics": [
+      "read",
+      "range selectors",
+      "fixed-width",
+      "trim"
+    ],
+    "prompt": "A mainframe payroll job writes one line per employee, with no delimiters between fields — every field sits at a fixed character position:\n\n| field | start (0-based) | length |\n|---|---|---|\n| id | 0 | 6 |\n| name | 6 | 20 |\n| salary | 26 | 10 |\n| dept | 36 | 3 |\n\n`name` is space-padded on the right to fill its width. `salary` is zero-padded on the left and always has exactly two decimal digits, for example `0004250.00`. Lines are separated by `\\n`, and the file may contain blank lines.\n\nReturn an array of `{ id, name, salary, dept }`, one per non-blank line, with `name` and `dept` trimmed and `salary` as a Number.",
+    "inputMime": "text/plain",
+    "outputMime": "application/json",
+    "starter": "%dw 2.0\noutput application/json\n---\n",
+    "cases": [
+      {
+        "input": "E00001Alice Chen          0004250.00ENG\nE00003Bo                  0000099.99OPS\n",
+        "output": "[{\"id\":\"E00001\",\"name\":\"Alice Chen\",\"salary\":4250,\"dept\":\"ENG\"},{\"id\":\"E00003\",\"name\":\"Bo\",\"salary\":99.99,\"dept\":\"OPS\"}]"
+      },
+      {
+        "input": "E00004Dana Fields         0000000.00FIN\n",
+        "output": "[{\"id\":\"E00004\",\"name\":\"Dana Fields\",\"salary\":0,\"dept\":\"FIN\"}]"
+      },
+      {
+        "input": "E00002Bartholomew Chen III0001500.75SAL\n",
+        "output": "[{\"id\":\"E00002\",\"name\":\"Bartholomew Chen III\",\"salary\":1500.75,\"dept\":\"SAL\"}]"
+      },
+      {
+        "input": "E00001Alice Chen          0004250.00ENG\n\nE00005X                   1000000.00ENG\n\n",
+        "output": "[{\"id\":\"E00001\",\"name\":\"Alice Chen\",\"salary\":4250,\"dept\":\"ENG\"},{\"id\":\"E00005\",\"name\":\"X\",\"salary\":1000000,\"dept\":\"ENG\"}]"
+      },
+      {
+        "input": "",
+        "output": "[]"
+      }
+    ],
+    "hints": [
+      "The payload here is one big String with newlines in it, not a parsed structure — there is no reader doing the work for you. Split it into lines first.",
+      "Each field lives at a fixed character position, not behind a delimiter. A range selector like line[6 to 25] on a String pulls out a substring; pair every field with trim, since the padding is real characters, not formatting.",
+      "Describe the layout as a list of { name, start, length } and reduce over it per line. Two things bite: a field width that is off by one silently drops or adds a character instead of erroring (it only shows up when a value exactly fills its column), and a blank line in the file is not a record — filter it out before parsing, or it survives the split and fails later at the `as Number` coercion instead of at the split."
+    ],
+    "solution": "%dw 2.0\noutput application/json\nvar layout = [\n  { name: \"id\", start: 0, length: 6 },\n  { name: \"name\", start: 6, length: 20 },\n  { name: \"salary\", start: 26, length: 10 },\n  { name: \"dept\", start: 36, length: 3 }\n]\nfun field(line, start, length) = trim(line[start to (start + length - 1)])\nfun parseLine(line) = layout reduce (f, acc = {}) -> acc ++ { (f.name): field(line, f.start, f.length) }\n---\n(payload splitBy \"\\n\") filter !isEmpty(trim($)) map (line) -> do {\n  var rec = parseLine(line)\n  ---\n  { id: rec.id, name: rec.name, salary: rec.salary as Number, dept: rec.dept }\n}",
+    "explanation": {
+      "approach": "There is no reader for this format here — application/flatfile in this engine requires a schema resource loaded from the classpath, and passing one inline as a reader property does not satisfy it (it fails with 'No schema set' no matter what the property is named). So the file arrives as inputMime text/plain, a single String, and the parsing is manual: split on newlines, then pull each field out of a line with a range selector at a fixed offset. The two ways this goes wrong without an error are a field width that is off by one, and a blank line that survives the split.",
+      "snippets": [
+        {
+          "label": "The payload is a plain String here, not a parsed structure",
+          "script": "%dw 2.0\noutput application/json\n---\npayload splitBy \"\\n\"",
+          "payload": "E00001Alice Chen          0004250.00ENG\nE00003Bo                  0000099.99OPS\n",
+          "payloadMime": "text/plain",
+          "expect": {
+            "output": "[ \"E00001Alice Chen          0004250.00ENG\", \"E00003Bo                  0000099.99OPS\" ]"
+          },
+          "note": "splitBy on the raw text gives an array of line Strings. Nothing has been parsed into fields yet."
+        },
+        {
+          "label": "A range selector plus trim pulls one field out",
+          "script": "%dw 2.0\noutput application/json\n---\ntrim(\"E00001Alice Chen          0004250.00ENG\"[6 to 25])",
+          "expect": {
+            "output": "\"Alice Chen\""
+          },
+          "note": "line[6 to 25] is the 20-character name column, spaces and all. trim removes the padding — it does not know or care where the padding came from."
+        },
+        {
+          "label": "A parsed field is still a String until you say otherwise",
+          "script": "%dw 2.0\noutput application/json\n---\n{\n  raw: \"E00001Alice Chen          0004250.00ENG\"[26 to 35],\n  rawType: typeOf(\"E00001Alice Chen          0004250.00ENG\"[26 to 35]),\n  asNumber: \"E00001Alice Chen          0004250.00ENG\"[26 to 35] as Number\n}",
+          "expect": {
+            "output": "{ \"raw\": \"0004250.00\", \"rawType\": \"String\", \"asNumber\": 4250 }"
+          },
+          "note": "The salary column comes out as the String \"0004250.00\". as Number drops the leading zeros and keeps the cents — 4250, not a display string."
+        },
+        {
+          "label": "Why application/flatfile is not the answer here",
+          "script": "%dw 2.0\noutput application/json\n---\nread(payload, \"application/flatfile\", {schema: [ {name: \"name\", size: 10}, {name: \"age\", size: 3} ]})",
+          "payload": "John      28 \n",
+          "payloadMime": "application/flatfile",
+          "expect": {
+            "error": true
+          },
+          "note": "This is the built-in flat-file reader, and it looks like the right tool. It throws IllegalStateException: No schema set regardless of what the schema property is called or shaped — this engine expects the schema as a classpath resource, which a headless practice script has no way to supply. Range selectors on a String are the fallback that actually works."
+        },
+        {
+          "label": "One column short is silent, not an error",
+          "script": "%dw 2.0\noutput application/json\nvar layout = [ { name: \"name\", start: 6, length: 19 } ]\nfun field(line, start, length) = trim(line[start to (start + length - 1)])\n---\nfield(\"E00002Bartholomew Chen III0001500.75SAL\", 6, 19)",
+          "expect": {
+            "output": "\"Bartholomew Chen II\""
+          },
+          "note": "r2's name is exactly 20 characters — \"Bartholomew Chen III\" — with no padding to spare. Reading only 19 of them drops the trailing \"I\" and returns a different, still-plausible-looking name. No exception, no null — just a wrong answer, and only on the one row with no slack in it."
+        },
+        {
+          "label": "A blank line fails later than you'd expect",
+          "script": "%dw 2.0\noutput application/json\n---\n(\"\" splitBy \"\\n\") map (line) -> line[26 to 35] as Number",
+          "expect": {
+            "error": true
+          },
+          "note": "An empty line has no character at position 26 — the selector returns null, and null as Number throws UnsupportedTypeCoercionException. The failure surfaces at the coercion, several steps after the split that actually produced the bad element, which is why filtering blank lines up front is easier than debugging this backward."
+        }
+      ]
+    }
+  }
+]

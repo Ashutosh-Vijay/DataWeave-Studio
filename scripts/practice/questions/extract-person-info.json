@@ -1,0 +1,88 @@
+{
+  "id": "extract-person-info",
+  "unit": "select-and-shape",
+  "tier": "easy",
+  "title": "Extract person info and reshape",
+  "topics": ["selectors", "object construction"],
+  "prompt": "You have an array of person records with some fields that might be missing. Build a new array where each person is represented as an object with `name`, `age`, and `city` fields.\n\nIf a field is missing, include it as `null` in the output.\n\nKeep the original order.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[{\"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\"}, {\"name\": \"Bob\", \"city\": \"LA\"}]",
+      "output": "[{\"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\"}, {\"name\": \"Bob\", \"age\": null, \"city\": \"LA\"}]"
+    },
+    {
+      "input": "[{\"name\": \"Carol\", \"age\": 25, \"city\": \"Chicago\"}]",
+      "output": "[{\"name\": \"Carol\", \"age\": 25, \"city\": \"Chicago\"}]"
+    },
+    {
+      "input": "[{\"age\": 28, \"city\": \"Boston\"}, {\"name\": \"Dave\", \"age\": 35}]",
+      "output": "[{\"name\": null, \"age\": 28, \"city\": \"Boston\"}, {\"name\": \"Dave\", \"age\": 35, \"city\": null}]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    },
+    {
+      "input": "[{\"name\": \"Eve\"}]",
+      "output": "[{\"name\": \"Eve\", \"age\": null, \"city\": null}]"
+    }
+  ],
+  "hints": [
+    "Grab each person from the array and pick out the three fields you need. If a field does not exist, accessing it will not crash — it will just be `null`.",
+    "Use `map` to transform each person. Inside the map, build a new object with the three fields: `{name: ..., age: ..., city: ...}`.",
+    "You do not need to guard against missing fields. `$.fieldName` will silently return `null` if the field is not there. A typo in your selector will produce a null in the output instead of an error — that is the trap."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map {name: $.name, age: $.age, city: $.city}",
+  "mustFail": [
+    {
+      "why": "hardcodes the first sample",
+      "script": "%dw 2.0\noutput application/json\n---\n[{\"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\"}, {\"name\": \"Bob\", \"age\": null, \"city\": \"LA\"}]"
+    },
+    {
+      "why": "forgets a field",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map {name: $.name, age: $.age}"
+    }
+  ],
+  "explanation": {
+    "approach": "Each person in the input is an object with various fields. Your job is to pick exactly three of them and put them in the output in a specific order. `map` transforms each person into the new shape.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map {name: $.name, age: $.age, city: $.city}",
+        "payload": "[{\"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\"}, {\"name\": \"Bob\", \"city\": \"LA\"}]",
+        "expect": { "output": "[ { \"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\" }, { \"name\": \"Bob\", \"age\": null, \"city\": \"LA\" } ]" },
+        "note": "Each person becomes an object with exactly three keys, in the order you wrote them. Bob has no `age` field in the input, so it becomes `null` in the output."
+      },
+      {
+        "label": "What happens when you access a missing field",
+        "script": "%dw 2.0\noutput application/json\n---\n{\"name\": \"Alice\"}.age",
+        "expect": { "output": "null" },
+        "note": "Accessing a field that is not there returns `null`, not an error. This is the trap: a typo in your field name ships silently as a null in the output."
+      },
+      {
+        "label": "A person missing all three fields",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map {name: $.name, age: $.age, city: $.city}",
+        "payload": "[{}]",
+        "expect": { "output": "[ { \"name\": null, \"age\": null, \"city\": null } ]" },
+        "note": "Every field access returns null, so you get an object with all nulls. This is not an error — the output is still valid JSON."
+      },
+      {
+        "label": "What a typo looks like",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map {name: $.fullName, age: $.age, city: $.city}",
+        "payload": "[{\"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\"}]",
+        "expect": { "output": "[ { \"name\": null, \"age\": 30, \"city\": \"NYC\" } ]" },
+        "note": "`$.fullName` does not exist, so it becomes null. No compilation error, no warning — the mapping just silently drops the name. This is why the first hint says a typo ships silently."
+      },
+      {
+        "label": "Order is preserved",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map {city: $.city, name: $.name, age: $.age}",
+        "payload": "[{\"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\"}]",
+        "expect": { "output": "[ { \"city\": \"NYC\", \"name\": \"Alice\", \"age\": 30 } ]" },
+        "note": "The output keys appear in the order you wrote them, not the order they appeared in the input. `city` first, then `name`, then `age`."
+      }
+    ]
+  }
+}

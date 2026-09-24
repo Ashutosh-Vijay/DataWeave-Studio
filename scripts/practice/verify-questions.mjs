@@ -15,12 +15,16 @@
  *     in a snippet that ran", enforced rather than promised — it is exactly how
  *     `import isOdd from dw::core::Numbers` would have been caught.
  *
- * Run: node scripts/practice/verify-questions.mjs [id ...]
+ * Run: npm run practice:verify -- [id ...]
+ *
+ * It goes through vite-node because the grader it uses is the APP's grader
+ * (src/practiceGrading.ts) rather than a second copy: a question is checked on
+ * the way in by the same code that grades it on the way out.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { openEngine } from '../dwEngine.mjs';
-import { grade } from './grade.mjs';
+import { gradeSubmission, outputsMatch } from '../../src/practiceGrading.ts';
 
 const DIR = 'scripts/practice/questions';
 const norm = (s) => s.replace(/\s+/g, ' ').trim();
@@ -62,8 +66,18 @@ for (const file of files) {
   const problems = [];
   console.log(`\n── ${q.id}  [${q.tier}]  ${q.title}`);
 
+  /** Grade a script exactly the way the app grades a learner's submission. */
+  const gradeScript = (src) =>
+    gradeSubmission(q, (c) =>
+      dw.run(src, {
+        payload: c.input,
+        payloadMime: q.inputMime ?? 'application/json',
+        outputMime: q.outputMime ?? 'application/json',
+      }),
+    );
+
   // 1. the reference solution
-  const ref = await grade(dw, q, q.solution);
+  const ref = await gradeScript(q.solution);
   if (ref.solved) {
     console.log(`   solution     passes ${ref.total}/${ref.total} cases (${ref.ms}ms)`);
   } else {
@@ -77,7 +91,7 @@ for (const file of files) {
 
   // 2. the wrong answers must be caught, and by a HIDDEN case where possible
   for (const mf of q.mustFail ?? []) {
-    const r = await grade(dw, q, mf.script);
+    const r = await gradeScript(mf.script);
     if (r.solved) problems.push(`mustFail passed anyway — "${mf.why}"`);
     else console.log(`   mustFail     caught at case ${r.failure.index}${r.failure.hidden ? ' (hidden)' : ''} — ${mf.why}`);
   }
@@ -97,7 +111,14 @@ for (const file of files) {
       else console.log(`   snippet      errors as claimed — ${s.label}`);
     } else if (!r.ok) {
       problems.push(`snippet "${s.label}" errored: ${r.error.split('\n')[0]}`);
-    } else if (norm(r.output) !== norm(s.expect.output)) {
+    // A snippet does not inherit the question's compare mode — the question's
+    // mode is about grading a submission, and a snippet is just a claim about
+    // what the engine prints. Semantic first, whitespace-insensitive text as a
+    // fallback, so a correct claim never fails over indentation.
+    } else if (
+      !outputsMatch(r.output, s.expect.output, s.compare ?? 'json') &&
+      norm(r.output) !== norm(s.expect.output)
+    ) {
       problems.push(`snippet "${s.label}" claims ${norm(s.expect.output)} but returns ${norm(r.output)}`);
     } else {
       console.log(`   snippet      verified — ${s.label}`);

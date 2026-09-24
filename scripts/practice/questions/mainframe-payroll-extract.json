@@ -1,0 +1,115 @@
+{
+  "id": "mainframe-payroll-extract",
+  "unit": "flat-file",
+  "tier": "extra",
+  "title": "Parse a fixed-width payroll extract",
+  "topics": [
+    "read",
+    "range selectors",
+    "fixed-width",
+    "trim"
+  ],
+  "prompt": "A mainframe payroll job writes one line per employee, with no delimiters between fields — every field sits at a fixed character position:\n\n| field | start (0-based) | length |\n|---|---|---|\n| id | 0 | 6 |\n| name | 6 | 20 |\n| salary | 26 | 10 |\n| dept | 36 | 3 |\n\n`name` is space-padded on the right to fill its width. `salary` is zero-padded on the left and always has exactly two decimal digits, for example `0004250.00`. Lines are separated by `\\n`, and the file may contain blank lines.\n\nReturn an array of `{ id, name, salary, dept }`, one per non-blank line, with `name` and `dept` trimmed and `salary` as a Number.",
+  "inputMime": "text/plain",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "E00001Alice Chen          0004250.00ENG\nE00003Bo                  0000099.99OPS\n",
+      "output": "[{\"id\":\"E00001\",\"name\":\"Alice Chen\",\"salary\":4250,\"dept\":\"ENG\"},{\"id\":\"E00003\",\"name\":\"Bo\",\"salary\":99.99,\"dept\":\"OPS\"}]"
+    },
+    {
+      "input": "E00004Dana Fields         0000000.00FIN\n",
+      "output": "[{\"id\":\"E00004\",\"name\":\"Dana Fields\",\"salary\":0,\"dept\":\"FIN\"}]"
+    },
+    {
+      "input": "E00002Bartholomew Chen III0001500.75SAL\n",
+      "output": "[{\"id\":\"E00002\",\"name\":\"Bartholomew Chen III\",\"salary\":1500.75,\"dept\":\"SAL\"}]"
+    },
+    {
+      "input": "E00001Alice Chen          0004250.00ENG\n\nE00005X                   1000000.00ENG\n\n",
+      "output": "[{\"id\":\"E00001\",\"name\":\"Alice Chen\",\"salary\":4250,\"dept\":\"ENG\"},{\"id\":\"E00005\",\"name\":\"X\",\"salary\":1000000,\"dept\":\"ENG\"}]"
+    },
+    {
+      "input": "",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "The payload here is one big String with newlines in it, not a parsed structure — there is no reader doing the work for you. Split it into lines first.",
+    "Each field lives at a fixed character position, not behind a delimiter. A range selector like line[6 to 25] on a String pulls out a substring; pair every field with trim, since the padding is real characters, not formatting.",
+    "Describe the layout as a list of { name, start, length } and reduce over it per line. Two things bite: a field width that is off by one silently drops or adds a character instead of erroring (it only shows up when a value exactly fills its column), and a blank line in the file is not a record — filter it out before parsing, or it survives the split and fails later at the `as Number` coercion instead of at the split."
+  ],
+  "solution": "%dw 2.0\noutput application/json\nvar layout = [\n  { name: \"id\", start: 0, length: 6 },\n  { name: \"name\", start: 6, length: 20 },\n  { name: \"salary\", start: 26, length: 10 },\n  { name: \"dept\", start: 36, length: 3 }\n]\nfun field(line, start, length) = trim(line[start to (start + length - 1)])\nfun parseLine(line) = layout reduce (f, acc = {}) -> acc ++ { (f.name): field(line, f.start, f.length) }\n---\n(payload splitBy \"\\n\") filter !isEmpty(trim($)) map (line) -> do {\n  var rec = parseLine(line)\n  ---\n  { id: rec.id, name: rec.name, salary: rec.salary as Number, dept: rec.dept }\n}",
+  "mustFail": [
+    {
+      "why": "hardcodes the sample answer for case 0",
+      "script": "%dw 2.0\noutput application/json\n---\n[{\"id\":\"E00001\",\"name\":\"Alice Chen\",\"salary\":4250,\"dept\":\"ENG\"},{\"id\":\"E00003\",\"name\":\"Bo\",\"salary\":99.99,\"dept\":\"OPS\"}]"
+    },
+    {
+      "why": "declares the name field one column short (19 instead of 20); harmless on a short name, but silently truncates a name that exactly fills the column",
+      "script": "%dw 2.0\noutput application/json\nvar layout = [\n  { name: \"id\", start: 0, length: 6 },\n  { name: \"name\", start: 6, length: 19 },\n  { name: \"salary\", start: 26, length: 10 },\n  { name: \"dept\", start: 36, length: 3 }\n]\nfun field(line, start, length) = trim(line[start to (start + length - 1)])\nfun parseLine(line) = layout reduce (f, acc = {}) -> acc ++ { (f.name): field(line, f.start, f.length) }\n---\n(payload splitBy \"\\n\") filter !isEmpty(trim($)) map (line) -> do {\n  var rec = parseLine(line)\n  ---\n  { id: rec.id, name: rec.name, salary: rec.salary as Number, dept: rec.dept }\n}"
+    },
+    {
+      "why": "never filters blank lines, so one throws at the salary coercion instead of being skipped",
+      "script": "%dw 2.0\noutput application/json\nvar layout = [\n  { name: \"id\", start: 0, length: 6 },\n  { name: \"name\", start: 6, length: 20 },\n  { name: \"salary\", start: 26, length: 10 },\n  { name: \"dept\", start: 36, length: 3 }\n]\nfun field(line, start, length) = trim(line[start to (start + length - 1)])\nfun parseLine(line) = layout reduce (f, acc = {}) -> acc ++ { (f.name): field(line, f.start, f.length) }\n---\n(payload splitBy \"\\n\") map (line) -> do {\n  var rec = parseLine(line)\n  ---\n  { id: rec.id, name: rec.name, salary: rec.salary as Number, dept: rec.dept }\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "There is no reader for this format here — application/flatfile in this engine requires a schema resource loaded from the classpath, and passing one inline as a reader property does not satisfy it (it fails with 'No schema set' no matter what the property is named). So the file arrives as inputMime text/plain, a single String, and the parsing is manual: split on newlines, then pull each field out of a line with a range selector at a fixed offset. The two ways this goes wrong without an error are a field width that is off by one, and a blank line that survives the split.",
+    "snippets": [
+      {
+        "label": "The payload is a plain String here, not a parsed structure",
+        "script": "%dw 2.0\noutput application/json\n---\npayload splitBy \"\\n\"",
+        "payload": "E00001Alice Chen          0004250.00ENG\nE00003Bo                  0000099.99OPS\n",
+        "payloadMime": "text/plain",
+        "expect": {
+          "output": "[ \"E00001Alice Chen          0004250.00ENG\", \"E00003Bo                  0000099.99OPS\" ]"
+        },
+        "note": "splitBy on the raw text gives an array of line Strings. Nothing has been parsed into fields yet."
+      },
+      {
+        "label": "A range selector plus trim pulls one field out",
+        "script": "%dw 2.0\noutput application/json\n---\ntrim(\"E00001Alice Chen          0004250.00ENG\"[6 to 25])",
+        "expect": {
+          "output": "\"Alice Chen\""
+        },
+        "note": "line[6 to 25] is the 20-character name column, spaces and all. trim removes the padding — it does not know or care where the padding came from."
+      },
+      {
+        "label": "A parsed field is still a String until you say otherwise",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  raw: \"E00001Alice Chen          0004250.00ENG\"[26 to 35],\n  rawType: typeOf(\"E00001Alice Chen          0004250.00ENG\"[26 to 35]),\n  asNumber: \"E00001Alice Chen          0004250.00ENG\"[26 to 35] as Number\n}",
+        "expect": {
+          "output": "{ \"raw\": \"0004250.00\", \"rawType\": \"String\", \"asNumber\": 4250 }"
+        },
+        "note": "The salary column comes out as the String \"0004250.00\". as Number drops the leading zeros and keeps the cents — 4250, not a display string."
+      },
+      {
+        "label": "Why application/flatfile is not the answer here",
+        "script": "%dw 2.0\noutput application/json\n---\nread(payload, \"application/flatfile\", {schema: [ {name: \"name\", size: 10}, {name: \"age\", size: 3} ]})",
+        "payload": "John      28 \n",
+        "payloadMime": "application/flatfile",
+        "expect": {
+          "error": true
+        },
+        "note": "This is the built-in flat-file reader, and it looks like the right tool. It throws IllegalStateException: No schema set regardless of what the schema property is called or shaped — this engine expects the schema as a classpath resource, which a headless practice script has no way to supply. Range selectors on a String are the fallback that actually works."
+      },
+      {
+        "label": "One column short is silent, not an error",
+        "script": "%dw 2.0\noutput application/json\nvar layout = [ { name: \"name\", start: 6, length: 19 } ]\nfun field(line, start, length) = trim(line[start to (start + length - 1)])\n---\nfield(\"E00002Bartholomew Chen III0001500.75SAL\", 6, 19)",
+        "expect": {
+          "output": "\"Bartholomew Chen II\""
+        },
+        "note": "r2's name is exactly 20 characters — \"Bartholomew Chen III\" — with no padding to spare. Reading only 19 of them drops the trailing \"I\" and returns a different, still-plausible-looking name. No exception, no null — just a wrong answer, and only on the one row with no slack in it."
+      },
+      {
+        "label": "A blank line fails later than you'd expect",
+        "script": "%dw 2.0\noutput application/json\n---\n(\"\" splitBy \"\\n\") map (line) -> line[26 to 35] as Number",
+        "expect": {
+          "error": true
+        },
+        "note": "An empty line has no character at position 26 — the selector returns null, and null as Number throws UnsupportedTypeCoercionException. The failure surfaces at the coercion, several steps after the split that actually produced the bad element, which is why filtering blank lines up front is easier than debugging this backward."
+      }
+    ]
+  }
+}

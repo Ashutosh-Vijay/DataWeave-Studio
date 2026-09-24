@@ -5,7 +5,7 @@
  * cannot fail. This takes a known-good question, breaks it in each of the four
  * ways the gate is supposed to catch, and asserts each break is reported.
  *
- * Run: node scripts/practice/selftest.mjs
+ * Run: npm run practice:selftest
  */
 import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -46,7 +46,7 @@ for (const [label, mutate, expected] of BREAKS) {
 
   let out = '';
   try {
-    out = execFileSync('node', ['scripts/practice/verify-questions.mjs', '_selftest'], { encoding: 'utf8' });
+    out = execFileSync('npx', ['vite-node', 'scripts/practice/verify-questions.mjs', '_selftest'], { encoding: 'utf8', shell: true });
   } catch (e) {
     out = (e.stdout ?? '') + (e.stderr ?? '');   // a non-zero exit is the point
   }
