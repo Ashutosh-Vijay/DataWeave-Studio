@@ -63,6 +63,7 @@
   /* Semantic colors */
   --warn:   oklch(80% 0.14 80);
   --err:    oklch(68% 0.18 20);
+  --ok:     oklch(76% 0.15 155);
   --violet: oklch(72% 0.14 290);
   --cyan:   oklch(75% 0.11 220);
 
@@ -120,6 +121,7 @@
 
   --warn:   oklch(60% 0.15 80);
   --err:    oklch(55% 0.18 20);
+  --ok:     oklch(52% 0.14 155);
   --violet: oklch(50% 0.15 290);
   --cyan:   oklch(55% 0.12 220);
 
@@ -176,6 +178,7 @@ html.dw-vscode-theme {
 
   --warn: var(--vscode-editorWarning-foreground, #cca700);
   --err:  var(--vscode-editorError-foreground, var(--vscode-errorForeground, #f48771));
+  --ok:   var(--vscode-testing-iconPassed, #3fb950);
 
   --scrollbar-thumb:       var(--vscode-scrollbarSlider-background, #79797966);
   --scrollbar-thumb-hover: var(--vscode-scrollbarSlider-hoverBackground, #64646480);

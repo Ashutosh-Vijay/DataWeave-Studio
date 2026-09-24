@@ -116,12 +116,17 @@ export async function openEngine({ quiet = false } = {}) {
         outputMime: opts.outputMime ?? 'application/json',
         modules: opts.modules,
         languageLevel: opts.languageLevel,
+        trace: opts.trace,
+        valueTrace: opts.valueTrace,
       });
       return {
         ok: !!res.ok && !res.error,
         output: res.output ?? '',
         error: res.error ?? null,
         ms: res.executionTimeMs ?? 0,
+        logs: res.logs,
+        /** One row per source expression when `valueTrace` was set. */
+        trace: res.trace,
       };
     },
 

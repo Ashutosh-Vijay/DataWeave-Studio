@@ -34,7 +34,7 @@ function matches(r: Recipe, q: string, cat: string | null): boolean {
 }
 
 const DIFF_COLOR: Record<string, string> = {
-  Beginner: 'var(--ok, #3fb950)',
+  Beginner: 'var(--ok)',
   Intermediate: 'var(--accent)',
   Advanced: 'var(--warn, #d29922)',
 };
