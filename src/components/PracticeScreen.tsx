@@ -25,6 +25,7 @@ import { Icons } from './Icons';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
 import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';
+import type { TraceRow } from '../hooks/useDWRunner';
 import {
   gradeSubmission,
   type GradeResult,
@@ -121,6 +122,17 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
   const [script, setScript] = useState('');
   const [running, setRunning] = useState(false);
   const [sampleOut, setSampleOut] = useState<{ ok: boolean; text: string } | null>(null);
+  /**
+   * What every expression in the learner's script evaluated to, from the
+   * engine's own execution listener (dw-server/Trace.scala). This is the
+   * answer to "why is my result empty" without a model in the loop: a
+   * mistyped selector shows up as a row whose value is null.
+   *
+   * Traced against the SAMPLE only, never a hidden case — the values in a
+   * trace would otherwise hand over the hidden payload, and the hidden cases
+   * are the only thing stopping a hardcoded answer.
+   */
+  const [trace, setTrace] = useState<TraceRow[] | null>(null);
   const [result, setResult] = useState<GradeResult | null>(null);
   const [hintsShown, setHintsShown] = useState(0);
   const [showSolution, setShowSolution] = useState(false);
@@ -147,6 +159,7 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
     if (!question) return;
     setScript(question.starter ?? '%dw 2.0\noutput application/json\n---\n');
     setSampleOut(null);
+    setTrace(null);
     setResult(null);
     setHintsShown(0);
     setShowSolution(false);
@@ -163,8 +176,13 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
 
   /** One engine run. The same shape the Run button uses. */
   const runOnce = useCallback(
-    async (payload: string, q: PracticeQuestion, src: string) => {
-      const res = await invoke<{ output: string; error: string | null; execution_time_ms: number }>(
+    async (payload: string, q: PracticeQuestion, src: string, valueTrace = false) => {
+      const res = await invoke<{
+        output: string;
+        error: string | null;
+        execution_time_ms: number;
+        trace?: TraceRow[];
+      }>(
         'run_dataweave',
         {
           script: src,
@@ -180,9 +198,16 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
           modulesJson: null,
           languageLevel: null,
           outputMimeType: q.outputMime ?? 'application/json',
+          valueTrace,
         },
       );
-      return { ok: !res.error, output: res.output ?? '', error: res.error, ms: res.execution_time_ms };
+      return {
+        ok: !res.error,
+        output: res.output ?? '',
+        error: res.error,
+        ms: res.execution_time_ms,
+        trace: res.trace ?? [],
+      };
     },
     [],
   );
@@ -191,9 +216,28 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
     if (!question) return;
     setRunning(true);
     setResult(null);
+    setTrace(null);
     try {
       const r = await runOnce(question.cases[0].input, question, script);
       setSampleOut({ ok: r.ok, text: r.ok ? r.output : (r.error ?? 'failed') });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  /**
+   * Run the sample with the engine's execution listener on, so every
+   * expression's real value comes back. A wrong selector stops being a mystery
+   * the moment you can see it evaluating to null.
+   */
+  const handleTrace = async () => {
+    if (!question) return;
+    setRunning(true);
+    setResult(null);
+    try {
+      const r = await runOnce(question.cases[0].input, question, script, true);
+      setSampleOut({ ok: r.ok, text: r.ok ? r.output : (r.error ?? 'failed') });
+      setTrace(r.trace ?? []);
     } finally {
       setRunning(false);
     }
@@ -203,6 +247,7 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
     if (!question) return;
     setRunning(true);
     setSampleOut(null);
+    setTrace(null);
     try {
       const r = await gradeSubmission(question, (c) => runOnce(c.input, question, script));
       setResult(r);
@@ -449,6 +494,14 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
                 Run on the sample
               </button>
               <button
+                onClick={handleTrace}
+                disabled={running}
+                title="Run the sample and show what every expression in your script evaluated to"
+                className="h-[26px] px-2.5 rounded-md text-[12px] border border-line text-content-secondary hover:bg-surface-2 cursor-pointer disabled:opacity-50"
+              >
+                Trace
+              </button>
+              <button
                 onClick={handleSubmit}
                 disabled={running || showSolution}
                 title={showSolution ? 'Submissions are disabled once the solution has been viewed' : undefined}
@@ -482,6 +535,35 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
                     {sampleOut.text}
                   </pre>
                 </>
+              )}
+
+              {trace && trace.length > 0 && (
+                <div className="mt-2 rounded-lg border border-line overflow-hidden">
+                  <div className="px-3 py-1.5 text-[10.5px] uppercase tracking-[0.6px] font-semibold text-content-faint bg-surface-2 border-b border-line">
+                    What each expression evaluated to · on the sample
+                  </div>
+                  <div className="font-mono text-[11px]">
+                    {trace.map((row, i) => (
+                      <div key={i} className="flex gap-2 px-3 py-1 border-b border-line-subtle last:border-b-0">
+                        <span className="w-10 shrink-0 text-content-ghost tabular-nums">{row.line}:{row.column}</span>
+                        <span className="w-[34%] shrink-0 truncate text-content-secondary" title={row.expression}>
+                          {row.expression}
+                        </span>
+                        <span className="w-16 shrink-0 truncate text-content-faint" title={row.type}>{row.type}</span>
+                        <span
+                          className="flex-1 truncate"
+                          title={row.value}
+                          // A null here is usually the answer: a selector that
+                          // does not match produces one instead of an error.
+                          style={{ color: row.value === 'null' ? 'var(--warn)' : 'var(--content)' }}
+                        >
+                          {row.value}
+                        </span>
+                        {row.count > 1 && <span className="shrink-0 text-content-ghost">×{row.count}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
 
               {result && (
