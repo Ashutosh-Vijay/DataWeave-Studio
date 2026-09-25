@@ -1,0 +1,52 @@
+{
+  "id": "mcq-embed-json-as-text",
+  "unit": "multi-format-embed",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "write",
+    "writer properties"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "basics": "`write(value, \"application/json\")` turns a value into JSON text, a String. Placed inside a JSON output, that String is escaped, so its quotes appear as `\\\"`. A third argument holds writer properties such as `{ indent: false }`.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ body: write({ a: 1 }, \"application/json\", { indent: false }) }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "{ \"body\": \"{a: 1}\" }",
+      "{ \"body\": { \"a\": 1 } }",
+      "{ \"body\": \"{\\\"a\\\": 1}\" }",
+      "{ \"body\": null }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ body: write({ a: 1 }, \"application/json\", { indent: false }) }",
+  "explanation": {
+    "approach": "The inner document is text now, so the outer JSON writes it as a String and escapes the quotes inside it. A receiver has to `read` it to get the Object back.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ body: write({ a: 1 }, \"application/json\", { indent: false }) }",
+        "expect": {
+          "output": "{\"body\":\"{\\\"a\\\": 1}\"}"
+        },
+        "note": "A String holding JSON."
+      },
+      {
+        "label": "Reading it back",
+        "script": "%dw 2.0\noutput application/json\n---\nread(write({ a: 1 }, \"application/json\"), \"application/json\")",
+        "expect": {
+          "output": "{\"a\":1}"
+        },
+        "note": "An Object again."
+      }
+    ]
+  }
+}

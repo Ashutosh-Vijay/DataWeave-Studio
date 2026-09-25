@@ -1,0 +1,53 @@
+{
+  "id": "mcq-eval-mixed-operators",
+  "unit": "expression-evaluator",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "fun",
+    "recursion",
+    "match"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "In an expression tree, every operation is a node `{ op, l, r }` and every number is a leaf. The shape of the tree, not the usual rules of arithmetic, decides what is calculated first.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev({ op: \"+\", l: { op: \"*\", l: 2, r: 3 }, r: 4 })"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "9",
+      "10",
+      "14",
+      "20"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev({ op: \"+\", l: { op: \"*\", l: 2, r: 3 }, r: 4 })",
+  "explanation": {
+    "approach": "The left side is its own node, 2 * 3, so it is evaluated first and gives 6; then 6 + 4 is 10. A tree built the other way round, 2 * (3 + 4), would give 14.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev({ op: \"+\", l: { op: \"*\", l: 2, r: 3 }, r: 4 })",
+        "expect": {
+          "output": "10"
+        },
+        "note": "(2 * 3) + 4."
+      },
+      {
+        "label": "The other tree",
+        "script": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev({ op: \"*\", l: 2, r: { op: \"+\", l: 3, r: 4 } })",
+        "expect": {
+          "output": "14"
+        },
+        "note": "2 * (3 + 4)."
+      }
+    ]
+  }
+}

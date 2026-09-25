@@ -1,0 +1,53 @@
+{
+  "id": "mcq-pivot-pairs-to-object",
+  "unit": "pivot",
+  "tier": "easy",
+  "title": "Which script produces this output?",
+  "topics": [
+    "map",
+    "dynamic keys"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "Name-value rows such as `{ k: \"color\", v: \"red\" }` can be turned into one Object, `{ color: \"red\" }`. `map` builds one small Object per row with a computed key, and `{( )}` merges those into one.",
+  "mode": "choice",
+  "prompt": "Given the payload, **which script produces exactly this output?**\n\n```\n{\"color\":\"red\",\"size\":\"M\"}\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[{\"k\":\"color\",\"v\":\"red\"},{\"k\":\"size\",\"v\":\"M\"}]",
+    "target": "{\"color\":\"red\",\"size\":\"M\"}",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n{ (payload map { ($.v): $.k }) }",
+      "%dw 2.0\noutput application/json\n---\n{ (payload map { ($.k): $.v }) }",
+      "%dw 2.0\noutput application/json\n---\n{ (payload map { k: $.v }) }",
+      "%dw 2.0\noutput application/json\n---\npayload map { ($.k): $.v }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ (payload map { ($.k): $.v }) }",
+  "explanation": {
+    "approach": "The key is computed from `$.k` and the value is `$.v`. Without the outer `{( )}` the result is an Array of Objects; with the parentheses missing around `k` every key is literally \"k\".",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ (payload map { ($.k): $.v }) }",
+        "payload": "[{\"k\":\"color\",\"v\":\"red\"},{\"k\":\"size\",\"v\":\"M\"}]",
+        "expect": {
+          "output": "{\"color\":\"red\",\"size\":\"M\"}"
+        },
+        "note": "One Object, one key per row."
+      },
+      {
+        "label": "Without the merge",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map { ($.k): $.v }",
+        "payload": "[{\"k\":\"color\",\"v\":\"red\"},{\"k\":\"size\",\"v\":\"M\"}]",
+        "expect": {
+          "output": "[{\"color\":\"red\"},{\"size\":\"M\"}]"
+        },
+        "note": "Still an Array."
+      }
+    ]
+  }
+}
