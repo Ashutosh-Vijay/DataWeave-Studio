@@ -1,4 +1,4 @@
-import { useEffect, useState, memo } from 'react';
+import { useEffect, useRef, useState, memo } from 'react';
 import Editor, { BeforeMount, useMonaco } from '@monaco-editor/react';
 import { configureEditor } from '../editorInit';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -10,6 +10,7 @@ import { useEditorFont } from '../hooks/useEditorFont';
 import { canFormatPayload, formatPayload } from '../payloadFormat';
 import { SampleDataDialog } from './SampleDataDialog';
 import { toast } from './Toast';
+import { Icons } from './Icons';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
@@ -140,6 +141,19 @@ export const PayloadTabs = memo(function PayloadTabs({
 }: PayloadTabsProps) {
   const [activeTab, setActiveTab] = useState(0); // 0 = payload
   const [sampleOpen, setSampleOpen] = useState(false);
+  // The toolbar degrades the way VS Code's and DevTools' do: labels while they
+  // fit, icons with tooltips when they don't, and an overflow menu when even
+  // the icons don't. Squeezed labels made "Load file" wrap and get clipped.
+  const barRef = useRef<HTMLDivElement>(null);
+  const [barWidth, setBarWidth] = useState(1000);
+  const [moreOpen, setMoreOpen] = useState(false);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setBarWidth(e.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const { isDark } = useTheme();
   const editorFont = useEditorFont();
   const monaco = useMonaco();
@@ -278,10 +292,39 @@ export const PayloadTabs = memo(function PayloadTabs({
     }
   };
 
+  const actions = [
+    // Generate — realistic sample data from the types the script declares.
+    // Text formats only; a generated .xlsx is meaningless.
+    isPayloadTab && canFormatPayload(currentMime) && {
+      label: 'Generate', Icon: Icons.Sparkle, run: () => setSampleOpen(true),
+      title: 'Generate a realistic sample payload from a type your script declares',
+    },
+    // Format — JSON and XML only, and only when there's something to format.
+    canFormatPayload(currentMime) && currentContent.trim() !== '' && {
+      label: 'Format', Icon: Icons.AlignLeft, run: handleFormatPayload,
+      title: 'Pretty-print this payload',
+    },
+    // Load file — text formats only; binary formats have their own full-pane
+    // picker below.
+    isPayloadTab && !isBinaryPayloadFormat(payloadMimeType) && payloadMimeType !== 'multipart/form-data' && {
+      label: 'Load file', Icon: Icons.FileUp, run: () => loadPayloadFromFile(onPayloadMimeTypeChange),
+      title: 'Load file contents into editor (CSV, JSON, XML, TXT…)',
+    },
+    !isPayloadTab && activeInput && !isBinaryPayloadFormat(activeInput.mimeType) && {
+      label: 'Load file', Icon: Icons.FileUp, run: () => loadInputFromFile(activeInputIndex),
+      title: 'Load file contents into this input (CSV, JSON, XML, TXT…)',
+    },
+  ].filter(Boolean) as { label: string; Icon: typeof Icons.FileUp; run: () => void; title: string }[];
+  const toolbar = barWidth >= 460 ? 'labels' : barWidth >= 300 ? 'icons' : 'menu';
+  const actionClass =
+    'h-6 inline-flex items-center justify-center gap-1 text-[10.5px] text-content-faint hover:text-accent rounded-md border border-line hover:border-accent-border hover:bg-accent-dim transition-colors cursor-pointer whitespace-nowrap';
+
   return (
     <div className="flex flex-col h-full overflow-hidden bg-surface">
       {/* Tab bar */}
-      <div className="flex items-center border-b border-line shrink-0 pl-1">
+      <div ref={barRef} className="flex items-center border-b border-line shrink-0 pl-1">
+        {/* Tabs scroll rather than push the actions out of view. */}
+        <div className="flex items-center min-w-[56px] overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
         {/* Payload tab */}
         <button
           onClick={() => setActiveTab(0)}
@@ -335,15 +378,16 @@ export const PayloadTabs = memo(function PayloadTabs({
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
+        </div>
 
-        {/* Right side: MIME selector + Load file */}
-        <div className="ml-auto flex items-center gap-1 pr-2">
+        {/* Right side: MIME selector + actions. Never shrinks. */}
+        <div className="ml-auto flex items-center gap-1 pr-2 pl-2 shrink-0">
           {/* Inline MIME type selector for active tab */}
           {isPayloadTab && onPayloadMimeTypeChange && (
             <select
               value={payloadMimeType}
               onChange={(e) => onPayloadMimeTypeChange(e.target.value as MimeType)}
-              className="h-6 bg-surface-2 border border-line rounded-md px-1.5 text-[10.5px] text-content-muted focus:outline-none focus:border-accent cursor-pointer"
+              className={`h-6 bg-surface-2 border border-line rounded-md px-1.5 text-[10.5px] text-content-muted focus:outline-none focus:border-accent cursor-pointer ${toolbar === 'menu' ? 'w-[76px]' : 'max-w-[120px]'}`}
               title="Payload MIME type"
             >
               {MIME_OPTIONS.map((opt) => (
@@ -355,7 +399,7 @@ export const PayloadTabs = memo(function PayloadTabs({
             <select
               value={activeInput.mimeType}
               onChange={(e) => updateInput(activeInputIndex, 'mimeType', e.target.value as MimeType)}
-              className="h-6 bg-surface-2 border border-line rounded-md px-1.5 text-[10.5px] text-content-muted focus:outline-none focus:border-accent cursor-pointer"
+              className={`h-6 bg-surface-2 border border-line rounded-md px-1.5 text-[10.5px] text-content-muted focus:outline-none focus:border-accent cursor-pointer ${toolbar === 'menu' ? 'w-[76px]' : 'max-w-[120px]'}`}
               title="Input MIME type"
             >
               {MIME_OPTIONS.map((opt) => (
@@ -363,47 +407,51 @@ export const PayloadTabs = memo(function PayloadTabs({
               ))}
             </select>
           )}
-          {/* Generate — realistic sample data from the types the script
-              declares. Text formats only; a generated .xlsx is meaningless. */}
-          {isPayloadTab && canFormatPayload(currentMime) && (
-            <button
-              onClick={() => setSampleOpen(true)}
-              className="h-6 inline-flex items-center text-[10.5px] text-content-faint hover:text-accent px-2 rounded-md border border-line hover:border-accent-border hover:bg-accent-dim transition-colors cursor-pointer"
-              title="Generate a realistic sample payload from a type your script declares"
-            >
-              Generate
-            </button>
-          )}
-          {/* Format — JSON and XML only, and only when there's something to
-              format. Same treatment as Load file: text formats only. */}
-          {canFormatPayload(currentMime) && currentContent.trim() !== '' && (
-            <button
-              onClick={handleFormatPayload}
-              className="h-6 inline-flex items-center text-[10.5px] text-content-faint hover:text-accent px-2 rounded-md border border-line hover:border-accent-border hover:bg-accent-dim transition-colors cursor-pointer"
-              title="Pretty-print this payload"
-            >
-              Format
-            </button>
-          )}
-          {/* Load file — only for text formats; binary formats have their
-              own full-pane picker below. */}
-          {isPayloadTab && !isBinaryPayloadFormat(payloadMimeType) && payloadMimeType !== 'multipart/form-data' && (
-            <button
-              onClick={() => loadPayloadFromFile(onPayloadMimeTypeChange)}
-              className="h-6 inline-flex items-center text-[10.5px] text-content-faint hover:text-accent px-2 rounded-md border border-line hover:border-accent-border hover:bg-accent-dim transition-colors cursor-pointer"
-              title="Load file contents into editor (CSV, JSON, XML, TXT…)"
-            >
-              Load file
-            </button>
-          )}
-          {!isPayloadTab && activeInput && !isBinaryPayloadFormat(activeInput.mimeType) && (
-            <button
-              onClick={() => loadInputFromFile(activeInputIndex)}
-              className="h-6 inline-flex items-center text-[10.5px] text-content-faint hover:text-accent px-2 rounded-md border border-line hover:border-accent-border hover:bg-accent-dim transition-colors cursor-pointer"
-              title="Load file contents into this input (CSV, JSON, XML, TXT…)"
-            >
-              Load file
-            </button>
+          {toolbar !== 'menu' &&
+            actions.map((a) => (
+              <button
+                key={a.label}
+                onClick={a.run}
+                title={a.title}
+                aria-label={a.label}
+                className={`${actionClass} ${toolbar === 'labels' ? 'px-2' : 'w-6'}`}
+              >
+                {toolbar === 'labels' ? a.label : <a.Icon size={13} />}
+              </button>
+            ))}
+          {toolbar === 'menu' && actions.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setMoreOpen((o) => !o)}
+                title="More actions"
+                aria-label="More actions"
+                aria-expanded={moreOpen}
+                className={`${actionClass} w-6`}
+              >
+                <Icons.More size={13} />
+              </button>
+              {moreOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setMoreOpen(false)} />
+                  <div className="absolute right-0 top-7 z-50 min-w-[150px] py-1 rounded-md border border-line bg-surface shadow-lg">
+                    {actions.map((a) => (
+                      <button
+                        key={a.label}
+                        onClick={() => {
+                          setMoreOpen(false);
+                          a.run();
+                        }}
+                        title={a.title}
+                        className="w-full flex items-center gap-2 px-2.5 h-7 text-[12px] text-content-secondary hover:bg-surface-2 hover:text-content cursor-pointer"
+                      >
+                        <a.Icon size={13} />
+                        {a.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>
