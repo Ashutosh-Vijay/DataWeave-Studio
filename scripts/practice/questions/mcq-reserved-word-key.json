@@ -5,7 +5,7 @@
   "tier": "medium",
   "title": "Which one does not compile?",
   "topics": ["default", "upper"],
-  "examObjective": "Applying correct syntax to write DataWeave transformations",
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
   "prompt": "Three of these compile and run. **One does not.** Which one?",
   "inputMime": "application/json",
   "outputMime": "application/json",

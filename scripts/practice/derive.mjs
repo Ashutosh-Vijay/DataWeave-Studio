@@ -114,6 +114,10 @@ for (const file of files) {
       tier: q.tier,
       title: `Fix it: ${q.title.toLowerCase()}`,
       topics: q.topics,
+      // Safe to carry over: this question keeps the parent's solution and
+      // explanation, so every name the primer uses still ran. A predict question
+      // does not — it runs one snippet — so it gets no primer.
+      basics: q.basics,
       prompt:
         `The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\n` +
         `The original task was:\n\n${q.prompt}\n\n` +
