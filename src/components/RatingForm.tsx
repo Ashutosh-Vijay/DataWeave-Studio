@@ -26,15 +26,19 @@ const FACES = [
   { rating: 5, face: '😄', label: 'Great' },
 ];
 
-/** How many sessions there have been, and whether the one-time ask has happened. */
+/**
+ * How many sessions there have been, when the prompt may next ask, and whether
+ * to stop — `done` is set by a submitted rating (from anywhere) or by "Don't
+ * ask again". Anything short of that only postpones it.
+ */
 const PROMPT_KEY = 'dw-feedback-prompt-v1';
-type PromptState = { sessions: number; done: boolean };
+type PromptState = { sessions: number; snoozeUntil: number; done: boolean };
 
 function readPrompt(): PromptState {
   try {
-    return { sessions: 0, done: false, ...JSON.parse(localStorage.getItem(PROMPT_KEY) ?? '{}') };
+    return { sessions: 0, snoozeUntil: 0, done: false, ...JSON.parse(localStorage.getItem(PROMPT_KEY) ?? '{}') };
   } catch {
-    return { sessions: 0, done: false };
+    return { sessions: 0, snoozeUntil: 0, done: false };
   }
 }
 
@@ -182,10 +186,9 @@ export function RatingForm({ appVersion, onDone, onSent }: { appVersion?: string
 let counted = false;
 
 /**
- * The card that asks — once per install, ever. Never in the first sessions,
- * never the moment the app opens, never as a modal. Whatever the user does
- * with it, it does not come back; after that, feedback is the smiley button
- * in the top bar.
+ * The card that asks. Never in the first sessions, never the moment the app
+ * opens, never as a modal. Once somebody has sent a rating it never asks
+ * again; until then, dismissing it only postpones it by two weeks.
  */
 export function RatingPrompt({ appVersion }: { appVersion?: string }) {
   const [show, setShow] = useState(false);
@@ -198,11 +201,11 @@ export function RatingPrompt({ appVersion }: { appVersion?: string }) {
       s.sessions += 1;
       writePrompt(s);
     }
-    if (s.done || s.sessions < 3) return;
+    if (s.done || s.sessions < 3 || Date.now() < s.snoozeUntil) return;
     const t = setTimeout(() => {
-      // Marked done the moment it appears, not when it is answered: closing
-      // the app with the card open still counts as having been asked.
-      writePrompt({ ...readPrompt(), done: true });
+      // Postponed the moment it appears, so closing the app with the card
+      // open counts as "not now" rather than asking again next launch.
+      writePrompt({ ...readPrompt(), snoozeUntil: Date.now() + 14 * 24 * 3600 * 1000 });
       setShow(true);
     }, 90_000);
     return () => clearTimeout(t);
@@ -210,7 +213,12 @@ export function RatingPrompt({ appVersion }: { appVersion?: string }) {
 
   if (!show) return null;
 
-  const skip = () => setShow(false);
+  // The snooze was already written when the card appeared.
+  const later = () => setShow(false);
+  const never = () => {
+    writePrompt({ ...readPrompt(), done: true });
+    setShow(false);
+  };
 
   return (
     <div
@@ -222,16 +230,16 @@ export function RatingPrompt({ appVersion }: { appVersion?: string }) {
       <div className="flex items-start gap-2 mb-3">
         <div className="flex-1">
           <div className="text-[13.5px] font-semibold text-content">How is DataWeave Studio working for you?</div>
-          <div className="text-[11.5px] text-content-faint mt-0.5">Asked once. Skipping sends nothing.</div>
+          <div className="text-[11.5px] text-content-faint mt-0.5">Takes a second. Skipping sends nothing.</div>
         </div>
-        <button onClick={skip} aria-label="Skip" className="w-6 h-6 rounded-md flex items-center justify-center text-content-faint hover:bg-surface-2 cursor-pointer">
+        <button onClick={later} aria-label="Not now" className="w-6 h-6 rounded-md flex items-center justify-center text-content-faint hover:bg-surface-2 cursor-pointer">
           <Icons.X size={12} />
         </button>
       </div>
       <RatingForm appVersion={appVersion} onDone={() => setShow(false)} onSent={() => setSent(true)} />
       {!sent && <div className="flex gap-3 mt-1 text-[11.5px]">
-        <button onClick={skip} className="text-content-faint hover:text-content cursor-pointer">Skip</button>
-        <span className="text-content-ghost">Feedback any time: the smiley in the top bar.</span>
+        <button onClick={later} className="text-content-faint hover:text-content cursor-pointer">Not now</button>
+        <button onClick={never} className="text-content-faint hover:text-content cursor-pointer">Don&rsquo;t ask again</button>
       </div>}
     </div>
   );
