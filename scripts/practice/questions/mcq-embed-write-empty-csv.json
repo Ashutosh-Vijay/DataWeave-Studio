@@ -1,0 +1,44 @@
+{
+  "id": "mcq-embed-write-empty-csv",
+  "unit": "multi-format-embed",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "write",
+    "csv"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "basics": "`write(value, \"application/csv\")` turns an Array of Objects into CSV text, with a header line built from the keys of the Objects. The header comes from the data itself.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ attachment: write([], \"application/csv\") }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "{ \"attachment\": null }",
+      "{ \"attachment\": \"\\n\" }",
+      "{ \"attachment\": \"\" }",
+      "It fails: there are no columns to write"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ attachment: write([], \"application/csv\") }",
+  "explanation": {
+    "approach": "With no rows there are no keys to build a header from, so the result is an empty String. A partner that expects at least a header line needs one built by hand for the empty case.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ attachment: write([], \"application/csv\") }",
+        "expect": {
+          "output": "{\"attachment\":\"\"}"
+        },
+        "note": "Not a header-only file."
+      }
+    ]
+  }
+}

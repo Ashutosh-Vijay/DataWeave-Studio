@@ -1,0 +1,52 @@
+{
+  "id": "mcq-map-keeps-length",
+  "unit": "map-basics",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "map",
+    "filter"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "`map` builds a new Array with exactly one result for each element of the input. It transforms elements; it never adds or removes any.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[5, 15, 25] map (if ($ > 10) $ else null)"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ null, 15, 25 ]",
+      "[ 5, 15, 25 ]",
+      "[ 15, 25 ]",
+      "[ false, true, true ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[5, 15, 25] map (if ($ > 10) $ else null)",
+  "explanation": {
+    "approach": "The element that fails the test is not dropped: it is replaced by the null that the `else` returns. Dropping elements is what `filter` does.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[5, 15, 25] map (if ($ > 10) $ else null)",
+        "expect": {
+          "output": "[null,15,25]"
+        },
+        "note": "Three in, three out."
+      },
+      {
+        "label": "filter drops",
+        "script": "%dw 2.0\noutput application/json\n---\n[5, 15, 25] filter ($ > 10)",
+        "expect": {
+          "output": "[15,25]"
+        },
+        "note": "The tool for removing elements."
+      }
+    ]
+  }
+}

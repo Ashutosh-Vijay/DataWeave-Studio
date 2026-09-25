@@ -1,0 +1,53 @@
+{
+  "id": "mcq-map-line-ids",
+  "unit": "map-basics",
+  "tier": "easy",
+  "title": "Which script produces this output?",
+  "topics": [
+    "map",
+    "index",
+    "++"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "Inside `map`, `$` is the element and `$$` its position, starting at 0. `++` joins text, and a Number on either side is turned into text first.",
+  "mode": "choice",
+  "prompt": "Given the payload, **which script produces exactly this output?**\n\n```\n[{\"id\":\"L1\",\"sku\":\"pen\"},{\"id\":\"L2\",\"sku\":\"ink\"}]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[\"pen\",\"ink\"]",
+    "target": "[{\"id\":\"L1\",\"sku\":\"pen\"},{\"id\":\"L2\",\"sku\":\"ink\"}]",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload map { id: \"L\" + ($$ + 1), sku: $ }",
+      "%dw 2.0\noutput application/json\n---\npayload map { id: \"L\" ++ ($$ + 1), sku: $ }",
+      "%dw 2.0\noutput application/json\n---\npayload map { id: \"L\" ++ ($ + 1), sku: $$ }",
+      "%dw 2.0\noutput application/json\n---\npayload map { id: \"L\" ++ $$, sku: $ }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map { id: \"L\" ++ ($$ + 1), sku: $ }",
+  "explanation": {
+    "approach": "The index starts at 0, so the line number is `$$ + 1`. `+` with the text \"L\" tries to do arithmetic and fails. Swapping `$` and `$$` puts the index where the SKU belongs.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map { id: \"L\" ++ ($$ + 1), sku: $ }",
+        "payload": "[\"pen\",\"ink\"]",
+        "expect": {
+          "output": "[{\"id\":\"L1\",\"sku\":\"pen\"},{\"id\":\"L2\",\"sku\":\"ink\"}]"
+        },
+        "note": "Numbered from 1."
+      },
+      {
+        "label": "+ with text",
+        "script": "%dw 2.0\noutput application/json\n---\n\"L\" + 1",
+        "expect": {
+          "error": true
+        },
+        "note": "\"L\" is not a number."
+      }
+    ]
+  }
+}

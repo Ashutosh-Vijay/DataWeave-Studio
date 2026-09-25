@@ -1,0 +1,44 @@
+{
+  "id": "mcq-recursion-mutual",
+  "unit": "recursion",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "fun",
+    "recursion"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "basics": "Two functions can call each other. Declarations in the header are not processed top to bottom like statements, so the first function can call the second even though the second is declared after it.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun isEven(n) = if (n == 0) true else isOdd(n - 1)\nfun isOdd(n) = if (n == 0) false else isEven(n - 1)\n---\n[isEven(4), isOdd(3), isEven(3)]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ true, true, false ]",
+      "[ true, false, false ]",
+      "It fails: isOdd is used before it is declared",
+      "[ false, true, true ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun isEven(n) = if (n == 0) true else isOdd(n - 1)\nfun isOdd(n) = if (n == 0) false else isEven(n - 1)\n---\n[isEven(4), isOdd(3), isEven(3)]",
+  "explanation": {
+    "approach": "`isEven` calls `isOdd` and the other way round, each with n - 1, until n reaches 0. Both base cases are at 0, which is why each function answers its own question at the bottom.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nfun isEven(n) = if (n == 0) true else isOdd(n - 1)\nfun isOdd(n) = if (n == 0) false else isEven(n - 1)\n---\n[isEven(4), isOdd(3), isEven(3)]",
+        "expect": {
+          "output": "[true,true,false]"
+        },
+        "note": "Mutual recursion compiles without extra declarations."
+      }
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "id": "basket-vat-to-the-cent-predict-1",
+  "unit": "numbers-and-rounding",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Rounding to whole units",
+  "topics": [
+    "round",
+    "sum",
+    "map"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nround(12.34 * 0.2)"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nround(12.34 * 0.2)",
+  "explanation": {
+    "approach": "The cents are gone.",
+    "snippets": [
+      {
+        "label": "Rounding to whole units",
+        "script": "%dw 2.0\noutput application/json\n---\nround(12.34 * 0.2)",
+        "expect": {
+          "output": "2"
+        },
+        "note": "The cents are gone."
+      }
+    ]
+  },
+  "derivedFrom": "basket-vat-to-the-cent"
+}

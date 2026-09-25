@@ -1,0 +1,37 @@
+{
+  "id": "patch-body-changed-fields-predict-0",
+  "unit": "pluck-and-mapobject",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Brackets use the variable",
+  "topics": [
+    "filterObject",
+    "mapObject",
+    "--",
+    "keysOf"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[payload.city, payload[\"city\"], payload.k]",
+    "payload": "{\"city\":\"York\"}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[payload.city, payload[\"city\"], payload.k]",
+  "explanation": {
+    "approach": "`.k` is a field called k.",
+    "snippets": [
+      {
+        "label": "Brackets use the variable",
+        "script": "%dw 2.0\noutput application/json\n---\n[payload.city, payload[\"city\"], payload.k]",
+        "payload": "{\"city\":\"York\"}",
+        "expect": {
+          "output": "[\"York\",\"York\",null]"
+        },
+        "note": "`.k` is a field called k."
+      }
+    ]
+  },
+  "derivedFrom": "patch-body-changed-fields"
+}

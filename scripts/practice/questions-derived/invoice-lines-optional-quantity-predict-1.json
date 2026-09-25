@@ -1,0 +1,36 @@
+{
+  "id": "invoice-lines-optional-quantity-predict-1",
+  "unit": "default-and-missing",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Without parentheses, on a line with no quantity",
+  "topics": [
+    "default",
+    "map",
+    "precedence"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.qty default 1 * payload.price",
+    "payload": "{\"price\":5}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.qty default 1 * payload.price",
+  "explanation": {
+    "approach": "Correct, by accident. This is the case the sample shows.",
+    "snippets": [
+      {
+        "label": "Without parentheses, on a line with no quantity",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.qty default 1 * payload.price",
+        "payload": "{\"price\":5}",
+        "expect": {
+          "output": "5"
+        },
+        "note": "Correct, by accident. This is the case the sample shows."
+      }
+    ]
+  },
+  "derivedFrom": "invoice-lines-optional-quantity"
+}

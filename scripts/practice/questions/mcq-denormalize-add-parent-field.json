@@ -1,0 +1,46 @@
+{
+  "id": "mcq-denormalize-add-parent-field",
+  "unit": "denormalize",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "map",
+    "++"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "Denormalising copies a parent's fields onto each child row, so that every row can stand on its own. For one parent, mapping over its children and adding the parent field with `++` does it.",
+  "mode": "choice",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.lines map ($ ++ { order: payload.id })",
+    "payload": "{\"id\":\"o1\",\"lines\":[{\"sku\":\"x\"},{\"sku\":\"y\"}]}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "{ \"sku\": \"x\", \"order\": \"o1\" }",
+      "[ { \"sku\": \"x\", \"order\": \"o1\" }, { \"sku\": \"y\", \"order\": \"o1\" } ]",
+      "[ { \"sku\": \"x\", \"order\": null }, { \"sku\": \"y\", \"order\": null } ]",
+      "[ { \"sku\": \"x\" }, { \"sku\": \"y\" }, { \"order\": \"o1\" } ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.lines map ($ ++ { order: payload.id })",
+  "explanation": {
+    "approach": "Inside the `map`, `$` is each line and `payload` is still the whole order, so every line gets the order id appended as a new field.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.lines map ($ ++ { order: payload.id })",
+        "payload": "{\"id\":\"o1\",\"lines\":[{\"sku\":\"x\"},{\"sku\":\"y\"}]}",
+        "expect": {
+          "output": "[{\"sku\":\"x\",\"order\":\"o1\"},{\"sku\":\"y\",\"order\":\"o1\"}]"
+        },
+        "note": "One row per line, each carrying the order."
+      }
+    ]
+  }
+}

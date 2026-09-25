@@ -1,0 +1,34 @@
+{
+  "id": "money-formatter-function-predict-1",
+  "unit": "higher-order",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Required digits",
+  "topics": [
+    "fun",
+    "as",
+    "format"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[1234.5 as String {format: \"#,##0.00\"}, 0 as String {format: \"#,##0.00\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[1234.5 as String {format: \"#,##0.00\"}, 0 as String {format: \"#,##0.00\"}]",
+  "explanation": {
+    "approach": "Always two decimals.",
+    "snippets": [
+      {
+        "label": "Required digits",
+        "script": "%dw 2.0\noutput application/json\n---\n[1234.5 as String {format: \"#,##0.00\"}, 0 as String {format: \"#,##0.00\"}]",
+        "expect": {
+          "output": "[\"1,234.50\",\"0.00\"]"
+        },
+        "note": "Always two decimals."
+      }
+    ]
+  },
+  "derivedFrom": "money-formatter-function"
+}

@@ -1,0 +1,74 @@
+{
+  "id": "legacy-yes-no-flags",
+  "unit": "type-coercion",
+  "tier": "medium",
+  "title": "Turn a legacy system's Y/N and 1/0 flags into Booleans",
+  "topics": [
+    "as",
+    "Boolean",
+    "contains",
+    "upper"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "basics": "`as Boolean` converts only the text \"true\" and \"false\". Other ways of writing yes and no, such as \"Y\" or \"1\", need your own rule. `contains` checks whether an Array holds a value: `[\"Y\", \"1\"] contains \"Y\"` is true.",
+  "mode": "build",
+  "prompt": "A legacy system exports flags in whatever form each screen used: `\"Y\"`/`\"N\"`, `\"y\"`/`\"n\"`, `\"1\"`/`\"0\"`, the Numbers `1`/`0`, or `\"TRUE\"`/`\"false\"`.\n\nReturn each flag as a Boolean: `true` for Y, 1 and true in any case, `false` for everything else.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[\n  \"Y\",\n  \"N\",\n  \"Y\"\n]",
+      "output": "[true,false,true]"
+    },
+    {
+      "input": "[\n  \"y\",\n  \"n\"\n]",
+      "output": "[true,false]"
+    },
+    {
+      "input": "[\n  1,\n  0,\n  \"1\"\n]",
+      "output": "[true,false,true]"
+    },
+    {
+      "input": "[\n  \"TRUE\",\n  \"false\",\n  \"True\"\n]",
+      "output": "[true,false,true]"
+    }
+  ],
+  "hints": [
+    "`\"Y\" as Boolean` fails. You need your own list of values that mean yes.",
+    "Normalise before comparing: the same flag arrives in upper case, lower case, and as a Number.",
+    "`[\"Y\", \"1\", \"TRUE\"] contains upper($ as String)`"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map ([\"Y\", \"1\", \"TRUE\"] contains upper($ as String))",
+  "mustFail": [
+    {
+      "why": "compares case-sensitively, so a lower-case y is read as no",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map ([\"Y\", \"1\", \"TRUE\", \"true\"] contains ($ as String))"
+    },
+    {
+      "why": "does not convert the value to text first, so the Number 1 is not found in a list of Strings",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map ([\"Y\", \"1\", \"TRUE\", \"true\", \"y\"] contains $)"
+    }
+  ],
+  "explanation": {
+    "approach": "A lookup of the values that mean yes is clearer than a chain of comparisons. The value has to be normalised first: converting to String makes the Number 1 and the text \"1\" the same, and upper-casing makes \"y\" and \"Y\" the same.",
+    "snippets": [
+      {
+        "label": "Only true and false coerce",
+        "script": "%dw 2.0\noutput application/json\n---\n\"Y\" as Boolean",
+        "expect": {
+          "error": true
+        },
+        "note": "Cannot coerce String (Y) to Boolean."
+      },
+      {
+        "label": "A Number is not found among Strings",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"1\"] contains 1",
+        "expect": {
+          "output": "false"
+        },
+        "note": "`contains` compares type as well as value."
+      }
+    ]
+  }
+}

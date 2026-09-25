@@ -1,0 +1,36 @@
+{
+  "id": "normalise-partner-dates-predict-1",
+  "unit": "dates-formatting",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Format it again",
+  "topics": [
+    "match",
+    "matches",
+    "as",
+    "Date",
+    "format"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n\"05/03/2024\" as Date {format: \"dd/MM/yyyy\"} as String {format: \"yyyy-MM-dd\"}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"05/03/2024\" as Date {format: \"dd/MM/yyyy\"} as String {format: \"yyyy-MM-dd\"}",
+  "explanation": {
+    "approach": "Now it is ISO.",
+    "snippets": [
+      {
+        "label": "Format it again",
+        "script": "%dw 2.0\noutput application/json\n---\n\"05/03/2024\" as Date {format: \"dd/MM/yyyy\"} as String {format: \"yyyy-MM-dd\"}",
+        "expect": {
+          "output": "\"2024-03-05\""
+        },
+        "note": "Now it is ISO."
+      }
+    ]
+  },
+  "derivedFrom": "normalise-partner-dates"
+}

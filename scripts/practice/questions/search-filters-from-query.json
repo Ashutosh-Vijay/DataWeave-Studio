@@ -1,0 +1,89 @@
+{
+  "id": "search-filters-from-query",
+  "unit": "type-coercion",
+  "tier": "easy",
+  "title": "Turn query parameters into a typed search request",
+  "topics": [
+    "as",
+    "default",
+    "Number",
+    "Boolean"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "basics": "HTTP query parameters always arrive as text, even when they look like numbers. `as Number` and `as Boolean` convert text into those types: `\"2\" as Number` is the Number 2. A value that cannot be converted, or is missing, makes the coercion fail.",
+  "mode": "build",
+  "prompt": "An API receives search parameters as an object of Strings: `page`, `size`, `inStock` and `q`. The search engine wants real types:\n\n- `page`: a Number, 1 if not given,\n- `size`: a Number, 20 if not given,\n- `inStock`: a Boolean, `false` if not given,\n- `q`: the text as it is, `null` if not given.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "{\n  \"page\": \"2\",\n  \"size\": \"50\",\n  \"q\": \"shoe\"\n}",
+      "output": "{\"page\":2,\"size\":50,\"inStock\":false,\"q\":\"shoe\"}"
+    },
+    {
+      "input": "{\n  \"page\": \"1\",\n  \"size\": \"10\",\n  \"inStock\": \"true\",\n  \"q\": \"boot\"\n}",
+      "output": "{\"page\":1,\"size\":10,\"inStock\":true,\"q\":\"boot\"}"
+    },
+    {
+      "input": "{\n  \"q\": \"hat\"\n}",
+      "output": "{\"page\":1,\"size\":20,\"inStock\":false,\"q\":\"hat\"}"
+    },
+    {
+      "input": "{\n  \"page\": \"3\",\n  \"inStock\": \"false\"\n}",
+      "output": "{\"page\":3,\"size\":20,\"inStock\":false,\"q\":null}"
+    },
+    {
+      "input": "{}",
+      "output": "{\"page\":1,\"size\":20,\"inStock\":false,\"q\":null}"
+    }
+  ],
+  "hints": [
+    "Each field is a coercion plus a fallback.",
+    "A missing parameter is null, and `null as Number` fails. Where does the fallback have to go so it is used before the coercion fails?",
+    "Supply the fallback as text, then coerce: `(payload.page default \"1\") as Number`."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n{\n  page: (payload.page default \"1\") as Number,\n  size: (payload.size default \"20\") as Number,\n  inStock: (payload.inStock default \"false\") as Boolean,\n  q: payload.q\n}",
+  "mustFail": [
+    {
+      "why": "coerces the page and size but not inStock, so \"true\" stays a String",
+      "script": "%dw 2.0\noutput application/json\n---\n{\n  page: (payload.page default \"1\") as Number,\n  size: (payload.size default \"20\") as Number,\n  inStock: payload.inStock default false,\n  q: payload.q\n}"
+    },
+    {
+      "why": "forgets that a missing size needs its own fallback, so size is null",
+      "script": "%dw 2.0\noutput application/json\n---\n{\n  page: (payload.page default \"1\") as Number,\n  size: payload.size as Number,\n  inStock: (payload.inStock default \"false\") as Boolean,\n  q: payload.q\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "Every parameter is a String, including \"true\" and \"50\". Coercing turns them into real values. A missing parameter is null, so give the fallback first, as text, and coerce the result. Writing the fallback after the coercion also works in DataWeave, because `default` catches a failed coercion, but putting it first says what you mean.",
+    "snippets": [
+      {
+        "label": "Query values are text",
+        "script": "%dw 2.0\noutput application/json\n---\ntypeOf(payload.page)",
+        "payload": "{\"page\":\"2\"}",
+        "expect": {
+          "output": "\"String\""
+        },
+        "note": "It looks like a number, but it is a String until coerced."
+      },
+      {
+        "label": "A missing value cannot be coerced",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.size as Number",
+        "payload": "{}",
+        "expect": {
+          "error": true
+        },
+        "note": "Cannot coerce Null to Number."
+      },
+      {
+        "label": "Fallback, then coerce",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload.size default \"20\") as Number",
+        "payload": "{}",
+        "expect": {
+          "output": "20"
+        },
+        "note": "The fallback is used, and it coerces cleanly."
+      }
+    ]
+  }
+}

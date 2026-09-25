@@ -1,0 +1,82 @@
+{
+  "id": "webhook-bodies-that-do-not-parse",
+  "unit": "error-handling",
+  "tier": "hard",
+  "title": "Parse queued webhook bodies and set aside the ones that are not JSON",
+  "topics": [
+    "dw::Runtime",
+    "try",
+    "read",
+    "default"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "basics": "`read(text, \"application/json\")` parses a String of JSON into a value. If the text is not valid JSON, it throws and the whole script stops. `try` from `dw::Runtime` runs a function and returns `{ success, result }` or `{ success, error }` instead of throwing.",
+  "mode": "build",
+  "prompt": "A dead-letter queue holds webhook deliveries as `{ id, body }`, where `body` is the raw request body as a String. Most bodies are JSON; some are truncated or are not JSON at all.\n\nReturn `{ parsed, rejected }`: `parsed` is an array of `{ id, data }` with `data` the parsed body, and `rejected` is an array of the ids whose body could not be parsed.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"id\": \"w3\",\n    \"body\": \"{\\\"a\\\":\"\n  },\n  {\n    \"id\": \"w4\",\n    \"body\": \"{\\\"b\\\":2}\"\n  }\n]",
+      "output": "{\"parsed\":[{\"id\":\"w4\",\"data\":{\"b\":2}}],\"rejected\":[\"w3\"]}"
+    },
+    {
+      "input": "[\n  {\n    \"id\": \"w1\",\n    \"body\": \"{\\\"a\\\":1}\"\n  },\n  {\n    \"id\": \"w2\",\n    \"body\": \"[1,2]\"\n  }\n]",
+      "output": "{\"parsed\":[{\"id\":\"w1\",\"data\":{\"a\":1}},{\"id\":\"w2\",\"data\":[1,2]}],\"rejected\":[]}"
+    },
+    {
+      "input": "[\n  {\n    \"id\": \"w5\",\n    \"body\": \"OK\"\n  }\n]",
+      "output": "{\"parsed\":[],\"rejected\":[\"w5\"]}"
+    },
+    {
+      "input": "[]",
+      "output": "{\"parsed\":[],\"rejected\":[]}"
+    }
+  ],
+  "hints": [
+    "One bad body must not stop the others, so the parse has to be contained per delivery.",
+    "A `default` catches a failed `as` coercion. Does it catch a failed `read`? Try it.",
+    "Wrap each parse: `try(() -> read(d.body, \"application/json\"))`, then split on `.success`."
+  ],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ndo {\n  var results = payload map (d) -> { id: d.id, t: try(() -> read(d.body, \"application/json\")) }\n  ---\n  {\n    parsed: (results filter $.t.success) map { id: $.id, data: $.t.result },\n    rejected: (results filter not $.t.success).id default []\n  }\n}",
+  "mustFail": [
+    {
+      "why": "relies on default to catch a failed parse, but default does not catch a read error, so the whole batch fails",
+      "script": "%dw 2.0\noutput application/json\n---\ndo {\n  var results = payload map (d) -> { id: d.id, data: read(d.body, \"application/json\") default null }\n  ---\n  {\n    parsed: (results filter $.data != null) map { id: $.id, data: $.data },\n    rejected: (results filter $.data == null).id default []\n  }\n}"
+    },
+    {
+      "why": "forgets the fallback on the rejected list, so a batch with nothing rejected gives null",
+      "script": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ndo {\n  var results = payload map (d) -> { id: d.id, t: try(() -> read(d.body, \"application/json\")) }\n  ---\n  {\n    parsed: (results filter $.t.success) map { id: $.id, data: $.t.result },\n    rejected: (results filter not $.t.success).id\n  }\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "`default` looks like a general safety net, but it catches only a failed coercion, not an error from `read`. `try` contains any failure and reports it as data, which lets each delivery be sorted into parsed or rejected. Selecting `.id` from an empty result is null, hence the `default []`.",
+    "snippets": [
+      {
+        "label": "default does not catch a parse error",
+        "script": "%dw 2.0\noutput application/json\n---\nread(\"{bad\", \"application/json\") default \"fallback\"",
+        "expect": {
+          "error": true
+        },
+        "note": "The script stops."
+      },
+      {
+        "label": "try does",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ntry(() -> read(\"{bad\", \"application/json\")).success",
+        "expect": {
+          "output": "false"
+        },
+        "note": "The failure is a value you can test."
+      },
+      {
+        "label": "A successful parse",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ntry(() -> read(\"[1,2]\", \"application/json\")).result",
+        "expect": {
+          "output": "[1,2]"
+        },
+        "note": "The parsed value is under `.result`."
+      }
+    ]
+  }
+}

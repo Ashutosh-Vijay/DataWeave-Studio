@@ -1,0 +1,37 @@
+{
+  "id": "customer-spend-league-predict-1",
+  "unit": "groupby-shape",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Nulls replaced first",
+  "topics": [
+    "groupBy",
+    "pluck",
+    "sum",
+    "orderBy"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nsum(payload map ($ default 0))",
+    "payload": "[5,null]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nsum(payload map ($ default 0))",
+  "explanation": {
+    "approach": "A cancelled order adds nothing.",
+    "snippets": [
+      {
+        "label": "Nulls replaced first",
+        "script": "%dw 2.0\noutput application/json\n---\nsum(payload map ($ default 0))",
+        "payload": "[5,null]",
+        "expect": {
+          "output": "5"
+        },
+        "note": "A cancelled order adds nothing."
+      }
+    ]
+  },
+  "derivedFrom": "customer-spend-league"
+}

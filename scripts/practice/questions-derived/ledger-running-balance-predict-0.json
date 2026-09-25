@@ -1,0 +1,33 @@
+{
+  "id": "ledger-running-balance-predict-0",
+  "unit": "reduce-seed",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "The last element of an empty array",
+  "topics": [
+    "reduce",
+    "seed"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[][-1].balance default 50"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[][-1].balance default 50",
+  "explanation": {
+    "approach": "No rows yet, so the opening balance is used.",
+    "snippets": [
+      {
+        "label": "The last element of an empty array",
+        "script": "%dw 2.0\noutput application/json\n---\n[][-1].balance default 50",
+        "expect": {
+          "output": "50"
+        },
+        "note": "No rows yet, so the opening balance is used."
+      }
+    ]
+  },
+  "derivedFrom": "ledger-running-balance"
+}

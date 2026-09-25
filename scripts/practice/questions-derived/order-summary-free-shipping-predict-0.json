@@ -1,0 +1,34 @@
+{
+  "id": "order-summary-free-shipping-predict-0",
+  "unit": "do-and-scope",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "A do block",
+  "topics": [
+    "do",
+    "var",
+    "sum"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\ndo { var subtotal = 50 --- { free: subtotal >= 50, strict: subtotal > 50 } }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\ndo { var subtotal = 50 --- { free: subtotal >= 50, strict: subtotal > 50 } }",
+  "explanation": {
+    "approach": "The two tests disagree only at exactly 50.",
+    "snippets": [
+      {
+        "label": "A do block",
+        "script": "%dw 2.0\noutput application/json\n---\ndo { var subtotal = 50 --- { free: subtotal >= 50, strict: subtotal > 50 } }",
+        "expect": {
+          "output": "{\"free\":true,\"strict\":false}"
+        },
+        "note": "The two tests disagree only at exactly 50."
+      }
+    ]
+  },
+  "derivedFrom": "order-summary-free-shipping"
+}

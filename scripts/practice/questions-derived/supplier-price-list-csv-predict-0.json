@@ -1,0 +1,37 @@
+{
+  "id": "supplier-price-list-csv-predict-0",
+  "unit": "csv-round-trip",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "An empty field",
+  "topics": [
+    "csv",
+    "as",
+    "default"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/csv",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload[0].stock",
+    "payload": "sku,price,stock\nC3,2.50,"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload[0].stock",
+  "explanation": {
+    "approach": "It is \"\", an empty String.",
+    "snippets": [
+      {
+        "label": "An empty field",
+        "script": "%dw 2.0\noutput application/json\n---\npayload[0].stock",
+        "payload": "sku,price,stock\nC3,2.50,",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "\"\""
+        },
+        "note": "It is \"\", an empty String."
+      }
+    ]
+  },
+  "derivedFrom": "supplier-price-list-csv"
+}

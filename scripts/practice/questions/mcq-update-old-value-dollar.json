@@ -1,0 +1,51 @@
+{
+  "id": "mcq-update-old-value-dollar",
+  "unit": "update-operator",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "update"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "In an `update` case, the new value can be computed from the old one. The old value is available as `$`, or under a name you choose with `case p at .price -> p * 2`.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ price: 10, qty: 2 } update { case .price -> $ * 2 }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "{ \"price\": 20, \"qty\": 2 }",
+      "It fails: $ is not defined here",
+      "{ \"price\": 10, \"qty\": 4 }",
+      "{ \"price\": 20 }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ price: 10, qty: 2 } update { case .price -> $ * 2 }",
+  "explanation": {
+    "approach": "Inside the case, `$` is the current value of the field being updated, 10. Only `price` changes, and `qty` is copied through.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ price: 10, qty: 2 } update { case .price -> $ * 2 }",
+        "expect": {
+          "output": "{\"price\":20,\"qty\":2}"
+        },
+        "note": "Doubled in place."
+      },
+      {
+        "label": "The named form",
+        "script": "%dw 2.0\noutput application/json\n---\n{ price: 10, qty: 2 } update { case p at .price -> p * 2 }",
+        "expect": {
+          "output": "{\"price\":20,\"qty\":2}"
+        },
+        "note": "Identical, and clearer when the expression grows."
+      }
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "id": "merge-contacts-minus-unsubscribed-predict-1",
+  "unit": "concat-and-remove",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "- with a list removes the list as one value",
+  "topics": [
+    "++",
+    "--",
+    "-"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[\"a\", \"b\"] - [\"a\"]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[\"a\", \"b\"] - [\"a\"]",
+  "explanation": {
+    "approach": "Nothing matches the Array [\"a\"] as a whole, so nothing is removed.",
+    "snippets": [
+      {
+        "label": "- with a list removes the list as one value",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"a\", \"b\"] - [\"a\"]",
+        "expect": {
+          "output": "[\"a\",\"b\"]"
+        },
+        "note": "Nothing matches the Array [\"a\"] as a whole, so nothing is removed."
+      }
+    ]
+  },
+  "derivedFrom": "merge-contacts-minus-unsubscribed"
+}

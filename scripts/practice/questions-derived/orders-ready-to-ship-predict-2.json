@@ -1,0 +1,36 @@
+{
+  "id": "orders-ready-to-ship-predict-2",
+  "unit": "filter-and-null",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Selecting from an empty array",
+  "topics": [
+    "filter",
+    "isEmpty",
+    "and"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.status == \"packed\")).id",
+    "payload": "[{\"id\":6,\"status\":\"shipped\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload filter ($.status == \"packed\")).id",
+  "explanation": {
+    "approach": "Nothing survives the filter, and a selector on an empty array is null. That is why the solution ends with `default []`.",
+    "snippets": [
+      {
+        "label": "Selecting from an empty array",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.status == \"packed\")).id",
+        "payload": "[{\"id\":6,\"status\":\"shipped\"}]",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Nothing survives the filter, and a selector on an empty array is null. That is why the solution ends with `default []`."
+      }
+    ]
+  },
+  "derivedFrom": "orders-ready-to-ship"
+}

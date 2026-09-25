@@ -1,0 +1,73 @@
+{
+  "id": "money-formatter-function-debug-1",
+  "unit": "higher-order",
+  "mode": "debug",
+  "tier": "easy",
+  "title": "Fix it: format every money field on an invoice the same way",
+  "topics": [
+    "fun",
+    "as",
+    "format"
+  ],
+  "basics": "A function is declared in the header, above `---`, with `fun name(param) = expression`. It can then be called anywhere in the script, as often as you like, so a rule is written once and reused.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nAn invoice arrives as `{ subtotal, tax, total }`, all Numbers. The PDF template wants all three as text with a thousands separator and exactly two decimals: `1234.5` becomes `\"1,234.50\"` and `0` becomes `\"0.00\"`.\n\nDeclare the formatting once as a function and use it for all three fields.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\nfun money(n) = n as String {format: \"0.00\"}\n---\n{ subtotal: money(payload.subtotal), tax: money(payload.tax), total: money(payload.total) }",
+  "cases": [
+    {
+      "input": "{\n  \"subtotal\": 10.25,\n  \"tax\": 2.06,\n  \"total\": 12.31\n}",
+      "output": "{\"subtotal\":\"10.25\",\"tax\":\"2.06\",\"total\":\"12.31\"}"
+    },
+    {
+      "input": "{\n  \"subtotal\": 10,\n  \"tax\": 2,\n  \"total\": 12\n}",
+      "output": "{\"subtotal\":\"10.00\",\"tax\":\"2.00\",\"total\":\"12.00\"}"
+    },
+    {
+      "input": "{\n  \"subtotal\": 1234.5,\n  \"tax\": 246.9,\n  \"total\": 1481.4\n}",
+      "output": "{\"subtotal\":\"1,234.50\",\"tax\":\"246.90\",\"total\":\"1,481.40\"}"
+    },
+    {
+      "input": "{\n  \"subtotal\": 0,\n  \"tax\": 0,\n  \"total\": 0\n}",
+      "output": "{\"subtotal\":\"0.00\",\"tax\":\"0.00\",\"total\":\"0.00\"}"
+    },
+    {
+      "input": "{\n  \"subtotal\": 1000000,\n  \"tax\": 0.5,\n  \"total\": 1000000.5\n}",
+      "output": "{\"subtotal\":\"1,000,000.00\",\"tax\":\"0.50\",\"total\":\"1,000,000.50\"}"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "has no grouping comma, so thousands are not separated"
+  ],
+  "solution": "%dw 2.0\noutput application/json\nfun money(n) = n as String {format: \"#,##0.00\"}\n---\n{ subtotal: money(payload.subtotal), tax: money(payload.tax), total: money(payload.total) }",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\nfun money(n) = n as String {format: \"0.00\"}\n---\n{ subtotal: money(payload.subtotal), tax: money(payload.tax), total: money(payload.total) }"
+    }
+  ],
+  "explanation": {
+    "approach": "Declaring the rule once means one place to get it right. The pattern does the work: `,` groups thousands, the `0` before the point guarantees \"0.00\" rather than \".00\", and `00` after it forces two decimals.",
+    "snippets": [
+      {
+        "label": "Optional digits drop zeros",
+        "script": "%dw 2.0\noutput application/json\n---\n[1234.5 as String {format: \"#,###.##\"}, 0 as String {format: \"#,###.##\"}]",
+        "expect": {
+          "output": "[\"1,234.5\",\"0\"]"
+        },
+        "note": "The trailing zero and the decimals of zero are gone."
+      },
+      {
+        "label": "Required digits",
+        "script": "%dw 2.0\noutput application/json\n---\n[1234.5 as String {format: \"#,##0.00\"}, 0 as String {format: \"#,##0.00\"}]",
+        "expect": {
+          "output": "[\"1,234.50\",\"0.00\"]"
+        },
+        "note": "Always two decimals."
+      }
+    ]
+  },
+  "derivedFrom": "money-formatter-function"
+}

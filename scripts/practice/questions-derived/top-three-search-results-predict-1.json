@@ -1,0 +1,34 @@
+{
+  "id": "top-three-search-results-predict-1",
+  "unit": "sizeof-and-slicing",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "take on a short array",
+  "topics": [
+    "range",
+    "take",
+    "dw::core::Arrays"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\n[take([\"a\", \"b\"], 3), take([], 3)]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\n[take([\"a\", \"b\"], 3), take([], 3)]",
+  "explanation": {
+    "approach": "At most three, and an empty array stays empty.",
+    "snippets": [
+      {
+        "label": "take on a short array",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\n[take([\"a\", \"b\"], 3), take([], 3)]",
+        "expect": {
+          "output": "[[\"a\",\"b\"],[]]"
+        },
+        "note": "At most three, and an empty array stays empty."
+      }
+    ]
+  },
+  "derivedFrom": "top-three-search-results"
+}

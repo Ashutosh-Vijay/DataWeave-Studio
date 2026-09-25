@@ -1,0 +1,55 @@
+{
+  "id": "mcq-denormalize-empty-order-vanishes",
+  "unit": "denormalize",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "flatMap",
+    "map"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "Denormalising turns a nested structure into flat rows: each order line becomes one row that repeats its order's fields. `flatMap` does this by building a list of rows per order and joining the lists together.",
+  "mode": "choice",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload flatMap ((o) -> o.lines map { order: o.id, sku: $.sku })",
+    "payload": "[{\"id\":\"o1\",\"lines\":[{\"sku\":\"x\",\"q\":1},{\"sku\":\"y\",\"q\":2}]},{\"id\":\"o2\",\"lines\":[]},{\"id\":\"o3\",\"lines\":[{\"sku\":\"z\",\"q\":5}]}]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ { \"order\": \"o1\", \"sku\": \"x\" }, { \"order\": \"o1\", \"sku\": \"y\" }, { \"order\": \"o3\", \"sku\": \"z\" } ]",
+      "[ { \"order\": \"o1\", \"sku\": \"x\" }, { \"order\": \"o3\", \"sku\": \"z\" } ]",
+      "[ { \"order\": \"o1\", \"sku\": \"x\" }, { \"order\": \"o1\", \"sku\": \"y\" }, { \"order\": \"o2\", \"sku\": null }, { \"order\": \"o3\", \"sku\": \"z\" } ]",
+      "[ [ { \"order\": \"o1\", \"sku\": \"x\" }, { \"order\": \"o1\", \"sku\": \"y\" } ], [ ], [ { \"order\": \"o3\", \"sku\": \"z\" } ] ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload flatMap ((o) -> o.lines map { order: o.id, sku: $.sku })",
+  "explanation": {
+    "approach": "The row count comes from the lines. An order with no lines produces an empty list, and joining an empty list adds nothing, so order o2 disappears from the output. If every order must appear, it needs its own handling.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload flatMap ((o) -> o.lines map { order: o.id, sku: $.sku })",
+        "payload": "[{\"id\":\"o1\",\"lines\":[{\"sku\":\"x\",\"q\":1},{\"sku\":\"y\",\"q\":2}]},{\"id\":\"o2\",\"lines\":[]},{\"id\":\"o3\",\"lines\":[{\"sku\":\"z\",\"q\":5}]}]",
+        "expect": {
+          "output": "[{\"order\":\"o1\",\"sku\":\"x\"},{\"order\":\"o1\",\"sku\":\"y\"},{\"order\":\"o3\",\"sku\":\"z\"}]"
+        },
+        "note": "o2 is gone without an error."
+      },
+      {
+        "label": "The same with map",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map ((o) -> o.lines map { order: o.id, sku: $.sku })",
+        "payload": "[{\"id\":\"o1\",\"lines\":[{\"sku\":\"x\",\"q\":1},{\"sku\":\"y\",\"q\":2}]},{\"id\":\"o2\",\"lines\":[]},{\"id\":\"o3\",\"lines\":[{\"sku\":\"z\",\"q\":5}]}]",
+        "expect": {
+          "output": "[[{\"order\":\"o1\",\"sku\":\"x\"},{\"order\":\"o1\",\"sku\":\"y\"}],[],[{\"order\":\"o3\",\"sku\":\"z\"}]]"
+        },
+        "note": "Still nested; o2 is an empty list."
+      }
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "id": "mcq-denormalize-parent-field-scope",
+  "unit": "denormalize",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "flatMap",
+    "map",
+    "lambda"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "When one lambda sits inside another, `$` always means the innermost element. To reach the outer element from inside, give the outer lambda a named parameter, such as `(o) -> ...`, and use that name.",
+  "mode": "choice",
+  "prompt": "Given the payload, **which script produces exactly this output?**\n\n```\n[{\"cust\":\"Ann\",\"sku\":\"x\"},{\"cust\":\"Ann\",\"sku\":\"y\"}]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[{\"id\":\"o1\",\"cust\":\"Ann\",\"lines\":[{\"sku\":\"x\"},{\"sku\":\"y\"}]}]",
+    "target": "[{\"cust\":\"Ann\",\"sku\":\"x\"},{\"cust\":\"Ann\",\"sku\":\"y\"}]",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload flatMap ((o) -> o.lines map { cust: o.cust, sku: $.sku })",
+      "%dw 2.0\noutput application/json\n---\npayload flatMap ((o) -> o.lines map { cust: payload.cust, sku: $.sku })",
+      "%dw 2.0\noutput application/json\n---\npayload.lines map { cust: payload.cust, sku: $.sku }",
+      "%dw 2.0\noutput application/json\n---\npayload flatMap ($.lines map { cust: $.cust, sku: $.sku })"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload flatMap ((o) -> o.lines map { cust: o.cust, sku: $.sku })",
+  "explanation": {
+    "approach": "In the inner `map`, `$` is a line, and a line has no `cust`. Naming the order `o` keeps it reachable. `payload.cust` selects across the whole Array and gives a list of customers rather than this order's one.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload flatMap ((o) -> o.lines map { cust: o.cust, sku: $.sku })",
+        "payload": "[{\"id\":\"o1\",\"cust\":\"Ann\",\"lines\":[{\"sku\":\"x\"},{\"sku\":\"y\"}]}]",
+        "expect": {
+          "output": "[{\"cust\":\"Ann\",\"sku\":\"x\"},{\"cust\":\"Ann\",\"sku\":\"y\"}]"
+        },
+        "note": "`o` is the order, `$` is the line."
+      },
+      {
+        "label": "$ inside the inner lambda",
+        "script": "%dw 2.0\noutput application/json\n---\npayload flatMap ($.lines map { cust: $.cust, sku: $.sku })",
+        "payload": "[{\"id\":\"o1\",\"cust\":\"Ann\",\"lines\":[{\"sku\":\"x\"},{\"sku\":\"y\"}]}]",
+        "expect": {
+          "output": "[{\"cust\":null,\"sku\":\"x\"},{\"cust\":null,\"sku\":\"y\"}]"
+        },
+        "note": "The inner `$` hides the outer one."
+      }
+    ]
+  }
+}

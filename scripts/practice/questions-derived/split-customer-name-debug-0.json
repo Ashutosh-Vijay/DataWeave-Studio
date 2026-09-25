@@ -1,0 +1,77 @@
+{
+  "id": "split-customer-name-debug-0",
+  "unit": "string-basics",
+  "mode": "debug",
+  "tier": "easy",
+  "title": "Fix it: split a full name for a crm that wants two fields",
+  "topics": [
+    "splitBy",
+    "trim",
+    "regex"
+  ],
+  "basics": "`splitBy` cuts a String into an Array of pieces wherever a separator appears: `\"a b\" splitBy \" \"` gives `[\"a\", \"b\"]`. The separator can be a String or a regular expression written between slashes, such as `/\\s+/` for \"one or more whitespace characters\".",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nThe old CRM stored one `fullName` field. The new one wants `first` and `last`.\n\nFor each customer, `first` is the first word of the name and `last` is the last word. Middle names are dropped. A customer with a one-word name has `last: null`.\n\nThe names were typed by hand, so there may be extra spaces anywhere: before, after, or several between words.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\npayload map (c) -> do {\n  var parts = c.fullName splitBy \" \"\n  ---\n  { first: parts[0], last: if (sizeOf(parts) > 1) parts[-1] else null }\n}",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"fullName\": \"Ada Lovelace\"\n  },\n  {\n    \"fullName\": \"Grace Brewster Hopper\"\n  }\n]",
+      "output": "[{\"first\":\"Ada\",\"last\":\"Lovelace\"},{\"first\":\"Grace\",\"last\":\"Hopper\"}]"
+    },
+    {
+      "input": "[\n  {\n    \"fullName\": \"  Alan   Turing \"\n  }\n]",
+      "output": "[{\"first\":\"Alan\",\"last\":\"Turing\"}]"
+    },
+    {
+      "input": "[\n  {\n    \"fullName\": \"Cher\"\n  }\n]",
+      "output": "[{\"first\":\"Cher\",\"last\":null}]"
+    },
+    {
+      "input": "[\n  {\n    \"fullName\": \" Katherine  Coleman Johnson\"\n  }\n]",
+      "output": "[{\"first\":\"Katherine\",\"last\":\"Johnson\"}]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "splits on a single space, so extra spaces produce empty pieces and the first or last word comes out as \"\""
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map (c) -> do {\n  var parts = trim(c.fullName) splitBy /\\s+/\n  ---\n  { first: parts[0], last: if (sizeOf(parts) > 1) parts[-1] else null }\n}",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map (c) -> do {\n  var parts = c.fullName splitBy \" \"\n  ---\n  { first: parts[0], last: if (sizeOf(parts) > 1) parts[-1] else null }\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "Splitting on one space keeps every empty piece between two spaces, and the leading spaces make the very first piece empty. Trimming and splitting on a whitespace regex gives clean words. The one-word case needs its own check, because `[-1]` on a one-element array is that same element.",
+    "snippets": [
+      {
+        "label": "Splitting on a single space",
+        "script": "%dw 2.0\noutput application/json\n---\n\"  Alan   Turing \" splitBy \" \"",
+        "expect": {
+          "output": "[\"\",\"\",\"Alan\",\"\",\"\",\"Turing\"]"
+        },
+        "note": "Every gap between two spaces becomes an empty String."
+      },
+      {
+        "label": "Trim, then split on a regex",
+        "script": "%dw 2.0\noutput application/json\n---\ntrim(\"  Alan   Turing \") splitBy /\\s+/",
+        "expect": {
+          "output": "[\"Alan\",\"Turing\"]"
+        },
+        "note": "One piece per word."
+      },
+      {
+        "label": "The last word of a one-word name",
+        "script": "%dw 2.0\noutput application/json\n---\n(\"Cher\" splitBy /\\s+/)[-1]",
+        "expect": {
+          "output": "\"Cher\""
+        },
+        "note": "The first word and the last word are the same element."
+      }
+    ]
+  },
+  "derivedFrom": "split-customer-name"
+}

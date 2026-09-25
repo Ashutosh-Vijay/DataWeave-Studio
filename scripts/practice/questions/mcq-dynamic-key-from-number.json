@@ -1,0 +1,45 @@
+{
+  "id": "mcq-dynamic-key-from-number",
+  "unit": "dynamic-keys",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "dynamic keys"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "A key in parentheses is computed: `{ (payload.code): \"x\" }` uses the value of `payload.code` as the field name. A field name is always text, whatever the type of the value it came from.",
+  "mode": "choice",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ (payload.code): payload.label }",
+    "payload": "{\"code\":404,\"label\":\"Not Found\"}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "{ \"404\": \"Not Found\" }",
+      "{ \"code\": \"Not Found\" }",
+      "It fails: a Number cannot be a key",
+      "{ \"payload.code\": \"Not Found\" }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ (payload.code): payload.label }",
+  "explanation": {
+    "approach": "The Number 404 becomes the key \"404\". Without the parentheses the key would be the literal name, and a dotted name is not allowed there at all.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ (payload.code): payload.label }",
+        "payload": "{\"code\":404,\"label\":\"Not Found\"}",
+        "expect": {
+          "output": "{\"404\":\"Not Found\"}"
+        },
+        "note": "A Number key becomes text."
+      }
+    ]
+  }
+}

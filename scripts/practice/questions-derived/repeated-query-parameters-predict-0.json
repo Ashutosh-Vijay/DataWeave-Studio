@@ -1,0 +1,36 @@
+{
+  "id": "repeated-query-parameters-predict-0",
+  "unit": "duplicate-keys",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "One selector, two answers",
+  "topics": [
+    ".*",
+    "duplicate keys",
+    "default"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ first: payload.tag, all: payload.*tag }",
+    "payload": "{ \"tag\": \"red\", \"tag\": \"sale\" }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ first: payload.tag, all: payload.*tag }",
+  "explanation": {
+    "approach": "The second tag is invisible to `.tag`.",
+    "snippets": [
+      {
+        "label": "One selector, two answers",
+        "script": "%dw 2.0\noutput application/json\n---\n{ first: payload.tag, all: payload.*tag }",
+        "payload": "{ \"tag\": \"red\", \"tag\": \"sale\" }",
+        "expect": {
+          "output": "{\"first\":\"red\",\"all\":[\"red\",\"sale\"]}"
+        },
+        "note": "The second tag is invisible to `.tag`."
+      }
+    ]
+  },
+  "derivedFrom": "repeated-query-parameters"
+}

@@ -1,0 +1,70 @@
+{
+  "id": "edi-line-numbers-debug-1",
+  "unit": "map-basics",
+  "mode": "debug",
+  "tier": "easy",
+  "title": "Fix it: number the lines of an edi order the way the retailer expects",
+  "topics": [
+    "map",
+    "index",
+    "as",
+    "format"
+  ],
+  "basics": "Inside `map`, `$` is the current element and `$$` is its index, counting from 0. A Number can be written as text with a fixed number of digits using a format pattern: `7 as String {format: \"000\"}` gives `\"007\"`.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nA retailer's EDI system wants every order line numbered, starting at 1, as a three-digit String: `\"001\"`, `\"002\"`, and so on.\n\nGiven an array of SKUs, return an array of `{ line, sku }`. Orders can have more than nine lines.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\npayload map { line: $$ as String {format: \"000\"}, sku: $ }",
+  "cases": [
+    {
+      "input": "[\n  \"A\",\n  \"B\"\n]",
+      "output": "[{\"line\":\"001\",\"sku\":\"A\"},{\"line\":\"002\",\"sku\":\"B\"}]"
+    },
+    {
+      "input": "[\n  \"A\",\n  \"B\",\n  \"C\",\n  \"D\",\n  \"E\",\n  \"F\",\n  \"G\",\n  \"H\",\n  \"I\",\n  \"J\"\n]",
+      "output": "[{\"line\":\"001\",\"sku\":\"A\"},{\"line\":\"002\",\"sku\":\"B\"},{\"line\":\"003\",\"sku\":\"C\"},{\"line\":\"004\",\"sku\":\"D\"},{\"line\":\"005\",\"sku\":\"E\"},{\"line\":\"006\",\"sku\":\"F\"},{\"line\":\"007\",\"sku\":\"G\"},{\"line\":\"008\",\"sku\":\"H\"},{\"line\":\"009\",\"sku\":\"I\"},{\"line\":\"010\",\"sku\":\"J\"}]"
+    },
+    {
+      "input": "[\n  \"X\"\n]",
+      "output": "[{\"line\":\"001\",\"sku\":\"X\"}]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "numbers from 0, because the index starts at 0"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map { line: ($$ + 1) as String {format: \"000\"}, sku: $ }",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map { line: $$ as String {format: \"000\"}, sku: $ }"
+    }
+  ],
+  "explanation": {
+    "approach": "The index starts at 0, so line numbers are `$$ + 1`. A format pattern of zeros pads to a fixed width whatever the number, whereas gluing a fixed prefix on only works while every number has one digit.",
+    "snippets": [
+      {
+        "label": "Gluing zeros on",
+        "script": "%dw 2.0\noutput application/json\n---\n\"00\" ++ 10",
+        "expect": {
+          "output": "\"0010\""
+        },
+        "note": "Four digits."
+      },
+      {
+        "label": "A zero-padded format",
+        "script": "%dw 2.0\noutput application/json\n---\n[1 as String {format: \"000\"}, 10 as String {format: \"000\"}]",
+        "expect": {
+          "output": "[\"001\",\"010\"]"
+        },
+        "note": "Always three digits."
+      }
+    ]
+  },
+  "derivedFrom": "edi-line-numbers"
+}

@@ -1,0 +1,52 @@
+{
+  "id": "mcq-unpivot-with-pluck",
+  "unit": "pivot",
+  "tier": "easy",
+  "title": "Which script produces this output?",
+  "topics": [
+    "pluck"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "Unpivoting is the reverse of a pivot: one wide record becomes several narrow rows, one per column. `pluck` does this for an Object: it visits each key-value pair and builds one Array element from it, with `$$` the key and `$` the value.",
+  "mode": "choice",
+  "prompt": "Given the payload, **which script produces exactly this output?**\n\n```\n[{\"metric\":\"cpu\",\"value\":71},{\"metric\":\"mem\",\"value\":40}]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"cpu\":71,\"mem\":40}",
+    "target": "[{\"metric\":\"cpu\",\"value\":71},{\"metric\":\"mem\",\"value\":40}]",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload mapObject { metric: $$, value: $ }",
+      "%dw 2.0\noutput application/json\n---\npayload pluck { metric: $, value: $$ }",
+      "%dw 2.0\noutput application/json\n---\npayload pluck { metric: $$, value: $ }",
+      "%dw 2.0\noutput application/json\n---\n[{ metric: keysOf(payload), value: valuesOf(payload) }]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload pluck { metric: $$, value: $ }",
+  "explanation": {
+    "approach": "`pluck` turns each pair into a row, so an Object with two keys becomes two rows. Swapping `$` and `$$` swaps the columns. `mapObject` keeps an Object, so the rows would collapse into one Object with repeated keys.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload pluck { metric: $$, value: $ }",
+        "payload": "{\"cpu\":71,\"mem\":40}",
+        "expect": {
+          "output": "[{\"metric\":\"cpu\",\"value\":71},{\"metric\":\"mem\",\"value\":40}]"
+        },
+        "note": "One row per key."
+      },
+      {
+        "label": "Everything in one row",
+        "script": "%dw 2.0\noutput application/json\n---\n[{ metric: keysOf(payload), value: valuesOf(payload) }]",
+        "payload": "{\"cpu\":71,\"mem\":40}",
+        "expect": {
+          "output": "[{\"metric\":[\"cpu\",\"mem\"],\"value\":[71,40]}]"
+        },
+        "note": "Two lists side by side, not two rows."
+      }
+    ]
+  }
+}

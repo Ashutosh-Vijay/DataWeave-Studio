@@ -1,0 +1,35 @@
+{
+  "id": "customers-in-first-order-seen-predict-0",
+  "unit": "distinct-and-order",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Sorting as well",
+  "topics": [
+    "distinctBy",
+    "orderBy"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.customerId distinctBy $ orderBy $",
+    "payload": "[{\"customerId\":\"C9\"},{\"customerId\":\"C2\"},{\"customerId\":\"C9\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.customerId distinctBy $ orderBy $",
+  "explanation": {
+    "approach": "Unique, but not in first-seen order.",
+    "snippets": [
+      {
+        "label": "Sorting as well",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.customerId distinctBy $ orderBy $",
+        "payload": "[{\"customerId\":\"C9\"},{\"customerId\":\"C2\"},{\"customerId\":\"C9\"}]",
+        "expect": {
+          "output": "[\"C2\",\"C9\"]"
+        },
+        "note": "Unique, but not in first-seen order."
+      }
+    ]
+  },
+  "derivedFrom": "customers-in-first-order-seen"
+}

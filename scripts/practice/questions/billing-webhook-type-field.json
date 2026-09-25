@@ -1,0 +1,84 @@
+{
+  "id": "billing-webhook-type-field",
+  "unit": "select-and-shape",
+  "tier": "easy",
+  "title": "Read a billing webhook whose event name is in a field called type",
+  "topics": [
+    "selectors",
+    "reserved words",
+    "null"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "A selector names a field after a dot: `payload.id`. If a field name is not a plain identifier, because it contains a dash or a space or is a word DataWeave reserves for itself, write it in quotes after the dot: `payload.\"order-id\"`.",
+  "mode": "build",
+  "prompt": "The billing provider posts events like this:\n\n```\n{ \"id\": \"evt_1\", \"type\": \"invoice.paid\", \"data\": { \"amount_due\": 1250, \"currency\": \"eur\" } }\n```\n\nReturn `{ eventId, kind, amount }` where `kind` is the event name from `type`, and `amount` is `amount_due` converted from cents to euros.\n\nSome events, such as `invoice.voided`, carry no `amount_due`. For those, `amount` is `null`.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "{\n  \"id\": \"evt_1\",\n  \"type\": \"invoice.paid\",\n  \"data\": {\n    \"amount_due\": 1250,\n    \"currency\": \"eur\"\n  }\n}",
+      "output": "{\"eventId\":\"evt_1\",\"kind\":\"invoice.paid\",\"amount\":12.5}"
+    },
+    {
+      "input": "{\n  \"id\": \"evt_2\",\n  \"type\": \"invoice.voided\",\n  \"data\": {\n    \"currency\": \"eur\"\n  }\n}",
+      "output": "{\"eventId\":\"evt_2\",\"kind\":\"invoice.voided\",\"amount\":null}"
+    },
+    {
+      "input": "{\n  \"id\": \"evt_3\",\n  \"type\": \"invoice.paid\",\n  \"data\": {\n    \"amount_due\": 5\n  }\n}",
+      "output": "{\"eventId\":\"evt_3\",\"kind\":\"invoice.paid\",\"amount\":0.05}"
+    },
+    {
+      "input": "{\n  \"id\": \"evt_4\",\n  \"type\": \"invoice.created\",\n  \"data\": {\n    \"amount_due\": null\n  }\n}",
+      "output": "{\"eventId\":\"evt_4\",\"kind\":\"invoice.created\",\"amount\":null}"
+    }
+  ],
+  "hints": [
+    "Write the obvious selector for the event name first and press Run. Read the error.",
+    "`type` is a reserved word in DataWeave. A reserved word can still be a field name if you quote it after the dot.",
+    "Dividing null by 100 is an error. Check for the missing amount before dividing."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n{\n  eventId: payload.id,\n  kind: payload.\"type\",\n  amount: if (payload.data.amount_due == null) null else payload.data.amount_due / 100\n}",
+  "mustFail": [
+    {
+      "why": "divides without checking, so an event with no amount fails instead of returning null",
+      "script": "%dw 2.0\noutput application/json\n---\n{\n  eventId: payload.id,\n  kind: payload.\"type\",\n  amount: payload.data.amount_due / 100\n}"
+    },
+    {
+      "why": "falls back to 0 for a missing amount, which reports a voided invoice as a zero payment",
+      "script": "%dw 2.0\noutput application/json\n---\n{\n  eventId: payload.id,\n  kind: payload.\"type\",\n  amount: (payload.data.amount_due default 0) / 100\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "`type` is reserved, so `payload.type` does not compile, even though the field is right there in the data. Quoting the name after the dot selects it. The second half is arithmetic on a value that may be missing: `null / 100` fails, so the missing case has to be decided before the division.",
+    "snippets": [
+      {
+        "label": "The obvious selector",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.type",
+        "payload": "{\"type\":\"invoice.paid\"}",
+        "expect": {
+          "error": true
+        },
+        "note": "A compile error: the name `type` is a reserved word."
+      },
+      {
+        "label": "Quoted after the dot",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.\"type\"",
+        "payload": "{\"type\":\"invoice.paid\"}",
+        "expect": {
+          "output": "\"invoice.paid\""
+        },
+        "note": "Same field, now selectable."
+      },
+      {
+        "label": "Arithmetic on a missing amount",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.data.amount_due / 100",
+        "payload": "{\"data\":{}}",
+        "expect": {
+          "error": true
+        },
+        "note": "null cannot be divided."
+      }
+    ]
+  }
+}

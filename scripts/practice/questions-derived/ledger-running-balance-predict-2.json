@@ -1,0 +1,35 @@
+{
+  "id": "ledger-running-balance-predict-2",
+  "unit": "reduce-seed",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "map cannot see the previous row",
+  "topics": [
+    "reduce",
+    "seed"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.transactions map { id: $.id, balance: payload.opening + $.amount }",
+    "payload": "{\"opening\":0,\"transactions\":[{\"id\":\"t1\",\"amount\":100},{\"id\":\"t2\",\"amount\":-30}]}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.transactions map { id: $.id, balance: payload.opening + $.amount }",
+  "explanation": {
+    "approach": "The second balance should be 70.",
+    "snippets": [
+      {
+        "label": "map cannot see the previous row",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.transactions map { id: $.id, balance: payload.opening + $.amount }",
+        "payload": "{\"opening\":0,\"transactions\":[{\"id\":\"t1\",\"amount\":100},{\"id\":\"t2\",\"amount\":-30}]}",
+        "expect": {
+          "output": "[{\"id\":\"t1\",\"balance\":100},{\"id\":\"t2\",\"balance\":-30}]"
+        },
+        "note": "The second balance should be 70."
+      }
+    ]
+  },
+  "derivedFrom": "ledger-running-balance"
+}

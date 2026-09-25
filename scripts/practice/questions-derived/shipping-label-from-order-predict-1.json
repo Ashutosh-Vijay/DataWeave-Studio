@@ -1,0 +1,35 @@
+{
+  "id": "shipping-label-from-order-predict-1",
+  "unit": "select-and-shape",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Selecting through a missing customer",
+  "topics": [
+    "selectors",
+    "null"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.customer.address.postcode",
+    "payload": "{\"id\":\"A-102\"}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.customer.address.postcode",
+  "explanation": {
+    "approach": "Three levels into nothing is still just null.",
+    "snippets": [
+      {
+        "label": "Selecting through a missing customer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.customer.address.postcode",
+        "payload": "{\"id\":\"A-102\"}",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Three levels into nothing is still just null."
+      }
+    ]
+  },
+  "derivedFrom": "shipping-label-from-order"
+}

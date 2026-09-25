@@ -1,0 +1,36 @@
+{
+  "id": "revenue-by-region-and-month-predict-1",
+  "unit": "nested-aggregation",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "One level of grouping",
+  "topics": [
+    "groupBy",
+    "mapObject",
+    "sum"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.date[0 to 6] mapObject ((m, month) -> { (month): sum(m.amount) })",
+    "payload": "[{\"date\":\"2024-01-15\",\"amount\":10},{\"date\":\"2024-01-30\",\"amount\":4}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.date[0 to 6] mapObject ((m, month) -> { (month): sum(m.amount) })",
+  "explanation": {
+    "approach": "Both January sales counted.",
+    "snippets": [
+      {
+        "label": "One level of grouping",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.date[0 to 6] mapObject ((m, month) -> { (month): sum(m.amount) })",
+        "payload": "[{\"date\":\"2024-01-15\",\"amount\":10},{\"date\":\"2024-01-30\",\"amount\":4}]",
+        "expect": {
+          "output": "{\"2024-01\":14}"
+        },
+        "note": "Both January sales counted."
+      }
+    ]
+  },
+  "derivedFrom": "revenue-by-region-and-month"
+}

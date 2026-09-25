@@ -1,0 +1,54 @@
+{
+  "id": "mcq-agg-distinct-customers",
+  "unit": "nested-aggregation",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "groupBy",
+    "distinctBy",
+    "sizeOf"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "Counting rows and counting distinct values are different questions. `sizeOf(rows)` counts rows; `sizeOf(rows.customer distinctBy $)` counts how many different customers appear in them.",
+  "mode": "choice",
+  "prompt": "Given the payload, **which script produces exactly this output?**\n\n```\n{\"EU\":2,\"US\":1}\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[{\"r\":\"EU\",\"customer\":\"ann\"},{\"r\":\"EU\",\"customer\":\"bo\"},{\"r\":\"EU\",\"customer\":\"ann\"},{\"r\":\"US\",\"customer\":\"cy\"}]",
+    "target": "{\"EU\":2,\"US\":1}",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.r mapObject { ($$): sizeOf($) }",
+      "%dw 2.0\noutput application/json\n---\n{ EU: sizeOf(payload distinctBy $.customer) }",
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.r mapObject { ($$): sizeOf($.customer distinctBy $) }",
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.customer mapObject { ($$): sizeOf($) }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.r mapObject { ($$): sizeOf($.customer distinctBy $) }",
+  "explanation": {
+    "approach": "EU has three sales but only two customers, because ann bought twice. The data has that repeat on purpose so that counting rows and counting customers give different numbers.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.r mapObject { ($$): sizeOf($.customer distinctBy $) }",
+        "payload": "[{\"r\":\"EU\",\"customer\":\"ann\"},{\"r\":\"EU\",\"customer\":\"bo\"},{\"r\":\"EU\",\"customer\":\"ann\"},{\"r\":\"US\",\"customer\":\"cy\"}]",
+        "expect": {
+          "output": "{\"EU\":2,\"US\":1}"
+        },
+        "note": "Distinct customers per region."
+      },
+      {
+        "label": "Counting rows",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.r mapObject { ($$): sizeOf($) }",
+        "payload": "[{\"r\":\"EU\",\"customer\":\"ann\"},{\"r\":\"EU\",\"customer\":\"bo\"},{\"r\":\"EU\",\"customer\":\"ann\"},{\"r\":\"US\",\"customer\":\"cy\"}]",
+        "expect": {
+          "output": "{\"EU\":3,\"US\":1}"
+        },
+        "note": "ann is counted twice."
+      }
+    ]
+  }
+}

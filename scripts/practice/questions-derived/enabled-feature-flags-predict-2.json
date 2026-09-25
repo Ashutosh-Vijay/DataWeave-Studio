@@ -1,0 +1,36 @@
+{
+  "id": "enabled-feature-flags-predict-2",
+  "unit": "pluck-and-mapobject",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Keys of the filtered object",
+  "topics": [
+    "filterObject",
+    "pluck",
+    "keysOf"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload filterObject ($ == true) pluck $$",
+    "payload": "{\"darkMode\":null,\"beta\":true}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload filterObject ($ == true) pluck $$",
+  "explanation": {
+    "approach": "`pluck $$` gives the keys, in order.",
+    "snippets": [
+      {
+        "label": "Keys of the filtered object",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filterObject ($ == true) pluck $$",
+        "payload": "{\"darkMode\":null,\"beta\":true}",
+        "expect": {
+          "output": "[\"beta\"]"
+        },
+        "note": "`pluck $$` gives the keys, in order."
+      }
+    ]
+  },
+  "derivedFrom": "enabled-feature-flags"
+}

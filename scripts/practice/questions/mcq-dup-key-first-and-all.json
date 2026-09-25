@@ -1,0 +1,47 @@
+{
+  "id": "mcq-dup-key-first-and-all",
+  "unit": "duplicate-keys",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "duplicate keys",
+    ".*",
+    "selectors"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "A DataWeave Object is an ordered list of key-value pairs, and the same key may appear more than once. The single-value selector `.a` returns the value of the first `a`; the multi-value selector `.*a` returns the values of all of them.",
+  "mode": "choice",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ first: payload.a, all: payload.*a }",
+    "payload": "{ \"a\": 1, \"b\": 5, \"a\": 2 }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "{ \"first\": 1, \"all\": [ 1, 2 ] }",
+      "{ \"first\": [ 1, 2 ], \"all\": [ 1, 2 ] }",
+      "{ \"first\": 2, \"all\": [ 1, 2 ] }",
+      "{ \"first\": 1, \"all\": 1 }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ first: payload.a, all: payload.*a }",
+  "explanation": {
+    "approach": "Both `a` pairs survive in the payload. `.a` stops at the first, and `.*a` collects them all into an Array.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ first: payload.a, all: payload.*a }",
+        "payload": "{ \"a\": 1, \"b\": 5, \"a\": 2 }",
+        "expect": {
+          "output": "{\"first\":1,\"all\":[1,2]}"
+        },
+        "note": "The second `a` is invisible to `.a`."
+      }
+    ]
+  }
+}

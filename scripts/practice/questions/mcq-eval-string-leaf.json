@@ -1,0 +1,53 @@
+{
+  "id": "mcq-eval-string-leaf",
+  "unit": "expression-evaluator",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "match",
+    "is",
+    "recursion"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "A `case n is Number` accepts only real Numbers. A value that looks like a number but is text, such as `\"3\"`, is a String and moves on to the next case.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case s is String -> s as Number\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  else -> 0\n}\n---\nev({ op: \"+\", l: 2, r: \"3\" })"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "\"23\"",
+      "2",
+      "5",
+      "It fails: \"3\" is not a Number"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case s is String -> s as Number\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  else -> 0\n}\n---\nev({ op: \"+\", l: 2, r: \"3\" })",
+  "explanation": {
+    "approach": "The String leaf falls past the Number case into the String case, which coerces it. The order of the cases matters here: a String that reached the `x.op` guard first would make the guard itself fail.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case s is String -> s as Number\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  else -> 0\n}\n---\nev({ op: \"+\", l: 2, r: \"3\" })",
+        "expect": {
+          "output": "5"
+        },
+        "note": "The text leaf was converted."
+      },
+      {
+        "label": "Without the String case",
+        "script": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  else -> 0\n}\n---\nev({ op: \"+\", l: 2, r: \"3\" })",
+        "expect": {
+          "error": true
+        },
+        "note": "The \"3\" does not fall through to `else`: the guard `x.op` is evaluated on it first, and selecting a field from a String is an error."
+      }
+    ]
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "id": "normalise-partner-dates-debug-0",
+  "unit": "dates-formatting",
+  "mode": "debug",
+  "tier": "medium",
+  "title": "Fix it: normalise order dates that arrive in three different formats",
+  "topics": [
+    "match",
+    "matches",
+    "as",
+    "Date",
+    "format"
+  ],
+  "basics": "Text becomes a Date with `as Date`, and a `format` tells the engine how to read text that is not in ISO form: `\"05/03/2024\" as Date {format: \"dd/MM/yyyy\"}`. A `match` with `matches` can pick the right format by testing the text against a regular expression first.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nThree partners send order dates, each in its own format:\n\n- `2024-03-05` (ISO)\n- `05/03/2024` (day/month/year)\n- `20240305` (compact)\n\nReturn every date as ISO text, `yyyy-MM-dd`.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\npayload map (d) -> d match {\n  case m matches /\\d{4}-\\d{2}-\\d{2}/ -> d\n  case m matches /\\d{2}\\/\\d{2}\\/\\d{4}/ -> d as Date {format: \"dd/MM/yyyy\"}\n  else -> d as Date {format: \"yyyyMMdd\"} as String {format: \"yyyy-MM-dd\"}\n}",
+  "cases": [
+    {
+      "input": "[\n  \"2024-03-05\",\n  \"20240306\"\n]",
+      "output": "[\"2024-03-05\",\"2024-03-06\"]"
+    },
+    {
+      "input": "[\n  \"05/03/2024\"\n]",
+      "output": "[\"2024-03-05\"]"
+    },
+    {
+      "input": "[\n  \"13/02/2024\",\n  \"20241231\",\n  \"2024-01-01\"\n]",
+      "output": "[\"2024-02-13\",\"2024-12-31\",\"2024-01-01\"]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "parses each format but does not re-format, so a Date parsed from day/month/year still prints as day/month/year"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map (d) -> d match {\n  case m matches /\\d{4}-\\d{2}-\\d{2}/ -> d\n  case m matches /\\d{2}\\/\\d{2}\\/\\d{4}/ -> d as Date {format: \"dd/MM/yyyy\"} as String {format: \"yyyy-MM-dd\"}\n  else -> d as Date {format: \"yyyyMMdd\"} as String {format: \"yyyy-MM-dd\"}\n}",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map (d) -> d match {\n  case m matches /\\d{4}-\\d{2}-\\d{2}/ -> d\n  case m matches /\\d{2}\\/\\d{2}\\/\\d{4}/ -> d as Date {format: \"dd/MM/yyyy\"}\n  else -> d as Date {format: \"yyyyMMdd\"} as String {format: \"yyyy-MM-dd\"}\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "Each format needs its own parsing pattern, and `match` with `matches` picks it. The surprise is on the way out: a Date parsed with a format keeps that format, and the JSON writer prints it the way it was read. Formatting explicitly as `yyyy-MM-dd` is what makes the output uniform.",
+    "snippets": [
+      {
+        "label": "A parsed Date prints the way it was read",
+        "script": "%dw 2.0\noutput application/json\n---\n\"05/03/2024\" as Date {format: \"dd/MM/yyyy\"}",
+        "expect": {
+          "output": "\"05/03/2024\""
+        },
+        "note": "It is a Date, but its text form is unchanged."
+      },
+      {
+        "label": "Format it again",
+        "script": "%dw 2.0\noutput application/json\n---\n\"05/03/2024\" as Date {format: \"dd/MM/yyyy\"} as String {format: \"yyyy-MM-dd\"}",
+        "expect": {
+          "output": "\"2024-03-05\""
+        },
+        "note": "Now it is ISO."
+      },
+      {
+        "label": "What a matches case binds",
+        "script": "%dw 2.0\noutput application/json\n---\n\"2024-03-05\" match { case m matches /\\d{4}-\\d{2}-\\d{2}/ -> m else -> null }",
+        "expect": {
+          "output": "[\"2024-03-05\"]"
+        },
+        "note": "An Array: the whole match, then any groups. Keep a separate name for the text itself."
+      },
+      {
+        "label": "Day 13 read as a month",
+        "script": "%dw 2.0\noutput application/json\n---\n\"13/02/2024\" as Date {format: \"MM/dd/yyyy\"}",
+        "expect": {
+          "error": true
+        },
+        "note": "There is no month 13."
+      }
+    ]
+  },
+  "derivedFrom": "normalise-partner-dates"
+}

@@ -1,0 +1,74 @@
+{
+  "id": "customers-in-first-order-seen",
+  "unit": "distinct-and-order",
+  "tier": "easy",
+  "title": "Which customers ordered today, in the order they first appeared",
+  "topics": [
+    "distinctBy",
+    "orderBy"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "`distinctBy` removes repeats from an Array. It keeps the first element for each value and drops the later ones, and it does not change the order of what it keeps. `orderBy` sorts.",
+  "mode": "build",
+  "prompt": "Today's orders arrive as `{ orderId, customerId }` in the order they were placed. The account team wants each customer id once, in the order that customer first ordered.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"orderId\": 1,\n    \"customerId\": \"C1\"\n  },\n  {\n    \"orderId\": 2,\n    \"customerId\": \"C2\"\n  },\n  {\n    \"orderId\": 3,\n    \"customerId\": \"C1\"\n  }\n]",
+      "output": "[\"C1\",\"C2\"]"
+    },
+    {
+      "input": "[\n  {\n    \"orderId\": 4,\n    \"customerId\": \"C9\"\n  },\n  {\n    \"orderId\": 5,\n    \"customerId\": \"C2\"\n  },\n  {\n    \"orderId\": 6,\n    \"customerId\": \"C9\"\n  }\n]",
+      "output": "[\"C9\",\"C2\"]"
+    },
+    {
+      "input": "[\n  {\n    \"orderId\": 7,\n    \"customerId\": \"C5\"\n  }\n]",
+      "output": "[\"C5\"]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "You want the `customerId`s, without repeats.",
+    "Is the result on the sample sorted, or just in first-seen order? The hidden data can tell them apart.",
+    "`distinctBy` keeps order. Adding `orderBy` changes it."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.customerId distinctBy $ default []",
+  "mustFail": [
+    {
+      "why": "sorts the ids, which matches first-seen order only when the ids happen to arrive sorted",
+      "script": "%dw 2.0\noutput application/json\n---\npayload.customerId distinctBy $ orderBy $ default []"
+    },
+    {
+      "why": "removes repeated orders rather than repeated customers, so a returning customer is listed twice",
+      "script": "%dw 2.0\noutput application/json\n---\n(payload distinctBy $.orderId).customerId default []"
+    }
+  ],
+  "explanation": {
+    "approach": "`distinctBy` keeps the first occurrence and preserves order, which is exactly \"in the order they first appeared\". The sample is in sorted order by coincidence, so a sort looks harmless until the data is not.",
+    "snippets": [
+      {
+        "label": "Sorting as well",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.customerId distinctBy $ orderBy $",
+        "payload": "[{\"customerId\":\"C9\"},{\"customerId\":\"C2\"},{\"customerId\":\"C9\"}]",
+        "expect": {
+          "output": "[\"C2\",\"C9\"]"
+        },
+        "note": "Unique, but not in first-seen order."
+      },
+      {
+        "label": "distinctBy alone",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.customerId distinctBy $",
+        "payload": "[{\"customerId\":\"C9\"},{\"customerId\":\"C2\"},{\"customerId\":\"C9\"}]",
+        "expect": {
+          "output": "[\"C9\",\"C2\"]"
+        },
+        "note": "C9 ordered first."
+      }
+    ]
+  }
+}

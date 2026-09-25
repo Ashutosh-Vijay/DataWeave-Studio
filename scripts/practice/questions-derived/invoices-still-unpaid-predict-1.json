@@ -1,0 +1,34 @@
+{
+  "id": "invoices-still-unpaid-predict-1",
+  "unit": "joins",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "A join does not",
+  "topics": [
+    "leftJoin",
+    "dw::core::Arrays",
+    "contains"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\nsizeOf(join([{ id: 102 }], [{ invoiceId: \"102\" }], (i) -> i.id, (p) -> p.invoiceId))"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\nsizeOf(join([{ id: 102 }], [{ invoiceId: \"102\" }], (i) -> i.id, (p) -> p.invoiceId))",
+  "explanation": {
+    "approach": "The keys matched.",
+    "snippets": [
+      {
+        "label": "A join does not",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\nsizeOf(join([{ id: 102 }], [{ invoiceId: \"102\" }], (i) -> i.id, (p) -> p.invoiceId))",
+        "expect": {
+          "output": "1"
+        },
+        "note": "The keys matched."
+      }
+    ]
+  },
+  "derivedFrom": "invoices-still-unpaid"
+}
