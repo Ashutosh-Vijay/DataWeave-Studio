@@ -1,0 +1,76 @@
+{
+  "id": "delivered-at-only-when-delivered",
+  "unit": "conditional-fields",
+  "tier": "easy",
+  "title": "Add a delivery timestamp only to shipments that have been delivered",
+  "topics": [
+    "conditional fields",
+    "if"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "A field can be made conditional by wrapping the key-value pair in parentheses and adding `if`: `{ id: 1, (note: \"x\") if flag }`. When the condition is false the key is left out entirely, which is different from writing it with a null value.",
+  "mode": "build",
+  "prompt": "The carrier sends scan events as `{ id, status, ts }`, where `ts` is the time of the latest scan. The customer portal wants `{ id, status }` for every shipment, plus `deliveredAt` holding `ts`, but **only** for shipments whose status is `\"delivered\"`.\n\nOther shipments must not have a `deliveredAt` key at all, not even a null one.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"id\": 1,\n    \"status\": \"delivered\",\n    \"ts\": \"2024-05-01T10:00:00Z\"\n  }\n]",
+      "output": "[{\"id\":1,\"status\":\"delivered\",\"deliveredAt\":\"2024-05-01T10:00:00Z\"}]"
+    },
+    {
+      "input": "[\n  {\n    \"id\": 1,\n    \"status\": \"delivered\",\n    \"ts\": \"2024-05-01T10:00:00Z\"\n  },\n  {\n    \"id\": 2,\n    \"status\": \"in_transit\"\n  }\n]",
+      "output": "[{\"id\":1,\"status\":\"delivered\",\"deliveredAt\":\"2024-05-01T10:00:00Z\"},{\"id\":2,\"status\":\"in_transit\"}]"
+    },
+    {
+      "input": "[\n  {\n    \"id\": 3,\n    \"status\": \"in_transit\",\n    \"ts\": \"2024-05-02T08:00:00Z\"\n  }\n]",
+      "output": "[{\"id\":3,\"status\":\"in_transit\"}]"
+    },
+    {
+      "input": "[\n  {\n    \"id\": 4,\n    \"status\": \"delivered\",\n    \"ts\": \"2024-05-03T09:30:00Z\"\n  }\n]",
+      "output": "[{\"id\":4,\"status\":\"delivered\",\"deliveredAt\":\"2024-05-03T09:30:00Z\"}]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "A conditional field is written `(key: value) if condition`.",
+    "Writing `deliveredAt: if (...) $.ts else null` still writes the key.",
+    "The condition is about the status. The second hidden case has a timestamp but is not delivered."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map { id: $.id, status: $.status, (deliveredAt: $.ts) if ($.status == \"delivered\") }",
+  "mustFail": [
+    {
+      "why": "writes the key with a null value instead of leaving it out",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map { id: $.id, status: $.status, deliveredAt: if ($.status == \"delivered\") $.ts else null }"
+    },
+    {
+      "why": "conditions on the timestamp being present, but every scan has a timestamp, not just deliveries",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map { id: $.id, status: $.status, (deliveredAt: $.ts) if ($.ts != null) }"
+    }
+  ],
+  "explanation": {
+    "approach": "Only the parenthesised form leaves a key out. A value of null is still a key, and a portal that checks \"does deliveredAt exist\" will treat that shipment as delivered. The condition also has to be the business rule, the status, rather than whatever field happens to be present.",
+    "snippets": [
+      {
+        "label": "A null value is still a field",
+        "script": "%dw 2.0\noutput application/json\n---\n{ id: 2, deliveredAt: if (false) \"x\" else null }",
+        "expect": {
+          "output": "{\"id\":2,\"deliveredAt\":null}"
+        },
+        "note": "The key is there."
+      },
+      {
+        "label": "A conditional field",
+        "script": "%dw 2.0\noutput application/json\n---\n{ id: 2, (deliveredAt: \"x\") if (false) }",
+        "expect": {
+          "output": "{\"id\":2}"
+        },
+        "note": "No key at all."
+      }
+    ]
+  }
+}
