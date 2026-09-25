@@ -1577,6 +1577,11 @@ function App() {
           <IconBtn title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggle}>
             {isDark ? <Icons.Sun size={15} /> : <Icons.Moon size={15} />}
           </IconBtn>
+          {/* The rating prompt asks once; after that, this is how feedback
+              gets sent. Buried in Tools it would go unfound, like sharing did. */}
+          <IconBtn title="Send feedback — rate it, or report a bug" onClick={() => setFeedbackOpen(true)}>
+            <Icons.Smile size={15} />
+          </IconBtn>
 
           <div className="w-px h-4 bg-line mx-1" />
 
