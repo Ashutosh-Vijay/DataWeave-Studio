@@ -1,0 +1,45 @@
+{
+  "id": "mcq-precision-exact-decimals",
+  "unit": "precision",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "+",
+    "sum",
+    "=="
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "Many languages store decimals as binary fractions, so 0.1 + 0.2 comes out as 0.30000000000000004. DataWeave stores decimal numbers exactly, so sums of prices behave the way they do on paper.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ 0.1 + 0.2 == 0.3, sum([0.1, 0.2, 0.3]) ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ false, 0.6 ]",
+      "[ true, 0.6000000000000001 ]",
+      "[ false, 0.6000000000000001 ]",
+      "[ true, 0.6 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ 0.1 + 0.2 == 0.3, sum([0.1, 0.2, 0.3]) ]",
+  "explanation": {
+    "approach": "Both results are exact. The practical consequence: rounding to hide binary-fraction errors is not needed here, and adding it can introduce errors of its own.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ 0.1 + 0.2 == 0.3, sum([0.1, 0.2, 0.3]) ]",
+        "expect": {
+          "output": "[true,0.6]"
+        },
+        "note": "Decimal arithmetic."
+      }
+    ]
+  }
+}

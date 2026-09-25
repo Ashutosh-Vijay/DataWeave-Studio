@@ -1,0 +1,52 @@
+{
+  "id": "mcq-update-on-an-array",
+  "unit": "update-operator",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "update",
+    "map"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "An `update` path starts from the value it is applied to. `.a` means \"the field a of this value\", so it only finds something when the value is an Object with an `a` field.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[{ a: 1 }, { a: 2 }] update { case .a -> 5 }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ { \"a\": 5 }, { \"a\": 5 } ]",
+      "It fails: update needs an Object",
+      "[ { \"a\": 5 }, { \"a\": 2 } ]",
+      "[ { \"a\": 1 }, { \"a\": 2 } ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[{ a: 1 }, { a: 2 }] update { case .a -> 5 }",
+  "explanation": {
+    "approach": "The value is an Array, and an Array has no field `a`, so the case matches nothing and the Array comes back unchanged, with no error. To update a field in every element, `map` over the Array and update each element.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[{ a: 1 }, { a: 2 }] update { case .a -> 5 }",
+        "expect": {
+          "output": "[{\"a\":1},{\"a\":2}]"
+        },
+        "note": "Silently unchanged."
+      },
+      {
+        "label": "Update each element",
+        "script": "%dw 2.0\noutput application/json\n---\n[{ a: 1 }, { a: 2 }] map ($ update { case .a -> 5 })",
+        "expect": {
+          "output": "[{\"a\":5},{\"a\":5}]"
+        },
+        "note": "Now every element has a field `a` to change."
+      }
+    ]
+  }
+}
