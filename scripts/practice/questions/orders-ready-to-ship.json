@@ -1,0 +1,86 @@
+{
+  "id": "orders-ready-to-ship",
+  "unit": "filter-and-null",
+  "tier": "easy",
+  "title": "Which orders can the warehouse ship today",
+  "topics": [
+    "filter",
+    "isEmpty",
+    "and"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "`filter` keeps the elements of an array for which a condition is true and drops the rest. Inside the condition, `$` is the current element. `isEmpty(x)` is true when x is null, an empty String, an empty Array or an empty Object.",
+  "mode": "build",
+  "prompt": "The warehouse system exports orders as `{ id, status, tracking }`. An order can ship when its `status` is `\"packed\"` **and** it has a tracking number.\n\nThe export is not tidy: some orders have no `tracking` field, and some have `tracking` set to an empty String because the label printer failed. Neither counts as having a tracking number.\n\nReturn the `id`s of the orders that can ship, in their original order.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"id\": 1,\n    \"status\": \"packed\",\n    \"tracking\": \"TRK1\"\n  },\n  {\n    \"id\": 2,\n    \"status\": \"picking\"\n  },\n  {\n    \"id\": 3,\n    \"status\": \"shipped\",\n    \"tracking\": \"\"\n  }\n]",
+      "output": "[1]"
+    },
+    {
+      "input": "[\n  {\n    \"id\": 8,\n    \"status\": \"packed\"\n  },\n  {\n    \"id\": 9,\n    \"status\": \"picking\",\n    \"tracking\": \"TRK9\"\n  }\n]",
+      "output": "[]"
+    },
+    {
+      "input": "[\n  {\n    \"id\": 4,\n    \"status\": \"packed\",\n    \"tracking\": \"\"\n  },\n  {\n    \"id\": 5,\n    \"status\": \"packed\",\n    \"tracking\": \"TRK5\"\n  }\n]",
+      "output": "[5]"
+    },
+    {
+      "input": "[\n  {\n    \"id\": 6,\n    \"status\": \"shipped\",\n    \"tracking\": \"TRK6\"\n  },\n  {\n    \"id\": 7,\n    \"status\": \"packed\",\n    \"tracking\": null\n  }\n]",
+      "output": "[]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Two conditions, both required. Filter, then take the `id`.",
+    "Look at the second hidden shape: `tracking` is there, but it is `\"\"`. Does `!= null` reject it?",
+    "`isEmpty` treats null and \"\" the same way, which is exactly the rule in the task."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload filter ($.status == \"packed\" and not isEmpty($.tracking))).id default []",
+  "mustFail": [
+    {
+      "why": "checks only for null, so an order whose tracking is an empty String gets shipped",
+      "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.status == \"packed\" and $.tracking != null)).id default []"
+    },
+    {
+      "why": "uses or instead of and, so any packed order ships whether or not it has tracking",
+      "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.status == \"packed\" or not isEmpty($.tracking))).id default []"
+    }
+  ],
+  "explanation": {
+    "approach": "There are two ways to have no tracking number here: the field is missing (null) or it is an empty String. `isEmpty` covers both. One more detail: selecting `.id` from an empty array gives null, not an empty array, so `default []` keeps the output an array when nothing can ship.",
+    "snippets": [
+      {
+        "label": "An empty String is not null",
+        "script": "%dw 2.0\noutput application/json\n---\n\"\" != null",
+        "expect": {
+          "output": "true"
+        },
+        "note": "A null check lets the failed-label orders through."
+      },
+      {
+        "label": "isEmpty covers both",
+        "script": "%dw 2.0\noutput application/json\n---\n[isEmpty(null), isEmpty(\"\"), isEmpty(\"TRK1\")]",
+        "expect": {
+          "output": "[true,true,false]"
+        },
+        "note": "The first two are the \"no tracking\" cases."
+      },
+      {
+        "label": "Selecting from an empty array",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.status == \"packed\")).id",
+        "payload": "[{\"id\":6,\"status\":\"shipped\"}]",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Nothing survives the filter, and a selector on an empty array is null. That is why the solution ends with `default []`."
+      }
+    ]
+  }
+}

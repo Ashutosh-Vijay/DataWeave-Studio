@@ -1,0 +1,84 @@
+{
+  "id": "invoice-lines-optional-quantity",
+  "unit": "default-and-missing",
+  "tier": "easy",
+  "title": "Invoice line totals when the quantity is sometimes left out",
+  "topics": [
+    "default",
+    "map",
+    "precedence"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "`default` supplies a fallback when a value is missing: `payload.qty default 1` gives the quantity if there is one and 1 otherwise. A field that is not in the data reads as null, and `default` replaces null. It is written between two expressions, like `+` or `*`.",
+  "mode": "build",
+  "prompt": "The billing system sends invoice lines as `{ sku, qty, price }`. When a customer buys one of something, the upstream system leaves `qty` out.\n\nReturn an array of `{ sku, total }` where `total` is quantity times price, treating a missing quantity as 1.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"sku\": \"PEN\",\n    \"price\": 2\n  },\n  {\n    \"sku\": \"INK\",\n    \"price\": 7\n  }\n]",
+      "output": "[{\"sku\":\"PEN\",\"total\":2},{\"sku\":\"INK\",\"total\":7}]"
+    },
+    {
+      "input": "[\n  {\n    \"sku\": \"PAD\",\n    \"qty\": 3,\n    \"price\": 5\n  }\n]",
+      "output": "[{\"sku\":\"PAD\",\"total\":15}]"
+    },
+    {
+      "input": "[\n  {\n    \"sku\": \"PEN\",\n    \"qty\": 4,\n    \"price\": 2\n  },\n  {\n    \"sku\": \"CLIP\",\n    \"price\": 1\n  }\n]",
+      "output": "[{\"sku\":\"PEN\",\"total\":8},{\"sku\":\"CLIP\",\"total\":1}]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "One output row per line, so this is a `map`. The only question is how to write the quantity.",
+    "Test your expression on a line that does have a quantity, `{ qty: 3, price: 5 }`. Is the answer 15?",
+    "`default` binds more loosely than `*`. Without parentheses, `$.qty default 1 * $.price` means `$.qty default (1 * $.price)`."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map { sku: $.sku, total: ($.qty default 1) * $.price }",
+  "mustFail": [
+    {
+      "why": "no parentheses: default binds looser than *, so a line with a quantity returns the bare quantity instead of quantity times price",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map { sku: $.sku, total: $.qty default 1 * $.price }"
+    },
+    {
+      "why": "puts the fallback after the product, so a missing quantity makes the whole total fall back to 1",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map { sku: $.sku, total: $.price * $.qty default 1 }"
+    }
+  ],
+  "explanation": {
+    "approach": "The trap is precedence. `default` is applied after arithmetic, so `$.qty default 1 * $.price` reads as \"the quantity, or else 1 times the price\". On the sample, where every quantity is missing, that gives the right numbers, which is why it survives a quick test. Parentheses make the fallback apply to the quantity alone.",
+    "snippets": [
+      {
+        "label": "Without parentheses, on a line that has a quantity",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.qty default 1 * payload.price",
+        "payload": "{\"qty\":3,\"price\":5}",
+        "expect": {
+          "output": "3"
+        },
+        "note": "The quantity comes back on its own. The multiplication only happens in the fallback."
+      },
+      {
+        "label": "Without parentheses, on a line with no quantity",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.qty default 1 * payload.price",
+        "payload": "{\"price\":5}",
+        "expect": {
+          "output": "5"
+        },
+        "note": "Correct, by accident. This is the case the sample shows."
+      },
+      {
+        "label": "With parentheses",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload.qty default 1) * payload.price",
+        "payload": "{\"qty\":3,\"price\":5}",
+        "expect": {
+          "output": "15"
+        },
+        "note": "The fallback applies to the quantity, then the product is taken."
+      }
+    ]
+  }
+}
