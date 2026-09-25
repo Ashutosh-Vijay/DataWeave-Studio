@@ -1,0 +1,35 @@
+{
+  "id": "duplicate-webhook-deliveries-predict-0",
+  "unit": "do-and-scope",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "A header var never sees what happens per element",
+  "topics": [
+    "do",
+    "scope"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nvar seenSoFar = []\n---\npayload map (delivery) -> delivery ++ { seenSoFar: seenSoFar }",
+    "payload": "[{\"eventId\":\"E1\"},{\"eventId\":\"E2\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nvar seenSoFar = []\n---\npayload map (delivery) -> delivery ++ { seenSoFar: seenSoFar }",
+  "explanation": {
+    "approach": "`seenSoFar` is computed once, before the map starts, and every element gets back the exact same empty value. A header var cannot accumulate anything as a map goes along — there is no hidden mutable state to update.",
+    "snippets": [
+      {
+        "label": "A header var never sees what happens per element",
+        "script": "%dw 2.0\noutput application/json\nvar seenSoFar = []\n---\npayload map (delivery) -> delivery ++ { seenSoFar: seenSoFar }",
+        "payload": "[{\"eventId\":\"E1\"},{\"eventId\":\"E2\"}]",
+        "expect": {
+          "output": "[{\"eventId\":\"E1\",\"seenSoFar\":[]},{\"eventId\":\"E2\",\"seenSoFar\":[]}]"
+        },
+        "note": "`seenSoFar` is computed once, before the map starts, and every element gets back the exact same empty value. A header var cannot accumulate anything as a map goes along — there is no hidden mutable state to update."
+      }
+    ]
+  },
+  "derivedFrom": "duplicate-webhook-deliveries"
+}

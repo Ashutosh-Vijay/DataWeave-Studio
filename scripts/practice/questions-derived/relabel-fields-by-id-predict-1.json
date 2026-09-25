@@ -1,0 +1,34 @@
+{
+  "id": "relabel-fields-by-id-predict-1",
+  "unit": "dynamic-keys",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "Without parentheses, the key is the literal word",
+  "topics": [
+    "computed keys",
+    "mapObject",
+    "duplicate keys"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\ndo { var k = 'x' --- { k: 1 } }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\ndo { var k = 'x' --- { k: 1 } }",
+  "explanation": {
+    "approach": "Even though `k` holds `'x'`, writing `k:` as a bare key builds a field named `k`. The variable is never read.",
+    "snippets": [
+      {
+        "label": "Without parentheses, the key is the literal word",
+        "script": "%dw 2.0\noutput application/json\n---\ndo { var k = 'x' --- { k: 1 } }",
+        "expect": {
+          "output": "{ \"k\": 1 }"
+        },
+        "note": "Even though `k` holds `'x'`, writing `k:` as a bare key builds a field named `k`. The variable is never read."
+      }
+    ]
+  },
+  "derivedFrom": "relabel-fields-by-id"
+}

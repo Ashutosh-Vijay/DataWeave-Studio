@@ -1,0 +1,56 @@
+{
+  "id": "mcq-json-to-xml-rows",
+  "unit": "xml-namespaces",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "Which script produces this output?",
+  "topics": [
+    "xml",
+    "output",
+    "map",
+    "dynamic keys"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "The output is XML with `indent=false, writeDeclaration=false`. Given the payload below,\n\n**which script produces exactly this output?**\n\n```\n<items><item sku=\"A\">1</item><item sku=\"B\">2</item></items>\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/xml indent=false, writeDeclaration=false",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"items\":[{\"sku\":\"A\",\"qty\":1},{\"sku\":\"B\",\"qty\":2}]}",
+    "target": "<items><item sku=\"A\">1</item><item sku=\"B\">2</item></items>",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ items: { (payload.items map { item @(sku: $.sku): $.qty }) } }",
+      "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ items: { (payload.items map { item: $.qty }) } }",
+      "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ (payload.items map { item @(sku: $.sku): $.qty }) }",
+      "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ items: { (payload.items map { item @(sku: $.qty): $.sku }) } }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ items: { (payload.items map { item @(sku: $.sku): $.qty }) } }",
+  "explanation": {
+    "approach": "Each row becomes one `item` element, spread into a single `items` root with `{( )}`. The attribute goes in `@( )` after the key and the element text after the colon. Without the root, the writer would have to write two top-level elements.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ items: { (payload.items map { item @(sku: $.sku): $.qty }) } }",
+        "payload": "{\"items\":[{\"sku\":\"A\",\"qty\":1},{\"sku\":\"B\",\"qty\":2}]}",
+        "outputMime": "application/xml indent=false, writeDeclaration=false",
+        "expect": {
+          "output": "<items><item sku=\"A\">1</item><item sku=\"B\">2</item></items>"
+        },
+        "note": "One root, repeated children, one attribute each."
+      },
+      {
+        "label": "No root",
+        "script": "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ (payload.items map { item @(sku: $.sku): $.qty }) }",
+        "payload": "{\"items\":[{\"sku\":\"A\",\"qty\":1},{\"sku\":\"B\",\"qty\":2}]}",
+        "outputMime": "application/xml indent=false, writeDeclaration=false",
+        "expect": {
+          "error": true
+        },
+        "note": "Two `item` elements at the top level."
+      }
+    ]
+  }
+}

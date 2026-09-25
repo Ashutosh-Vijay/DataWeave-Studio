@@ -1,0 +1,36 @@
+{
+  "id": "enrich-orders-with-customers-predict-5",
+  "unit": "joins",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "The full answer",
+  "topics": [
+    "leftJoin",
+    "dw::core::Arrays",
+    "object merging"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nleftJoin(payload.orders, payload.customers, (o) -> o.customerId as String, (c) -> c.id as String)\n  map { orderId: $.l.orderId, customerId: $.l.customerId, customerName: $.r.name }",
+    "payload": "{\"orders\":[{\"orderId\":\"O1\",\"customerId\":1},{\"orderId\":\"O2\",\"customerId\":2}],\"customers\":[{\"id\":1,\"name\":\"Ann\"},{\"id\":2,\"name\":\"Bo\"}]}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nleftJoin(payload.orders, payload.customers, (o) -> o.customerId as String, (c) -> c.id as String)\n  map { orderId: $.l.orderId, customerId: $.l.customerId, customerName: $.r.name }",
+  "explanation": {
+    "approach": "The join finds the pairs; the `map` afterward flattens each `{l, r}` pair into the final shape, and `$.r.name` reads as null on its own for any order that had no match.",
+    "snippets": [
+      {
+        "label": "The full answer",
+        "script": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nleftJoin(payload.orders, payload.customers, (o) -> o.customerId as String, (c) -> c.id as String)\n  map { orderId: $.l.orderId, customerId: $.l.customerId, customerName: $.r.name }",
+        "payload": "{\"orders\":[{\"orderId\":\"O1\",\"customerId\":1},{\"orderId\":\"O2\",\"customerId\":2}],\"customers\":[{\"id\":1,\"name\":\"Ann\"},{\"id\":2,\"name\":\"Bo\"}]}",
+        "expect": {
+          "output": "[{\"orderId\":\"O1\",\"customerId\":1,\"customerName\":\"Ann\"},{\"orderId\":\"O2\",\"customerId\":2,\"customerName\":\"Bo\"}]"
+        },
+        "note": "The join finds the pairs; the `map` afterward flattens each `{l, r}` pair into the final shape, and `$.r.name` reads as null on its own for any order that had no match."
+      }
+    ]
+  },
+  "derivedFrom": "enrich-orders-with-customers"
+}

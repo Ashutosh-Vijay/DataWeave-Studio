@@ -8,6 +8,7 @@ import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';
 import { Icons } from './Icons';
 import { matchErrorHint, categoryLabel } from '../dataweaveErrorHints';
+import { engineDiagnosisFor } from '../dataweaveEngineLanguage';
 import type { TraceRow } from '../hooks/useDWRunner';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
@@ -545,7 +546,13 @@ function OutputErrorCard({ error, errorLine, executionTimeMs, scriptSource, stac
   const headline = extractFirstLine(error);
   const details = extractDetails(error);
   const stack = extractStackTrace(error);
-  const hint = matchErrorHint(error);
+  // The engine's own type check, when it has an opinion about exactly this
+  // script, beats anything we can infer from the runtime message — it names the
+  // expression rather than the exception. The pattern-matched hint stays for the
+  // failures typeCheck cannot see, which is most runtime ones: a bad coercion
+  // or a null argument type-checks clean and only blows up on real data.
+  const diagnosis = scriptSource ? engineDiagnosisFor(scriptSource) : [];
+  const hint = diagnosis.length ? null : matchErrorHint(error);
 
   const sourceContext = (() => {
     if (!scriptSource || !errorLine) return null;
@@ -624,6 +631,57 @@ function OutputErrorCard({ error, errorLine, executionTimeMs, scriptSource, stac
           </div>
         </div>
       </div>
+
+      {/* What the engine's type checker said about this exact script. It points
+          at the expression that is wrong, which a message keyed off the
+          exception name cannot do — so when it has something, it goes here and
+          the pattern-matched hint stands down. Same text the editor shows on
+          hover; people who never hover were not seeing it. */}
+      {diagnosis.length > 0 && (
+        <div
+          className="rounded-lg border overflow-hidden"
+          style={{
+            background: 'color-mix(in oklch, var(--cyan) 5%, var(--surface))',
+            borderColor: 'color-mix(in oklch, var(--cyan) 28%, transparent)',
+          }}
+        >
+          <div
+            className="flex items-center gap-2 px-3 py-1.5 border-b"
+            style={{
+              borderColor: 'color-mix(in oklch, var(--cyan) 18%, transparent)',
+              background: 'color-mix(in oklch, var(--cyan) 8%, transparent)',
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--cyan)' }}>
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4M12 8h.01" />
+            </svg>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--cyan)' }}>
+              What the type checker says
+            </span>
+          </div>
+          <div className="px-3.5 py-3 space-y-2.5">
+            {diagnosis.map((m, i) => (
+              <div key={i} className="space-y-1">
+                <div className="flex items-baseline gap-2">
+                  <span
+                    className="shrink-0 font-mono text-[10px] font-bold uppercase tracking-[0.4px]"
+                    style={{ color: m.severity === 'error' ? 'var(--err)' : 'var(--warn)' }}
+                  >
+                    {m.severity}
+                  </span>
+                  {m.code && (
+                    <span className="font-mono text-[10px] text-content-faint">{m.code}</span>
+                  )}
+                </div>
+                <pre className="text-[12px] text-content leading-relaxed font-mono whitespace-pre-wrap break-words">
+                  {m.message}
+                </pre>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Hint card — pattern-matched explanation + fix suggestions.
           Rendered above the raw details so users see the actionable advice first. */}

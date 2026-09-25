@@ -1,0 +1,33 @@
+{
+  "id": "subscription-days-predict-0",
+  "unit": "date-arithmetic",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "What subtracting two dates gives you",
+  "topics": [
+    "Period",
+    "as"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{\n  value: |2027-03-01| - |2027-02-01|,\n  kind: typeOf(|2027-03-01| - |2027-02-01|)\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{\n  value: |2027-03-01| - |2027-02-01|,\n  kind: typeOf(|2027-03-01| - |2027-02-01|)\n}",
+  "explanation": {
+    "approach": "Not a number — a Period, printed as `PT672H`. It is an elapsed duration held in hours, and 672 hours is 28 days. This is why the answer cannot just be `end - start`.",
+    "snippets": [
+      {
+        "label": "What subtracting two dates gives you",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  value: |2027-03-01| - |2027-02-01|,\n  kind: typeOf(|2027-03-01| - |2027-02-01|)\n}",
+        "expect": {
+          "output": "{ \"value\": \"PT672H\", \"kind\": \"Period\" }"
+        },
+        "note": "Not a number — a Period, printed as `PT672H`. It is an elapsed duration held in hours, and 672 hours is 28 days. This is why the answer cannot just be `end - start`."
+      }
+    ]
+  },
+  "derivedFrom": "subscription-days"
+}

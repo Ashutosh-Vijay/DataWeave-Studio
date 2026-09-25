@@ -1,0 +1,33 @@
+{
+  "id": "order-csv-envelope-predict-1",
+  "unit": "multi-format-embed",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "column order follows the object's own field order, not the question's",
+  "topics": [
+    "write",
+    "read"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nwrite([{price: 3, sku: \"F6\", qty: 4}], \"application/csv\")"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nwrite([{price: 3, sku: \"F6\", qty: 4}], \"application/csv\")",
+  "explanation": {
+    "approach": "This row's own JSON lists price, then sku, then qty, and the CSV header comes out in that same order — price first. Nothing about `write` knows the columns are supposed to read sku, qty, price.",
+    "snippets": [
+      {
+        "label": "column order follows the object's own field order, not the question's",
+        "script": "%dw 2.0\noutput application/json\n---\nwrite([{price: 3, sku: \"F6\", qty: 4}], \"application/csv\")",
+        "expect": {
+          "output": "\"price,sku,qty\\r\\n3,F6,4\\r\\n\""
+        },
+        "note": "This row's own JSON lists price, then sku, then qty, and the CSV header comes out in that same order — price first. Nothing about `write` knows the columns are supposed to read sku, qty, price."
+      }
+    ]
+  },
+  "derivedFrom": "order-csv-envelope"
+}

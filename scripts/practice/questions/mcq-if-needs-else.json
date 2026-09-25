@@ -1,0 +1,50 @@
+{
+  "id": "mcq-if-needs-else",
+  "unit": "conditional-fields",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "Which one fails?",
+  "topics": [
+    "if"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "payload": "{\"n\":5}",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\nif (payload.n > 3) \"big\"",
+      "%dw 2.0\noutput application/json\n---\nif (payload.n > 3) \"big\" else \"small\"",
+      "%dw 2.0\noutput application/json\n---\npayload.n match { case n if n > 3 -> \"big\" else -> \"small\" }",
+      "%dw 2.0\noutput application/json\n---\nif (payload.n > 9) \"huge\" else if (payload.n > 3) \"big\" else \"small\""
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nif (payload.n > 3) \"big\" else \"small\"",
+  "explanation": {
+    "approach": "An `if` in DataWeave is an expression, and an expression always needs a value. Without `else` there is no value for the false case, so the script does not compile.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\nif (payload.n > 3) \"big\"",
+        "payload": "{\"n\":5}",
+        "expect": {
+          "error": true
+        },
+        "note": "Missing Else, even though the condition is true for this payload."
+      },
+      {
+        "label": "Chained else if",
+        "script": "%dw 2.0\noutput application/json\n---\nif (payload.n > 9) \"huge\" else if (payload.n > 3) \"big\" else \"small\"",
+        "payload": "{\"n\":5}",
+        "expect": {
+          "output": "\"big\""
+        },
+        "note": "Each branch ends in an `else`."
+      }
+    ]
+  }
+}

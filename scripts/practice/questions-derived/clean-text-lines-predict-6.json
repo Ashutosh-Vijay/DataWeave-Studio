@@ -1,0 +1,36 @@
+{
+  "id": "clean-text-lines-predict-6",
+  "unit": "string-basics",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "joinBy assembles back",
+  "topics": [
+    "upper",
+    "lower",
+    "trim",
+    "splitBy",
+    "joinBy"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "text/plain",
+  "outputMime": "text/plain",
+  "given": {
+    "script": "%dw 2.0\noutput text/plain\n---\n[\"Line1\", \"Line2\", \"Line3\"] joinBy \"\\n\""
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput text/plain\n---\n[\"Line1\", \"Line2\", \"Line3\"] joinBy \"\\n\"",
+  "explanation": {
+    "approach": "The newline literal `\\n` produces actual newlines in the output, not the characters backslash and n.",
+    "snippets": [
+      {
+        "label": "joinBy assembles back",
+        "script": "%dw 2.0\noutput text/plain\n---\n[\"Line1\", \"Line2\", \"Line3\"] joinBy \"\\n\"",
+        "expect": {
+          "output": "Line1\nLine2\nLine3"
+        },
+        "note": "The newline literal `\\n` produces actual newlines in the output, not the characters backslash and n."
+      }
+    ]
+  },
+  "derivedFrom": "clean-text-lines"
+}

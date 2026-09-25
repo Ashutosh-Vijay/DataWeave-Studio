@@ -1,0 +1,35 @@
+{
+  "id": "duplicate-key-collision-predict-1",
+  "unit": "duplicate-keys",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Building an object from an array with reduce",
+  "topics": [
+    "duplicate keys",
+    "object construction"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[{\"name\":\"a\",\"value\":1},{\"name\":\"b\",\"value\":2}] reduce ((tag, obj = {}) -> obj ++ { (tag.name): tag.value })",
+    "payload": null
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[{\"name\":\"a\",\"value\":1},{\"name\":\"b\",\"value\":2}] reduce ((tag, obj = {}) -> obj ++ { (tag.name): tag.value })",
+  "explanation": {
+    "approach": "Start with an empty object. For each tag, concatenate it with a new object built from that tag's name and value. The `++` operator merges the objects.",
+    "snippets": [
+      {
+        "label": "Building an object from an array with reduce",
+        "script": "%dw 2.0\noutput application/json\n---\n[{\"name\":\"a\",\"value\":1},{\"name\":\"b\",\"value\":2}] reduce ((tag, obj = {}) -> obj ++ { (tag.name): tag.value })",
+        "payload": null,
+        "expect": {
+          "output": "{ \"a\": 1, \"b\": 2 }"
+        },
+        "note": "Start with an empty object. For each tag, concatenate it with a new object built from that tag's name and value. The `++` operator merges the objects."
+      }
+    ]
+  },
+  "derivedFrom": "duplicate-key-collision"
+}

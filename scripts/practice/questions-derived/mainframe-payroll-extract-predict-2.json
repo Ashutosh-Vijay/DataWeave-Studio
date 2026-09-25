@@ -1,0 +1,35 @@
+{
+  "id": "mainframe-payroll-extract-predict-2",
+  "unit": "flat-file",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "A parsed field is still a String until you say otherwise",
+  "topics": [
+    "read",
+    "range selectors",
+    "fixed-width",
+    "trim"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "text/plain",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{\n  raw: \"E00001Alice Chen          0004250.00ENG\"[26 to 35],\n  rawType: typeOf(\"E00001Alice Chen          0004250.00ENG\"[26 to 35]),\n  asNumber: \"E00001Alice Chen          0004250.00ENG\"[26 to 35] as Number\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{\n  raw: \"E00001Alice Chen          0004250.00ENG\"[26 to 35],\n  rawType: typeOf(\"E00001Alice Chen          0004250.00ENG\"[26 to 35]),\n  asNumber: \"E00001Alice Chen          0004250.00ENG\"[26 to 35] as Number\n}",
+  "explanation": {
+    "approach": "The salary column comes out as the String \"0004250.00\". as Number drops the leading zeros and keeps the cents — 4250, not a display string.",
+    "snippets": [
+      {
+        "label": "A parsed field is still a String until you say otherwise",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  raw: \"E00001Alice Chen          0004250.00ENG\"[26 to 35],\n  rawType: typeOf(\"E00001Alice Chen          0004250.00ENG\"[26 to 35]),\n  asNumber: \"E00001Alice Chen          0004250.00ENG\"[26 to 35] as Number\n}",
+        "expect": {
+          "output": "{ \"raw\": \"0004250.00\", \"rawType\": \"String\", \"asNumber\": 4250 }"
+        },
+        "note": "The salary column comes out as the String \"0004250.00\". as Number drops the leading zeros and keeps the cents — 4250, not a display string."
+      }
+    ]
+  },
+  "derivedFrom": "mainframe-payroll-extract"
+}

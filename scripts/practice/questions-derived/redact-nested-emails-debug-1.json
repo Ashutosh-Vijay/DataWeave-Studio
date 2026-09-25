@@ -1,0 +1,105 @@
+{
+  "id": "redact-nested-emails-debug-1",
+  "unit": "tree-module",
+  "mode": "debug",
+  "tier": "hard",
+  "title": "Fix it: redact every email address, whatever shape it's hiding in",
+  "topics": [
+    "dw::util::Tree",
+    "mapLeafValues"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nA payload arrives with no fixed shape — some fields are plain, some are nested objects, some are arrays of objects, arrays of arrays, whatever the upstream system felt like sending that day.\n\nReplace every string value that looks like an email address (it contains an `@`) with the literal string `\"REDACTED\"`, no matter how deeply it is nested. Leave every other value exactly as it is — same value, same type. A number must stay a number and a boolean must stay a boolean in the output; do not turn them into strings along the way.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\nfun redactObj(o: Object): Object = o mapObject ((v, k) -> { (k): if (v is Object) redactObj(v) else if ((v is String) and contains(v, '@')) 'REDACTED' else v })\n---\nredactObj(payload)",
+  "cases": [
+    {
+      "input": "{ \"user\": { \"name\": \"Alice\", \"email\": \"alice@example.com\" }, \"id\": 7 }",
+      "output": "{ \"user\": { \"name\": \"Alice\", \"email\": \"REDACTED\" }, \"id\": 7 }"
+    },
+    {
+      "input": "{ \"notes\": [\"fine\", \"bob@example.com\"], \"count\": 2 }",
+      "output": "{ \"notes\": [\"fine\", \"REDACTED\"], \"count\": 2 }"
+    },
+    {
+      "input": "{ \"org\": { \"teams\": [ { \"lead\": \"carol@example.com\", \"members\": [\"dave@example.com\", \"erin\"] }, { \"lead\": \"frank\", \"members\": [] } ] } }",
+      "output": "{ \"org\": { \"teams\": [ { \"lead\": \"REDACTED\", \"members\": [\"REDACTED\", \"erin\"] }, { \"lead\": \"frank\", \"members\": [] } ] } }"
+    },
+    {
+      "input": "{ \"a\": null, \"b\": {}, \"c\": [] }",
+      "output": "{ \"a\": null, \"b\": {}, \"c\": [] }"
+    },
+    {
+      "input": "[\"a@b.com\", \"hello\", 5]",
+      "output": "[\"REDACTED\", \"hello\", 5]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "hand-rolled recursion that only descends into Objects, so any email sitting inside an Array (a list of strings, or an array of objects) is never visited and never redacted"
+  ],
+  "solution": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\npayload mapLeafValues ((v, p) -> if ((v is String) and contains(v, '@')) 'REDACTED' else v)",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\nfun redactObj(o: Object): Object = o mapObject ((v, k) -> { (k): if (v is Object) redactObj(v) else if ((v is String) and contains(v, '@')) 'REDACTED' else v })\n---\nredactObj(payload)"
+    }
+  ],
+  "explanation": {
+    "approach": "The payload's shape is not fixed, so a hand-written walk has to correctly recurse into both Objects and Arrays, at every depth, or it silently skips a branch. `dw::util::Tree`'s `mapLeafValues` already does that walk: it calls the callback once for every terminal value in the structure, regardless of whether that value sits inside nested objects, inside arrays, or inside arrays of objects. The task then reduces to one decision per leaf — is this a String that contains `@`? — and the one trap is deciding what to do with everything else: it must come back unchanged, not coerced into a String.",
+    "snippets": [
+      {
+        "label": "mapLeafValues is not in core",
+        "script": "%dw 2.0\noutput application/json\n---\nmapLeafValues({a:1}, (v,p) -> v)",
+        "expect": {
+          "error": true
+        },
+        "note": "Without `import * from dw::util::Tree`, the name simply does not resolve — a plain CompilationException, with nothing in the message pointing at the missing import."
+      },
+      {
+        "label": "The generic walk, on a small fixture",
+        "script": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\nmapLeafValues({a:{b:'x'},c:['y']}, (v,p) -> upper(v as String))",
+        "expect": {
+          "output": "{ \"a\": { \"b\": \"X\" }, \"c\": [ \"Y\" ] }"
+        },
+        "note": "One leaf is two objects deep (`a.b`), the other is inside an array (`c[0]`). Both get the callback. That is the walk this module gives you for free."
+      },
+      {
+        "label": "Checking the type before matching",
+        "script": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\n{name: \"Alice\", email: \"alice@example.com\", age: 30} mapLeafValues ((v, p) -> if ((v is String) and contains(v, '@')) 'REDACTED' else v)",
+        "expect": {
+          "output": "{ \"name\": \"Alice\", \"email\": \"REDACTED\", \"age\": 30 }"
+        },
+        "note": "`age` reaches the callback too — every leaf does — but it is not a String, so the `is String` check keeps it as the number `30`, not `\"30\"`."
+      },
+      {
+        "label": "Skip the type check and coerce instead, and the numbers quietly become strings",
+        "script": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\n{name: \"Alice\", email: \"alice@example.com\", age: 30} mapLeafValues ((v, p) -> if (contains(v as String, '@')) 'REDACTED' else (v as String))",
+        "expect": {
+          "output": "{ \"name\": \"Alice\", \"email\": \"REDACTED\", \"age\": \"30\" }"
+        },
+        "note": "This is the shape of the function reference's own example, applied to data where not every leaf is already a String. `age` is still redacted correctly (30 does not contain `@`), but it comes back as `\"30\"` — a string in the output where the input had a number."
+      },
+      {
+        "label": "The walk reaches inside an array of objects two levels down",
+        "script": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\npayload mapLeafValues ((v, p) -> if ((v is String) and contains(v, '@')) 'REDACTED' else v)",
+        "payload": "{ \"org\": { \"teams\": [ { \"lead\": \"carol@example.com\", \"members\": [\"dave@example.com\", \"erin\"] }, { \"lead\": \"frank\", \"members\": [] } ] } }",
+        "expect": {
+          "output": "{ \"org\": { \"teams\": [ { \"lead\": \"REDACTED\", \"members\": [ \"REDACTED\", \"erin\" ] }, { \"lead\": \"frank\", \"members\": [ ] } ] } }"
+        },
+        "note": "Both `lead` fields and both `members` entries are leaves, whether they sit directly in an object or inside an array nested inside that object's array of teams. `mapLeafValues` does not care which."
+      },
+      {
+        "label": "Why not hand-roll it: a recursive mapObject skips arrays entirely",
+        "script": "%dw 2.0\noutput application/json\nfun redactObj(o: Object): Object = o mapObject ((v, k) -> { (k): if (v is Object) redactObj(v) else if ((v is String) and contains(v, '@')) 'REDACTED' else v })\n---\nredactObj(payload)",
+        "payload": "{ \"notes\": [\"fine\", \"bob@example.com\"], \"count\": 2 }",
+        "expect": {
+          "output": "{ \"notes\": [ \"fine\", \"bob@example.com\" ], \"count\": 2 }"
+        },
+        "note": "`redactObj` only recurses when a value `is Object`. An Array is neither an Object nor a String, so it falls into the last `else v` and comes back completely untouched — `bob@example.com` survives inside `notes` because nothing ever looked inside that array."
+      }
+    ]
+  },
+  "derivedFrom": "redact-nested-emails"
+}

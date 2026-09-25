@@ -1,0 +1,33 @@
+{
+  "id": "subscription-days-predict-1",
+  "unit": "date-arithmetic",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "Pulling days out of that duration",
+  "topics": [
+    "Period",
+    "as"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n(|2027-03-01| - |2027-02-01|).days"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(|2027-03-01| - |2027-02-01|).days",
+  "explanation": {
+    "approach": "A Period is selectable, and `.days` converts the whole elapsed duration into days. That is the answer.",
+    "snippets": [
+      {
+        "label": "Pulling days out of that duration",
+        "script": "%dw 2.0\noutput application/json\n---\n(|2027-03-01| - |2027-02-01|).days",
+        "expect": {
+          "output": "28"
+        },
+        "note": "A Period is selectable, and `.days` converts the whole elapsed duration into days. That is the answer."
+      }
+    ]
+  },
+  "derivedFrom": "subscription-days"
+}

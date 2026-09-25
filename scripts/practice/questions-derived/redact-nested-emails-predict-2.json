@@ -1,0 +1,33 @@
+{
+  "id": "redact-nested-emails-predict-2",
+  "unit": "tree-module",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "Checking the type before matching",
+  "topics": [
+    "dw::util::Tree",
+    "mapLeafValues"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\n{name: \"Alice\", email: \"alice@example.com\", age: 30} mapLeafValues ((v, p) -> if ((v is String) and contains(v, '@')) 'REDACTED' else v)"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\n{name: \"Alice\", email: \"alice@example.com\", age: 30} mapLeafValues ((v, p) -> if ((v is String) and contains(v, '@')) 'REDACTED' else v)",
+  "explanation": {
+    "approach": "`age` reaches the callback too — every leaf does — but it is not a String, so the `is String` check keeps it as the number `30`, not `\"30\"`.",
+    "snippets": [
+      {
+        "label": "Checking the type before matching",
+        "script": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\n{name: \"Alice\", email: \"alice@example.com\", age: 30} mapLeafValues ((v, p) -> if ((v is String) and contains(v, '@')) 'REDACTED' else v)",
+        "expect": {
+          "output": "{ \"name\": \"Alice\", \"email\": \"REDACTED\", \"age\": 30 }"
+        },
+        "note": "`age` reaches the callback too — every leaf does — but it is not a String, so the `is String` check keeps it as the number `30`, not `\"30\"`."
+      }
+    ]
+  },
+  "derivedFrom": "redact-nested-emails"
+}

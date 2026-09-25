@@ -1,0 +1,65 @@
+{
+  "id": "mcq-import-named-only",
+  "unit": "string-basics",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "import",
+    "modules",
+    "dw::core::Strings"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\ndw::core::Strings::camelize(\"order_id\")",
+      "%dw 2.0\noutput application/json\nimport dw::core::Strings as Str\n---\nStr::camelize(\"order_id\")",
+      "%dw 2.0\noutput application/json\nimport capitalize, camelize from dw::core::Strings\n---\ncamelize(\"order_id\")",
+      "%dw 2.0\noutput application/json\nimport capitalize from dw::core::Strings\n---\ncamelize(\"order_id\")"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport capitalize, camelize from dw::core::Strings\n---\ncamelize(\"order_id\")",
+  "explanation": {
+    "approach": "`import name from module` brings in exactly the names listed and nothing else. A module can also be given a shorter alias, or a function can be called by its fully qualified name with no import at all.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\nimport capitalize from dw::core::Strings\n---\ncamelize(\"order_id\")",
+        "expect": {
+          "error": true
+        },
+        "note": "Only `capitalize` was imported."
+      },
+      {
+        "label": "List every name you use",
+        "script": "%dw 2.0\noutput application/json\nimport capitalize, camelize from dw::core::Strings\n---\ncamelize(\"order_id\")",
+        "expect": {
+          "output": "\"orderId\""
+        },
+        "note": "A comma-separated list."
+      },
+      {
+        "label": "A module alias",
+        "script": "%dw 2.0\noutput application/json\nimport dw::core::Strings as Str\n---\nStr::camelize(\"order_id\")",
+        "expect": {
+          "output": "\"orderId\""
+        },
+        "note": "`as` renames the module in this script."
+      },
+      {
+        "label": "No import at all",
+        "script": "%dw 2.0\noutput application/json\n---\ndw::core::Strings::camelize(\"order_id\")",
+        "expect": {
+          "output": "\"orderId\""
+        },
+        "note": "The fully qualified name always works."
+      }
+    ]
+  }
+}

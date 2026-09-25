@@ -1,0 +1,85 @@
+{
+  "id": "optional-fields",
+  "unit": "conditional-fields",
+  "tier": "medium",
+  "title": "Include a field only when it applies",
+  "topics": [],
+  "prompt": "You are given a user record with optional fields like a phone number or a business title.\n\nReturn an object with the user's name always included, but only include the optional fields if they are not empty strings.\n\nNever emit a field with a null value — if the field should not appear, omit it entirely.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "{ \"name\": \"Alice\", \"phone\": \"555-1234\", \"title\": \"\" }",
+      "output": "{ \"name\": \"Alice\", \"phone\": \"555-1234\" }"
+    },
+    {
+      "input": "{ \"name\": \"Bob\", \"phone\": \"\", \"title\": \"Manager\" }",
+      "output": "{ \"name\": \"Bob\", \"title\": \"Manager\" }"
+    },
+    {
+      "input": "{ \"name\": \"Charlie\", \"phone\": \"\", \"title\": \"\" }",
+      "output": "{ \"name\": \"Charlie\" }"
+    },
+    {
+      "input": "{ \"name\": \"Diana\", \"phone\": \"555-9999\", \"title\": \"Director\" }",
+      "output": "{ \"name\": \"Diana\", \"phone\": \"555-9999\", \"title\": \"Director\" }"
+    }
+  ],
+  "hints": [
+    "There is a syntax for `if` inside an object that works for one key-value pair.",
+    "The parentheses matter — look at the trap in the curriculum.",
+    "Check what happens when you forget them and what the `if` actually modifies."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, (phone: payload.phone) if (payload.phone != \"\"), (title: payload.title) if (payload.title != \"\") }",
+  "mustFail": [
+    {
+      "why": "hardcodes the sample answer",
+      "script": "%dw 2.0\noutput application/json\n---\n{ \"name\": \"Alice\", \"phone\": \"555-1234\" }"
+    },
+    {
+      "why": "forgets the parentheses, so the if modifies the value not the key",
+      "script": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, phone: payload.phone if (payload.phone != \"\"), title: payload.title if (payload.title != \"\") }"
+    }
+  ],
+  "explanation": {
+    "approach": "Use `(key: value) if (condition)` to include a field conditionally. The parentheses wrap the key-value pair so the `if` applies to the whole pair. Without them, the `if` applies only to the value, creating a field with a null key.",
+    "snippets": [
+      {
+        "label": "A user record with optional fields",
+        "script": "%dw 2.0\noutput application/json\n---\npayload",
+        "payload": "{ \"name\": \"Alice\", \"phone\": \"555-1234\", \"title\": \"\" }",
+        "expect": { "output": "{ \"name\": \"Alice\", \"phone\": \"555-1234\", \"title\": \"\" }" },
+        "note": "Some fields are empty strings — the job is to drop them from the output."
+      },
+      {
+        "label": "The answer — parentheses around the pair",
+        "script": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, (phone: payload.phone) if (payload.phone != \"\"), (title: payload.title) if (payload.title != \"\") }",
+        "payload": "{ \"name\": \"Alice\", \"phone\": \"555-1234\", \"title\": \"\" }",
+        "expect": { "output": "{ \"name\": \"Alice\", \"phone\": \"555-1234\" }" },
+        "note": "The `(phone: ...)` wraps both the key and value, so the `if` applies to the entire field. When `title` is empty, the whole field is omitted."
+      },
+      {
+        "label": "When all optionals are empty",
+        "script": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, (phone: payload.phone) if (payload.phone != \"\"), (title: payload.title) if (payload.title != \"\") }",
+        "payload": "{ \"name\": \"Charlie\", \"phone\": \"\", \"title\": \"\" }",
+        "expect": { "output": "{ \"name\": \"Charlie\" }" },
+        "note": "Both optional fields are empty, so they are dropped entirely. No null values appear."
+      },
+      {
+        "label": "Wrong approach — using a ternary instead",
+        "script": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, phone: if (payload.phone != \"\") payload.phone else null, title: if (payload.title != \"\") payload.title else null }",
+        "payload": "{ \"name\": \"Bob\", \"phone\": \"\", \"title\": \"Manager\" }",
+        "expect": { "output": "{ \"name\": \"Bob\", \"phone\": null, \"title\": \"Manager\" }" },
+        "note": "This creates a null value when the condition fails. The field still appears in the output with a null value — exactly what the problem asked you NOT to do. The conditional field syntax `(key: value) if (...)` omits the entire field instead."
+      },
+      {
+        "label": "A record with all fields present",
+        "script": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, (phone: payload.phone) if (payload.phone != \"\"), (title: payload.title) if (payload.title != \"\") }",
+        "payload": "{ \"name\": \"Diana\", \"phone\": \"555-9999\", \"title\": \"Director\" }",
+        "expect": { "output": "{ \"name\": \"Diana\", \"phone\": \"555-9999\", \"title\": \"Director\" }" },
+        "note": "All fields pass their conditions, so all appear in the output."
+      }
+    ]
+  }
+}

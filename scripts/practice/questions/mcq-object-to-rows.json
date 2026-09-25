@@ -1,0 +1,64 @@
+{
+  "id": "mcq-object-to-rows",
+  "unit": "pluck-and-mapobject",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "pluck",
+    "mapObject",
+    "map"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n[ { \"code\": \"USD\", \"rate\": 1 }, { \"code\": \"EUR\", \"rate\": 0.9 } ]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"USD\":1,\"EUR\":0.9}",
+    "target": "[ { \"code\": \"USD\", \"rate\": 1 }, { \"code\": \"EUR\", \"rate\": 0.9 } ]",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload mapObject { code: $$, rate: $ }",
+      "%dw 2.0\noutput application/json\n---\npayload map { code: $$, rate: $ }",
+      "%dw 2.0\noutput application/json\n---\npayload pluck { code: $, rate: $$ }",
+      "%dw 2.0\noutput application/json\n---\npayload pluck { code: $$, rate: $ }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload pluck { code: $$, rate: $ }",
+  "explanation": {
+    "approach": "`pluck` is the Object-to-Array function. `mapObject` keeps an Object, so the two rows would collapse into one Object with repeated keys. `map` does not accept an Object at all.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload pluck { code: $$, rate: $ }",
+        "payload": "{\"USD\":1,\"EUR\":0.9}",
+        "expect": {
+          "output": "[ { \"code\": \"USD\", \"rate\": 1 }, { \"code\": \"EUR\", \"rate\": 0.9 } ]"
+        },
+        "note": "One row per key."
+      },
+      {
+        "label": "map on an Object",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map { code: $$, rate: $ }",
+        "payload": "{\"USD\":1,\"EUR\":0.9}",
+        "expect": {
+          "error": true
+        },
+        "note": "A compile error: `map` wants an Array."
+      },
+      {
+        "label": "mapObject keeps an Object",
+        "script": "%dw 2.0\noutput application/json indent=false\n---\npayload mapObject { code: $$, rate: $ }",
+        "payload": "{\"USD\":1,\"EUR\":0.9}",
+        "outputMime": "application/json indent=false",
+        "expect": {
+          "output": "{\"code\": \"USD\",\"rate\": 1,\"code\": \"EUR\",\"rate\": 0.9}"
+        },
+        "compare": "text",
+        "note": "One Object with repeated keys, which a JSON reader would collapse."
+      }
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "id": "clean-text-lines-predict-3",
+  "unit": "string-basics",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "String slicing: characters as array indices",
+  "topics": [
+    "upper",
+    "lower",
+    "trim",
+    "splitBy",
+    "joinBy"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "text/plain",
+  "outputMime": "text/plain",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{first: \"hello\"[0], rest: \"hello\"[1 to -1]}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{first: \"hello\"[0], rest: \"hello\"[1 to -1]}",
+  "explanation": {
+    "approach": "[0] gets the first character, [1 to -1] gets from index 1 to the last. So for a string `n`, the formula is always upper(n[0]) ++ lower(n[1 to -1]).",
+    "snippets": [
+      {
+        "label": "String slicing: characters as array indices",
+        "script": "%dw 2.0\noutput application/json\n---\n{first: \"hello\"[0], rest: \"hello\"[1 to -1]}",
+        "expect": {
+          "output": "{ \"first\": \"h\", \"rest\": \"ello\" }"
+        },
+        "note": "[0] gets the first character, [1 to -1] gets from index 1 to the last. So for a string `n`, the formula is always upper(n[0]) ++ lower(n[1 to -1])."
+      }
+    ]
+  },
+  "derivedFrom": "clean-text-lines"
+}

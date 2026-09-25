@@ -1,0 +1,32 @@
+{
+  "id": "first-and-last-items-predict-5",
+  "unit": "sizeof-and-slicing",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Why the tempting alternative is wrong",
+  "topics": [
+    "sizeOf"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{direct: [1,2,3][-1], calc: [1,2,3][sizeOf([1,2,3]) - 1]}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{direct: [1,2,3][-1], calc: [1,2,3][sizeOf([1,2,3]) - 1]}",
+  "explanation": {
+    "approach": "Both return the same value, but negative indexing is clearer — it says 'get the last' without asking you to do arithmetic.",
+    "snippets": [
+      {
+        "label": "Why the tempting alternative is wrong",
+        "script": "%dw 2.0\noutput application/json\n---\n{direct: [1,2,3][-1], calc: [1,2,3][sizeOf([1,2,3]) - 1]}",
+        "expect": {
+          "output": "{ \"direct\": 3, \"calc\": 3 }"
+        },
+        "note": "Both return the same value, but negative indexing is clearer — it says 'get the last' without asking you to do arithmetic."
+      }
+    ]
+  },
+  "derivedFrom": "first-and-last-items"
+}

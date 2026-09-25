@@ -1,0 +1,46 @@
+{
+  "id": "mcq-match-mixed-values",
+  "unit": "match-and-types",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "match",
+    "is",
+    "upper",
+    "sizeOf"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "`match` tries its cases from top to bottom and runs the first one that fits. `case s is String -> ...` fits Strings, `case n is Number -> ...` fits Numbers, and `else` catches whatever is left.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[\"a\", 2, null, [1, 2, 3]] map ($ match {\n  case s is String -> upper(s)\n  case n is Number -> n * 10\n  case a is Array -> sizeOf(a)\n  else -> \"?\"\n})"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ \"A\", 20, null, 3 ]",
+      "[ \"a\", 2, \"?\", 3 ]",
+      "[ \"A\", 20, \"?\", [ 1, 2, 3 ] ]",
+      "[ \"A\", 20, \"?\", 3 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[\"a\", 2, null, [1, 2, 3]] map ($ match {\n  case s is String -> upper(s)\n  case n is Number -> n * 10\n  case a is Array -> sizeOf(a)\n  else -> \"?\"\n})",
+  "explanation": {
+    "approach": "Each element takes the first case whose type fits. null is none of the three types, so it reaches `else`. The Array case returns its size.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"a\", 2, null, [1, 2, 3]] map ($ match {\n  case s is String -> upper(s)\n  case n is Number -> n * 10\n  case a is Array -> sizeOf(a)\n  else -> \"?\"\n})",
+        "expect": {
+          "output": "[\"A\",20,\"?\",3]"
+        },
+        "note": "One case per type, and a catch-all."
+      }
+    ]
+  }
+}

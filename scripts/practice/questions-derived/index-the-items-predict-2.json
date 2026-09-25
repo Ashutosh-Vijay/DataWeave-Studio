@@ -1,0 +1,35 @@
+{
+  "id": "index-the-items-predict-2",
+  "unit": "map-basics",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "The zero-based mistake",
+  "topics": [
+    "map",
+    "index"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload map {position: $$, item: $}",
+    "payload": "[\"apple\", \"banana\", \"cherry\"]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map {position: $$, item: $}",
+  "explanation": {
+    "approach": "Forgetting to add 1 gives you zero-based positions. It is valid DataWeave, but it does not answer the task.",
+    "snippets": [
+      {
+        "label": "The zero-based mistake",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map {position: $$, item: $}",
+        "payload": "[\"apple\", \"banana\", \"cherry\"]",
+        "expect": {
+          "output": "[ { \"position\": 0, \"item\": \"apple\" }, { \"position\": 1, \"item\": \"banana\" }, { \"position\": 2, \"item\": \"cherry\" } ]"
+        },
+        "note": "Forgetting to add 1 gives you zero-based positions. It is valid DataWeave, but it does not answer the task."
+      }
+    ]
+  },
+  "derivedFrom": "index-the-items"
+}

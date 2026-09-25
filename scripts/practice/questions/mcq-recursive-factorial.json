@@ -1,0 +1,44 @@
+{
+  "id": "mcq-recursive-factorial",
+  "unit": "recursion",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "fun",
+    "recursion",
+    "if"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun fact(n) = if (n <= 1) 1 else n * fact(n - 1)\n---\n[ fact(1), fact(5) ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ 0, 120 ]",
+      "[ 1, 24 ]",
+      "It fails: a function cannot call itself",
+      "[ 1, 120 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun fact(n) = if (n <= 1) 1 else n * fact(n - 1)\n---\n[ fact(1), fact(5) ]",
+  "explanation": {
+    "approach": "A `fun` can call itself. Each call works on a smaller input until it reaches the base case, `n <= 1`.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nfun fact(n) = if (n <= 1) 1 else n * fact(n - 1)\n---\n[ fact(1), fact(5) ]",
+        "expect": {
+          "output": "[ 1, 120 ]"
+        },
+        "note": "5 * 4 * 3 * 2 * 1."
+      }
+    ]
+  }
+}

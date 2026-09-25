@@ -1,0 +1,38 @@
+{
+  "id": "read-repeated-xml-elements-predict-2",
+  "unit": "xml-selectors",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Getting all lines with .*",
+  "topics": [
+    "XML",
+    "selectors",
+    ".*",
+    "@"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.order.*line",
+    "payload": "<order id=\"X\"><line>A</line><line>B</line><line>C</line></order>"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.order.*line",
+  "explanation": {
+    "approach": "The `*` makes it an array. Now you have all of them and can index or transform them as needed.",
+    "snippets": [
+      {
+        "label": "Getting all lines with .*",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.order.*line",
+        "payload": "<order id=\"X\"><line>A</line><line>B</line><line>C</line></order>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "[\"A\", \"B\", \"C\"]"
+        },
+        "note": "The `*` makes it an array. Now you have all of them and can index or transform them as needed."
+      }
+    ]
+  },
+  "derivedFrom": "read-repeated-xml-elements"
+}

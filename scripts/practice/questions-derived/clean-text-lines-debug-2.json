@@ -1,0 +1,117 @@
+{
+  "id": "clean-text-lines-debug-2",
+  "unit": "string-basics",
+  "mode": "debug",
+  "tier": "easy",
+  "title": "Fix it: format a list of names",
+  "topics": [
+    "upper",
+    "lower",
+    "trim",
+    "splitBy",
+    "joinBy"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nYou have a list of names that is formatted as a single string with a pipe separator. The names have extra spaces and are in different cases. Clean them up: trim the spaces, convert to title case (first letter uppercase, rest lowercase), and return them as a newline-separated string.\n\nTitle case formula: take the first character, uppercase it, concatenate the rest of the string in lowercase. In DataWeave, a string is an array: `s[0]` is the first character and `s[1 to -1]` is the rest.\n\nFor the sample, input `\" alice | BOB | Carol \"` should produce `Alice\\nBob\\nCarol`.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "text/plain",
+  "outputMime": "text/plain",
+  "starter": "%dw 2.0\noutput text/plain\n---\npayload splitBy \"|\" map (upper($[0])) joinBy \"\\n\"",
+  "cases": [
+    {
+      "input": " alice | BOB | Carol ",
+      "output": "Alice\nBob\nCarol"
+    },
+    {
+      "input": "david|EVE|frank",
+      "output": "David\nEve\nFrank"
+    },
+    {
+      "input": "  grace  ",
+      "output": "Grace"
+    },
+    {
+      "input": "single",
+      "output": "Single"
+    },
+    {
+      "input": " henry | iris | JACK ",
+      "output": "Henry\nIris\nJack"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "only shows the first letter because slicing goes wrong"
+  ],
+  "solution": "%dw 2.0\noutput text/plain\n---\npayload splitBy \"|\" map (do { var n = trim($) --- upper(n[0]) ++ lower(n[1 to -1]) }) joinBy \"\\n\"",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput text/plain\n---\npayload splitBy \"|\" map (upper($[0])) joinBy \"\\n\""
+    }
+  ],
+  "explanation": {
+    "approach": "Three chained operations: split on the separator, transform each element, join with the output separator. The trap is remembering that splitBy keeps the spaces in each name — each element needs trimming before capitalization.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput text/plain\n---\npayload splitBy \"|\" map (do { var n = trim($) --- upper(n[0]) ++ lower(n[1 to -1]) }) joinBy \"\\n\"",
+        "payload": " alice | BOB | Carol ",
+        "expect": {
+          "output": "Alice\nBob\nCarol"
+        },
+        "note": "splitBy breaks on pipes; map transforms each (trim first, then build title case: first letter uppercase, rest lowercase); joinBy reassembles with newlines. The `do { var n = ... }` inside map lets you name the trimmed string so you can split it."
+      },
+      {
+        "label": "What splitBy actually produces",
+        "script": "%dw 2.0\noutput application/json\n---\npayload splitBy \"|\"",
+        "payload": " alice | BOB | Carol ",
+        "expect": {
+          "output": "[ \" alice \", \" BOB \", \" Carol \" ]"
+        },
+        "note": "The spaces are still there. Each element keeps its surrounding whitespace. Without trim(), the first character of \" alice \" would be processed, which is a space."
+      },
+      {
+        "label": "The wrong way: forgetting to trim",
+        "script": "%dw 2.0\noutput text/plain\n---\npayload splitBy \"|\" map (upper($[0]) ++ lower($[1 to -1])) joinBy \"\\n\"",
+        "payload": " alice | BOB | Carol ",
+        "expect": {
+          "output": " alice \n bob \n carol "
+        },
+        "note": "Without trim(), each name still has its spaces. When you apply the formula to \" alice \", the first char is a space and the rest is \"alice \", so you get space + lowercase(alice ), which gives \" alice \". The spaces are untouched."
+      },
+      {
+        "label": "String slicing: characters as array indices",
+        "script": "%dw 2.0\noutput application/json\n---\n{first: \"hello\"[0], rest: \"hello\"[1 to -1]}",
+        "expect": {
+          "output": "{ \"first\": \"h\", \"rest\": \"ello\" }"
+        },
+        "note": "[0] gets the first character, [1 to -1] gets from index 1 to the last. So for a string `n`, the formula is always upper(n[0]) ++ lower(n[1 to -1])."
+      },
+      {
+        "label": "trim() behavior",
+        "script": "%dw 2.0\noutput application/json\n---\n{untrimmed: \" hello \", trimmed: trim(\" hello \")}",
+        "expect": {
+          "output": "{ \"untrimmed\": \" hello \", \"trimmed\": \"hello\" }"
+        },
+        "note": "trim() removes whitespace from both ends. It does not affect spaces inside the word."
+      },
+      {
+        "label": "The pipe separator behavior",
+        "script": "%dw 2.0\noutput application/json\n---\n\"a|b|c\" splitBy \"|\"",
+        "expect": {
+          "output": "[ \"a\", \"b\", \"c\" ]"
+        },
+        "note": "The pipe is literal, not regex. A pipe is just a character, so `splitBy \"|\"` means 'split on this exact string'."
+      },
+      {
+        "label": "joinBy assembles back",
+        "script": "%dw 2.0\noutput text/plain\n---\n[\"Line1\", \"Line2\", \"Line3\"] joinBy \"\\n\"",
+        "expect": {
+          "output": "Line1\nLine2\nLine3"
+        },
+        "note": "The newline literal `\\n` produces actual newlines in the output, not the characters backslash and n."
+      }
+    ]
+  },
+  "derivedFrom": "clean-text-lines"
+}

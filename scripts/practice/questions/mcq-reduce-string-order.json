@@ -1,0 +1,51 @@
+{
+  "id": "mcq-reduce-string-order",
+  "unit": "reduce-seed",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "reduce",
+    "++"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[\"a\", \"b\", \"c\"] reduce ((s, acc = \"\") -> s ++ acc)"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "\"a\"",
+      "\"abc\"",
+      "\"cba\"",
+      "\"c\""
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[\"a\", \"b\", \"c\"] reduce ((s, acc = \"\") -> s ++ acc)",
+  "explanation": {
+    "approach": "The first lambda parameter is the current item and the second is the accumulator. Putting the item in front of what has been built so far reverses the order.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"a\", \"b\", \"c\"] reduce ((s, acc = \"\") -> s ++ acc)",
+        "expect": {
+          "output": "\"cba\""
+        },
+        "note": "\"a\", then \"ba\", then \"cba\"."
+      },
+      {
+        "label": "Accumulator first",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"a\", \"b\", \"c\"] reduce ((s, acc = \"\") -> acc ++ s)",
+        "expect": {
+          "output": "\"abc\""
+        },
+        "note": "The usual order."
+      }
+    ]
+  }
+}

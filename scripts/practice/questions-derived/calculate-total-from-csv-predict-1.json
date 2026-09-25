@@ -1,0 +1,38 @@
+{
+  "id": "calculate-total-from-csv-predict-1",
+  "unit": "csv-round-trip",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "The sum works anyway, which is the trap",
+  "topics": [
+    "read",
+    "sum",
+    "max",
+    "as"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/csv",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nsum(payload map $.amount)",
+    "payload": "name,amount\na,10\nb,9\nc,25.50\n"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nsum(payload map $.amount)",
+  "explanation": {
+    "approach": "No coercion, and the right answer. Arithmetic coerces a numeric String for you, so the first thing most people try works — and teaches them the wrong lesson.",
+    "snippets": [
+      {
+        "label": "The sum works anyway, which is the trap",
+        "script": "%dw 2.0\noutput application/json\n---\nsum(payload map $.amount)",
+        "payload": "name,amount\na,10\nb,9\nc,25.50\n",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "44.5"
+        },
+        "note": "No coercion, and the right answer. Arithmetic coerces a numeric String for you, so the first thing most people try works — and teaches them the wrong lesson."
+      }
+    ]
+  },
+  "derivedFrom": "calculate-total-from-csv"
+}

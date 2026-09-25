@@ -1,0 +1,71 @@
+{
+  "id": "validation-rules-as-data-debug-1",
+  "unit": "higher-order",
+  "mode": "debug",
+  "tier": "extra",
+  "title": "Fix it: check records against a list of named validation rules",
+  "topics": [
+    "lambda",
+    "var",
+    "filter",
+    "higher-order"
+  ],
+  "basics": "A function is a value, so it can be stored in a variable or in an object field: `{ name: \"id-required\", test: (r) -> r.id != null }`. Calling it is the same as calling any function: `rule.test(record)`. Keeping rules as data means adding a rule is adding an entry to a list.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nKeep these three rules as a list in the header, each with a `name` and a `test` function:\n\n- `id-required`: the record has an `id`\n- `qty-positive`: `qty` is greater than 0 (a missing qty is not)\n- `email-has-at`: `email` contains `@` (a missing email does not)\n\nFor every record, return `{ id, errors }` where `errors` is the list of names of the rules it breaks, in the order above, and `[]` when it breaks none.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\nvar rules = [\n  { name: \"id-required\", test: (r) -> r.id != null },\n  { name: \"qty-positive\", test: (r) -> r.qty > 0 },\n  { name: \"email-has-at\", test: (r) -> (r.email default \"\") contains \"@\" }\n]\n---\npayload map (r) -> { id: r.id, errors: (rules filter (not $.test(r))).name default [] }",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"id\": 1,\n    \"qty\": 0,\n    \"email\": \"a@x.com\"\n  },\n  {\n    \"id\": 2,\n    \"qty\": 5,\n    \"email\": \"nope\"\n  }\n]",
+      "output": "[{\"id\":1,\"errors\":[\"qty-positive\"]},{\"id\":2,\"errors\":[\"email-has-at\"]}]"
+    },
+    {
+      "input": "[\n  {\n    \"id\": 3,\n    \"qty\": 1,\n    \"email\": \"c@x.com\"\n  }\n]",
+      "output": "[{\"id\":3,\"errors\":[]}]"
+    },
+    {
+      "input": "[\n  {\n    \"qty\": 2\n  }\n]",
+      "output": "[{\"id\":null,\"errors\":[\"id-required\",\"email-has-at\"]}]"
+    },
+    {
+      "input": "[\n  {\n    \"id\": 4,\n    \"email\": \"d@x.com\"\n  },\n  {\n    \"id\": 5,\n    \"qty\": -1\n  }\n]",
+      "output": "[{\"id\":4,\"errors\":[\"qty-positive\"]},{\"id\":5,\"errors\":[\"qty-positive\",\"email-has-at\"]}]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "compares a missing qty directly with 0, and comparing null with a Number throws"
+  ],
+  "solution": "%dw 2.0\noutput application/json\nvar rules = [\n  { name: \"id-required\", test: (r) -> r.id != null },\n  { name: \"qty-positive\", test: (r) -> (r.qty default 0) > 0 },\n  { name: \"email-has-at\", test: (r) -> (r.email default \"\") contains \"@\" }\n]\n---\npayload map (r) -> { id: r.id, errors: (rules filter (not $.test(r))).name default [] }",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\nvar rules = [\n  { name: \"id-required\", test: (r) -> r.id != null },\n  { name: \"qty-positive\", test: (r) -> r.qty > 0 },\n  { name: \"email-has-at\", test: (r) -> (r.email default \"\") contains \"@\" }\n]\n---\npayload map (r) -> { id: r.id, errors: (rules filter (not $.test(r))).name default [] }"
+    }
+  ],
+  "explanation": {
+    "approach": "Storing each rule's test as a function next to its name turns validation into a filter: keep the rules a record fails, then read their names. Each test has to cope with the field being absent, because a missing field is null and null cannot be compared with a Number.",
+    "snippets": [
+      {
+        "label": "Calling a function stored in an object",
+        "script": "%dw 2.0\noutput application/json\nvar rule = { name: \"id-required\", test: (r) -> r.id != null }\n---\nrule.test({ id: 7 })",
+        "expect": {
+          "output": "true"
+        },
+        "note": "A field that holds a function is called like one."
+      },
+      {
+        "label": "Comparing null with a Number",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.qty > 0",
+        "payload": "{\"id\":4}",
+        "expect": {
+          "error": true
+        },
+        "note": "Types Null and Number can not be compared."
+      }
+    ]
+  },
+  "derivedFrom": "validation-rules-as-data"
+}

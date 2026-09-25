@@ -1,0 +1,52 @@
+{
+  "id": "mcq-concat-then-map",
+  "unit": "concat-and-remove",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "++",
+    "map",
+    "precedence"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[1, 2] ++ [3] map $ * 10"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "[ 1, 2, 30 ]",
+      "[ 10, 20, 30 ]",
+      "It fails: map needs parentheses here",
+      "[ [ 1, 2 ], 30 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[1, 2] ++ [3] map $ * 10",
+  "explanation": {
+    "approach": "Binary operators like `++` and `map` are applied left to right. The concatenation happens first, then `map` runs over all three elements.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2] ++ [3] map $ * 10",
+        "expect": {
+          "output": "[ 10, 20, 30 ]"
+        },
+        "note": "Read it as `([1, 2] ++ [3]) map ...`."
+      },
+      {
+        "label": "Parentheses change it",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2] ++ ([3] map $ * 10)",
+        "expect": {
+          "output": "[ 1, 2, 30 ]"
+        },
+        "note": "Now only the last array is mapped."
+      }
+    ]
+  }
+}

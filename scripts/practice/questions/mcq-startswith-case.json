@@ -1,0 +1,44 @@
+{
+  "id": "mcq-startswith-case",
+  "unit": "string-basics",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "startsWith",
+    "contains",
+    "lower"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ \"Hello World\" startsWith \"hello\", lower(\"Hello World\") startsWith \"hello\", \"Hello World\" contains \"o W\" ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "[ false, true, false ]",
+      "[ false, true, true ]",
+      "[ true, false, true ]",
+      "[ true, true, true ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ \"Hello World\" startsWith \"hello\", lower(\"Hello World\") startsWith \"hello\", \"Hello World\" contains \"o W\" ]",
+  "explanation": {
+    "approach": "String tests are case-sensitive. Lower-case both sides first if case should not matter. `contains` on a String looks for the exact substring, spaces included.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ \"Hello World\" startsWith \"hello\", lower(\"Hello World\") startsWith \"hello\", \"Hello World\" contains \"o W\" ]",
+        "expect": {
+          "output": "[ false, true, true ]"
+        },
+        "note": "Only the case differs between the first two."
+      }
+    ]
+  }
+}

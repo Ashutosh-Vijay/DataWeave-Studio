@@ -1,0 +1,53 @@
+{
+  "id": "mcq-match-first-case-wins",
+  "unit": "match-and-types",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "match"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.n match {\n  case n if n > 3 -> \"big\"\n  case n if n > 4 -> \"bigger\"\n  else -> \"small\"\n}",
+    "payload": "{\"n\":5}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ \"big\", \"bigger\" ]",
+      "\"small\"",
+      "\"bigger\"",
+      "\"big\""
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.n match {\n  case n if n > 3 -> \"big\"\n  case n if n > 4 -> \"bigger\"\n  else -> \"small\"\n}",
+  "explanation": {
+    "approach": "Cases are tried from top to bottom, and the first one that matches wins. A more specific case below a more general one is never reached for values the general one accepts.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.n match {\n  case n if n > 3 -> \"big\"\n  case n if n > 4 -> \"bigger\"\n  else -> \"small\"\n}",
+        "payload": "{\"n\":5}",
+        "expect": {
+          "output": "\"big\""
+        },
+        "note": "Put the narrowest condition first."
+      },
+      {
+        "label": "Narrowest first",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.n match {\n  case n if n > 4 -> \"bigger\"\n  case n if n > 3 -> \"big\"\n  else -> \"small\"\n}",
+        "payload": "{\"n\":5}",
+        "expect": {
+          "output": "\"bigger\""
+        },
+        "note": "Reordered."
+      }
+    ]
+  }
+}

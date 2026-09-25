@@ -1,0 +1,85 @@
+{
+  "id": "merge-nested-lists",
+  "unit": "flatten-vs-flatmap",
+  "tier": "medium",
+  "title": "Collapse a list of lists into one list",
+  "topics": ["flatten", "flatMap"],
+  "prompt": "You are given an array of arrays. Each inner array contains items.\n\nReturn a single flat array with all the items merged together, but STOP after one level of nesting.\n\nIf an item is itself an array (nested deeper), it stays as-is — do not flatten recursively.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[[1, 2], [3, 4], [5]]",
+      "output": "[ 1, 2, 3, 4, 5 ]"
+    },
+    {
+      "input": "[[1, [2, 3]], [4]]",
+      "output": "[ 1, [ 2, 3 ], 4 ]"
+    },
+    {
+      "input": "[[], [1], []]",
+      "output": "[ 1 ]"
+    },
+    {
+      "input": "[]",
+      "output": "[ ]"
+    }
+  ],
+  "hints": [
+    "One function flattens exactly one level. It does not recurse deeper.",
+    "The trap in the curriculum says what `flatten` returns for doubly-nested input.",
+    "When you want to flatten AND transform at the same time, `flatMap` tells you the approach."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\nflatten(payload)",
+  "mustFail": [
+    {
+      "why": "hardcodes the sample answer",
+      "script": "%dw 2.0\noutput application/json\n---\n[1, 2, 3, 4, 5]"
+    },
+    {
+      "why": "uses map which keeps the structure",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map $"
+    }
+  ],
+  "explanation": {
+    "approach": "`flatten` collapses exactly one level of nesting — no more, no less. If you have a doubly-nested structure, one level stays. This is by design: it lets you flatten a list of lists without recursing into the items.",
+    "snippets": [
+      {
+        "label": "A list of lists with simple items",
+        "script": "%dw 2.0\noutput application/json\n---\npayload",
+        "payload": "[[1, 2], [3, 4], [5]]",
+        "expect": { "output": "[ [ 1, 2 ], [ 3, 4 ], [ 5 ] ]" },
+        "note": "Three arrays nested inside one. The job is to merge them."
+      },
+      {
+        "label": "The answer — flatten",
+        "script": "%dw 2.0\noutput application/json\n---\nflatten(payload)",
+        "payload": "[[1, 2], [3, 4], [5]]",
+        "expect": { "output": "[ 1, 2, 3, 4, 5 ]" },
+        "note": "`flatten` opens up exactly one level, spilling all the items into a single array."
+      },
+      {
+        "label": "When an item is itself nested deeper",
+        "script": "%dw 2.0\noutput application/json\n---\nflatten(payload)",
+        "payload": "[[1, [2, 3]], [4]]",
+        "expect": { "output": "[ 1, [ 2, 3 ], 4 ]" },
+        "note": "The doubly-nested `[2, 3]` stays as-is. `flatten` does exactly one level — see the trap in the curriculum."
+      },
+      {
+        "label": "If you want to flatten and transform together",
+        "script": "%dw 2.0\noutput application/json\n---\npayload flatMap ((arr) -> arr map ($ * 2))",
+        "payload": "[[1, 2], [3, 4], [5]]",
+        "expect": { "output": "[ 2, 4, 6, 8, 10 ]" },
+        "note": "`flatMap` applies a function to each element and then flattens one level. Here we transform each inner array by doubling its numbers, then flatten. The end result is: apply map to each inner array, then merge the results."
+      },
+      {
+        "label": "Empty arrays inside",
+        "script": "%dw 2.0\noutput application/json\n---\nflatten(payload)",
+        "payload": "[[], [1], []]",
+        "expect": { "output": "[ 1 ]" },
+        "note": "Empty arrays contribute nothing to the flattened result — they just disappear."
+      }
+    ]
+  }
+}

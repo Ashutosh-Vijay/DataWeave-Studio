@@ -1,0 +1,51 @@
+{
+  "id": "mcq-map-then-filter-chain",
+  "unit": "map-basics",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "map",
+    "filter"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[1, 2, 3, 4] map ($ * 3) filter ($ > 6)"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ 3, 6, 9, 12 ]",
+      "[ 3, 4 ]",
+      "[ 12 ]",
+      "[ 9, 12 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[1, 2, 3, 4] map ($ * 3) filter ($ > 6)",
+  "explanation": {
+    "approach": "Chained operators run left to right. The filter sees the mapped values, not the originals.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2, 3, 4] map ($ * 3) filter ($ > 6)",
+        "expect": {
+          "output": "[ 9, 12 ]"
+        },
+        "note": "3, 6, 9, 12, then keep what is over 6."
+      },
+      {
+        "label": "Filter first",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2, 3, 4] filter ($ > 6) map ($ * 3)",
+        "expect": {
+          "output": "[ ]"
+        },
+        "note": "Nothing in the original data is over 6."
+      }
+    ]
+  }
+}

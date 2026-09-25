@@ -1,0 +1,57 @@
+{
+  "id": "mcq-typed-param-vs-var",
+  "unit": "custom-types",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "Which one fails?",
+  "topics": [
+    "fun",
+    "var",
+    "type"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\nvar n: Number = \"5\" as Number\n---\nn",
+      "%dw 2.0\noutput application/json\nfun add(a: Number, b: Number): Number = a + b\n---\nadd(\"1\", 2)",
+      "%dw 2.0\noutput application/json\nvar n: Number = \"5\"\n---\nn",
+      "%dw 2.0\noutput application/json\nvar n: String = \"5\"\n---\nn"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nvar n: Number = \"5\" as Number\n---\nn",
+  "explanation": {
+    "approach": "A typed variable is checked at compile time against the literal you give it: \"5\" is a String, so it does not fit Number. A typed function parameter is more forgiving: an argument that can be coerced is coerced when the call runs.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\nvar n: Number = \"5\"\n---\nn",
+        "expect": {
+          "error": true
+        },
+        "note": "Expecting Type: Number, but got: \"5\"."
+      },
+      {
+        "label": "The parameter coerces",
+        "script": "%dw 2.0\noutput application/json\nfun add(a: Number, b: Number): Number = a + b\n---\nadd(\"1\", 2)",
+        "expect": {
+          "output": "3"
+        },
+        "note": "\"1\" became the Number 1."
+      },
+      {
+        "label": "Coerce explicitly",
+        "script": "%dw 2.0\noutput application/json\nvar n: Number = \"5\" as Number\n---\nn",
+        "expect": {
+          "output": "5"
+        },
+        "note": "Now the value is a Number before the check."
+      }
+    ]
+  }
+}

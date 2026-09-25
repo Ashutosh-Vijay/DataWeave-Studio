@@ -1,0 +1,54 @@
+{
+  "id": "mcq-selector-on-array",
+  "unit": "select-and-shape",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "selectors",
+    "."
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.items.p",
+    "payload": "{\"items\":[{\"p\":5},{\"p\":15},{\"p\":25}]}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "5",
+      "null",
+      "[ 5, 15, 25 ]",
+      "25"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.items.p",
+  "explanation": {
+    "approach": "A single-value selector applied to an Array is applied to every element, and the results come back as an Array. It does not pick the first element, and it is not null.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.items.p",
+        "payload": "{\"items\":[{\"p\":5},{\"p\":15},{\"p\":25}]}",
+        "expect": {
+          "output": "[ 5, 15, 25 ]"
+        },
+        "note": "The same as `payload.items map $.p`."
+      },
+      {
+        "label": "The explicit version",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.items map $.p",
+        "payload": "{\"items\":[{\"p\":5},{\"p\":15},{\"p\":25}]}",
+        "expect": {
+          "output": "[ 5, 15, 25 ]"
+        },
+        "note": "Identical output."
+      }
+    ]
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "id": "mcq-flatten-one-level",
+  "unit": "flatten-vs-flatmap",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "flatten"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nflatten([[1], [2, [3]], []])"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ 1, 2, [ 3 ] ]",
+      "[ [ 1 ], [ 2, [ 3 ] ] ]",
+      "[ 1, 2, 3 ]",
+      "[ 1, 2, [ 3 ], [ ] ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nflatten([[1], [2, [3]], []])",
+  "explanation": {
+    "approach": "`flatten` removes exactly one level of nesting. An empty inner Array contributes nothing, and an Array two levels down stays an Array.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\nflatten([[1], [2, [3]], []])",
+        "expect": {
+          "output": "[ 1, 2, [ 3 ] ]"
+        },
+        "note": "Call it twice for two levels."
+      },
+      {
+        "label": "Twice",
+        "script": "%dw 2.0\noutput application/json\n---\nflatten(flatten([[1], [2, [3]], []]))",
+        "expect": {
+          "output": "[ 1, 2, 3 ]"
+        },
+        "note": "Each call removes one level."
+      }
+    ]
+  }
+}

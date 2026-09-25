@@ -1,0 +1,43 @@
+{
+  "id": "mcq-ceil-floor-negative",
+  "unit": "numbers-and-rounding",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "ceil",
+    "floor"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ ceil(-1.5), floor(-1.5), ceil(1.2) ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ -1, -2, 2 ]",
+      "[ -1, -1, 1 ]",
+      "[ -2, -1, 2 ]",
+      "[ -2, -2, 2 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ ceil(-1.5), floor(-1.5), ceil(1.2) ]",
+  "explanation": {
+    "approach": "`ceil` moves up the number line and `floor` moves down it. For negatives, up means towards zero, so `ceil(-1.5)` is -1.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ ceil(-1.5), floor(-1.5), ceil(1.2) ]",
+        "expect": {
+          "output": "[ -1, -2, 2 ]"
+        },
+        "note": "Think of the number line, not of the digits."
+      }
+    ]
+  }
+}

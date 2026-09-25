@@ -1,0 +1,103 @@
+{
+  "id": "sum-nested-numbers-debug-1",
+  "unit": "recursion",
+  "mode": "debug",
+  "tier": "hard",
+  "title": "Fix it: sum every number, however deep it is buried",
+  "topics": [
+    "fun",
+    "recursion",
+    "match"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nA payload can nest objects inside arrays inside objects, to any depth, and the depth is not known ahead of time. Write `sumAll` that adds up every number found anywhere inside the payload, at any level, and ignores anything that isn't a number (strings, booleans, `null`).\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> if (value is Number) value else 0))\n  case a is Array -> sum(a map ((item) -> if (item is Number) item else 0))\n  else -> 0\n}\n---\nsumAll(payload)",
+  "cases": [
+    {
+      "input": "{\n  \"a\": { \"b\": [1, 2, { \"c\": 3 }] },\n  \"d\": \"text\",\n  \"e\": [[4, 5], null, true]\n}",
+      "output": "15"
+    },
+    {
+      "input": "{}",
+      "output": "0"
+    },
+    {
+      "input": "[]",
+      "output": "0"
+    },
+    {
+      "input": "{ \"a\": \"text\", \"b\": [true, null, \"x\"] }",
+      "output": "0"
+    },
+    {
+      "input": "5",
+      "output": "5"
+    },
+    {
+      "input": "{ \"x\": [-1, 2.5, { \"y\": -3.5 }] }",
+      "output": "-2"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "only checks whether what's directly inside an Object or Array is a Number, instead of recursing into it — anything nested more than one level down is silently dropped"
+  ],
+  "solution": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> sumAll(value)))\n  case a is Array -> sum(a map ((item) -> sumAll(item)))\n  case n is Number -> n\n  else -> 0\n}\n---\nsumAll(payload)",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> if (value is Number) value else 0))\n  case a is Array -> sum(a map ((item) -> if (item is Number) item else 0))\n  else -> 0\n}\n---\nsumAll(payload)"
+    }
+  ],
+  "explanation": {
+    "approach": "There's no loop construct that walks arbitrarily deep data on its own, so `sumAll` has to test what it was given at each call — is it an Object, an Array, or a leaf — and for the two container cases, call itself again on every value or item found inside, rather than stopping to inspect them directly. A leaf that isn't a Number contributes 0. A version that checks the type of what's directly inside an Object or Array, without calling `sumAll` again on it, behaves identically to the real thing on data that happens to be only one level deep, and silently returns 0 for anything nested any deeper than that — because a nested Object or Array is neither ignored nor a Number, and this version has no third option beyond those two.",
+    "snippets": [
+      {
+        "label": "No return-type annotation needed, even though it's recursive",
+        "script": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> sumAll(value)))\n  case a is Array -> sum(a map ((item) -> sumAll(item)))\n  case n is Number -> n\n  else -> 0\n}\n---\nsumAll(payload)",
+        "payload": "{\"a\":{\"b\":[1,2,{\"c\":3}]},\"d\":\"text\",\"e\":[[4,5],null,true]}",
+        "expect": {
+          "output": "15"
+        },
+        "note": "`fun sumAll(v) = ...` declares neither the parameter's type nor the return type, and it still compiles and recurses correctly."
+      },
+      {
+        "label": "Empty containers and non-numeric leaves both contribute zero",
+        "script": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> sumAll(value)))\n  case a is Array -> sum(a map ((item) -> sumAll(item)))\n  case n is Number -> n\n  else -> 0\n}\n---\n{ emptyObject: sumAll({}), emptyArray: sumAll([]), noNumbers: sumAll({\"a\": \"text\", \"b\": [true, null, \"x\"]}) }",
+        "expect": {
+          "output": "{\"emptyObject\":0,\"emptyArray\":0,\"noNumbers\":0}"
+        },
+        "note": "`sum` of an empty array is `0`, which is what a container with nothing numeric inside it eventually reduces to."
+      },
+      {
+        "label": "The wrong version, on the same nested payload",
+        "script": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> if (value is Number) value else 0))\n  case a is Array -> sum(a map ((item) -> if (item is Number) item else 0))\n  else -> 0\n}\n---\nsumAll(payload)",
+        "payload": "{\"a\":{\"b\":[1,2,{\"c\":3}]},\"d\":\"text\",\"e\":[[4,5],null,true]}",
+        "expect": {
+          "output": "0"
+        },
+        "note": "Nothing is directly a Number inside the top-level Object — `a` is an Object and `d` and `e` are not numbers — so this version reports 0 for a payload whose numbers add up to 15. It never looks inside `a`, `e`, or the objects nested further in."
+      },
+      {
+        "label": "The same wrong version looks correct on flat data",
+        "script": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> if (value is Number) value else 0))\n  case a is Array -> sum(a map ((item) -> if (item is Number) item else 0))\n  else -> 0\n}\n---\nsumAll({\"a\": 1, \"b\": 2, \"c\": 3})",
+        "expect": {
+          "output": "6"
+        },
+        "note": "This is exactly why the bug survives a quick check — a flat object has nothing nested inside it to expose the missing recursive call."
+      },
+      {
+        "label": "Without `else`, an unhandled leaf is a runtime error",
+        "script": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> sumAll(value)))\n  case a is Array -> sum(a map ((item) -> sumAll(item)))\n  case n is Number -> n\n}\n---\nsumAll(payload)",
+        "payload": "{\"a\":{\"b\":[1,2,{\"c\":3}]},\"d\":\"text\",\"e\":[[4,5],null,true]}",
+        "expect": {
+          "error": true
+        },
+        "note": "`case n is Number` covers numbers, but nothing covers a String, Boolean, or null leaf — `match` throws rather than falling through to some default."
+      }
+    ]
+  },
+  "derivedFrom": "sum-nested-numbers"
+}

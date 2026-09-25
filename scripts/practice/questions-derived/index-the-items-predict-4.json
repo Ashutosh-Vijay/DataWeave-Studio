@@ -1,0 +1,35 @@
+{
+  "id": "index-the-items-predict-4",
+  "unit": "map-basics",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "The long form with named parameters",
+  "topics": [
+    "map",
+    "index"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload map ((element, index) -> {position: index + 1, item: element})",
+    "payload": "[\"apple\", \"banana\", \"cherry\"]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map ((element, index) -> {position: index + 1, item: element})",
+  "explanation": {
+    "approach": "Instead of `$` and `$$`, you can name your parameters. The second parameter is the index, the first is the element. Identical result.",
+    "snippets": [
+      {
+        "label": "The long form with named parameters",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map ((element, index) -> {position: index + 1, item: element})",
+        "payload": "[\"apple\", \"banana\", \"cherry\"]",
+        "expect": {
+          "output": "[ { \"position\": 1, \"item\": \"apple\" }, { \"position\": 2, \"item\": \"banana\" }, { \"position\": 3, \"item\": \"cherry\" } ]"
+        },
+        "note": "Instead of `$` and `$$`, you can name your parameters. The second parameter is the index, the first is the element. Identical result."
+      }
+    ]
+  },
+  "derivedFrom": "index-the-items"
+}

@@ -1,0 +1,53 @@
+{
+  "id": "mcq-match-no-array-destructuring",
+  "unit": "match-and-types",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "match",
+    "is",
+    "Array"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "In some languages a pattern can take an Array apart, as in `case [first, second]`. DataWeave's `match` supports type patterns, literal values, regular expressions and guards, and you take an Array apart inside the case with selectors.",
+  "mode": "choice",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "payload": "[1,2]",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload match { case a if (sizeOf(a) == 2) -> a[-1] else -> 0 }",
+      "%dw 2.0\noutput application/json\n---\npayload match { case a is Array -> sizeOf(a) else -> 0 }",
+      "%dw 2.0\noutput application/json\n---\npayload match { case a is Array -> a[0] else -> 0 }",
+      "%dw 2.0\noutput application/json\n---\npayload match { case [h, t] -> h else -> 0 }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload match { case a is Array -> a[0] else -> 0 }",
+  "explanation": {
+    "approach": "There is no Array destructuring in a `match` case. Match the Array as a whole with `is Array` or a guard, then select its parts.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\npayload match { case [h, t] -> h else -> 0 }",
+        "payload": "[1,2]",
+        "expect": {
+          "error": true
+        },
+        "note": "The parser does not accept an Array pattern."
+      },
+      {
+        "label": "Select inside the case",
+        "script": "%dw 2.0\noutput application/json\n---\npayload match { case a is Array -> a[0] else -> 0 }",
+        "payload": "[1,2]",
+        "expect": {
+          "output": "1"
+        },
+        "note": "The first element."
+      }
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "id": "extract-person-info-predict-1",
+  "unit": "select-and-shape",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "What happens when you access a missing field",
+  "topics": [
+    "selectors",
+    "object construction"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{\"name\": \"Alice\"}.age"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{\"name\": \"Alice\"}.age",
+  "explanation": {
+    "approach": "Accessing a field that is not there returns `null`, not an error. This is the trap: a typo in your field name ships silently as a null in the output.",
+    "snippets": [
+      {
+        "label": "What happens when you access a missing field",
+        "script": "%dw 2.0\noutput application/json\n---\n{\"name\": \"Alice\"}.age",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Accessing a field that is not there returns `null`, not an error. This is the trap: a typo in your field name ships silently as a null in the output."
+      }
+    ]
+  },
+  "derivedFrom": "extract-person-info"
+}

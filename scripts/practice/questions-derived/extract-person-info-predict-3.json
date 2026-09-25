@@ -1,0 +1,35 @@
+{
+  "id": "extract-person-info-predict-3",
+  "unit": "select-and-shape",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "What a typo looks like",
+  "topics": [
+    "selectors",
+    "object construction"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload map {name: $.fullName, age: $.age, city: $.city}",
+    "payload": "[{\"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map {name: $.fullName, age: $.age, city: $.city}",
+  "explanation": {
+    "approach": "`$.fullName` does not exist, so it becomes null. No compilation error, no warning — the mapping just silently drops the name. This is why the first hint says a typo ships silently.",
+    "snippets": [
+      {
+        "label": "What a typo looks like",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map {name: $.fullName, age: $.age, city: $.city}",
+        "payload": "[{\"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\"}]",
+        "expect": {
+          "output": "[ { \"name\": null, \"age\": 30, \"city\": \"NYC\" } ]"
+        },
+        "note": "`$.fullName` does not exist, so it becomes null. No compilation error, no warning — the mapping just silently drops the name. This is why the first hint says a typo ships silently."
+      }
+    ]
+  },
+  "derivedFrom": "extract-person-info"
+}

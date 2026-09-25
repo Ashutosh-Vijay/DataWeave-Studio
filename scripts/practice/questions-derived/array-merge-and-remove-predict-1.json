@@ -1,0 +1,36 @@
+{
+  "id": "array-merge-and-remove-predict-1",
+  "unit": "concat-and-remove",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Why order matters",
+  "topics": [
+    "++",
+    "--",
+    "arrays"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n(payload.first -- payload.remove) ++ payload.second",
+    "payload": "{\"first\":[1,2],\"second\":[3,4],\"remove\":[2]}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload.first -- payload.remove) ++ payload.second",
+  "explanation": {
+    "approach": "Same input, same answer — but only by luck. If the item to remove was in `second`, this version would keep it. The wrong order hides when the trap applies.",
+    "snippets": [
+      {
+        "label": "Why order matters",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload.first -- payload.remove) ++ payload.second",
+        "payload": "{\"first\":[1,2],\"second\":[3,4],\"remove\":[2]}",
+        "expect": {
+          "output": "[1, 3, 4]"
+        },
+        "note": "Same input, same answer — but only by luck. If the item to remove was in `second`, this version would keep it. The wrong order hides when the trap applies."
+      }
+    ]
+  },
+  "derivedFrom": "array-merge-and-remove"
+}

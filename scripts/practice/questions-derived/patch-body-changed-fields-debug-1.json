@@ -1,0 +1,72 @@
+{
+  "id": "patch-body-changed-fields-debug-1",
+  "unit": "pluck-and-mapobject",
+  "mode": "debug",
+  "tier": "medium",
+  "title": "Fix it: send only the fields that changed in a patch request",
+  "topics": [
+    "filterObject",
+    "mapObject",
+    "--",
+    "keysOf"
+  ],
+  "basics": "`filterObject` keeps the key-value pairs of an Object that pass a test. The lambda receives the value and then the key, so `(v, k) -> ...` can look the same key up in another Object with `other[k]`.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nA form sends `{ before, after }`: the record as it was loaded and as it is being saved. The API only accepts a PATCH body with the fields that changed.\n\nReturn an object with every field of `after` whose value differs from `before`, plus every field that was in `before` but has been removed from `after`, with the value `null`.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\npayload.after filterObject ((v, k) -> payload.before.k != v)",
+  "cases": [
+    {
+      "input": "{\n  \"before\": {\n    \"name\": \"Ann\",\n    \"city\": \"Leeds\",\n    \"age\": 30\n  },\n  \"after\": {\n    \"name\": \"Ann\",\n    \"city\": \"York\",\n    \"age\": 30\n  }\n}",
+      "output": "{\"city\":\"York\"}"
+    },
+    {
+      "input": "{\n  \"before\": {\n    \"name\": \"Ann\",\n    \"phone\": \"0123\"\n  },\n  \"after\": {\n    \"name\": \"Ann\"\n  }\n}",
+      "output": "{\"phone\":null}"
+    },
+    {
+      "input": "{\n  \"before\": {\n    \"a\": 1\n  },\n  \"after\": {\n    \"a\": 1,\n    \"b\": 2\n  }\n}",
+      "output": "{\"b\":2}"
+    },
+    {
+      "input": "{\n  \"before\": {\n    \"a\": 1,\n    \"b\": 2\n  },\n  \"after\": {\n    \"a\": 1,\n    \"b\": 2\n  }\n}",
+      "output": "{}"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "selects before.k literally instead of the key held in k, so every field looks changed"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var changed = payload.after filterObject ((v, k) -> payload.before[k] != v)\n  var removed = payload.before filterObject ((v, k) -> not (keysOf(payload.after) contains k)) mapObject ((v, k) -> { (k): null })\n  ---\n  changed ++ removed\n}",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\npayload.after filterObject ((v, k) -> payload.before.k != v)"
+    }
+  ],
+  "explanation": {
+    "approach": "Walking `after` finds the changed and new fields, but a deleted field is not in `after` at all, so it has to be found by walking `before` the other way. `payload.before[k]` uses the key held in `k`; `payload.before.k` asks for a field literally named \"k\".",
+    "snippets": [
+      {
+        "label": "Brackets use the variable",
+        "script": "%dw 2.0\noutput application/json\n---\n[payload.city, payload[\"city\"], payload.k]",
+        "payload": "{\"city\":\"York\"}",
+        "expect": {
+          "output": "[\"York\",\"York\",null]"
+        },
+        "note": "`.k` is a field called k."
+      },
+      {
+        "label": "keysOf and contains",
+        "script": "%dw 2.0\noutput application/json\n---\nkeysOf(payload) contains \"phone\"",
+        "payload": "{\"name\":\"Ann\"}",
+        "expect": {
+          "output": "false"
+        },
+        "note": "The field is gone."
+      }
+    ]
+  },
+  "derivedFrom": "patch-body-changed-fields"
+}

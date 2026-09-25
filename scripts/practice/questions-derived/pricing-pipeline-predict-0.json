@@ -1,0 +1,35 @@
+{
+  "id": "pricing-pipeline-predict-0",
+  "unit": "higher-order",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "Partial application: a function that returns a function",
+  "topics": [
+    "fun",
+    "then",
+    "partial application",
+    "reduce"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun applyOp(op: String, amount: Number) = (x: Number) -> op match {\n  case \"add\" -> x + amount\n  case \"mul\" -> x * amount\n  else -> x\n}\n---\n{ kind: typeOf(applyOp(\"add\", 5)), result: (applyOp(\"add\", 5))(10) }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun applyOp(op: String, amount: Number) = (x: Number) -> op match {\n  case \"add\" -> x + amount\n  case \"mul\" -> x * amount\n  else -> x\n}\n---\n{ kind: typeOf(applyOp(\"add\", 5)), result: (applyOp(\"add\", 5))(10) }",
+  "explanation": {
+    "approach": "applyOp(\"add\", 5) does not compute a number — it returns a Function, still waiting for `x`. Calling that result with (10) is what actually runs the addition.",
+    "snippets": [
+      {
+        "label": "Partial application: a function that returns a function",
+        "script": "%dw 2.0\noutput application/json\nfun applyOp(op: String, amount: Number) = (x: Number) -> op match {\n  case \"add\" -> x + amount\n  case \"mul\" -> x * amount\n  else -> x\n}\n---\n{ kind: typeOf(applyOp(\"add\", 5)), result: (applyOp(\"add\", 5))(10) }",
+        "expect": {
+          "output": "{ \"kind\": \"Function\", \"result\": 15 }"
+        },
+        "note": "applyOp(\"add\", 5) does not compute a number — it returns a Function, still waiting for `x`. Calling that result with (10) is what actually runs the addition."
+      }
+    ]
+  },
+  "derivedFrom": "pricing-pipeline"
+}

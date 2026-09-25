@@ -1,0 +1,36 @@
+{
+  "id": "latest-status-per-shipment-predict-2",
+  "unit": "distinct-and-order",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Newest first",
+  "topics": [
+    "orderBy",
+    "distinctBy",
+    "range"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n((payload orderBy $.at)[-1 to 0]).status",
+    "payload": "[{\"status\":\"b\",\"at\":\"2024-05-01T10:00:00Z\"},{\"status\":\"a\",\"at\":\"2024-05-01T09:00:00Z\"},{\"status\":\"c\",\"at\":\"2024-05-01T11:00:00Z\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n((payload orderBy $.at)[-1 to 0]).status",
+  "explanation": {
+    "approach": "Sort ascending, then reverse.",
+    "snippets": [
+      {
+        "label": "Newest first",
+        "script": "%dw 2.0\noutput application/json\n---\n((payload orderBy $.at)[-1 to 0]).status",
+        "payload": "[{\"status\":\"b\",\"at\":\"2024-05-01T10:00:00Z\"},{\"status\":\"a\",\"at\":\"2024-05-01T09:00:00Z\"},{\"status\":\"c\",\"at\":\"2024-05-01T11:00:00Z\"}]",
+        "expect": {
+          "output": "[\"c\",\"b\",\"a\"]"
+        },
+        "note": "Sort ascending, then reverse."
+      }
+    ]
+  },
+  "derivedFrom": "latest-status-per-shipment"
+}

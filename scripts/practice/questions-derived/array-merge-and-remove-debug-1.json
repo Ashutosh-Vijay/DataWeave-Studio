@@ -1,0 +1,99 @@
+{
+  "id": "array-merge-and-remove-debug-1",
+  "unit": "concat-and-remove",
+  "mode": "debug",
+  "tier": "easy",
+  "title": "Fix it: combine and delete from lists",
+  "topics": [
+    "++",
+    "--",
+    "arrays"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nYou are given an array of numbers, then two more arrays.\n\nCombine your first array with the second array. Then remove any elements that appear in the third array.\n\nReturn the final array.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n(payload.first -- payload.remove) ++ payload.second",
+  "cases": [
+    {
+      "input": "{\n  \"first\": [1, 2],\n  \"second\": [3, 4],\n  \"remove\": [2]\n}",
+      "output": "[1, 3, 4]"
+    },
+    {
+      "input": "{\n  \"first\": [5, 6, 7],\n  \"second\": [8],\n  \"remove\": [6, 8]\n}",
+      "output": "[5, 7]"
+    },
+    {
+      "input": "{\n  \"first\": [10],\n  \"second\": [20, 30],\n  \"remove\": []\n}",
+      "output": "[10, 20, 30]"
+    },
+    {
+      "input": "{\n  \"first\": [1, 2, 3],\n  \"second\": [2, 3, 4],\n  \"remove\": [1, 2, 3, 4]\n}",
+      "output": "[]"
+    },
+    {
+      "input": "{\n  \"first\": [7, 8, 9],\n  \"second\": [1, 2],\n  \"remove\": [99]\n}",
+      "output": "[7, 8, 9, 1, 2]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "does removal before merge, so loses items that need to survive the merge"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.first ++ payload.second -- payload.remove",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\n(payload.first -- payload.remove) ++ payload.second"
+    }
+  ],
+  "explanation": {
+    "approach": "`++` and `--` are binary operators that work left to right. First, concatenate the two arrays. Then, filter out the unwanted elements. The order matters because you are removing from the combined result, not from the parts.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.first ++ payload.second -- payload.remove",
+        "payload": "{\"first\":[1,2],\"second\":[3,4],\"remove\":[2]}",
+        "expect": {
+          "output": "[1, 3, 4]"
+        },
+        "note": "Merge first, remove second. The 2 in `first` was part of the merge, so it is there to be removed."
+      },
+      {
+        "label": "Why order matters",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload.first -- payload.remove) ++ payload.second",
+        "payload": "{\"first\":[1,2],\"second\":[3,4],\"remove\":[2]}",
+        "expect": {
+          "output": "[1, 3, 4]"
+        },
+        "note": "Same input, same answer — but only by luck. If the item to remove was in `second`, this version would keep it. The wrong order hides when the trap applies."
+      },
+      {
+        "label": "Both operands are required to be arrays",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2] ++ [3, 4]",
+        "expect": {
+          "output": "[1, 2, 3, 4]"
+        },
+        "note": "`++` joins the right array into the left. Both must be arrays — scalar values are not auto-wrapped."
+      },
+      {
+        "label": "Remove an element that appears twice",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2, 2, 3] -- [2]",
+        "expect": {
+          "output": "[1, 3]"
+        },
+        "note": "`--` removes all instances of each element in the second array, not just the first."
+      },
+      {
+        "label": "The wrong-order case that reveals the trap",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload.first -- payload.remove) ++ payload.second",
+        "payload": "{\"first\":[1,2],\"second\":[2],\"remove\":[2]}",
+        "expect": {
+          "output": "[1, 2]"
+        },
+        "note": "Remove from `first` first, then merge. But `second` contains 2, which should have been removed — it comes back in the merge. The right answer filters the final result: `[1] ++ [2] -- [2] -> []`."
+      }
+    ]
+  },
+  "derivedFrom": "array-merge-and-remove"
+}

@@ -1,0 +1,35 @@
+{
+  "id": "index-the-items-predict-1",
+  "unit": "map-basics",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "What $$ actually is",
+  "topics": [
+    "map",
+    "index"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload map $$",
+    "payload": "[\"apple\", \"banana\", \"cherry\"]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map $$",
+  "explanation": {
+    "approach": "`$$` is zero-based. The first element is at index 0, the second at index 1, and so on.",
+    "snippets": [
+      {
+        "label": "What $$ actually is",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map $$",
+        "payload": "[\"apple\", \"banana\", \"cherry\"]",
+        "expect": {
+          "output": "[ 0, 1, 2 ]"
+        },
+        "note": "`$$` is zero-based. The first element is at index 0, the second at index 1, and so on."
+      }
+    ]
+  },
+  "derivedFrom": "index-the-items"
+}

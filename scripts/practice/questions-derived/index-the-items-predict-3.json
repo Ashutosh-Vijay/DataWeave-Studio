@@ -1,0 +1,35 @@
+{
+  "id": "index-the-items-predict-3",
+  "unit": "map-basics",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "What happens if you only use $ without the index",
+  "topics": [
+    "map",
+    "index"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload map {item: $}",
+    "payload": "[\"apple\", \"banana\", \"cherry\"]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map {item: $}",
+  "explanation": {
+    "approach": "You lose the position information entirely. `map` does not automatically include it; you have to ask for it with `$$`.",
+    "snippets": [
+      {
+        "label": "What happens if you only use $ without the index",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map {item: $}",
+        "payload": "[\"apple\", \"banana\", \"cherry\"]",
+        "expect": {
+          "output": "[ { \"item\": \"apple\" }, { \"item\": \"banana\" }, { \"item\": \"cherry\" } ]"
+        },
+        "note": "You lose the position information entirely. `map` does not automatically include it; you have to ask for it with `$$`."
+      }
+    ]
+  },
+  "derivedFrom": "index-the-items"
+}

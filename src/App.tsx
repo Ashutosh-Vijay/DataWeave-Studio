@@ -10,6 +10,14 @@ import { ScriptEditor, ScriptEditorHandle } from './components/ScriptEditor';
 import { WindowControls } from './components/WindowControls';
 import { WorkspaceMenu } from './components/WorkspaceMenu';
 import { ToastHost, toast } from './components/Toast';
+import {
+  shouldNudge,
+  activitySummary,
+  readActivity,
+  readGoal,
+  dayKey,
+  NUDGED_KEY,
+} from './practiceStats';
 import { buildAttributesJson, buildVarsJson } from './runInput';
 import { resolveVarsJson } from './resolveVars';
 import { substituteQueryParams } from './queryRender';
@@ -57,6 +65,7 @@ const SecurePropertiesTool = lazy(() => import('./components/SecurePropertiesToo
 const ConfigCryptoPanel = lazy(() => import('./components/ConfigCryptoPanel').then((m) => ({ default: m.ConfigCryptoPanel })));
 const CompareTool = lazy(() => import('./components/CompareTool').then((m) => ({ default: m.CompareTool })));
 const MuleLogTool = lazy(() => import('./components/MuleLogTool').then((m) => ({ default: m.MuleLogTool })));
+const PracticeScreen = lazy(() => import('./components/PracticeScreen').then((m) => ({ default: m.PracticeScreen })));
 const WelcomeTour = lazy(() => import('./components/WelcomeTour').then((m) => ({ default: m.WelcomeTour })));
 const ShortcutsDialog = lazy(() => import('./components/ShortcutsDialog').then((m) => ({ default: m.ShortcutsDialog })));
 const SettingsScreen = lazy(() => import('./components/SettingsScreen').then((m) => ({ default: m.SettingsScreen })));
@@ -273,6 +282,44 @@ function App() {
   const [configCryptoOpen, setConfigCryptoOpen] = useState(false);
   const [compareToolOpen, setCompareToolOpen] = useState(false);
   const [muleLogOpen, setMuleLogOpen] = useState(false);
+  const [practiceOpen, setPracticeOpen] = useState(false);
+
+  /**
+   * The daily nudge, Duolingo-owl duty.
+   *
+   * Only when a goal has been set, only when the day is short of it, and at
+   * most once a day — a reminder that reappears on every window focus is how a
+   * helpful nudge becomes the thing people turn off. The off switch is the
+   * goal's own "Off", which sits right beside the goal it disables.
+   *
+   * Delayed a few seconds so it does not land on top of the splash.
+   */
+  useEffect(() => {
+    let last: string | null = null;
+    try {
+      last = localStorage.getItem(NUDGED_KEY);
+    } catch {
+      return;
+    }
+    const events = readActivity();
+    const goal = readGoal();
+    if (!shouldNudge(events, goal, last)) return;
+    const short = goal - activitySummary(events).today;
+    const timer = setTimeout(() => {
+      toast({
+        title: 'Practice',
+        message: `${short} more DataWeave ${short === 1 ? 'question' : 'questions'} to hit today's goal.`,
+        variant: 'info',
+        action: { label: 'Open', onClick: () => setPracticeOpen(true) },
+      });
+      try {
+        localStorage.setItem(NUDGED_KEY, dayKey(Date.now()));
+      } catch {
+        /* blocked storage — it will simply ask again next launch */
+      }
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, []);
   const [showTour, setShowTour] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -1438,6 +1485,7 @@ function App() {
     { id: 'secure', label: 'Open Secure Properties tool', shortcut: '⌘⇧E', group: 'Secrets', run: () => setSecureToolOpen(true) },
     { id: 'config-crypto', label: 'Encrypt or decrypt a config file', group: 'Secrets', run: () => setConfigCryptoOpen(true) },
     { id: 'flow', label: 'Open Message Flow designer', group: 'Tools', run: () => setFlowDesignerOpen(true) },
+    { id: 'practice', label: 'Open Practice', hint: 'Graded DataWeave problems, offline', group: 'Tools', run: () => setPracticeOpen(true) },
     { id: 'compare', label: 'Open Compare tool', group: 'Tools', run: () => setCompareToolOpen(true) },
     { id: 'java', label: 'Open Java tester', group: 'Tools', run: () => setJavaTesterOpen(true) },
     { id: 'mcp', label: 'Open Local Server', hint: 'MCP for AI agents · HTTP for scripts', group: 'Tools', run: () => setMcpOpen(true) },
@@ -1582,6 +1630,7 @@ function App() {
                     ['Local Server', () => setMcpOpen(true)],
                     ['Secure Properties tool', () => setSecureToolOpen(true)],
                     ['Config encryption', () => setConfigCryptoOpen(true)],
+                    ['Practice', () => setPracticeOpen(true)],
                     ['Compare tool', () => setCompareToolOpen(true)],
                     ['Mule log → cURL', () => setMuleLogOpen(true)],
                     ['Import cURL', handleOpenImport],
@@ -1834,6 +1883,7 @@ function App() {
           onOpenSecure={() => { introFeature('secure'); setSecureToolOpen(true); }}
           onOpenConfigCrypto={() => setConfigCryptoOpen(true)}
           onOpenCompare={() => { introFeature('compare'); setCompareToolOpen(true); }}
+          onOpenPractice={() => setPracticeOpen(true)}
           onOpenFlowDesigner={() => { introFeature('flow'); setFlowDesignerOpen(true); }}
           onOpenJavaTester={() => { introFeature('java'); setJavaTesterOpen(true); }}
           onOpenOpenApi={() => { introFeature('openapi'); setOpenApiOpen(true); }}
@@ -2184,6 +2234,12 @@ function App() {
       )}
 
       {/* Mule log → cURL — replay a request that only exists in a log. */}
+      {practiceOpen && (
+        <Suspense fallback={null}>
+          <PracticeScreen open={practiceOpen} onClose={() => setPracticeOpen(false)} />
+        </Suspense>
+      )}
+
       {muleLogOpen && (
         <Suspense fallback={null}>
           {/* beginTransforming here rather than on open: looking at a log

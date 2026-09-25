@@ -1,0 +1,44 @@
+{
+  "id": "mcq-update-with-guard",
+  "unit": "update-operator",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "update",
+    "if"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "An `update` case can carry a condition: `case x at .a if (x > 5) -> 0` changes `a` only when its current value is over 5. When the condition is false the field is left as it is.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ a: 3, b: 9 } update {\n  case x at .a if (x > 5) -> 0\n  case y at .b if (y > 5) -> 0\n}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "{ \"a\": 3, \"b\": 9 }",
+      "{ \"a\": 0, \"b\": 0 }",
+      "{ \"a\": 3, \"b\": 0 }",
+      "{ \"b\": 0 }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ a: 3, b: 9 } update {\n  case x at .a if (x > 5) -> 0\n  case y at .b if (y > 5) -> 0\n}",
+  "explanation": {
+    "approach": "Each case tests its own field's current value. `a` is 3, so its case does not apply; `b` is 9, so it is reset. A failed condition keeps the field, it does not remove it.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ a: 3, b: 9 } update {\n  case x at .a if (x > 5) -> 0\n  case y at .b if (y > 5) -> 0\n}",
+        "expect": {
+          "output": "{\"a\":3,\"b\":0}"
+        },
+        "note": "Only the field over the limit changes."
+      }
+    ]
+  }
+}

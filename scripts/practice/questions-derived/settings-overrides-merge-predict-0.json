@@ -1,0 +1,37 @@
+{
+  "id": "settings-overrides-merge-predict-0",
+  "unit": "duplicate-keys",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Concatenation keeps both",
+  "topics": [
+    "++",
+    "mapObject",
+    "default",
+    "duplicate keys"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json indent=false",
+  "given": {
+    "script": "%dw 2.0\noutput application/json indent=false\n---\n{ retries: 3 } ++ { retries: 5 }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json indent=false\n---\n{ retries: 3 } ++ { retries: 5 }",
+  "explanation": {
+    "approach": "Two keys with the same name.",
+    "snippets": [
+      {
+        "label": "Concatenation keeps both",
+        "script": "%dw 2.0\noutput application/json indent=false\n---\n{ retries: 3 } ++ { retries: 5 }",
+        "outputMime": "application/json indent=false",
+        "expect": {
+          "output": "{\"retries\": 3,\"retries\": 5}"
+        },
+        "compare": "text",
+        "note": "Two keys with the same name."
+      }
+    ]
+  },
+  "derivedFrom": "settings-overrides-merge"
+}

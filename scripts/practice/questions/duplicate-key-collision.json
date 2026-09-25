@@ -1,0 +1,86 @@
+{
+  "id": "duplicate-key-collision",
+  "unit": "duplicate-keys",
+  "tier": "medium",
+  "title": "Two fields with the same name",
+  "compare": "text",
+  "topics": ["duplicate keys", "object construction"],
+  "prompt": "You are given an array of tag objects. Each has a `name` field (the category) and a `value` field.\n\nBuild an object where each field name comes from a tag's `name`, and the field value comes from that tag's `value`.\n\nThere is a catch: some names appear more than once. When a name appears twice, **both** entries must appear in the output with the same key.\n\nDataWeave objects are ordered pairs, not a map — duplicate keys survive into the JSON.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[{\"name\":\"color\",\"value\":\"red\"},{\"name\":\"size\",\"value\":\"large\"},{\"name\":\"color\",\"value\":\"blue\"}]",
+      "output": "{\n  \"color\": \"red\",\n  \"size\": \"large\",\n  \"color\": \"blue\"\n}"
+    },
+    {
+      "input": "[{\"name\":\"a\",\"value\":1}]",
+      "output": "{\n  \"a\": 1\n}"
+    },
+    {
+      "input": "[{\"name\":\"x\",\"value\":10},{\"name\":\"y\",\"value\":20},{\"name\":\"x\",\"value\":30}]",
+      "output": "{\n  \"x\": 10,\n  \"y\": 20,\n  \"x\": 30\n}"
+    },
+    {
+      "input": "[]",
+      "output": "{\n  \n}"
+    }
+  ],
+  "hints": [
+    "You need to build an object where the field names come from data. Use `reduce` with computed keys.",
+    "When you write `{(expr): value}` with parentheses around the key expression, you are building a computed key. This works with `reduce` to accumulate key-value pairs into an object.",
+    "DataWeave allows the same key to appear twice. When it does, both entries end up in the JSON output. Most JSON parsers will keep the last value, but DataWeave kept both, and that is the point."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload reduce ((tag, obj = {}) -> obj ++ { (tag.name): tag.value })",
+  "mustFail": [
+    {
+      "why": "hardcodes the sample answer",
+      "script": "%dw 2.0\noutput application/json\n---\n{ \"color\": \"red\", \"size\": \"large\", \"color\": \"blue\" }"
+    },
+    {
+      "why": "would work for unique keys, but loses the duplicate",
+      "script": "%dw 2.0\noutput application/json\n---\npayload as Object {case . -> $ reduce ((tag, obj = {}) -> obj ++ { (tag.name): tag.value }) }"
+    }
+  ],
+  "explanation": {
+    "approach": "To build an object from an array, you can use `reduce` to accumulate key-value pairs. The key insight is that DataWeave objects are ordered lists of pairs, not a dictionary — so a repeated key does not overwrite; both keys survive.",
+    "snippets": [
+      {
+        "label": "A computed key",
+        "script": "%dw 2.0\noutput application/json\n---\n{(\"color\"): \"red\"}",
+        "payload": null,
+        "expect": { "output": "{ \"color\": \"red\" }" },
+        "note": "Parentheses around the key expression make it a computed key. The key comes from evaluating the expression, not from a literal field name."
+      },
+      {
+        "label": "Building an object from an array with reduce",
+        "script": "%dw 2.0\noutput application/json\n---\n[{\"name\":\"a\",\"value\":1},{\"name\":\"b\",\"value\":2}] reduce ((tag, obj = {}) -> obj ++ { (tag.name): tag.value })",
+        "payload": null,
+        "expect": { "output": "{ \"a\": 1, \"b\": 2 }" },
+        "note": "Start with an empty object. For each tag, concatenate it with a new object built from that tag's name and value. The `++` operator merges the objects."
+      },
+      {
+        "label": "The answer: duplicate keys allowed",
+        "script": "%dw 2.0\noutput application/json\n---\npayload reduce ((tag, obj = {}) -> obj ++ { (tag.name): tag.value })",
+        "payload": "[{\"name\":\"color\",\"value\":\"red\"},{\"name\":\"size\",\"value\":\"large\"},{\"name\":\"color\",\"value\":\"blue\"}]",
+        "expect": { "output": "{ \"color\": \"red\", \"size\": \"large\", \"color\": \"blue\" }" },
+        "note": "When the second color tag arrives, it concatenates a new pair into the object. The result is an object with two pairs named `color`, both in the output."
+      },
+      {
+        "label": "Checking the object contents",
+        "script": "%dw 2.0\noutput application/json\n---\npayload reduce ((tag, obj = {}) -> obj ++ { (tag.name): tag.value })",
+        "payload": "[{\"name\":\"color\",\"value\":\"red\"},{\"name\":\"color\",\"value\":\"blue\"}]",
+        "expect": { "output": "{\n  \"color\": \"red\",\n  \"color\": \"blue\"\n}" },
+        "note": "Both keys survive in the output. This is unlike a traditional map where the second value would overwrite the first. DataWeave treats objects as ordered lists of pairs, so both remain."
+      },
+      {
+        "label": "Preventing duplicates with groupBy",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.name mapObject { ($$): $.value[0] }",
+        "payload": "[{\"name\":\"color\",\"value\":\"red\"},{\"name\":\"color\",\"value\":\"blue\"}]",
+        "expect": { "output": "{\n  \"color\": \"red\"\n}" },
+        "note": "`groupBy` groups by the key expression and returns an object. If you want to collapse duplicates instead, group first, then pick one winner (here, the first one with `[0]`)."
+      }
+    ]
+  }
+}

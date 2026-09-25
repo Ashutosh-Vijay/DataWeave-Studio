@@ -1,0 +1,103 @@
+{
+  "id": "calculate-total-from-csv-debug-1",
+  "unit": "csv-round-trip",
+  "mode": "debug",
+  "tier": "medium",
+  "title": "Fix it: the total and the biggest number in a csv",
+  "topics": [
+    "read",
+    "sum",
+    "max",
+    "as"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nA CSV of transactions comes in with a header row and an `amount` column.\n\nReturn `{ total, highest }` — the sum of every amount, and the largest single amount. Both must come out as **numbers**, not strings.\n\nEvery value parsed from a CSV is a String. Whether that matters depends on what you do with it, and the two halves of this task do not agree.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/csv",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n{ total: sum(payload map ($.amount as Number)), highest: max(payload map $.amount) }",
+  "cases": [
+    {
+      "input": "name,amount\na,10\nb,9\nc,25.50\n",
+      "output": "{ \"total\": 44.5, \"highest\": 25.5 }"
+    },
+    {
+      "input": "name,amount\nx,7\n",
+      "output": "{ \"total\": 7, \"highest\": 7 }"
+    },
+    {
+      "input": "name,amount\np,100\nq,99\n",
+      "output": "{ \"total\": 199, \"highest\": 100 }"
+    },
+    {
+      "input": "name,amount\nr,5.5\ns,5.25\n",
+      "output": "{ \"total\": 10.75, \"highest\": 5.5 }"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "converts for the sum but not for the max — the half that silently lies"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n{\n  total: sum(payload map ($.amount as Number)),\n  highest: max(payload map ($.amount as Number))\n}",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\n{ total: sum(payload map ($.amount as Number)), highest: max(payload map $.amount) }"
+    }
+  ],
+  "explanation": {
+    "approach": "Everything a CSV reader hands you is a String. The lesson people usually take from that is \"always coerce\", but the interesting part is *why* — because half of DataWeave will quietly coerce for you and the other half will not, and the half that does is the half you try first.",
+    "snippets": [
+      {
+        "label": "What the column really is",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map typeOf($.amount)",
+        "payload": "name,amount\na,10\nb,9\nc,25.50\n",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "[ \"String\", \"String\", \"String\" ]"
+        },
+        "note": "No surprise yet. A CSV has no types — every field is text, including the ones that look like numbers."
+      },
+      {
+        "label": "The sum works anyway, which is the trap",
+        "script": "%dw 2.0\noutput application/json\n---\nsum(payload map $.amount)",
+        "payload": "name,amount\na,10\nb,9\nc,25.50\n",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "44.5"
+        },
+        "note": "No coercion, and the right answer. Arithmetic coerces a numeric String for you, so the first thing most people try works — and teaches them the wrong lesson."
+      },
+      {
+        "label": "The same data, the same lack of coercion, a wrong answer",
+        "script": "%dw 2.0\noutput application/json\n---\nmax(payload map $.amount)",
+        "payload": "name,amount\na,10\nb,9\nc,25.50\n",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "\"9\""
+        },
+        "note": "The largest amount is 25.50, and this returns \"9\". `max` compares rather than calculates, and comparing text puts \"9\" after \"25.50\" the same way \"z\" comes after \"ab\". Note the quotes in the answer — it did not even come back as a number."
+      },
+      {
+        "label": "Sorting has the same problem, and it is easier to miss",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload orderBy $.amount) map $.amount",
+        "payload": "name,amount\na,10\nb,9\nc,25.50\n",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "[ \"10\", \"25.50\", \"9\" ]"
+        },
+        "note": "Ascending order that puts 9 last. On a page of results this looks like a sort that nearly worked, which is worse than one that obviously did not."
+      },
+      {
+        "label": "Coerce once, up front",
+        "script": "%dw 2.0\noutput application/json\n---\n{ sumBoth: sum(payload map ($.amount as Number)), maxBoth: max(payload map ($.amount as Number)) }",
+        "payload": "name,amount\na,10\nb,9\nc,25.50\n",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "{ \"sumBoth\": 44.5, \"maxBoth\": 25.5 }"
+        },
+        "note": "Converting at the point you read the column, rather than at the point you happen to need a number, is what makes the rest of the script safe. It also fixes the output type: `highest` is now 25.5 rather than \"25.50\"."
+      }
+    ]
+  },
+  "derivedFrom": "calculate-total-from-csv"
+}

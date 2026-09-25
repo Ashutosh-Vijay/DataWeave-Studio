@@ -1,0 +1,33 @@
+{
+  "id": "change-status-field-predict-1",
+  "unit": "update-operator",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "What happens when you update a missing field",
+  "topics": [
+    "update",
+    "case"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{id: 1, status: \"active\"} update {\n  case .missing -> \"added\"\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{id: 1, status: \"active\"} update {\n  case .missing -> \"added\"\n}",
+  "explanation": {
+    "approach": "The `update` did not add a `missing` field. It only modifies fields that already exist. This is the trap: the operation succeeds silently, but nothing happened.",
+    "snippets": [
+      {
+        "label": "What happens when you update a missing field",
+        "script": "%dw 2.0\noutput application/json\n---\n{id: 1, status: \"active\"} update {\n  case .missing -> \"added\"\n}",
+        "expect": {
+          "output": "{\n  \"id\": 1,\n  \"status\": \"active\"\n}"
+        },
+        "note": "The `update` did not add a `missing` field. It only modifies fields that already exist. This is the trap: the operation succeeds silently, but nothing happened."
+      }
+    ]
+  },
+  "derivedFrom": "change-status-field"
+}

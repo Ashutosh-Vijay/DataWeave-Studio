@@ -1,0 +1,35 @@
+{
+  "id": "allocate-order-discount-predict-1",
+  "unit": "precision",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "Position of the largest",
+  "topics": [
+    "floor",
+    "sum",
+    "reduce",
+    "map"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[333, 333, 334] indexOf max([333, 333, 334])"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[333, 333, 334] indexOf max([333, 333, 334])",
+  "explanation": {
+    "approach": "The third line.",
+    "snippets": [
+      {
+        "label": "Position of the largest",
+        "script": "%dw 2.0\noutput application/json\n---\n[333, 333, 334] indexOf max([333, 333, 334])",
+        "expect": {
+          "output": "2"
+        },
+        "note": "The third line."
+      }
+    ]
+  },
+  "derivedFrom": "allocate-order-discount"
+}

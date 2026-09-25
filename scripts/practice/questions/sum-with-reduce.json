@@ -1,0 +1,85 @@
+{
+  "id": "sum-with-reduce",
+  "unit": "reduce-seed",
+  "tier": "medium",
+  "title": "Total up a numeric field across items",
+  "topics": ["reduce", "seed"],
+  "prompt": "You are given an array of objects, each with a numeric `amount` field.\n\nReturn the **total** of all amounts.\n\nWhen the array is empty, your total must be 0, not null.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[{\"id\":\"A\",\"amount\":10},{\"id\":\"B\",\"amount\":20},{\"id\":\"C\",\"amount\":15}]",
+      "output": "45"
+    },
+    {
+      "input": "[{\"id\":\"D\",\"amount\":100}]",
+      "output": "100"
+    },
+    {
+      "input": "[{\"id\":\"E\",\"amount\":5},{\"id\":\"F\",\"amount\":3},{\"id\":\"G\",\"amount\":2}]",
+      "output": "10"
+    },
+    {
+      "input": "[]",
+      "output": "0"
+    }
+  ],
+  "hints": [
+    "The `reduce` function combines multiple values into a single result. It takes the element being processed and an accumulator that carries the total forward.",
+    "The seed is the starting value for your accumulator. If you do not provide one, an empty array returns null instead of your default.",
+    "The parameter order in reduce is `(element, accumulator) -> newAccumulator`. See `reduce` take a look at how the lambda's parameters are ordered."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload reduce ((item, total = 0) -> total + item.amount)",
+  "mustFail": [
+    {
+      "why": "hardcodes the sample answer",
+      "script": "%dw 2.0\noutput application/json\n---\n45"
+    },
+    {
+      "why": "no seed, so empty array gives null instead of 0",
+      "script": "%dw 2.0\noutput application/json\n---\npayload reduce ((item, total) -> total + item.amount)"
+    }
+  ],
+  "explanation": {
+    "approach": "`reduce` walks an array one element at a time, passing the current element and the accumulated result to a function. The seed is the starting value — with no seed, an empty array gives null, which is not a number and causes arithmetic to fail.",
+    "snippets": [
+      {
+        "label": "How reduce processes elements",
+        "script": "%dw 2.0\noutput application/json\n---\n[10, 20, 30] reduce ((element, acc = 0) -> acc + element)",
+        "payload": null,
+        "expect": { "output": "60" },
+        "note": "Each element gets added to `acc`, which starts at 0. After the first pass, acc is 10. After the second, 30. After the third, 60."
+      },
+      {
+        "label": "Extracting a field first",
+        "script": "%dw 2.0\noutput application/json\n---\npayload reduce ((item, total = 0) -> total + item.amount)",
+        "payload": "[{\"id\":\"A\",\"amount\":10},{\"id\":\"B\",\"amount\":20},{\"id\":\"C\",\"amount\":15}]",
+        "expect": { "output": "45" },
+        "note": "The same technique, but starting with objects. You extract `item.amount` for each and add it to the running total."
+      },
+      {
+        "label": "Without a seed, empty means null",
+        "script": "%dw 2.0\noutput application/json\n---\n[] reduce ((item, total) -> total + item)",
+        "payload": null,
+        "expect": { "output": "null" },
+        "note": "With no seed, reducing an empty array gives null. On non-empty arrays this would fail at runtime when trying to add null, but on an empty array it simply returns null."
+      },
+      {
+        "label": "The seed as a default value",
+        "script": "%dw 2.0\noutput application/json\n---\n[] reduce ((item, total = 0) -> total + item)",
+        "payload": null,
+        "expect": { "output": "0" },
+        "note": "With `total = 0` as the seed, an empty array returns 0. It works with the objects too: the first element arrives at the function with `total` already 0."
+      },
+      {
+        "label": "The alternative: sum function",
+        "script": "%dw 2.0\noutput application/json\n---\nsum(payload map $.amount)",
+        "payload": "[{\"id\":\"A\",\"amount\":10},{\"id\":\"B\",\"amount\":20},{\"id\":\"C\",\"amount\":15}]",
+        "expect": { "output": "45" },
+        "note": "An alternative path: extract the amounts into an array, then pass it to `sum`. `sum` also returns 0 for an empty array, but `reduce` gives you more control over each step."
+      }
+    ]
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "id": "mcq-match-literal-pattern",
+  "unit": "match-and-types",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "match",
+    "coercion"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "A `match` case can be a literal value: `case 1 -> \"one\"` matches when the value equals 1. Literal cases are the DataWeave version of a switch statement.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[\"1\", 1, \"01\", \"x\"] map ($ match { case 1 -> \"one\" else -> \"other\" })"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ \"one\", \"one\", \"one\", \"other\" ]",
+      "[ \"one\", \"one\", \"other\", \"other\" ]",
+      "It fails: \"x\" cannot be compared with 1",
+      "[ \"other\", \"one\", \"other\", \"other\" ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[\"1\", 1, \"01\", \"x\"] map ($ match { case 1 -> \"one\" else -> \"other\" })",
+  "explanation": {
+    "approach": "A literal case compares the way `~=` does, with coercion, not strictly like `==`. The Strings \"1\" and \"01\" both read as the Number 1, so they match the case. \"x\" cannot be read as a number, so it goes to `else` rather than failing.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"1\", 1, \"01\", \"x\"] map ($ match { case 1 -> \"one\" else -> \"other\" })",
+        "expect": {
+          "output": "[\"one\",\"one\",\"one\",\"other\"]"
+        },
+        "note": "Not the strict comparison you might expect from `==`."
+      },
+      {
+        "label": "The strict version",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"1\", 1, \"01\"] map ($ == 1)",
+        "expect": {
+          "output": "[false,true,false]"
+        },
+        "note": "`==` treats \"1\" and 1 as different."
+      }
+    ]
+  }
+}

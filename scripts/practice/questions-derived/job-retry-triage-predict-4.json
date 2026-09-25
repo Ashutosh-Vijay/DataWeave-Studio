@@ -1,0 +1,34 @@
+{
+  "id": "job-retry-triage-predict-4",
+  "unit": "match-and-types",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "Everything else falls to `else`",
+  "topics": [
+    "match",
+    "is",
+    "else"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\ntrue match {\n  case n is Number -> \"num\"\n  case null -> \"isNull\"\n  else -> \"other\"\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\ntrue match {\n  case n is Number -> \"num\"\n  case null -> \"isNull\"\n  else -> \"other\"\n}",
+  "explanation": {
+    "approach": "A Boolean matches none of the specific cases, so it lands on `else` — this is where a corrupted `retries` field (a string, a boolean, an object) ends up as `INVALID`.",
+    "snippets": [
+      {
+        "label": "Everything else falls to `else`",
+        "script": "%dw 2.0\noutput application/json\n---\ntrue match {\n  case n is Number -> \"num\"\n  case null -> \"isNull\"\n  else -> \"other\"\n}",
+        "expect": {
+          "output": "\"other\""
+        },
+        "note": "A Boolean matches none of the specific cases, so it lands on `else` — this is where a corrupted `retries` field (a string, a boolean, an object) ends up as `INVALID`."
+      }
+    ]
+  },
+  "derivedFrom": "job-retry-triage"
+}

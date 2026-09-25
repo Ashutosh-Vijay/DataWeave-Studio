@@ -1,0 +1,104 @@
+{
+  "id": "record-schema-validator",
+  "unit": "schema-validator",
+  "tier": "ultra",
+  "title": "Validate a record against a schema given as data",
+  "topics": ["pluck", "match", "is", "recursion"],
+  "prompt": "The payload is `{ schema, record }`. `schema` is an object mapping field names to a rule shaped like `{ kind, required }`, where `kind` is one of `\"String\"`, `\"Number\"`, `\"Boolean\"`, `\"Object\"`, `\"Array\"`, and `required` is `true` or `false`.\n\nWhen `kind` is `\"Object\"`, the rule also has `fields` — another schema of the same shape, describing `record`'s nested value for that field. When `kind` is `\"Array\"`, the rule also has `itemKind` — one of the scalar kinds, which every element of the array must match.\n\nReturn an array of every violation found anywhere in `record`, as strings, in the form `<path> is required` or `<path> must be a <Kind>`, using a dotted path such as `user.address.city` and a bracketed index such as `tags[1]` for array elements. A field that is missing is only a violation when its rule says it is required. Find every violation, not just the first one for a field and not just the first field with a problem — a record with three things wrong reports all three.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\nfun validate(path, schema, record) =\n  ???\n---\nvalidate(\"\", payload.schema, payload.record)",
+  "cases": [
+    {
+      "input": "{ \"schema\": { \"name\": { \"kind\": \"String\", \"required\": true }, \"age\": { \"kind\": \"Number\", \"required\": true } }, \"record\": { \"age\": \"thirty\" } }",
+      "output": "[\"name is required\", \"age must be a Number\"]"
+    },
+    {
+      "input": "{ \"schema\": { \"a\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"b\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"c\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"d\": { \"kind\": \"String\", \"required\": true } } } } } } } }, \"record\": { \"a\": { \"b\": { \"c\": {} } } } }",
+      "output": "[\"a.b.c.d is required\"]"
+    },
+    {
+      "input": "{ \"schema\": { \"tags\": { \"kind\": \"Array\", \"required\": true, \"itemKind\": \"String\" } }, \"record\": { \"tags\": [\"a\", 1, \"c\", true] } }",
+      "output": "[\"tags[1] must be a String\", \"tags[3] must be a String\"]"
+    },
+    {
+      "input": "{ \"schema\": {}, \"record\": { \"anything\": 123 } }",
+      "output": "[]"
+    },
+    {
+      "input": "{ \"schema\": { \"name\": { \"kind\": \"String\", \"required\": true }, \"active\": { \"kind\": \"Boolean\", \"required\": false } }, \"record\": { \"name\": \"Ana\" } }",
+      "output": "[]"
+    },
+    {
+      "input": "{ \"schema\": { \"order\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"id\": { \"kind\": \"Number\", \"required\": true }, \"tags\": { \"kind\": \"Array\", \"required\": false, \"itemKind\": \"String\" } } } }, \"record\": { \"order\": { \"tags\": [\"ok\", 5] } } }",
+      "output": "[\"order.id is required\", \"order.tags[1] must be a String\"]"
+    }
+  ],
+  "hints": [
+    "For each field the schema mentions, look up the matching value in the record and ask the same two questions: is it missing when it shouldn't be, and if it's present, does it have the shape the rule describes. That question is identical at every depth — the only thing that changes going into a nested Object field is which schema and which value you're asking it about.",
+    "Each field resolves to its own small array of errors — often empty. The overall answer is every one of those little arrays, flattened into one, which is a job for `pluck` (it hands you the rule and the field name for every entry) rather than a variable you keep appending to as you go.",
+    "`match` on `rule.kind` picks the check. `\"Object\"` and `\"Array\"` are not leaves: for `\"Object\"`, call the validator again on `rule.fields` and the nested value, with the path extended by the field's name; for `\"Array\"`, check `rule.itemKind` against every element and collect all of their errors. A version that only confirms the value IS an Object, or IS an Array, without going one level further in, matches a flat schema exactly and reports nothing at all for anything nested inside one."
+  ],
+  "solution": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else if (rule.kind == \"Object\")\n      (if (v is Object) validate(\"$(p).\", rule.fields default {}, v) else [\"$(p) must be an Object\"])\n    else if (rule.kind == \"Array\")\n      (if (v is Array) flatten(v map ((item, idx) -> check(\"$(p)[$(idx)]\", rule.itemKind default \"String\", item))) else [\"$(p) must be an Array\"])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+  "mustFail": [
+    {
+      "why": "hardcodes the sample answer",
+      "script": "%dw 2.0\noutput application/json\n---\n[\"name is required\", \"age must be a Number\"]"
+    },
+    {
+      "why": "handles one level: an Object or Array field is only checked for its own container type, never for what's inside it, so a nested requirement or a bad array element is silently never reported",
+      "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)"
+    },
+    {
+      "why": "declares the pluck callback as (field, rule) instead of (rule, field) — pluck always hands the value first, so `field` is actually bound to the rule object and interpolating it into the path throws immediately",
+      "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((field, rule) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else if (rule.kind == \"Object\")\n      (if (v is Object) validate(\"$(p).\", rule.fields default {}, v) else [\"$(p) must be an Object\"])\n    else if (rule.kind == \"Array\")\n      (if (v is Array) flatten(v map ((item, idx) -> check(\"$(p)[$(idx)]\", rule.itemKind default \"String\", item))) else [\"$(p) must be an Array\"])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)"
+    }
+  ],
+  "explanation": {
+    "approach": "Each field in the schema resolves to its own small array of errors — empty when that field is fine — and the overall result is every one of those arrays flattened together, so nothing needs a running total that grows as the walk proceeds. `pluck` supplies the `(rule, field)` pairs; for each one, `record[field]` is looked up and tested for missing-when-required, then, if it is present, matched against `rule.kind`. Three of the five kinds are leaves and get checked with `is` directly. The other two are not: `\"Object\"` means there is a nested schema (`rule.fields`) and a nested value, and `validate` is called again on exactly those, with the path extended by the field's own name; `\"Array\"` means every element gets checked against `rule.itemKind` and all of those results get flattened in too. The near-miss stops at confirming the field's own container type and never goes back inside it — which behaves identically to the real thing on a schema that happens not to nest, and silently drops every violation that lives one level deeper.",
+    "snippets": [
+      {
+        "label": "The sample: a missing field and a wrong type, both reported",
+        "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else if (rule.kind == \"Object\")\n      (if (v is Object) validate(\"$(p).\", rule.fields default {}, v) else [\"$(p) must be an Object\"])\n    else if (rule.kind == \"Array\")\n      (if (v is Array) flatten(v map ((item, idx) -> check(\"$(p)[$(idx)]\", rule.itemKind default \"String\", item))) else [\"$(p) must be an Array\"])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+        "payload": "{ \"schema\": { \"name\": { \"kind\": \"String\", \"required\": true }, \"age\": { \"kind\": \"Number\", \"required\": true } }, \"record\": { \"age\": \"thirty\" } }",
+        "expect": { "output": "[\"name is required\", \"age must be a Number\"]" },
+        "note": "Two independent problems on two independent fields, both present in the result — neither one stops the walk before the other is found."
+      },
+      {
+        "label": "An empty schema has nothing to check",
+        "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else if (rule.kind == \"Object\")\n      (if (v is Object) validate(\"$(p).\", rule.fields default {}, v) else [\"$(p) must be an Object\"])\n    else if (rule.kind == \"Array\")\n      (if (v is Array) flatten(v map ((item, idx) -> check(\"$(p)[$(idx)]\", rule.itemKind default \"String\", item))) else [\"$(p) must be an Array\"])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+        "payload": "{ \"schema\": {}, \"record\": { \"anything\": 123 } }",
+        "expect": { "output": "[]" },
+        "note": "`pluck` over an empty object produces nothing to flatten, whatever the record itself contains — there is no rule to hold it to."
+      },
+      {
+        "label": "Errors from two different nested branches both survive",
+        "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else if (rule.kind == \"Object\")\n      (if (v is Object) validate(\"$(p).\", rule.fields default {}, v) else [\"$(p) must be an Object\"])\n    else if (rule.kind == \"Array\")\n      (if (v is Array) flatten(v map ((item, idx) -> check(\"$(p)[$(idx)]\", rule.itemKind default \"String\", item))) else [\"$(p) must be an Array\"])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+        "payload": "{ \"schema\": { \"user\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"name\": { \"kind\": \"String\", \"required\": true }, \"address\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"city\": { \"kind\": \"String\", \"required\": true } } } } } }, \"record\": { \"user\": { \"address\": {} } } }",
+        "expect": { "output": "[\"user.name is required\", \"user.address.city is required\"]" },
+        "note": "`user.name` is missing and `user.address.city` is missing two levels down — both come back, with the path built up one field at a time as `validate` calls itself."
+      },
+      {
+        "label": "The near-miss on that same nested payload: silence",
+        "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+        "payload": "{ \"schema\": { \"user\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"name\": { \"kind\": \"String\", \"required\": true }, \"address\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"city\": { \"kind\": \"String\", \"required\": true } } } } } }, \"record\": { \"user\": { \"address\": {} } } }",
+        "expect": { "output": "[]" },
+        "note": "`user` is present and is an Object, so `check` says it's fine and stops — `rule.fields` is never looked at, so the two missing fields inside it are never found."
+      },
+      {
+        "label": "The same near-miss still catches a top-level type mismatch",
+        "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+        "payload": "{ \"schema\": { \"user\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"name\": { \"kind\": \"String\", \"required\": true } } } }, \"record\": { \"user\": \"not-an-object\" } }",
+        "expect": { "output": "[\"user must be an Object\"]" },
+        "note": "This is why the bug ships unnoticed: it is not silent about everything, only about what is nested. A field of the wrong container type at the top level is still caught; it is only the contents of a correctly-typed Object or Array that never get looked at."
+      },
+      {
+        "label": "Every bad element of an array is reported, not just the first",
+        "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else if (rule.kind == \"Object\")\n      (if (v is Object) validate(\"$(p).\", rule.fields default {}, v) else [\"$(p) must be an Object\"])\n    else if (rule.kind == \"Array\")\n      (if (v is Array) flatten(v map ((item, idx) -> check(\"$(p)[$(idx)]\", rule.itemKind default \"String\", item))) else [\"$(p) must be an Array\"])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+        "payload": "{ \"schema\": { \"tags\": { \"kind\": \"Array\", \"required\": true, \"itemKind\": \"String\" } }, \"record\": { \"tags\": [\"a\", 1, \"c\", true] } }",
+        "expect": { "output": "[\"tags[1] must be a String\", \"tags[3] must be a String\"]" },
+        "note": "Index `1` (the number) and index `3` (the boolean) are both wrong, and both come back — `map` runs `check` against every element independently before the results are flattened together."
+      }
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "id": "change-status-field-predict-5",
+  "unit": "update-operator",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Why update is better than rebuilding",
+  "topics": [
+    "update",
+    "case"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{id: 1, status: \"active\", priority: 1, tags: [\"a\", \"b\"], notes: \"important\"} update {\n  case .status -> \"inactive\"\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{id: 1, status: \"active\", priority: 1, tags: [\"a\", \"b\"], notes: \"important\"} update {\n  case .status -> \"inactive\"\n}",
+  "explanation": {
+    "approach": "With `update`, you specify only what changes. If someone adds a new field to this object later, your code still works. If you had hand-rebuilt it with explicit fields, the new field would be lost.",
+    "snippets": [
+      {
+        "label": "Why update is better than rebuilding",
+        "script": "%dw 2.0\noutput application/json\n---\n{id: 1, status: \"active\", priority: 1, tags: [\"a\", \"b\"], notes: \"important\"} update {\n  case .status -> \"inactive\"\n}",
+        "expect": {
+          "output": "{\n  \"id\": 1,\n  \"status\": \"inactive\",\n  \"priority\": 1,\n  \"tags\": [\n    \"a\",\n    \"b\"\n  ],\n  \"notes\": \"important\"\n}"
+        },
+        "note": "With `update`, you specify only what changes. If someone adds a new field to this object later, your code still works. If you had hand-rebuilt it with explicit fields, the new field would be lost."
+      }
+    ]
+  },
+  "derivedFrom": "change-status-field"
+}

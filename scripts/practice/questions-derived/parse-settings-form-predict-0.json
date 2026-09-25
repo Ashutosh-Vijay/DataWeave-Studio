@@ -1,0 +1,34 @@
+{
+  "id": "parse-settings-form-predict-0",
+  "unit": "type-coercion",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Basic string to number conversion",
+  "topics": [
+    "as",
+    "Number",
+    "Boolean"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n\"123\" as Number"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"123\" as Number",
+  "explanation": {
+    "approach": "The string '123' is converted to the number 123. Now it is a numeric type, not a string.",
+    "snippets": [
+      {
+        "label": "Basic string to number conversion",
+        "script": "%dw 2.0\noutput application/json\n---\n\"123\" as Number",
+        "expect": {
+          "output": "123"
+        },
+        "note": "The string '123' is converted to the number 123. Now it is a numeric type, not a string."
+      }
+    ]
+  },
+  "derivedFrom": "parse-settings-form"
+}

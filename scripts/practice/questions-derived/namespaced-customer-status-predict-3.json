@@ -1,0 +1,37 @@
+{
+  "id": "namespaced-customer-status-predict-3",
+  "unit": "xml-namespaces",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "The same bug is invisible when the audit field is absent",
+  "topics": [
+    "ns",
+    "namespace-qualified selectors",
+    "@id"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nns soap http://schemas.xmlsoap.org/soap/envelope/\nns cust http://acme.com/customer\n---\npayload.soap#Envelope.soap#Body.cust#GetCustomersResponse.*cust#Customer map {\n  id: $.@id,\n  name: $.cust#Name,\n  status: $.Status\n}",
+    "payload": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:cust=\"http://acme.com/customer\" xmlns:audit=\"http://acme.com/audit\">\n  <soap:Body>\n    <cust:GetCustomersResponse>\n      <cust:Customer id=\"C-3\">\n        <cust:Name>Carol Nguyen</cust:Name>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n    </cust:GetCustomersResponse>\n  </soap:Body>\n</soap:Envelope>"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nns soap http://schemas.xmlsoap.org/soap/envelope/\nns cust http://acme.com/customer\n---\npayload.soap#Envelope.soap#Body.cust#GetCustomersResponse.*cust#Customer map {\n  id: $.@id,\n  name: $.cust#Name,\n  status: $.Status\n}",
+  "explanation": {
+    "approach": "With no `audit:Status` sibling, `cust:Status` is the only element with that local name, so the bare selector reaches it and the wrong script happens to produce the right answer. A test suite built only from records like this one would never catch the bug.",
+    "snippets": [
+      {
+        "label": "The same bug is invisible when the audit field is absent",
+        "script": "%dw 2.0\noutput application/json\nns soap http://schemas.xmlsoap.org/soap/envelope/\nns cust http://acme.com/customer\n---\npayload.soap#Envelope.soap#Body.cust#GetCustomersResponse.*cust#Customer map {\n  id: $.@id,\n  name: $.cust#Name,\n  status: $.Status\n}",
+        "payload": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:cust=\"http://acme.com/customer\" xmlns:audit=\"http://acme.com/audit\">\n  <soap:Body>\n    <cust:GetCustomersResponse>\n      <cust:Customer id=\"C-3\">\n        <cust:Name>Carol Nguyen</cust:Name>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n    </cust:GetCustomersResponse>\n  </soap:Body>\n</soap:Envelope>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "[ { \"id\": \"C-3\", \"name\": \"Carol Nguyen\", \"status\": \"ACTIVE\" } ]"
+        },
+        "note": "With no `audit:Status` sibling, `cust:Status` is the only element with that local name, so the bare selector reaches it and the wrong script happens to produce the right answer. A test suite built only from records like this one would never catch the bug."
+      }
+    ]
+  },
+  "derivedFrom": "namespaced-customer-status"
+}

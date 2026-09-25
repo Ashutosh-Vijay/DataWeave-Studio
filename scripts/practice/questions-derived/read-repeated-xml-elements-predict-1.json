@@ -1,0 +1,38 @@
+{
+  "id": "read-repeated-xml-elements-predict-1",
+  "unit": "xml-selectors",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Why . loses lines",
+  "topics": [
+    "XML",
+    "selectors",
+    ".*",
+    "@"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.order.line",
+    "payload": "<order id=\"X\"><line>A</line><line>B</line><line>C</line></order>"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.order.line",
+  "explanation": {
+    "approach": "Only the first line. The selector stops at the first match and returns its value, not an array. Perfect for single child, catastrophic for repeated ones.",
+    "snippets": [
+      {
+        "label": "Why . loses lines",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.order.line",
+        "payload": "<order id=\"X\"><line>A</line><line>B</line><line>C</line></order>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "\"A\""
+        },
+        "note": "Only the first line. The selector stops at the first match and returns its value, not an array. Perfect for single child, catastrophic for repeated ones."
+      }
+    ]
+  },
+  "derivedFrom": "read-repeated-xml-elements"
+}

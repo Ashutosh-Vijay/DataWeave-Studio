@@ -1,0 +1,35 @@
+{
+  "id": "customers-in-first-order-seen-predict-1",
+  "unit": "distinct-and-order",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "distinctBy alone",
+  "topics": [
+    "distinctBy",
+    "orderBy"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.customerId distinctBy $",
+    "payload": "[{\"customerId\":\"C9\"},{\"customerId\":\"C2\"},{\"customerId\":\"C9\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.customerId distinctBy $",
+  "explanation": {
+    "approach": "C9 ordered first.",
+    "snippets": [
+      {
+        "label": "distinctBy alone",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.customerId distinctBy $",
+        "payload": "[{\"customerId\":\"C9\"},{\"customerId\":\"C2\"},{\"customerId\":\"C9\"}]",
+        "expect": {
+          "output": "[\"C9\",\"C2\"]"
+        },
+        "note": "C9 ordered first."
+      }
+    ]
+  },
+  "derivedFrom": "customers-in-first-order-seen"
+}

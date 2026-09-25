@@ -1,0 +1,35 @@
+{
+  "id": "mainframe-payroll-extract-predict-1",
+  "unit": "flat-file",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "A range selector plus trim pulls one field out",
+  "topics": [
+    "read",
+    "range selectors",
+    "fixed-width",
+    "trim"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "text/plain",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\ntrim(\"E00001Alice Chen          0004250.00ENG\"[6 to 25])"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\ntrim(\"E00001Alice Chen          0004250.00ENG\"[6 to 25])",
+  "explanation": {
+    "approach": "line[6 to 25] is the 20-character name column, spaces and all. trim removes the padding — it does not know or care where the padding came from.",
+    "snippets": [
+      {
+        "label": "A range selector plus trim pulls one field out",
+        "script": "%dw 2.0\noutput application/json\n---\ntrim(\"E00001Alice Chen          0004250.00ENG\"[6 to 25])",
+        "expect": {
+          "output": "\"Alice Chen\""
+        },
+        "note": "line[6 to 25] is the 20-character name column, spaces and all. trim removes the padding — it does not know or care where the padding came from."
+      }
+    ]
+  },
+  "derivedFrom": "mainframe-payroll-extract"
+}

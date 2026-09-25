@@ -1,0 +1,53 @@
+{
+  "id": "mcq-match-type-with-guard",
+  "unit": "match-and-types",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "match",
+    "is",
+    "if"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "A `match` case either tests a type, `case n is Number`, or tests a condition, `case n if (n > 3)`. To test both at once, put the type check inside the condition.",
+  "mode": "choice",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "payload": "{\"n\":5}",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload.n match { case n is Number -> \"number\" else -> \"other\" }",
+      "%dw 2.0\noutput application/json\n---\npayload.n match { case n is Number if n > 3 -> \"big\" else -> \"small\" }",
+      "%dw 2.0\noutput application/json\n---\npayload.n match { case n if (n > 3) -> \"big\" else -> \"small\" }",
+      "%dw 2.0\noutput application/json\n---\npayload.n match { case n if (n is Number and n > 3) -> \"big\" else -> \"small\" }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.n match { case n if (n is Number and n > 3) -> \"big\" else -> \"small\" }",
+  "explanation": {
+    "approach": "A case can be a type pattern or a guard, not both joined together. The parser does not accept `is Number if`. The combined test goes in the guard: `if (n is Number and n > 3)`.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.n match { case n is Number if n > 3 -> \"big\" else -> \"small\" }",
+        "payload": "{\"n\":5}",
+        "expect": {
+          "error": true
+        },
+        "note": "A parse error."
+      },
+      {
+        "label": "Both tests in the guard",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.n match { case n if (n is Number and n > 3) -> \"big\" else -> \"small\" }",
+        "payload": "{\"n\":5}",
+        "expect": {
+          "output": "\"big\""
+        },
+        "note": "One condition."
+      }
+    ]
+  }
+}

@@ -1,0 +1,110 @@
+{
+  "id": "first-and-last-items-debug-1",
+  "unit": "sizeof-and-slicing",
+  "mode": "debug",
+  "tier": "easy",
+  "title": "Fix it: extract first and last items",
+  "topics": [
+    "sizeOf"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nYou have a list of items. Return an object with `first` and `last` fields containing the first and last items from the list.\n\nFor the sample, `[\"apple\", \"banana\", \"cherry\"]` should produce `{\"first\": \"apple\", \"last\": \"cherry\"}`.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n{first: payload[0 to 0], last: payload[-1 to -1]}",
+  "cases": [
+    {
+      "input": "[\"apple\", \"banana\", \"cherry\"]",
+      "output": "{\"first\": \"apple\", \"last\": \"cherry\"}"
+    },
+    {
+      "input": "[1, 2, 3, 4, 5]",
+      "output": "{\"first\": 1, \"last\": 5}"
+    },
+    {
+      "input": "[\"single\"]",
+      "output": "{\"first\": \"single\", \"last\": \"single\"}"
+    },
+    {
+      "input": "[null, true, false]",
+      "output": "{\"first\": null, \"last\": false}"
+    },
+    {
+      "input": "[{\"id\": 1}, {\"id\": 2}]",
+      "output": "{\"first\": {\"id\": 1}, \"last\": {\"id\": 2}}"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "uses both array index and slice, returning arrays instead of scalars"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n{first: payload[0], last: payload[-1]}",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\n{first: payload[0 to 0], last: payload[-1 to -1]}"
+    }
+  ],
+  "explanation": {
+    "approach": "Index the first element with [0] and the last with [-1]. Negative indices count backward from the end, so -1 is always the last item. You do not need to know the array length.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{first: [\"apple\", \"banana\", \"cherry\"][0], last: [\"apple\", \"banana\", \"cherry\"][-1]}",
+        "expect": {
+          "output": "{ \"first\": \"apple\", \"last\": \"cherry\" }"
+        },
+        "note": "Index [0] is the first item, [-1] is the last. No size calculation needed."
+      },
+      {
+        "label": "Negative indexing: -1 is the last",
+        "script": "%dw 2.0\noutput application/json\n---\n[1,2,3][-1]",
+        "expect": {
+          "output": "3"
+        },
+        "note": "Negative indices count from the end. -1 is the last, -2 is second-to-last, etc."
+      },
+      {
+        "label": "An index past the end is null",
+        "script": "%dw 2.0\noutput application/json\n---\n[1,2,3][9]",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Out-of-bounds access does not throw an error; it just returns null. This is useful for defensive coding."
+      },
+      {
+        "label": "A range is different from an index",
+        "script": "%dw 2.0\noutput application/json\n---\n{single: [1,2,3][0], range: [1,2,3][0 to 0]}",
+        "expect": {
+          "output": "{ \"single\": 1, \"range\": [ 1 ] }"
+        },
+        "note": "[0] returns the item itself, [0 to 0] returns an array with one item. For this task, you want [0] and [-1], not ranges."
+      },
+      {
+        "label": "sizeOf tells you the length",
+        "script": "%dw 2.0\noutput application/json\n---\n{array: [10, 20, 30, 40], size: sizeOf([10, 20, 30, 40])}",
+        "expect": {
+          "output": "{ \"array\": [ 10, 20, 30, 40 ], \"size\": 4 }"
+        },
+        "note": "sizeOf returns the count. But for the last item, negative indexing is simpler than calculating sizeOf(payload) - 1."
+      },
+      {
+        "label": "Why the tempting alternative is wrong",
+        "script": "%dw 2.0\noutput application/json\n---\n{direct: [1,2,3][-1], calc: [1,2,3][sizeOf([1,2,3]) - 1]}",
+        "expect": {
+          "output": "{ \"direct\": 3, \"calc\": 3 }"
+        },
+        "note": "Both return the same value, but negative indexing is clearer — it says 'get the last' without asking you to do arithmetic."
+      },
+      {
+        "label": "There is no negative zero",
+        "script": "%dw 2.0\noutput application/json\n---\n{ zero: [1,2,3][0], negZero: [1,2,3][-0], negOne: [1,2,3][-1] }",
+        "expect": {
+          "output": "{ \"zero\": 1, \"negZero\": 1, \"negOne\": 3 }"
+        },
+        "note": "Counting back from the end starts at -1, not -0, because -0 and 0 are the same number. So `[-0]` quietly gives you the FIRST element — the one place where reaching for the end lands you at the start."
+      }
+    ]
+  },
+  "derivedFrom": "first-and-last-items"
+}

@@ -1,0 +1,54 @@
+{
+  "id": "mcq-agg-maxby-tie",
+  "unit": "nested-aggregation",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "maxBy"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "`maxBy` returns the element of an Array whose key is largest: `payload maxBy $.amount` gives the whole element with the biggest amount, not just the amount.",
+  "mode": "choice",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload maxBy $.amount",
+    "payload": "[{\"id\":\"a\",\"amount\":10},{\"id\":\"b\",\"amount\":30},{\"id\":\"c\",\"amount\":30}]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ { \"id\": \"b\", \"amount\": 30 }, { \"id\": \"c\", \"amount\": 30 } ]",
+      "{ \"id\": \"c\", \"amount\": 30 }",
+      "30",
+      "{ \"id\": \"b\", \"amount\": 30 }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload maxBy $.amount",
+  "explanation": {
+    "approach": "`maxBy` returns one element, the whole element, and when two elements tie for the largest key it returns the first of them.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload maxBy $.amount",
+        "payload": "[{\"id\":\"a\",\"amount\":10},{\"id\":\"b\",\"amount\":30},{\"id\":\"c\",\"amount\":30}]",
+        "expect": {
+          "output": "{\"id\":\"b\",\"amount\":30}"
+        },
+        "note": "b comes first among the tied elements."
+      },
+      {
+        "label": "Just the value",
+        "script": "%dw 2.0\noutput application/json\n---\nmax(payload.amount)",
+        "payload": "[{\"id\":\"a\",\"amount\":10},{\"id\":\"b\",\"amount\":30}]",
+        "expect": {
+          "output": "30"
+        },
+        "note": "`max` over the amounts gives the Number only."
+      }
+    ]
+  }
+}

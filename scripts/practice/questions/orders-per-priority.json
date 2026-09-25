@@ -1,0 +1,85 @@
+{
+  "id": "orders-per-priority",
+  "unit": "groupby-shape",
+  "tier": "medium",
+  "title": "How many orders at each priority",
+  "topics": ["groupBy", "mapObject", "sizeOf"],
+  "prompt": "You are given an array of orders, each with a numeric `priority`.\n\nReturn **one object** whose keys are the priorities that appear, and whose values are how many orders had that priority.\n\nA priority that never appears must not appear in the output.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[\n  { \"id\": \"A\", \"priority\": 1 },\n  { \"id\": \"B\", \"priority\": 2 },\n  { \"id\": \"C\", \"priority\": 1 }\n]",
+      "output": "{ \"1\": 2, \"2\": 1 }"
+    },
+    {
+      "input": "[\n  { \"id\": \"D\", \"priority\": 3 }\n]",
+      "output": "{ \"3\": 1 }"
+    },
+    {
+      "input": "[\n  { \"id\": \"E\", \"priority\": 2 },\n  { \"id\": \"F\", \"priority\": 2 },\n  { \"id\": \"G\", \"priority\": 2 },\n  { \"id\": \"H\", \"priority\": 1 }\n]",
+      "output": "{ \"2\": 3, \"1\": 1 }"
+    },
+    {
+      "input": "[]",
+      "output": "{}"
+    }
+  ],
+  "hints": [
+    "One function puts the orders into buckets. Look at what it hands back before you try to count anything — it is not an array.",
+    "Counting the members of each bucket is `sizeOf`.",
+    "To rebuild an object from an object, `mapObject` gives you the value as `$` and the key as `$$`. A computed key needs parentheses: `($$): ...`"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority mapObject { ($$): sizeOf($) }",
+  "mustFail": [
+    {
+      "why": "hardcodes the sample answer",
+      "script": "%dw 2.0\noutput application/json\n---\n{ \"1\": 2, \"2\": 1 }"
+    },
+    {
+      "why": "treats the grouped result as an array",
+      "script": "%dw 2.0\noutput application/json\n---\n(payload groupBy $.priority) map sizeOf($)"
+    }
+  ],
+  "explanation": {
+    "approach": "`groupBy` does the hard part; the work left over is entirely about the shape it returns. It gives you an **object** — bucket key to array of members — so the second step has to be an object function, not an array one.",
+    "snippets": [
+      {
+        "label": "Look at what groupBy returns first",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority",
+        "payload": "[{\"id\":\"A\",\"priority\":1},{\"id\":\"B\",\"priority\":2},{\"id\":\"C\",\"priority\":1}]",
+        "expect": { "output": "{ \"1\": [ { \"id\": \"A\", \"priority\": 1 }, { \"id\": \"C\", \"priority\": 1 } ], \"2\": [ { \"id\": \"B\", \"priority\": 2 } ] }" },
+        "note": "Two things to notice. It is an object, not an array. And the keys are the strings `\"1\"` and `\"2\"` even though `priority` was a number — an object key is always a name, so the grouping value is coerced on the way in."
+      },
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority mapObject { ($$): sizeOf($) }",
+        "payload": "[{\"id\":\"A\",\"priority\":1},{\"id\":\"B\",\"priority\":2},{\"id\":\"C\",\"priority\":1}]",
+        "expect": { "output": "{ \"1\": 2, \"2\": 1 }" },
+        "note": "Inside `mapObject`, `$` is the value (the bucket) and `$$` is the key. The parentheses around `$$` are what make it a computed key rather than a field literally named `$$`."
+      },
+      {
+        "label": "Why not map",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload groupBy $.priority) map sizeOf($)",
+        "payload": "[{\"id\":\"A\",\"priority\":1},{\"id\":\"B\",\"priority\":2},{\"id\":\"C\",\"priority\":1}]",
+        "expect": { "error": true },
+        "note": "It does not quietly do the wrong thing — the engine refuses, because `map` has no overload for an Object. This is the good case: the mistake is caught at the point you make it."
+      },
+      {
+        "label": "The named-parameter form",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority mapObject ((orders, priority) -> { (priority): sizeOf(orders) })",
+        "payload": "[{\"id\":\"A\",\"priority\":1},{\"id\":\"B\",\"priority\":2},{\"id\":\"C\",\"priority\":1}]",
+        "expect": { "output": "{ \"1\": 2, \"2\": 1 }" },
+        "note": "Same result. Note the order: **value first, then key**, which is the opposite of how 'key-value' reads. Getting this backwards is a common source of confusion, and because both are often Strings it may not fail — it just produces nonsense."
+      },
+      {
+        "label": "If you want counts as an array of rows instead",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority pluck ((orders, priority) -> { priority: priority, count: sizeOf(orders) })",
+        "payload": "[{\"id\":\"A\",\"priority\":1},{\"id\":\"B\",\"priority\":2},{\"id\":\"C\",\"priority\":1}]",
+        "expect": { "output": "[ { \"priority\": \"1\", \"count\": 2 }, { \"priority\": \"2\", \"count\": 1 } ]" },
+        "note": "`pluck` is `mapObject`'s sibling that returns an array. Not what this task asked for, but it is the shape you usually want for a report or a CSV — and see that `priority` has come back out as a String, because that is what it became when it was a key."
+      }
+    ]
+  }
+}

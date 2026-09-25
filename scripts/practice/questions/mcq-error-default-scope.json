@@ -1,0 +1,58 @@
+{
+  "id": "mcq-error-default-scope",
+  "unit": "error-handling",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "default",
+    "as",
+    "try"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "`default` supplies a fallback when a value is null. It also catches a failed `as` coercion. It is not a general error handler, though, and some failures pass straight through it.",
+  "mode": "choice",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n(10 / 0) default 0",
+      "%dw 2.0\noutput application/json\n---\n(\"yes\" as Boolean) default false",
+      "%dw 2.0\noutput application/json\n---\npayload.missing.deep default 0",
+      "%dw 2.0\noutput application/json\n---\n(\"x\" as Number) default 0"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(\"x\" as Number) default 0",
+  "explanation": {
+    "approach": "A failed coercion is caught and the fallback is used; so is a missing value. A division by zero is a different kind of error and `default` lets it through. For that, use `try` from `dw::Runtime`.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\n(10 / 0) default 0",
+        "expect": {
+          "error": true
+        },
+        "note": "Division by zero is not caught."
+      },
+      {
+        "label": "Coercions are caught",
+        "script": "%dw 2.0\noutput application/json\n---\n[(\"x\" as Number) default 0, (\"yes\" as Boolean) default false]",
+        "expect": {
+          "output": "[0,false]"
+        },
+        "note": "Both fall back."
+      },
+      {
+        "label": "try catches it",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ntry(() -> 10 / 0).success",
+        "expect": {
+          "output": "false"
+        },
+        "note": "Contained, as data."
+      }
+    ]
+  }
+}

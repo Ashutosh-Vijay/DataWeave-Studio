@@ -1,0 +1,34 @@
+{
+  "id": "generic-key-rewrite-predict-2",
+  "unit": "generic-key-rewrite",
+  "mode": "predict",
+  "tier": "extra",
+  "title": "mapLeafValues walks the whole tree too, but it never sees the keys",
+  "topics": [
+    "fun",
+    "mapObject",
+    "recursion"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\nmapLeafValues({user_id: 1, full_name: \"Ada\"}, (v, p) -> v)"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\nmapLeafValues({user_id: 1, full_name: \"Ada\"}, (v, p) -> v)",
+  "explanation": {
+    "approach": "Even though the callback runs on every leaf, the keys `user_id` and `full_name` come back exactly as they went in — `mapLeafValues` is a value-mapper, not a key-mapper, so it cannot do this task no matter what the callback does.",
+    "snippets": [
+      {
+        "label": "mapLeafValues walks the whole tree too, but it never sees the keys",
+        "script": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\nmapLeafValues({user_id: 1, full_name: \"Ada\"}, (v, p) -> v)",
+        "expect": {
+          "output": "{ \"user_id\": 1, \"full_name\": \"Ada\" }"
+        },
+        "note": "Even though the callback runs on every leaf, the keys `user_id` and `full_name` come back exactly as they went in — `mapLeafValues` is a value-mapper, not a key-mapper, so it cannot do this task no matter what the callback does."
+      }
+    ]
+  },
+  "derivedFrom": "generic-key-rewrite"
+}

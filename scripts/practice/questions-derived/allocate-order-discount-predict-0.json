@@ -1,0 +1,35 @@
+{
+  "id": "allocate-order-discount-predict-0",
+  "unit": "precision",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "Independent rounding",
+  "topics": [
+    "floor",
+    "sum",
+    "reduce",
+    "map"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[round(99 * 500 / 1000), round(99 * 250 / 1000), round(99 * 250 / 1000)]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[round(99 * 500 / 1000), round(99 * 250 / 1000), round(99 * 250 / 1000)]",
+  "explanation": {
+    "approach": "Adds up to 100, one cent more than the discount.",
+    "snippets": [
+      {
+        "label": "Independent rounding",
+        "script": "%dw 2.0\noutput application/json\n---\n[round(99 * 500 / 1000), round(99 * 250 / 1000), round(99 * 250 / 1000)]",
+        "expect": {
+          "output": "[50,25,25]"
+        },
+        "note": "Adds up to 100, one cent more than the discount."
+      }
+    ]
+  },
+  "derivedFrom": "allocate-order-discount"
+}

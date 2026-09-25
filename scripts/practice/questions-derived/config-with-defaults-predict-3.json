@@ -1,0 +1,33 @@
+{
+  "id": "config-with-defaults-predict-3",
+  "unit": "default-and-missing",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "empty string is NOT null",
+  "topics": [
+    "default",
+    "null"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n\"\" default \"fallback\""
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"\" default \"fallback\"",
+  "explanation": {
+    "approach": "Empty string is a valid value, not null. The default does not apply. This is the trap: many languages treat empty strings as falsy, but DataWeave treats them as real values.",
+    "snippets": [
+      {
+        "label": "empty string is NOT null",
+        "script": "%dw 2.0\noutput application/json\n---\n\"\" default \"fallback\"",
+        "expect": {
+          "output": "\"\""
+        },
+        "note": "Empty string is a valid value, not null. The default does not apply. This is the trap: many languages treat empty strings as falsy, but DataWeave treats them as real values."
+      }
+    ]
+  },
+  "derivedFrom": "config-with-defaults"
+}

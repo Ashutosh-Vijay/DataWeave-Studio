@@ -1,0 +1,39 @@
+{
+  "id": "pivot-exam-scores-predict-3",
+  "unit": "pivot",
+  "mode": "predict",
+  "tier": "extra",
+  "title": "The near-miss: reducing over a student's OWN rows instead of the full subject list",
+  "topics": [
+    "groupBy",
+    "pluck",
+    "reduce",
+    "distinctBy"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/csv",
+  "given": {
+    "script": "%dw 2.0\noutput application/csv\n---\npayload groupBy $.student pluck ((rows, student) -> rows reduce ((r, acc = {student: student}) -> acc ++ {(r.subject): r.score}))",
+    "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/csv\n---\npayload groupBy $.student pluck ((rows, student) -> rows reduce ((r, acc = {student: student}) -> acc ++ {(r.subject): r.score}))",
+  "explanation": {
+    "approach": "This compiles, runs, and looks right for Ada. Bo only ever appears with a Math record, so his row only ever gets a Math key — the writer takes its header from the first row (Ada's, with Bio) and then writes Bo's shorter row underneath it misaligned, one column short, instead of erroring.",
+    "snippets": [
+      {
+        "label": "The near-miss: reducing over a student's OWN rows instead of the full subject list",
+        "script": "%dw 2.0\noutput application/csv\n---\npayload groupBy $.student pluck ((rows, student) -> rows reduce ((r, acc = {student: student}) -> acc ++ {(r.subject): r.score}))",
+        "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]",
+        "outputMime": "application/csv",
+        "compare": "text",
+        "expect": {
+          "output": "student,Math,Bio\r\nAda,90,70\r\nBo,60\r\n"
+        },
+        "note": "This compiles, runs, and looks right for Ada. Bo only ever appears with a Math record, so his row only ever gets a Math key — the writer takes its header from the first row (Ada's, with Bio) and then writes Bo's shorter row underneath it misaligned, one column short, instead of erroring."
+      }
+    ]
+  },
+  "derivedFrom": "pivot-exam-scores"
+}

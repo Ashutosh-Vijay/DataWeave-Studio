@@ -1,0 +1,35 @@
+{
+  "id": "sum-with-reduce-predict-3",
+  "unit": "reduce-seed",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "The seed as a default value",
+  "topics": [
+    "reduce",
+    "seed"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[] reduce ((item, total = 0) -> total + item)",
+    "payload": null
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[] reduce ((item, total = 0) -> total + item)",
+  "explanation": {
+    "approach": "With `total = 0` as the seed, an empty array returns 0. It works with the objects too: the first element arrives at the function with `total` already 0.",
+    "snippets": [
+      {
+        "label": "The seed as a default value",
+        "script": "%dw 2.0\noutput application/json\n---\n[] reduce ((item, total = 0) -> total + item)",
+        "payload": null,
+        "expect": {
+          "output": "0"
+        },
+        "note": "With `total = 0` as the seed, an empty array returns 0. It works with the objects too: the first element arrives at the function with `total` already 0."
+      }
+    ]
+  },
+  "derivedFrom": "sum-with-reduce"
+}

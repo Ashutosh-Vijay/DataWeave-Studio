@@ -1,0 +1,37 @@
+{
+  "id": "pivot-exam-scores-predict-0",
+  "unit": "pivot",
+  "mode": "predict",
+  "tier": "extra",
+  "title": "Discovering the columns, in first-seen order",
+  "topics": [
+    "groupBy",
+    "pluck",
+    "reduce",
+    "distinctBy"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/csv",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n(payload map $.subject) distinctBy $",
+    "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload map $.subject) distinctBy $",
+  "explanation": {
+    "approach": "Math and Bio, each once, in the order they first appear — Bo's second Math record does not add a duplicate or move anything.",
+    "snippets": [
+      {
+        "label": "Discovering the columns, in first-seen order",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload map $.subject) distinctBy $",
+        "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Ada\",\"subject\":\"Bio\",\"score\":70},{\"student\":\"Bo\",\"subject\":\"Math\",\"score\":60}]",
+        "expect": {
+          "output": "[ \"Math\", \"Bio\" ]"
+        },
+        "note": "Math and Bio, each once, in the order they first appear — Bo's second Math record does not add a duplicate or move anything."
+      }
+    ]
+  },
+  "derivedFrom": "pivot-exam-scores"
+}

@@ -1,0 +1,33 @@
+{
+  "id": "change-status-field-predict-0",
+  "unit": "update-operator",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "The basic update syntax",
+  "topics": [
+    "update",
+    "case"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{id: 1, status: \"active\", name: \"Item1\"} update {\n  case .status -> \"inactive\"\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{id: 1, status: \"active\", name: \"Item1\"} update {\n  case .status -> \"inactive\"\n}",
+  "explanation": {
+    "approach": "The `status` field changed to `inactive`, but `id` and `name` stayed the same. The `update` left everything else untouched.",
+    "snippets": [
+      {
+        "label": "The basic update syntax",
+        "script": "%dw 2.0\noutput application/json\n---\n{id: 1, status: \"active\", name: \"Item1\"} update {\n  case .status -> \"inactive\"\n}",
+        "expect": {
+          "output": "{\n  \"id\": 1,\n  \"status\": \"inactive\",\n  \"name\": \"Item1\"\n}"
+        },
+        "note": "The `status` field changed to `inactive`, but `id` and `name` stayed the same. The `update` left everything else untouched."
+      }
+    ]
+  },
+  "derivedFrom": "change-status-field"
+}

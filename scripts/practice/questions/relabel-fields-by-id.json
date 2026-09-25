@@ -1,0 +1,96 @@
+{
+  "id": "relabel-fields-by-id",
+  "unit": "dynamic-keys",
+  "tier": "hard",
+  "title": "Rename every field to its human-readable label",
+  "compare": "text",
+  "topics": ["computed keys", "mapObject", "duplicate keys"],
+  "prompt": "You are given `payload.data`, an object of raw values keyed by internal field IDs like `f1`, `f2`, and `payload.labels`, an object mapping some of those same field IDs to human-readable names.\n\nBuild a new object with the same values, but with each key replaced by its label. A field ID that has no entry in `labels` keeps its original key.\n\nTwo different field IDs can be labeled with the exact same name (two internal fields both meaning \"comments\", say). When that happens, keep **both** entries in the output under that shared name, in the order they appear in `data` — do not collapse them.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "{\"data\":{\"f1\":\"Alice\",\"f2\":\"42 Main St\",\"f3\":\"Loves DataWeave\",\"f7\":\"Great support\"},\"labels\":{\"f1\":\"name\",\"f2\":\"address\",\"f3\":\"comments\",\"f7\":\"comments\"}}",
+      "output": "{\n  \"name\": \"Alice\",\n  \"address\": \"42 Main St\",\n  \"comments\": \"Loves DataWeave\",\n  \"comments\": \"Great support\"\n}"
+    },
+    {
+      "input": "{\"data\":{\"f1\":\"Alice\",\"f9\":\"mystery\"},\"labels\":{\"f1\":\"name\"}}",
+      "output": "{\n  \"name\": \"Alice\",\n  \"f9\": \"mystery\"\n}"
+    },
+    {
+      "input": "{\"data\":{},\"labels\":{}}",
+      "output": "{\n  \n}"
+    },
+    {
+      "input": "{\"data\":{\"f1\":\"a\",\"f2\":\"b\",\"f3\":\"c\",\"f4\":\"d\",\"f5\":\"e\"},\"labels\":{\"f1\":\"x\",\"f2\":\"x\",\"f3\":\"x\",\"f4\":\"y\",\"f5\":\"y\"}}",
+      "output": "{\n  \"x\": \"a\",\n  \"x\": \"b\",\n  \"x\": \"c\",\n  \"y\": \"d\",\n  \"y\": \"e\"\n}"
+    },
+    {
+      "input": "{\"data\":{\"f1\":\"a\",\"f2\":\"b\"},\"labels\":{}}",
+      "output": "{\n  \"f1\": \"a\",\n  \"f2\": \"b\"\n}"
+    }
+  ],
+  "hints": [
+    "You need to build an object whose keys come from data, not from the script text. `mapObject` walks an object and lets you produce a new one; wrapping an expression in parentheses as a key — `(expr): value` — makes it a computed key, evaluated rather than read literally.",
+    "`mapObject` hands its lambda the value, the key, and the position, in that order — value first. The field ID you need for the lookup is the second parameter. To read a field of `labels` whose name you only know at runtime, use a bracket selector like `payload.labels[k]`; when the ID is not present, that gives `null`, and `default` supplies the fallback.",
+    "Leaving off the parentheses does not error — it silently changes the meaning. `{ k: v }` builds a field literally named `k` for every entry, not whatever value the variable `k` holds, so you would get the same key repeated for every row instead of the labels you looked up."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.data mapObject ((v, k, i) -> { (payload.labels[k] default k): v })",
+  "mustFail": [
+    {
+      "why": "hardcodes the sample answer",
+      "script": "%dw 2.0\noutput application/json\n---\n{\n  \"name\": \"Alice\",\n  \"address\": \"42 Main St\",\n  \"comments\": \"Loves DataWeave\",\n  \"comments\": \"Great support\"\n}"
+    },
+    {
+      "why": "forgets the parentheses around the computed key, so every field ends up literally named 'k' instead of using the looked-up label",
+      "script": "%dw 2.0\noutput application/json\n---\npayload.data mapObject ((v, k, i) -> { k: v })"
+    }
+  ],
+  "explanation": {
+    "approach": "The new key for each field is not known when the script is written — it depends on looking the field ID up in `labels`. `mapObject` gives you each value and key of `data` in turn; wrapping the looked-up label in parentheses, `(payload.labels[k] default k): v`, makes DataWeave evaluate it into a key rather than treating it as a literal field name. Because DataWeave objects are ordered lists of pairs, two fields that resolve to the same label both survive in the output side by side, instead of the second overwriting the first.",
+    "snippets": [
+      {
+        "label": "Looking a value up by a key you only know at runtime",
+        "script": "%dw 2.0\noutput application/json\n---\ndo {\n  var labels = {f1: 'name', f2: 'address'}\n  var k = 'f2'\n  ---\n  labels[k]\n}",
+        "expect": { "output": "\"address\"" },
+        "note": "A bracket selector with a variable inside it reads the field whose name is the variable's value, not a field literally called `k`."
+      },
+      {
+        "label": "Without parentheses, the key is the literal word",
+        "script": "%dw 2.0\noutput application/json\n---\ndo { var k = 'x' --- { k: 1 } }",
+        "expect": { "output": "{ \"k\": 1 }" },
+        "note": "Even though `k` holds `'x'`, writing `k:` as a bare key builds a field named `k`. The variable is never read."
+      },
+      {
+        "label": "With parentheses, the key becomes the variable's value",
+        "script": "%dw 2.0\noutput application/json\n---\ndo { var k = 'x' --- { (k): 1 } }",
+        "expect": { "output": "{ \"x\": 1 }" },
+        "note": "The parentheses are what turn `k` from a field name into an expression to evaluate. This is the whole trick a computed key relies on."
+      },
+      {
+        "label": "mapObject hands you value first",
+        "script": "%dw 2.0\noutput application/json\n---\npayload mapObject ((v, k, i) -> { (k): [v, i] })",
+        "payload": "{\"a\":\"A\"}",
+        "expect": { "output": "{\"a\":[\"A\",0]}" },
+        "note": "The lambda's first parameter is the value, the second is the key, and the third is the index — the opposite order from how you would say the pair out loud."
+      },
+      {
+        "label": "The wrong way: forgetting the parentheses when renaming",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.data mapObject ((v, k, i) -> { k: v })",
+        "payload": "{\"data\":{\"f1\":\"Alice\",\"f2\":\"42 Main St\",\"f3\":\"Loves DataWeave\",\"f7\":\"Great support\"},\"labels\":{\"f1\":\"name\",\"f2\":\"address\",\"f3\":\"comments\",\"f7\":\"comments\"}}",
+        "expect": { "output": "{\n  \"k\": \"Alice\",\n  \"k\": \"42 Main St\",\n  \"k\": \"Loves DataWeave\",\n  \"k\": \"Great support\"\n}" },
+        "compare": "text",
+        "note": "Every entry lands under the literal key `k`, because the bare identifier was never turned into an expression. The labels lookup does not even run."
+      },
+      {
+        "label": "The answer, and why the duplicate label survives",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.data mapObject ((v, k, i) -> { (payload.labels[k] default k): v })",
+        "payload": "{\"data\":{\"f1\":\"Alice\",\"f2\":\"42 Main St\",\"f3\":\"Loves DataWeave\",\"f7\":\"Great support\"},\"labels\":{\"f1\":\"name\",\"f2\":\"address\",\"f3\":\"comments\",\"f7\":\"comments\"}}",
+        "expect": { "output": "{\n  \"name\": \"Alice\",\n  \"address\": \"42 Main St\",\n  \"comments\": \"Loves DataWeave\",\n  \"comments\": \"Great support\"\n}" },
+        "compare": "text",
+        "note": "`f3` and `f7` both resolve to `comments`. DataWeave objects do not deduplicate keys, so both pairs come through in the order they were built."
+      }
+    ]
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "id": "mcq-string-comparison-order",
+  "unit": "type-coercion",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    ">",
+    "coercion"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ \"10\" > \"9\", \"10\" > 9, 10 > 9 ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ false, true, true ]",
+      "[ true, false, true ]",
+      "[ false, false, true ]",
+      "[ true, true, true ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ \"10\" > \"9\", \"10\" > 9, 10 > 9 ]",
+  "explanation": {
+    "approach": "Two Strings compare as text, character by character, and \"1\" sorts before \"9\". Once one side is a Number, the String is coerced and the comparison is numeric.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ \"10\" > \"9\", \"10\" > 9, 10 > 9 ]",
+        "expect": {
+          "output": "[ false, true, true ]"
+        },
+        "note": "Only the first comparison is between two Strings, so only the first is alphabetical."
+      },
+      {
+        "label": "The same trap inside max",
+        "script": "%dw 2.0\noutput application/json\n---\nmax([\"9\", \"10\"])",
+        "expect": {
+          "output": "\"9\""
+        },
+        "note": "`max` over Strings picks the alphabetically last one. Coerce first if you mean numbers."
+      }
+    ]
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "id": "mcq-last-two-elements",
+  "unit": "sizeof-and-slicing",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "range",
+    "selectors"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n[ 40, 50 ]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[10,20,30,40,50]",
+    "target": "[ 40, 50 ]",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload[2 to 3]",
+      "%dw 2.0\noutput application/json\n---\npayload[-1 to -2]",
+      "%dw 2.0\noutput application/json\n---\npayload[-2 to -1]",
+      "%dw 2.0\noutput application/json\n---\npayload[-2]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload[-2 to -1]",
+  "explanation": {
+    "approach": "Negative indexes count from the end: -1 is the last element. A range runs from its first index to its second, so writing it backwards also reverses the result.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload[-2 to -1]",
+        "payload": "[10,20,30,40,50]",
+        "expect": {
+          "output": "[ 40, 50 ]"
+        },
+        "note": "Second to last, then last."
+      },
+      {
+        "label": "The range backwards",
+        "script": "%dw 2.0\noutput application/json\n---\npayload[-1 to -2]",
+        "payload": "[10,20,30,40,50]",
+        "expect": {
+          "output": "[ 50, 40 ]"
+        },
+        "note": "The same two elements, reversed."
+      },
+      {
+        "label": "A single index",
+        "script": "%dw 2.0\noutput application/json\n---\npayload[-2]",
+        "payload": "[10,20,30,40,50]",
+        "expect": {
+          "output": "40"
+        },
+        "note": "One element, not an Array."
+      }
+    ]
+  }
+}

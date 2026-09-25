@@ -1,0 +1,33 @@
+{
+  "id": "order-csv-envelope-predict-0",
+  "unit": "multi-format-embed",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "write returns a String; embedded, it is an escaped blob",
+  "topics": [
+    "write",
+    "read"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{\n  kind: typeOf(write([{sku: \"A1\", qty: 2, price: 9.5}], \"application/csv\")),\n  envelope: { orderId: \"ORD1\", csv: write([{sku: \"A1\", qty: 2, price: 9.5}], \"application/csv\") }\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{\n  kind: typeOf(write([{sku: \"A1\", qty: 2, price: 9.5}], \"application/csv\")),\n  envelope: { orderId: \"ORD1\", csv: write([{sku: \"A1\", qty: 2, price: 9.5}], \"application/csv\") }\n}",
+  "explanation": {
+    "approach": "typeOf confirms it is just a String. Sitting inside the envelope it shows up as `\\r\\n`, not real line breaks — that is what a JSON string does to any text with newlines in it, and it is exactly what should happen here.",
+    "snippets": [
+      {
+        "label": "write returns a String; embedded, it is an escaped blob",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  kind: typeOf(write([{sku: \"A1\", qty: 2, price: 9.5}], \"application/csv\")),\n  envelope: { orderId: \"ORD1\", csv: write([{sku: \"A1\", qty: 2, price: 9.5}], \"application/csv\") }\n}",
+        "expect": {
+          "output": "{ \"kind\": \"String\", \"envelope\": { \"orderId\": \"ORD1\", \"csv\": \"sku,qty,price\\r\\nA1,2,9.5\\r\\n\" } }"
+        },
+        "note": "typeOf confirms it is just a String. Sitting inside the envelope it shows up as `\\r\\n`, not real line breaks — that is what a JSON string does to any text with newlines in it, and it is exactly what should happen here."
+      }
+    ]
+  },
+  "derivedFrom": "order-csv-envelope"
+}

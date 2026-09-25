@@ -1,0 +1,44 @@
+{
+  "id": "mcq-function-as-argument",
+  "unit": "higher-order",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "fun",
+    "lambda",
+    "upper"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun apply(fn, v) = fn(v)\nfun twice(fn, v) = fn(fn(v))\n---\n[ apply(upper, \"abc\"), apply((s) -> s ++ \"!\", \"abc\"), twice((n) -> n + 1, 5) ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ \"ABC\", \"abc!\", 7 ]",
+      "It fails: upper cannot be passed without arguments",
+      "[ \"ABC\", \"abc!\", 6 ]",
+      "[ \"upper(abc)\", \"abc!\", 7 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun apply(fn, v) = fn(v)\nfun twice(fn, v) = fn(fn(v))\n---\n[ apply(upper, \"abc\"), apply((s) -> s ++ \"!\", \"abc\"), twice((n) -> n + 1, 5) ]",
+  "explanation": {
+    "approach": "Functions are values. A named function such as `upper` can be passed without calling it, and so can a lambda. `twice` applies the function to its own result.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nfun apply(fn, v) = fn(v)\nfun twice(fn, v) = fn(fn(v))\n---\n[ apply(upper, \"abc\"), apply((s) -> s ++ \"!\", \"abc\"), twice((n) -> n + 1, 5) ]",
+        "expect": {
+          "output": "[ \"ABC\", \"abc!\", 7 ]"
+        },
+        "note": "5 + 1 + 1."
+      }
+    ]
+  }
+}

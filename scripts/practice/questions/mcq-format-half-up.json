@@ -1,0 +1,52 @@
+{
+  "id": "mcq-format-half-up",
+  "unit": "numbers-and-rounding",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "as",
+    "format",
+    "String"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ 2.345 as String {format: \"0.00\"}, 2.355 as String {format: \"0.00\"} ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ \"2.34\", \"2.35\" ]",
+      "[ 2.35, 2.36 ]",
+      "[ \"2.34\", \"2.36\" ]",
+      "[ \"2.35\", \"2.36\" ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ 2.345 as String {format: \"0.00\"}, 2.355 as String {format: \"0.00\"} ]",
+  "explanation": {
+    "approach": "Formatting a Number rounds a half upwards, in both cases. The second option is half-even rounding, and the third is truncation. The fourth has the right digits but they are Numbers, and a format coercion to String always returns text.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ 2.345 as String {format: \"0.00\"}, 2.355 as String {format: \"0.00\"} ]",
+        "expect": {
+          "output": "[ \"2.35\", \"2.36\" ]"
+        },
+        "note": "Both values end in exactly 5, and both round up."
+      },
+      {
+        "label": "round agrees on halves",
+        "script": "%dw 2.0\noutput application/json\n---\nround(2.345 * 100) / 100",
+        "expect": {
+          "output": "2.35"
+        },
+        "note": "The arithmetic route lands in the same place for this value."
+      }
+    ]
+  }
+}

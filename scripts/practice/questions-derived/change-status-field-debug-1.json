@@ -1,0 +1,99 @@
+{
+  "id": "change-status-field-debug-1",
+  "unit": "update-operator",
+  "mode": "debug",
+  "tier": "medium",
+  "title": "Fix it: update a status field without rebuilding the whole object",
+  "topics": [
+    "update",
+    "case"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nYou have objects with a `status` field and various other fields. For each object, set the status to `\"inactive\"`, but keep every other field exactly as it was.\n\nSome objects might not have a `status` field at all. These should be left unchanged (since you cannot update a field that does not exist).\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\npayload map ($ update {\n  case .missing_field -> \"inactive\"\n})",
+  "cases": [
+    {
+      "input": "[{\"id\": 1, \"status\": \"active\", \"name\": \"Item1\"}, {\"id\": 2, \"status\": \"pending\", \"name\": \"Item2\"}]",
+      "output": "[{\"id\": 1, \"status\": \"inactive\", \"name\": \"Item1\"}, {\"id\": 2, \"status\": \"inactive\", \"name\": \"Item2\"}]"
+    },
+    {
+      "input": "[{\"id\": 1, \"status\": \"active\", \"priority\": 1, \"tags\": [\"urgent\", \"review\"]}, {\"id\": 2, \"priority\": 2}]",
+      "output": "[{\"id\": 1, \"status\": \"inactive\", \"priority\": 1, \"tags\": [\"urgent\", \"review\"]}, {\"id\": 2, \"priority\": 2}]"
+    },
+    {
+      "input": "[{\"id\": 1, \"status\": \"active\"}, {\"id\": 2}]",
+      "output": "[{\"id\": 1, \"status\": \"inactive\"}, {\"id\": 2}]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "tries to update a field that does not exist"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map ($ update {\n  case .status -> \"inactive\"\n})",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map ($ update {\n  case .missing_field -> \"inactive\"\n})"
+    }
+  ],
+  "explanation": {
+    "approach": "The `update` operator modifies one or more fields in an object while leaving the rest intact. It only works on fields that already exist. If you ask it to update a field that is not there, it silently does nothing — which is the trap.",
+    "snippets": [
+      {
+        "label": "The basic update syntax",
+        "script": "%dw 2.0\noutput application/json\n---\n{id: 1, status: \"active\", name: \"Item1\"} update {\n  case .status -> \"inactive\"\n}",
+        "expect": {
+          "output": "{\n  \"id\": 1,\n  \"status\": \"inactive\",\n  \"name\": \"Item1\"\n}"
+        },
+        "note": "The `status` field changed to `inactive`, but `id` and `name` stayed the same. The `update` left everything else untouched."
+      },
+      {
+        "label": "What happens when you update a missing field",
+        "script": "%dw 2.0\noutput application/json\n---\n{id: 1, status: \"active\"} update {\n  case .missing -> \"added\"\n}",
+        "expect": {
+          "output": "{\n  \"id\": 1,\n  \"status\": \"active\"\n}"
+        },
+        "note": "The `update` did not add a `missing` field. It only modifies fields that already exist. This is the trap: the operation succeeds silently, but nothing happened."
+      },
+      {
+        "label": "Iterating with map and update together",
+        "script": "%dw 2.0\noutput application/json\n---\n[{id: 1, status: \"active\", name: \"Item1\"}, {id: 2, status: \"pending\", name: \"Item2\"}] map ($ update {\n  case .status -> \"inactive\"\n})",
+        "expect": {
+          "output": "[\n  {\n    \"id\": 1,\n    \"status\": \"inactive\",\n    \"name\": \"Item1\"\n  },\n  {\n    \"id\": 2,\n    \"status\": \"inactive\",\n    \"name\": \"Item2\"\n  }\n]"
+        },
+        "note": "Each element of the array gets the update applied. Both items now have `status: \"inactive\"`, and all other fields stayed the same."
+      },
+      {
+        "label": "An object with no status field",
+        "script": "%dw 2.0\noutput application/json\n---\n{id: 2, priority: 1} update {\n  case .status -> \"inactive\"\n}",
+        "expect": {
+          "output": "{\n  \"id\": 2,\n  \"priority\": 1\n}"
+        },
+        "note": "Since this object has no `status` field, the `update` does nothing. Both `id` and `priority` are unchanged. This is why the trap matters: the missing field silently breaks the logic."
+      },
+      {
+        "label": "Multiple case branches in one update",
+        "script": "%dw 2.0\noutput application/json\n---\n{id: 1, status: \"active\", priority: 1} update {\n  case .status -> \"inactive\"\n  case .priority -> 99\n}",
+        "expect": {
+          "output": "{\n  \"id\": 1,\n  \"status\": \"inactive\",\n  \"priority\": 99\n}"
+        },
+        "note": "You can update multiple fields at once by listing multiple `case` statements. Both `status` and `priority` changed."
+      },
+      {
+        "label": "Why update is better than rebuilding",
+        "script": "%dw 2.0\noutput application/json\n---\n{id: 1, status: \"active\", priority: 1, tags: [\"a\", \"b\"], notes: \"important\"} update {\n  case .status -> \"inactive\"\n}",
+        "expect": {
+          "output": "{\n  \"id\": 1,\n  \"status\": \"inactive\",\n  \"priority\": 1,\n  \"tags\": [\n    \"a\",\n    \"b\"\n  ],\n  \"notes\": \"important\"\n}"
+        },
+        "note": "With `update`, you specify only what changes. If someone adds a new field to this object later, your code still works. If you had hand-rebuilt it with explicit fields, the new field would be lost."
+      }
+    ]
+  },
+  "derivedFrom": "change-status-field"
+}

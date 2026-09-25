@@ -1,0 +1,33 @@
+{
+  "id": "order-csv-envelope-predict-3",
+  "unit": "multi-format-embed",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "read reverses the format but not the types",
+  "topics": [
+    "write",
+    "read"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nvar csv = write([{sku: \"A1\", qty: 2, price: 9.5}], \"application/csv\")\nvar rows = read(csv, \"application/csv\")\n---\n{ row: rows[0], qtyType: typeOf(rows[0].qty), priceType: typeOf(rows[0].price) }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nvar csv = write([{sku: \"A1\", qty: 2, price: 9.5}], \"application/csv\")\nvar rows = read(csv, \"application/csv\")\n---\n{ row: rows[0], qtyType: typeOf(rows[0].qty), priceType: typeOf(rows[0].price) }",
+  "explanation": {
+    "approach": "The 2 and the 9.5 went in as Numbers and came back as the Strings \"2\" and \"9.5\". read does not remember what the values were before write turned them into text.",
+    "snippets": [
+      {
+        "label": "read reverses the format but not the types",
+        "script": "%dw 2.0\noutput application/json\nvar csv = write([{sku: \"A1\", qty: 2, price: 9.5}], \"application/csv\")\nvar rows = read(csv, \"application/csv\")\n---\n{ row: rows[0], qtyType: typeOf(rows[0].qty), priceType: typeOf(rows[0].price) }",
+        "expect": {
+          "output": "{ \"row\": { \"sku\": \"A1\", \"qty\": \"2\", \"price\": \"9.5\" }, \"qtyType\": \"String\", \"priceType\": \"String\" }"
+        },
+        "note": "The 2 and the 9.5 went in as Numbers and came back as the Strings \"2\" and \"9.5\". read does not remember what the values were before write turned them into text."
+      }
+    ]
+  },
+  "derivedFrom": "order-csv-envelope"
+}

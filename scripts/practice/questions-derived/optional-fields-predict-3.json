@@ -1,0 +1,32 @@
+{
+  "id": "optional-fields-predict-3",
+  "unit": "conditional-fields",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Wrong approach — using a ternary instead",
+  "topics": [],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, phone: if (payload.phone != \"\") payload.phone else null, title: if (payload.title != \"\") payload.title else null }",
+    "payload": "{ \"name\": \"Bob\", \"phone\": \"\", \"title\": \"Manager\" }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, phone: if (payload.phone != \"\") payload.phone else null, title: if (payload.title != \"\") payload.title else null }",
+  "explanation": {
+    "approach": "This creates a null value when the condition fails. The field still appears in the output with a null value — exactly what the problem asked you NOT to do. The conditional field syntax `(key: value) if (...)` omits the entire field instead.",
+    "snippets": [
+      {
+        "label": "Wrong approach — using a ternary instead",
+        "script": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, phone: if (payload.phone != \"\") payload.phone else null, title: if (payload.title != \"\") payload.title else null }",
+        "payload": "{ \"name\": \"Bob\", \"phone\": \"\", \"title\": \"Manager\" }",
+        "expect": {
+          "output": "{ \"name\": \"Bob\", \"phone\": null, \"title\": \"Manager\" }"
+        },
+        "note": "This creates a null value when the condition fails. The field still appears in the output with a null value — exactly what the problem asked you NOT to do. The conditional field syntax `(key: value) if (...)` omits the entire field instead."
+      }
+    ]
+  },
+  "derivedFrom": "optional-fields"
+}

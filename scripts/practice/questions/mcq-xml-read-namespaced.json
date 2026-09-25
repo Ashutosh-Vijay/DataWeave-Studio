@@ -1,0 +1,47 @@
+{
+  "id": "mcq-xml-read-namespaced",
+  "unit": "xml-namespaces",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "xml",
+    "ns",
+    "selectors"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nns a urn:x\n---\n{ plain: payload.order.id, qualified: payload.a#order.a#id }",
+    "payload": "<a:order xmlns:a=\"urn:x\"><a:id>7</a:id></a:order>"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "{ \"plain\": 7, \"qualified\": 7 }",
+      "{ \"plain\": \"7\", \"qualified\": \"7\" }",
+      "{ \"plain\": null, \"qualified\": \"7\" }",
+      "{ \"plain\": \"7\", \"qualified\": null }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nns a urn:x\n---\n{ plain: payload.order.id, qualified: payload.a#order.a#id }",
+  "explanation": {
+    "approach": "A selector without a namespace matches by local name, whatever namespace the element is in. A qualified selector matches the namespace as well. XML text is always a String.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nns a urn:x\n---\n{ plain: payload.order.id, qualified: payload.a#order.a#id }",
+        "payload": "<a:order xmlns:a=\"urn:x\"><a:id>7</a:id></a:order>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "{ \"plain\": \"7\", \"qualified\": \"7\" }"
+        },
+        "note": "Both find it. Qualify when two namespaces use the same local name."
+      }
+    ]
+  }
+}

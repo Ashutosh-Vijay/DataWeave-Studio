@@ -1,0 +1,35 @@
+{
+  "id": "extract-from-object-predict-3",
+  "unit": "pluck-and-mapobject",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "mapObject returns an object, not an array",
+  "topics": [
+    "pluck",
+    "mapObject"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} mapObject ((value, key) -> { (key): value })",
+    "payload": null
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} mapObject ((value, key) -> { (key): value })",
+  "explanation": {
+    "approach": "",
+    "snippets": [
+      {
+        "label": "mapObject returns an object, not an array",
+        "script": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} mapObject ((value, key) -> { (key): value })",
+        "payload": null,
+        "expect": {
+          "output": "{ \"a\": \"apple\", \"b\": \"banana\" }"
+        },
+        "note": ""
+      }
+    ]
+  },
+  "derivedFrom": "extract-from-object"
+}

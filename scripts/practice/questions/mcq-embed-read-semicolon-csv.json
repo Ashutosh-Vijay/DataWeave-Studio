@@ -1,0 +1,56 @@
+{
+  "id": "mcq-embed-read-semicolon-csv",
+  "unit": "multi-format-embed",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "read",
+    "csv",
+    "reader properties"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "basics": "`read(text, mime, options)` parses a String in a given format. The third argument holds reader properties, the same ones you could set on an input MIME type, such as the CSV `separator`.",
+  "mode": "choice",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nread(payload.attachment, \"application/csv\", { separator: \";\" })",
+    "payload": "{\"attachment\":\"sku;qty\\nA;2\"}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ { \"sku\": \"A\", \"qty\": 2 } ]",
+      "\"sku;qty\\nA;2\"",
+      "[ { \"sku;qty\": \"A;2\" } ]",
+      "[ { \"sku\": \"A\", \"qty\": \"2\" } ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nread(payload.attachment, \"application/csv\", { separator: \";\" })",
+  "explanation": {
+    "approach": "With the separator set, each line splits on semicolons. Values from CSV are always Strings, so the quantity is \"2\", not 2. Without the separator the whole line would be one column.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\nread(payload.attachment, \"application/csv\", { separator: \";\" })",
+        "payload": "{\"attachment\":\"sku;qty\\nA;2\"}",
+        "expect": {
+          "output": "[{\"sku\":\"A\",\"qty\":\"2\"}]"
+        },
+        "note": "Parsed, but untyped."
+      },
+      {
+        "label": "Without the separator",
+        "script": "%dw 2.0\noutput application/json\n---\nread(payload.attachment, \"application/csv\")",
+        "payload": "{\"attachment\":\"sku;qty\\nA;2\"}",
+        "expect": {
+          "output": "[{\"sku;qty\":\"A;2\"}]"
+        },
+        "note": "One column."
+      }
+    ]
+  }
+}

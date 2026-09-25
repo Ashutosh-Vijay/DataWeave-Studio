@@ -1,0 +1,33 @@
+{
+  "id": "config-with-defaults-predict-1",
+  "unit": "default-and-missing",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "null gets the default",
+  "topics": [
+    "default",
+    "null"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nnull default 'fallback'"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nnull default 'fallback'",
+  "explanation": {
+    "approach": "`null` is the ONE case where `default` fires.",
+    "snippets": [
+      {
+        "label": "null gets the default",
+        "script": "%dw 2.0\noutput application/json\n---\nnull default 'fallback'",
+        "expect": {
+          "output": "\"fallback\""
+        },
+        "note": "`null` is the ONE case where `default` fires."
+      }
+    ]
+  },
+  "derivedFrom": "config-with-defaults"
+}

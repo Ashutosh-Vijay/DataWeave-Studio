@@ -1,0 +1,37 @@
+{
+  "id": "record-schema-validator-predict-4",
+  "unit": "schema-validator",
+  "mode": "predict",
+  "tier": "max",
+  "title": "The same near-miss still catches a top-level type mismatch",
+  "topics": [
+    "pluck",
+    "match",
+    "is",
+    "recursion"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+    "payload": "{ \"schema\": { \"user\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"name\": { \"kind\": \"String\", \"required\": true } } } }, \"record\": { \"user\": \"not-an-object\" } }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+  "explanation": {
+    "approach": "This is why the bug ships unnoticed: it is not silent about everything, only about what is nested. A field of the wrong container type at the top level is still caught; it is only the contents of a correctly-typed Object or Array that never get looked at.",
+    "snippets": [
+      {
+        "label": "The same near-miss still catches a top-level type mismatch",
+        "script": "%dw 2.0\noutput application/json\nfun check(path, kind, v) = kind match {\n  case \"String\" -> if (v is String) [] else [\"$(path) must be a String\"]\n  case \"Number\" -> if (v is Number) [] else [\"$(path) must be a Number\"]\n  case \"Boolean\" -> if (v is Boolean) [] else [\"$(path) must be a Boolean\"]\n  case \"Object\" -> if (v is Object) [] else [\"$(path) must be an Object\"]\n  case \"Array\" -> if (v is Array) [] else [\"$(path) must be an Array\"]\n}\nfun validate(path, schema, record) =\n  flatten(schema pluck ((rule, field) -> do {\n    var p = \"$(path)$(field)\"\n    var v = record[field]\n    ---\n    if (v == null)\n      (if (rule.required default false) [\"$(p) is required\"] else [])\n    else check(p, rule.kind, v)\n  }))\n---\nvalidate(\"\", payload.schema, payload.record)",
+        "payload": "{ \"schema\": { \"user\": { \"kind\": \"Object\", \"required\": true, \"fields\": { \"name\": { \"kind\": \"String\", \"required\": true } } } }, \"record\": { \"user\": \"not-an-object\" } }",
+        "expect": {
+          "output": "[\"user must be an Object\"]"
+        },
+        "note": "This is why the bug ships unnoticed: it is not silent about everything, only about what is nested. A field of the wrong container type at the top level is still caught; it is only the contents of a correctly-typed Object or Array that never get looked at."
+      }
+    ]
+  },
+  "derivedFrom": "record-schema-validator"
+}

@@ -1,0 +1,53 @@
+{
+  "id": "mcq-skip-null-everywhere",
+  "unit": "conditional-fields",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "skipNullOn",
+    "output"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json skipNullOn=\"everywhere\"",
+  "given": {
+    "script": "%dw 2.0\noutput application/json skipNullOn=\"everywhere\"\n---\n{ a: null, b: [null, 1], c: { d: null } }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "{ \"a\": null, \"b\": [ 1 ], \"c\": { \"d\": null } }",
+      "{ \"b\": [ null, 1 ], \"c\": { } }",
+      "{ \"b\": [ 1 ], \"c\": { } }",
+      "{ \"b\": [ 1 ] }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json skipNullOn=\"everywhere\"\n---\n{ a: null, b: [null, 1], c: { d: null } }",
+  "explanation": {
+    "approach": "`skipNullOn=\"everywhere\"` drops null fields and null array elements at every depth. An Object left empty is still written: it is empty, not null.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json skipNullOn=\"everywhere\"\n---\n{ a: null, b: [null, 1], c: { d: null } }",
+        "outputMime": "application/json skipNullOn=\"everywhere\"",
+        "expect": {
+          "output": "{ \"b\": [ 1 ], \"c\": { } }"
+        },
+        "note": "`c` survives as an empty Object."
+      },
+      {
+        "label": "Objects only",
+        "script": "%dw 2.0\noutput application/json skipNullOn=\"objects\"\n---\n{ a: null, b: [null, 1] }",
+        "outputMime": "application/json skipNullOn=\"objects\"",
+        "expect": {
+          "output": "{ \"b\": [ null, 1 ] }"
+        },
+        "note": "Nulls inside Arrays are kept."
+      }
+    ]
+  }
+}

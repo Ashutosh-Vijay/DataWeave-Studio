@@ -1,0 +1,52 @@
+{
+  "id": "mcq-plus-vs-concat-strings",
+  "unit": "type-coercion",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "++",
+    "+",
+    "coercion"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ a: \"4\" ++ \"2\", b: \"4\" + \"2\" }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "It fails: + is not defined for two Strings",
+      "{ \"a\": \"42\", \"b\": \"42\" }",
+      "{ \"a\": \"42\", \"b\": 6 }",
+      "{ \"a\": \"42\", \"b\": \"6\" }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ a: \"4\" ++ \"2\", b: \"4\" + \"2\" }",
+  "explanation": {
+    "approach": "`++` joins text. `+` is arithmetic, and when both sides are Strings that read as numbers, DataWeave coerces them to Number first. So `\"4\" + \"2\"` is the Number 6, not the String \"42\" and not the String \"6\".",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ a: \"4\" ++ \"2\", b: \"4\" + \"2\" }",
+        "expect": {
+          "output": "{ \"a\": \"42\", \"b\": 6 }"
+        },
+        "note": "The `b` value is a Number, which is why it has no quotes."
+      },
+      {
+        "label": "When the Strings are not numeric, + fails",
+        "script": "%dw 2.0\noutput application/json\n---\n\"a\" + \"b\"",
+        "expect": {
+          "error": true
+        },
+        "note": "The coercion to Number is attempted and fails. That is why the fourth option sounds plausible: it describes what happens with non-numeric text."
+      }
+    ]
+  }
+}

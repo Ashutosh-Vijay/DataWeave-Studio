@@ -1,0 +1,47 @@
+{
+  "id": "mcq-dup-key-size",
+  "unit": "duplicate-keys",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "sizeOf",
+    "duplicate keys",
+    "keysOf"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "`sizeOf` of an Object counts its key-value pairs. In DataWeave, an Object can hold the same key more than once, which happens when JSON with repeated keys, or XML with repeated elements, is read.",
+  "mode": "choice",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ size: sizeOf(payload), keys: keysOf(payload) }",
+    "payload": "{ \"a\": 1, \"a\": 2, \"b\": 3 }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "{ \"size\": 2, \"keys\": [ \"a\", \"a\", \"b\" ] }",
+      "{ \"size\": 3, \"keys\": [ \"a\", \"b\" ] }",
+      "{ \"size\": 3, \"keys\": [ \"a\", \"a\", \"b\" ] }",
+      "{ \"size\": 2, \"keys\": [ \"a\", \"b\" ] }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ size: sizeOf(payload), keys: keysOf(payload) }",
+  "explanation": {
+    "approach": "Both `a` pairs are kept, so there are three pairs and three keys. Nothing is merged on the way in.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ size: sizeOf(payload), keys: keysOf(payload) }",
+        "payload": "{ \"a\": 1, \"a\": 2, \"b\": 3 }",
+        "expect": {
+          "output": "{\"size\":3,\"keys\":[\"a\",\"a\",\"b\"]}"
+        },
+        "note": "Every pair counts."
+      }
+    ]
+  }
+}

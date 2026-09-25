@@ -1,0 +1,43 @@
+{
+  "id": "mcq-remove-from-array",
+  "unit": "concat-and-remove",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "-",
+    "--"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ minus: [1, 2, 3, 2] - 2, minusMinus: [1, 2, 3, 2] -- [2, 3] }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "{ \"minus\": [ 1, 3 ], \"minusMinus\": [ 1 ] }",
+      "{ \"minus\": [ 1, 3, 2 ], \"minusMinus\": [ 1, 2 ] }",
+      "{ \"minus\": [ -1, 0, 1, 0 ], \"minusMinus\": [ 1 ] }",
+      "{ \"minus\": [ 1, 3 ], \"minusMinus\": [ 1, 2 ] }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ minus: [1, 2, 3, 2] - 2, minusMinus: [1, 2, 3, 2] -- [2, 3] }",
+  "explanation": {
+    "approach": "On an array, `-` removes every element equal to the value, not just the first. `--` removes every element that appears in the right-hand array.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ minus: [1, 2, 3, 2] - 2, minusMinus: [1, 2, 3, 2] -- [2, 3] }",
+        "expect": {
+          "output": "{ \"minus\": [ 1, 3 ], \"minusMinus\": [ 1 ] }"
+        },
+        "note": "Both 2s go in both cases."
+      }
+    ]
+  }
+}

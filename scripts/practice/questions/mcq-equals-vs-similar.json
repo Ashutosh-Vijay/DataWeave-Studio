@@ -1,0 +1,44 @@
+{
+  "id": "mcq-equals-vs-similar",
+  "unit": "type-coercion",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "==",
+    "~=",
+    "coercion"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ 1 == \"1\", 1 ~= \"1\", \"abc\" ~= \"abc\" ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ false, true, true ]",
+      "[ true, true, true ]",
+      "[ false, false, true ]",
+      "[ true, false, true ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ 1 == \"1\", 1 ~= \"1\", \"abc\" ~= \"abc\" ]",
+  "explanation": {
+    "approach": "`==` compares value and type, so the Number 1 and the String \"1\" are not equal. `~=` coerces one side to the other's type before comparing, so they are.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ 1 == \"1\", 1 ~= \"1\", \"abc\" ~= \"abc\" ]",
+        "expect": {
+          "output": "[ false, true, true ]"
+        },
+        "note": "This matters most when a value came from CSV or XML, where every field arrives as a String."
+      }
+    ]
+  }
+}

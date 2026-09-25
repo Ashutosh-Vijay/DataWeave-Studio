@@ -1,0 +1,35 @@
+{
+  "id": "total-with-rounding-predict-3",
+  "unit": "numbers-and-rounding",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Formatting with # does not round",
+  "topics": [
+    "sum",
+    "round",
+    "floor",
+    "ceil"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n(7 / 2) as Number {format: '#'}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(7 / 2) as Number {format: '#'}",
+  "explanation": {
+    "approach": "The format string controls how the number is displayed, not its value. This still returns 3.5 even with the '#' format.",
+    "snippets": [
+      {
+        "label": "Formatting with # does not round",
+        "script": "%dw 2.0\noutput application/json\n---\n(7 / 2) as Number {format: '#'}",
+        "expect": {
+          "output": "3.5"
+        },
+        "note": "The format string controls how the number is displayed, not its value. This still returns 3.5 even with the '#' format."
+      }
+    ]
+  },
+  "derivedFrom": "total-with-rounding"
+}

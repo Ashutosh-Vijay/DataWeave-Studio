@@ -1,0 +1,53 @@
+{
+  "id": "mcq-denormalize-keep-empty-orders",
+  "unit": "denormalize",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "flatMap",
+    "isEmpty",
+    "default"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "When flattening orders into one row per line, an order with no lines produces no rows. To keep it visible, return a single placeholder row for it instead of an empty list.",
+  "mode": "choice",
+  "prompt": "Given the payload, **which script produces exactly this output?**\n\n```\n[{\"order\":\"o1\",\"sku\":\"x\"},{\"order\":\"o1\",\"sku\":\"y\"},{\"order\":\"o2\",\"sku\":null}]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[{\"id\":\"o1\",\"lines\":[{\"sku\":\"x\"},{\"sku\":\"y\"}]},{\"id\":\"o2\",\"lines\":[]}]",
+    "target": "[{\"order\":\"o1\",\"sku\":\"x\"},{\"order\":\"o1\",\"sku\":\"y\"},{\"order\":\"o2\",\"sku\":null}]",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload flatMap ((o) -> if (isEmpty(o.lines)) [{ order: o.id, sku: null }] else (o.lines map { order: o.id, sku: $.sku }))",
+      "%dw 2.0\noutput application/json\n---\npayload flatMap ((o) -> o.lines map { order: o.id, sku: $.sku })",
+      "%dw 2.0\noutput application/json\n---\npayload flatMap ((o) -> (o.lines default [{ sku: null }]) map { order: o.id, sku: $.sku })",
+      "%dw 2.0\noutput application/json\n---\npayload map ((o) -> if (isEmpty(o.lines)) { order: o.id, sku: null } else (o.lines map { order: o.id, sku: $.sku })[0])"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload flatMap ((o) -> if (isEmpty(o.lines)) [{ order: o.id, sku: null }] else (o.lines map { order: o.id, sku: $.sku }))",
+  "explanation": {
+    "approach": "An empty `lines` is an empty Array, not null, so a `default` never fires for it: the test has to be `isEmpty`. The `map` version produces one row per order, which loses o1's second line.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload flatMap ((o) -> if (isEmpty(o.lines)) [{ order: o.id, sku: null }] else (o.lines map { order: o.id, sku: $.sku }))",
+        "payload": "[{\"id\":\"o1\",\"lines\":[{\"sku\":\"x\"},{\"sku\":\"y\"}]},{\"id\":\"o2\",\"lines\":[]}]",
+        "expect": {
+          "output": "[{\"order\":\"o1\",\"sku\":\"x\"},{\"order\":\"o1\",\"sku\":\"y\"},{\"order\":\"o2\",\"sku\":null}]"
+        },
+        "note": "o2 keeps a row."
+      },
+      {
+        "label": "default does not see an empty Array",
+        "script": "%dw 2.0\noutput application/json\n---\n[] default [\"fallback\"]",
+        "expect": {
+          "output": "[]"
+        },
+        "note": "An empty Array is a value."
+      }
+    ]
+  }
+}

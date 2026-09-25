@@ -1,0 +1,35 @@
+{
+  "id": "merge-nested-lists-predict-3",
+  "unit": "flatten-vs-flatmap",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "If you want to flatten and transform together",
+  "topics": [
+    "flatten",
+    "flatMap"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload flatMap ((arr) -> arr map ($ * 2))",
+    "payload": "[[1, 2], [3, 4], [5]]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload flatMap ((arr) -> arr map ($ * 2))",
+  "explanation": {
+    "approach": "`flatMap` applies a function to each element and then flattens one level. Here we transform each inner array by doubling its numbers, then flatten. The end result is: apply map to each inner array, then merge the results.",
+    "snippets": [
+      {
+        "label": "If you want to flatten and transform together",
+        "script": "%dw 2.0\noutput application/json\n---\npayload flatMap ((arr) -> arr map ($ * 2))",
+        "payload": "[[1, 2], [3, 4], [5]]",
+        "expect": {
+          "output": "[ 2, 4, 6, 8, 10 ]"
+        },
+        "note": "`flatMap` applies a function to each element and then flattens one level. Here we transform each inner array by doubling its numbers, then flatten. The end result is: apply map to each inner array, then merge the results."
+      }
+    ]
+  },
+  "derivedFrom": "merge-nested-lists"
+}

@@ -1,0 +1,51 @@
+{
+  "id": "mcq-precision-no-integer-division",
+  "unit": "precision",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "/"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "In some languages, dividing one whole number by another throws the remainder away, so 7 / 2 is 3. In DataWeave, `/` always gives the exact result.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ 7 / 2, 1 / 4, 6 / 3 ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "[ 3, 0, 2 ]",
+      "[ 4, 0, 2 ]",
+      "[ 3.5, 0.25, 2 ]",
+      "[ 3.5, 0, 2 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ 7 / 2, 1 / 4, 6 / 3 ]",
+  "explanation": {
+    "approach": "Division is exact decimal division. When you do want a whole number, say how: `floor`, `ceil` or `round`.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ 7 / 2, 1 / 4, 6 / 3 ]",
+        "expect": {
+          "output": "[3.5,0.25,2]"
+        },
+        "note": "No remainder is dropped."
+      },
+      {
+        "label": "When you want a whole number",
+        "script": "%dw 2.0\noutput application/json\n---\n[ floor(7 / 2), ceil(7 / 2), round(7 / 2) ]",
+        "expect": {
+          "output": "[3,4,4]"
+        },
+        "note": "Say which way."
+      }
+    ]
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "id": "unique-sorted-list-predict-3",
+  "unit": "distinct-and-order",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Reverse sort (descending)",
+  "topics": [
+    "distinctBy",
+    "orderBy"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n(payload distinctBy $ orderBy $)[-1 to 0]",
+    "payload": "[3, 1, 2, 1, 3, 2, 1]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload distinctBy $ orderBy $)[-1 to 0]",
+  "explanation": {
+    "approach": "To sort descending, reverse the sorted array with `[-1 to 0]`. There is no `desc` parameter — the reversal is how you do it.",
+    "snippets": [
+      {
+        "label": "Reverse sort (descending)",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload distinctBy $ orderBy $)[-1 to 0]",
+        "payload": "[3, 1, 2, 1, 3, 2, 1]",
+        "expect": {
+          "output": "[ 3, 2, 1 ]"
+        },
+        "note": "To sort descending, reverse the sorted array with `[-1 to 0]`. There is no `desc` parameter — the reversal is how you do it."
+      }
+    ]
+  },
+  "derivedFrom": "unique-sorted-list"
+}

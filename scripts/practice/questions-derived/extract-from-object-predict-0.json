@@ -1,0 +1,35 @@
+{
+  "id": "extract-from-object-predict-0",
+  "unit": "pluck-and-mapobject",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "What pluck does",
+  "topics": [
+    "pluck",
+    "mapObject"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} pluck $",
+    "payload": null
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} pluck $",
+  "explanation": {
+    "approach": "`pluck` with the shorthand `$` just returns the values as an array.",
+    "snippets": [
+      {
+        "label": "What pluck does",
+        "script": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} pluck $",
+        "payload": null,
+        "expect": {
+          "output": "[ \"apple\", \"banana\" ]"
+        },
+        "note": "`pluck` with the shorthand `$` just returns the values as an array."
+      }
+    ]
+  },
+  "derivedFrom": "extract-from-object"
+}

@@ -1,0 +1,79 @@
+{
+  "id": "latest-status-per-shipment-debug-2",
+  "unit": "distinct-and-order",
+  "mode": "debug",
+  "tier": "medium",
+  "title": "Fix it: the current status of each shipment from a stream of scans",
+  "topics": [
+    "orderBy",
+    "distinctBy",
+    "range"
+  ],
+  "basics": "`orderBy` sorts an Array by a key. There is no descending flag; to reverse a sorted Array, select it with `[-1 to 0]`. `distinctBy` keeps the first element it sees for each key.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nThe carrier sends scan events `{ shipment, status, at }`, where `at` is an ISO UTC timestamp. Events for one shipment can arrive out of order.\n\nReturn one `{ shipment, status }` per shipment, holding the status of its **latest** scan, ordered by shipment id.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n((payload orderBy $.at)[-1 to 0] distinctBy $.shipment orderBy $.shipment) map { shipment: $.shipment, status: $.status }",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"shipment\": \"S1\",\n    \"status\": \"picked\",\n    \"at\": \"2024-05-01T09:00:00Z\"\n  },\n  {\n    \"shipment\": \"S2\",\n    \"status\": \"packed\",\n    \"at\": \"2024-05-01T10:00:00Z\"\n  }\n]",
+      "output": "[{\"shipment\":\"S1\",\"status\":\"picked\"},{\"shipment\":\"S2\",\"status\":\"packed\"}]"
+    },
+    {
+      "input": "[\n  {\n    \"shipment\": \"S1\",\n    \"status\": \"delivered\",\n    \"at\": \"2024-05-02T15:00:00Z\"\n  },\n  {\n    \"shipment\": \"S1\",\n    \"status\": \"in_transit\",\n    \"at\": \"2024-05-01T08:00:00Z\"\n  }\n]",
+      "output": "[{\"shipment\":\"S1\",\"status\":\"delivered\"}]"
+    },
+    {
+      "input": "[\n  {\n    \"shipment\": \"S2\",\n    \"status\": \"in_transit\",\n    \"at\": \"2024-05-01T08:00:00Z\"\n  },\n  {\n    \"shipment\": \"S1\",\n    \"status\": \"packed\",\n    \"at\": \"2024-05-01T07:00:00Z\"\n  },\n  {\n    \"shipment\": \"S2\",\n    \"status\": \"delivered\",\n    \"at\": \"2024-05-01T18:00:00Z\"\n  }\n]",
+      "output": "[{\"shipment\":\"S1\",\"status\":\"packed\"},{\"shipment\":\"S2\",\"status\":\"delivered\"}]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "is right whenever there are scans, but reversing an empty array gives null, so a quiet day returns null instead of []"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n((payload orderBy $.at)[-1 to 0] distinctBy $.shipment orderBy $.shipment) map { shipment: $.shipment, status: $.status } default []",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\n((payload orderBy $.at)[-1 to 0] distinctBy $.shipment orderBy $.shipment) map { shipment: $.shipment, status: $.status }"
+    }
+  ],
+  "explanation": {
+    "approach": "`distinctBy` keeps the first element for each key, so \"latest\" has to be made \"first\" before it runs: sort by time, then reverse. The sample has one scan per shipment, which hides that entirely. One more edge: `[-1 to 0]` on an empty array is null, so a day with no scans needs `default []`.",
+    "snippets": [
+      {
+        "label": "distinctBy keeps the first",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload distinctBy $.shipment).status",
+        "payload": "[{\"shipment\":\"S1\",\"status\":\"in_transit\"},{\"shipment\":\"S1\",\"status\":\"delivered\"}]",
+        "expect": {
+          "output": "[\"in_transit\"]"
+        },
+        "note": "Whatever came first wins."
+      },
+      {
+        "label": "Reversing an empty array",
+        "script": "%dw 2.0\noutput application/json\n---\n[][-1 to 0]",
+        "expect": {
+          "output": "null"
+        },
+        "note": "There is no element -1 to start from."
+      },
+      {
+        "label": "Newest first",
+        "script": "%dw 2.0\noutput application/json\n---\n((payload orderBy $.at)[-1 to 0]).status",
+        "payload": "[{\"status\":\"b\",\"at\":\"2024-05-01T10:00:00Z\"},{\"status\":\"a\",\"at\":\"2024-05-01T09:00:00Z\"},{\"status\":\"c\",\"at\":\"2024-05-01T11:00:00Z\"}]",
+        "expect": {
+          "output": "[\"c\",\"b\",\"a\"]"
+        },
+        "note": "Sort ascending, then reverse."
+      }
+    ]
+  },
+  "derivedFrom": "latest-status-per-shipment"
+}

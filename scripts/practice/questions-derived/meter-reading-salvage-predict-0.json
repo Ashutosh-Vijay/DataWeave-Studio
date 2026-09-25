@@ -1,0 +1,33 @@
+{
+  "id": "meter-reading-salvage-predict-0",
+  "unit": "error-handling",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "try on a coercion that succeeds",
+  "topics": [
+    "try",
+    "dw::Runtime"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\nimport * from dw::Runtime\noutput application/json\n---\n{ success: try(() -> \"12.5\" as Number).success, result: try(() -> \"12.5\" as Number).result }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\nimport * from dw::Runtime\noutput application/json\n---\n{ success: try(() -> \"12.5\" as Number).success, result: try(() -> \"12.5\" as Number).result }",
+  "explanation": {
+    "approach": "try never throws itself. On success it hands back the result under `.result`, alongside `success: true`.",
+    "snippets": [
+      {
+        "label": "try on a coercion that succeeds",
+        "script": "%dw 2.0\nimport * from dw::Runtime\noutput application/json\n---\n{ success: try(() -> \"12.5\" as Number).success, result: try(() -> \"12.5\" as Number).result }",
+        "expect": {
+          "output": "{ \"success\": true, \"result\": 12.5 }"
+        },
+        "note": "try never throws itself. On success it hands back the result under `.result`, alongside `success: true`."
+      }
+    ]
+  },
+  "derivedFrom": "meter-reading-salvage"
+}

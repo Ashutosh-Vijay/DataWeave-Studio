@@ -1,0 +1,54 @@
+{
+  "id": "mcq-key-rewrite-snake-case",
+  "unit": "generic-key-rewrite",
+  "tier": "easy",
+  "title": "Which script produces this output?",
+  "topics": [
+    "mapObject",
+    "lower",
+    "replace"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "Field names from spreadsheets often contain spaces and capitals. `mapObject` can rewrite each key with ordinary String functions such as `lower` and `replace`, as long as the key expression is in parentheses.",
+  "mode": "choice",
+  "prompt": "Given the payload, **which script produces exactly this output?**\n\n```\n{\"first_name\":\"Ann\",\"last_name\":\"Lee\"}\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"First Name\":\"Ann\",\"Last Name\":\"Lee\"}",
+    "target": "{\"first_name\":\"Ann\",\"last_name\":\"Lee\"}",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload mapObject { (lower($$ replace \" \" with \"_\")): $ }",
+      "%dw 2.0\noutput application/json\n---\npayload mapObject { ($$ replace \" \" with \"_\"): $ }",
+      "%dw 2.0\noutput application/json\n---\npayload mapObject { (lower($$)): $ }",
+      "%dw 2.0\noutput application/json\n---\npayload mapObject { ($$): lower($ replace \" \" with \"_\") }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload mapObject { (lower($$ replace \" \" with \"_\")): $ }",
+  "explanation": {
+    "approach": "Both changes apply to the key, `$$`: replace the spaces and lower the case. Doing only one of them leaves either spaces or capitals, and applying them to `$` changes the values instead of the keys.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload mapObject { (lower($$ replace \" \" with \"_\")): $ }",
+        "payload": "{\"First Name\":\"Ann\",\"Last Name\":\"Lee\"}",
+        "expect": {
+          "output": "{\"first_name\":\"Ann\",\"last_name\":\"Lee\"}"
+        },
+        "note": "Keys rewritten, values kept."
+      },
+      {
+        "label": "Applied to the values",
+        "script": "%dw 2.0\noutput application/json\n---\npayload mapObject { ($$): lower($ replace \" \" with \"_\") }",
+        "payload": "{\"First Name\":\"Ann\"}",
+        "expect": {
+          "output": "{\"First Name\":\"ann\"}"
+        },
+        "note": "The wrong side of the pair."
+      }
+    ]
+  }
+}

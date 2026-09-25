@@ -1,0 +1,73 @@
+{
+  "id": "merge-contacts-minus-unsubscribed",
+  "unit": "concat-and-remove",
+  "tier": "easy",
+  "title": "Merge two contact lists and remove the unsubscribed",
+  "topics": [
+    "++",
+    "--",
+    "-"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "`++` joins two Arrays into one. `--` removes from the left Array every element that appears in the right Array. `-` removes a single value: `[1, 2, 3] - 2` is `[1, 3]`.",
+  "mode": "build",
+  "prompt": "Marketing combines the CRM contacts and the web-shop contacts into one send list, `payload.crm` followed by `payload.shop`. Duplicates are fine at this stage; another step removes them.\n\nAnyone in `payload.unsubscribed` must not receive the mail, however many times they appear in the two lists.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "{\n  \"crm\": [\n    \"a@x.com\",\n    \"b@x.com\"\n  ],\n  \"shop\": [\n    \"c@x.com\"\n  ],\n  \"unsubscribed\": [\n    \"b@x.com\"\n  ]\n}",
+      "output": "[\"a@x.com\",\"c@x.com\"]"
+    },
+    {
+      "input": "{\n  \"crm\": [\n    \"a@x.com\"\n  ],\n  \"shop\": [\n    \"a@x.com\",\n    \"d@x.com\"\n  ],\n  \"unsubscribed\": [\n    \"a@x.com\"\n  ]\n}",
+      "output": "[\"d@x.com\"]"
+    },
+    {
+      "input": "{\n  \"crm\": [\n    \"a@x.com\",\n    \"e@x.com\"\n  ],\n  \"shop\": [\n    \"f@x.com\",\n    \"e@x.com\"\n  ],\n  \"unsubscribed\": [\n    \"e@x.com\",\n    \"f@x.com\"\n  ]\n}",
+      "output": "[\"a@x.com\"]"
+    },
+    {
+      "input": "{\n  \"crm\": [\n    \"a@x.com\"\n  ],\n  \"shop\": [],\n  \"unsubscribed\": []\n}",
+      "output": "[\"a@x.com\"]"
+    }
+  ],
+  "hints": [
+    "Join the lists, then remove. Which operator removes a whole list of values?",
+    "The second hidden case has the same unsubscribed address in both lists. Removing it from one list only is not enough.",
+    "`(a ++ b) -- c` removes every occurrence of every element of `c`."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload.crm ++ payload.shop) -- payload.unsubscribed",
+  "mustFail": [
+    {
+      "why": "removes the unsubscribed only from the CRM list, so the same person still arrives from the shop list",
+      "script": "%dw 2.0\noutput application/json\n---\n(payload.crm -- payload.unsubscribed) ++ payload.shop"
+    },
+    {
+      "why": "removes only the first unsubscribed address with -, so a second unsubscribed address stays",
+      "script": "%dw 2.0\noutput application/json\n---\n(payload.crm ++ payload.shop) - payload.unsubscribed[0]"
+    }
+  ],
+  "explanation": {
+    "approach": "Join first, then remove, so the removal sees every copy. `--` removes all occurrences of every value in its right-hand Array. `-` removes one value, all occurrences of it.",
+    "snippets": [
+      {
+        "label": "-- removes every copy",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"a\", \"b\", \"a\"] -- [\"a\"]",
+        "expect": {
+          "output": "[\"b\"]"
+        },
+        "note": "Both \"a\"s are gone."
+      },
+      {
+        "label": "- with a list removes the list as one value",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"a\", \"b\"] - [\"a\"]",
+        "expect": {
+          "output": "[\"a\",\"b\"]"
+        },
+        "note": "Nothing matches the Array [\"a\"] as a whole, so nothing is removed."
+      }
+    ]
+  }
+}

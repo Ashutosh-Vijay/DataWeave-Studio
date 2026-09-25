@@ -1,0 +1,99 @@
+{
+  "id": "order-csv-envelope-debug-1",
+  "unit": "multi-format-embed",
+  "mode": "debug",
+  "tier": "extra",
+  "title": "Fix it: embed an order's line items as a csv attachment",
+  "topics": [
+    "write",
+    "read"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nEach order is `{ orderId, items }`, where `items` is an array of `{ sku, qty, price }`.\n\nReturn an array of `{ orderId, csv, total }`:\n\n- `csv` is the order's line items written out as CSV text, with columns in the order `sku, qty, price` — a String, embedded as one field of the JSON output, not a separate file.\n- `total` must be computed by reading that same CSV string back and summing `qty * price` over its rows — not computed straight from `items`.\n\nAn order with no items has `csv` as an empty string and `total` of `0`.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\npayload map (o) -> do {\n  var csv = write(o.items, \"application/csv\")\n  var parsed = read(csv, \"application/csv\")\n  ---\n  {\n    orderId: o.orderId,\n    csv: csv,\n    total: sum(parsed map ((r) -> (r.qty as Number) * (r.price as Number)))\n  }\n}",
+  "cases": [
+    {
+      "input": "[\n  { \"orderId\": \"ORD1\", \"items\": [ { \"sku\": \"A1\", \"qty\": 2, \"price\": 9.5 }, { \"sku\": \"B2\", \"qty\": 1, \"price\": 20 } ] }\n]",
+      "output": "[{\"orderId\":\"ORD1\",\"csv\":\"sku,qty,price\\r\\nA1,2,9.5\\r\\nB2,1,20\\r\\n\",\"total\":39}]"
+    },
+    {
+      "input": "[\n  { \"orderId\": \"ORD2\", \"items\": [ { \"sku\": \"C3\", \"qty\": 5, \"price\": 2 } ] }\n]",
+      "output": "[{\"orderId\":\"ORD2\",\"csv\":\"sku,qty,price\\r\\nC3,5,2\\r\\n\",\"total\":10}]"
+    },
+    {
+      "input": "[\n  { \"orderId\": \"ORD1\", \"items\": [ { \"sku\": \"A1\", \"qty\": 2, \"price\": 9.5 }, { \"sku\": \"B2\", \"qty\": 1, \"price\": 20 } ] },\n  { \"orderId\": \"ORD3\", \"items\": [ { \"sku\": \"D4\", \"qty\": 3, \"price\": 1.25 }, { \"sku\": \"E5\", \"qty\": 2, \"price\": 4 } ] }\n]",
+      "output": "[{\"orderId\":\"ORD1\",\"csv\":\"sku,qty,price\\r\\nA1,2,9.5\\r\\nB2,1,20\\r\\n\",\"total\":39},{\"orderId\":\"ORD3\",\"csv\":\"sku,qty,price\\r\\nD4,3,1.25\\r\\nE5,2,4\\r\\n\",\"total\":11.75}]"
+    },
+    {
+      "input": "[\n  { \"orderId\": \"ORD4\", \"items\": [] }\n]",
+      "output": "[{\"orderId\":\"ORD4\",\"csv\":\"\",\"total\":0}]"
+    },
+    {
+      "input": "[\n  { \"orderId\": \"ORD5\", \"items\": [ { \"price\": 3, \"sku\": \"F6\", \"qty\": 4 } ] }\n]",
+      "output": "[{\"orderId\":\"ORD5\",\"csv\":\"sku,qty,price\\r\\nF6,4,3\\r\\n\",\"total\":12}]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "writes the items as given instead of rebuilding them in sku, qty, price order, so an item whose own fields are ordered differently produces a CSV with the wrong column order"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map (o) -> do {\n  var rows = o.items map { sku: $.sku, qty: $.qty, price: $.price }\n  var csv = write(rows, \"application/csv\")\n  var parsed = read(csv, \"application/csv\")\n  ---\n  {\n    orderId: o.orderId,\n    csv: csv,\n    total: sum(parsed map ((r) -> (r.qty as Number) * (r.price as Number)))\n  }\n}",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map (o) -> do {\n  var csv = write(o.items, \"application/csv\")\n  var parsed = read(csv, \"application/csv\")\n  ---\n  {\n    orderId: o.orderId,\n    csv: csv,\n    total: sum(parsed map ((r) -> (r.qty as Number) * (r.price as Number)))\n  }\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "`write(value, mime)` is a function like any other: it does not print, it returns a String holding the rendered CSV, ready to sit inside a field of a JSON object the same as a number or another string would. The first surprise is that this is exactly right — the CSV shows up in the output as one long string with `\\r\\n` escapes in it rather than looking like a table, because a JSON string cannot contain a literal newline. The second surprise is where the column order comes from: `write` uses the field order of the objects it is given, not any order implied by the question, so an item that arrives with `price` before `sku` writes `price` first unless each row is rebuilt with the field order fixed by hand before writing. The third is that `read` undoes the format but not the types — everything that comes back out of a CSV is a String, including the numbers, so they need `as Number` again before they can be multiplied.",
+    "snippets": [
+      {
+        "label": "write returns a String; embedded, it is an escaped blob",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  kind: typeOf(write([{sku: \"A1\", qty: 2, price: 9.5}], \"application/csv\")),\n  envelope: { orderId: \"ORD1\", csv: write([{sku: \"A1\", qty: 2, price: 9.5}], \"application/csv\") }\n}",
+        "expect": {
+          "output": "{ \"kind\": \"String\", \"envelope\": { \"orderId\": \"ORD1\", \"csv\": \"sku,qty,price\\r\\nA1,2,9.5\\r\\n\" } }"
+        },
+        "note": "typeOf confirms it is just a String. Sitting inside the envelope it shows up as `\\r\\n`, not real line breaks — that is what a JSON string does to any text with newlines in it, and it is exactly what should happen here."
+      },
+      {
+        "label": "column order follows the object's own field order, not the question's",
+        "script": "%dw 2.0\noutput application/json\n---\nwrite([{price: 3, sku: \"F6\", qty: 4}], \"application/csv\")",
+        "expect": {
+          "output": "\"price,sku,qty\\r\\n3,F6,4\\r\\n\""
+        },
+        "note": "This row's own JSON lists price, then sku, then qty, and the CSV header comes out in that same order — price first. Nothing about `write` knows the columns are supposed to read sku, qty, price."
+      },
+      {
+        "label": "the fix is rebuilding the row before writing it",
+        "script": "%dw 2.0\noutput application/json\nvar raw = {price: 3, sku: \"F6\", qty: 4}\n---\nwrite([{ sku: raw.sku, qty: raw.qty, price: raw.price }], \"application/csv\")",
+        "expect": {
+          "output": "\"sku,qty,price\\r\\nF6,4,3\\r\\n\""
+        },
+        "note": "Same data, rebuilt as `{ sku, qty, price }` first. The column order is now the one the object literal states, not whatever order the source happened to arrive in."
+      },
+      {
+        "label": "read reverses the format but not the types",
+        "script": "%dw 2.0\noutput application/json\nvar csv = write([{sku: \"A1\", qty: 2, price: 9.5}], \"application/csv\")\nvar rows = read(csv, \"application/csv\")\n---\n{ row: rows[0], qtyType: typeOf(rows[0].qty), priceType: typeOf(rows[0].price) }",
+        "expect": {
+          "output": "{ \"row\": { \"sku\": \"A1\", \"qty\": \"2\", \"price\": \"9.5\" }, \"qtyType\": \"String\", \"priceType\": \"String\" }"
+        },
+        "note": "The 2 and the 9.5 went in as Numbers and came back as the Strings \"2\" and \"9.5\". read does not remember what the values were before write turned them into text."
+      },
+      {
+        "label": "the total needs those fields coerced back to Number",
+        "script": "%dw 2.0\noutput application/json\nvar csv = write([{sku: \"A1\", qty: 2, price: 9.5}, {sku: \"B2\", qty: 1, price: 20}], \"application/csv\")\nvar rows = read(csv, \"application/csv\")\n---\nsum(rows map ((r) -> (r.qty as Number) * (r.price as Number)))",
+        "expect": {
+          "output": "39"
+        },
+        "note": "Without `as Number` on both fields, this multiplies Strings that only look numeric, which is not the computation the question asks for even on the rows where it happens not to throw."
+      }
+    ]
+  },
+  "derivedFrom": "order-csv-envelope"
+}

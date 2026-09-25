@@ -1,0 +1,36 @@
+{
+  "id": "orders-per-priority-predict-4",
+  "unit": "groupby-shape",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "If you want counts as an array of rows instead",
+  "topics": [
+    "groupBy",
+    "mapObject",
+    "sizeOf"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority pluck ((orders, priority) -> { priority: priority, count: sizeOf(orders) })",
+    "payload": "[{\"id\":\"A\",\"priority\":1},{\"id\":\"B\",\"priority\":2},{\"id\":\"C\",\"priority\":1}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority pluck ((orders, priority) -> { priority: priority, count: sizeOf(orders) })",
+  "explanation": {
+    "approach": "",
+    "snippets": [
+      {
+        "label": "If you want counts as an array of rows instead",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority pluck ((orders, priority) -> { priority: priority, count: sizeOf(orders) })",
+        "payload": "[{\"id\":\"A\",\"priority\":1},{\"id\":\"B\",\"priority\":2},{\"id\":\"C\",\"priority\":1}]",
+        "expect": {
+          "output": "[ { \"priority\": \"1\", \"count\": 2 }, { \"priority\": \"2\", \"count\": 1 } ]"
+        },
+        "note": ""
+      }
+    ]
+  },
+  "derivedFrom": "orders-per-priority"
+}

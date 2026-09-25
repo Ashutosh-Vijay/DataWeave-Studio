@@ -1,0 +1,34 @@
+{
+  "id": "exact-total-no-early-rounding-predict-2",
+  "unit": "precision",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "Rounding each amount to cents first, then summing",
+  "topics": [
+    "sum",
+    "round",
+    "as String {format}"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nsum([10.125, 10.125, 10.125] map ((round($ * 100)) / 100)) as String {format: \"0.00\"}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nsum([10.125, 10.125, 10.125] map ((round($ * 100)) / 100)) as String {format: \"0.00\"}",
+  "explanation": {
+    "approach": "Each 10.125 rounds up to 10.13 on its own — `round` rounds a `.5` away from zero, and 10.125 * 100 is 1012.5. Three of those sum to 30.39, a cent more than summing the exact amounts and rounding once.",
+    "snippets": [
+      {
+        "label": "Rounding each amount to cents first, then summing",
+        "script": "%dw 2.0\noutput application/json\n---\nsum([10.125, 10.125, 10.125] map ((round($ * 100)) / 100)) as String {format: \"0.00\"}",
+        "expect": {
+          "output": "\"30.39\""
+        },
+        "note": "Each 10.125 rounds up to 10.13 on its own — `round` rounds a `.5` away from zero, and 10.125 * 100 is 1012.5. Three of those sum to 30.39, a cent more than summing the exact amounts and rounding once."
+      }
+    ]
+  },
+  "derivedFrom": "exact-total-no-early-rounding"
+}

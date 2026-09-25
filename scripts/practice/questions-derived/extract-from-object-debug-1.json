@@ -1,0 +1,96 @@
+{
+  "id": "extract-from-object-debug-1",
+  "unit": "pluck-and-mapobject",
+  "mode": "debug",
+  "tier": "medium",
+  "title": "Fix it: iterate over an object's keys and values",
+  "topics": [
+    "pluck",
+    "mapObject"
+  ],
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nYou are given an object where each key is a product ID and the value is the price.\n\nReturn an **array** of objects, one per product, each with `id` and `price` fields.\n\nThe order must match the order in which the keys appeared in the input.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\npayload pluck ((id, price) -> { id: id, price: price })",
+  "cases": [
+    {
+      "input": "{\"SKU-1\":9.99,\"SKU-2\":15.50,\"SKU-3\":22.00}",
+      "output": "[{\"id\":\"SKU-1\",\"price\":9.99},{\"id\":\"SKU-2\",\"price\":15.50},{\"id\":\"SKU-3\",\"price\":22.00}]"
+    },
+    {
+      "input": "{\"A\":100}",
+      "output": "[{\"id\":\"A\",\"price\":100}]"
+    },
+    {
+      "input": "{\"X\":1.50,\"Y\":2.25,\"Z\":3.00}",
+      "output": "[{\"id\":\"X\",\"price\":1.50},{\"id\":\"Y\",\"price\":2.25},{\"id\":\"Z\",\"price\":3.00}]"
+    },
+    {
+      "input": "{}",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "swaps the parameter order, getting id and price backwards"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload pluck ((price, id) -> { id: id, price: price })",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\npayload pluck ((id, price) -> { id: id, price: price })"
+    }
+  ],
+  "explanation": {
+    "approach": "`pluck` and `mapObject` both iterate an object. `pluck` returns an array of the results; `mapObject` returns an object. Both pass you the value first, then the key — the opposite of the way you read them in English (key-value), which is why this order surprises people.",
+    "snippets": [
+      {
+        "label": "What pluck does",
+        "script": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} pluck $",
+        "payload": null,
+        "expect": {
+          "output": "[ \"apple\", \"banana\" ]"
+        },
+        "note": "`pluck` with the shorthand `$` just returns the values as an array."
+      },
+      {
+        "label": "The parameter order",
+        "script": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} pluck ((value, key) -> { key: key, value: value })",
+        "payload": null,
+        "expect": {
+          "output": "[ { \"key\": \"a\", \"value\": \"apple\" }, { \"key\": \"b\", \"value\": \"banana\" } ]"
+        },
+        "note": "The lambda receives the VALUE first, then the KEY. If you swap them, `key` will hold the price and `value` will hold the product ID."
+      },
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload pluck ((price, id) -> { id: id, price: price })",
+        "payload": "{\"SKU-1\":9.99,\"SKU-2\":15.50}",
+        "expect": {
+          "output": "[ { \"id\": \"SKU-1\", \"price\": 9.99 }, { \"id\": \"SKU-2\", \"price\": 15.5 } ]"
+        },
+        "note": "The first parameter gets the value (the price), the second gets the key (the ID). Then you can assign them to whatever field names make sense."
+      },
+      {
+        "label": "mapObject returns an object, not an array",
+        "script": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} mapObject ((value, key) -> { (key): value })",
+        "payload": null,
+        "expect": {
+          "output": "{ \"a\": \"apple\", \"b\": \"banana\" }"
+        },
+        "note": "`mapObject` rebuilds an object instead of an array. The computed key `(key)` becomes the field name. Same parameter order as `pluck`."
+      },
+      {
+        "label": "The third parameter: index",
+        "script": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} pluck ((value, key, index) -> { position: index, key: key, value: value })",
+        "payload": null,
+        "expect": {
+          "output": "[ { \"position\": 0, \"key\": \"a\", \"value\": \"apple\" }, { \"position\": 1, \"key\": \"b\", \"value\": \"banana\" } ]"
+        },
+        "note": "Both functions also pass a third parameter: the zero-based position of the pair in the object."
+      }
+    ]
+  },
+  "derivedFrom": "extract-from-object"
+}

@@ -1,0 +1,52 @@
+{
+  "id": "mcq-orderby-ties-reverse",
+  "unit": "distinct-and-order",
+  "mode": "choice",
+  "tier": "max",
+  "title": "Which script produces this output?",
+  "topics": [
+    "orderBy",
+    "range"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Highest score first. Rows with the same score must stay in their original order. Given the payload below,\n\n**which script produces exactly this output?**\n\n```\n[ \"A\", \"C\", \"B\" ]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[{\"n\":\"A\",\"score\":3},{\"n\":\"B\",\"score\":1},{\"n\":\"C\",\"score\":3}]",
+    "target": "[ \"A\", \"C\", \"B\" ]",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n(payload orderBy $.score)[-1 to 0].n",
+      "%dw 2.0\noutput application/json\n---\n(payload orderBy $.score).n",
+      "%dw 2.0\noutput application/json\n---\n(payload orderBy -$.n).n",
+      "%dw 2.0\noutput application/json\n---\n(payload orderBy -$.score).n"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload orderBy -$.score).n",
+  "explanation": {
+    "approach": "`orderBy` is stable: rows with equal keys keep their input order. Negating the key sorts descending and keeps that. Sorting ascending and then reversing also reverses the order of the ties, so C comes before A.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload orderBy -$.score).n",
+        "payload": "[{\"n\":\"A\",\"score\":3},{\"n\":\"B\",\"score\":1},{\"n\":\"C\",\"score\":3}]",
+        "expect": {
+          "output": "[ \"A\", \"C\", \"B\" ]"
+        },
+        "note": "A and C tie on 3 and stay in order."
+      },
+      {
+        "label": "Reverse after sorting",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload orderBy $.score)[-1 to 0].n",
+        "payload": "[{\"n\":\"A\",\"score\":3},{\"n\":\"B\",\"score\":1},{\"n\":\"C\",\"score\":3}]",
+        "expect": {
+          "output": "[ \"C\", \"A\", \"B\" ]"
+        },
+        "note": "The data has a tie so that these two options can be told apart."
+      }
+    ]
+  }
+}

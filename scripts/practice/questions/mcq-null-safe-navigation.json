@@ -1,0 +1,55 @@
+{
+  "id": "mcq-null-safe-navigation",
+  "unit": "select-and-shape",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "selectors",
+    "null"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ city: payload.customer.address.city }",
+    "payload": "{\"customer\":null}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "It fails: cannot select address from null",
+      "{ \"city\": \"\" }",
+      "{ }",
+      "{ \"city\": null }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ city: payload.customer.address.city }",
+  "explanation": {
+    "approach": "Selecting a field from null gives null, however deep the path goes. The key is still written, with a null value.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ city: payload.customer.address.city }",
+        "payload": "{\"customer\":null}",
+        "expect": {
+          "output": "{ \"city\": null }"
+        },
+        "note": "No error, and the field is present."
+      },
+      {
+        "label": "Dropping nulls is an output option",
+        "script": "%dw 2.0\noutput application/json skipNullOn=\"everywhere\"\n---\n{ city: payload.customer.address.city }",
+        "payload": "{\"customer\":null}",
+        "outputMime": "application/json skipNullOn=\"everywhere\"",
+        "expect": {
+          "output": "{ }"
+        },
+        "note": "To leave the field out, ask the writer to skip nulls."
+      }
+    ]
+  }
+}

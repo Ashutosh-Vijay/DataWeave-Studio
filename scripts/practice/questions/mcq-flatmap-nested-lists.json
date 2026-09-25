@@ -1,0 +1,62 @@
+{
+  "id": "mcq-flatmap-nested-lists",
+  "unit": "flatten-vs-flatmap",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "flatMap",
+    "map",
+    "flatten"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n[ \"a\", \"b\", \"c\" ]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[{\"o\":1,\"lines\":[\"a\",\"b\"]},{\"o\":2,\"lines\":[\"c\"]}]",
+    "target": "[ \"a\", \"b\", \"c\" ]",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload flatMap $.lines",
+      "%dw 2.0\noutput application/json\n---\npayload map $.lines",
+      "%dw 2.0\noutput application/json\n---\npayload.lines[0]",
+      "%dw 2.0\noutput application/json\n---\nflatten(payload)"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload flatMap $.lines",
+  "explanation": {
+    "approach": "`flatMap` maps each element to an Array and joins the results into one. `map` alone leaves an Array of Arrays.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload flatMap $.lines",
+        "payload": "[{\"o\":1,\"lines\":[\"a\",\"b\"]},{\"o\":2,\"lines\":[\"c\"]}]",
+        "expect": {
+          "output": "[ \"a\", \"b\", \"c\" ]"
+        },
+        "note": "One flat list."
+      },
+      {
+        "label": "map keeps the nesting",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map $.lines",
+        "payload": "[{\"o\":1,\"lines\":[\"a\",\"b\"]},{\"o\":2,\"lines\":[\"c\"]}]",
+        "expect": {
+          "output": "[ [ \"a\", \"b\" ], [ \"c\" ] ]"
+        },
+        "note": "One step short."
+      },
+      {
+        "label": "Indexing the selector result",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.lines[0]",
+        "payload": "[{\"o\":1,\"lines\":[\"a\",\"b\"]},{\"o\":2,\"lines\":[\"c\"]}]",
+        "expect": {
+          "output": "[ \"a\", \"b\" ]"
+        },
+        "note": "`payload.lines` is an Array of Arrays; `[0]` is its first element."
+      }
+    ]
+  }
+}

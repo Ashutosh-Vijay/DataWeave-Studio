@@ -1,0 +1,61 @@
+{
+  "id": "mcq-function-returns-function",
+  "unit": "higher-order",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "Which script produces this output?",
+  "topics": [
+    "fun",
+    "lambda",
+    "map"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n[ 15, 25 ]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[10,20]",
+    "target": "[ 15, 25 ]",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\nfun adder(n) = (x) -> x + n\nvar addFive = adder(5)\n---\npayload map adder(5, $)",
+      "%dw 2.0\noutput application/json\nfun adder(n) = (x) -> x + n\nvar addFive = adder(5)\n---\npayload map addFive",
+      "%dw 2.0\noutput application/json\nfun adder(n) = (x) -> x + n\nvar addFive = adder(5)\n---\npayload map adder($)",
+      "%dw 2.0\noutput application/json\nfun adder(n) = (x) -> x + n\nvar addFive = adder(5)\n---\npayload map addFive($)"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun adder(n) = (x) -> x + n\nvar addFive = adder(5)\n---\npayload map addFive($)",
+  "explanation": {
+    "approach": "`adder(5)` returns a function, and `addFive` holds it. That function is then called like any other. `adder($)` returns a function per element instead of a Number, and `adder` takes one argument, not two.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nfun adder(n) = (x) -> x + n\nvar addFive = adder(5)\n---\npayload map addFive($)",
+        "payload": "[10,20]",
+        "expect": {
+          "output": "[ 15, 25 ]"
+        },
+        "note": "A function made by a function."
+      },
+      {
+        "label": "Calling in two steps",
+        "script": "%dw 2.0\noutput application/json\nfun adder(n) = (x) -> x + n\n---\nadder(5)(2)",
+        "expect": {
+          "output": "7"
+        },
+        "note": "The first call returns the function, the second call runs it."
+      },
+      {
+        "label": "Too many arguments",
+        "script": "%dw 2.0\noutput application/json\nfun adder(n) = (x) -> x + n\nvar addFive = adder(5)\n---\npayload map adder(5, $)",
+        "payload": "[10,20]",
+        "expect": {
+          "error": true
+        },
+        "note": "`adder` is declared with one parameter."
+      }
+    ]
+  }
+}

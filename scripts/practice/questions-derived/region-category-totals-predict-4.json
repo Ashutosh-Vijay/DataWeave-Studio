@@ -1,0 +1,36 @@
+{
+  "id": "region-category-totals-predict-4",
+  "unit": "nested-aggregation",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "The full two-level chain",
+  "topics": [
+    "groupBy",
+    "mapObject",
+    "sum"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region mapObject ((lines, region) -> {\n  (region): lines groupBy $.category mapObject ((catLines, category) -> {\n    (category): sum(catLines.amount)\n  })\n})",
+    "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"West\",\"category\":\"Gadgets\",\"amount\":40},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region mapObject ((lines, region) -> {\n  (region): lines groupBy $.category mapObject ((catLines, category) -> {\n    (category): sum(catLines.amount)\n  })\n})",
+  "explanation": {
+    "approach": "The inner `groupBy $.category mapObject ...` runs once per region, on that region's own Array of records, before its result becomes the value stored under `(region)`.",
+    "snippets": [
+      {
+        "label": "The full two-level chain",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region mapObject ((lines, region) -> {\n  (region): lines groupBy $.category mapObject ((catLines, category) -> {\n    (category): sum(catLines.amount)\n  })\n})",
+        "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"West\",\"category\":\"Gadgets\",\"amount\":40},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]",
+        "expect": {
+          "output": "{ \"West\": { \"Widgets\": 100, \"Gadgets\": 40 }, \"East\": { \"Widgets\": 90 } }"
+        },
+        "note": "The inner `groupBy $.category mapObject ...` runs once per region, on that region's own Array of records, before its result becomes the value stored under `(region)`."
+      }
+    ]
+  },
+  "derivedFrom": "region-category-totals"
+}

@@ -1,0 +1,33 @@
+{
+  "id": "order-csv-envelope-predict-4",
+  "unit": "multi-format-embed",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "the total needs those fields coerced back to Number",
+  "topics": [
+    "write",
+    "read"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nvar csv = write([{sku: \"A1\", qty: 2, price: 9.5}, {sku: \"B2\", qty: 1, price: 20}], \"application/csv\")\nvar rows = read(csv, \"application/csv\")\n---\nsum(rows map ((r) -> (r.qty as Number) * (r.price as Number)))"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nvar csv = write([{sku: \"A1\", qty: 2, price: 9.5}, {sku: \"B2\", qty: 1, price: 20}], \"application/csv\")\nvar rows = read(csv, \"application/csv\")\n---\nsum(rows map ((r) -> (r.qty as Number) * (r.price as Number)))",
+  "explanation": {
+    "approach": "Without `as Number` on both fields, this multiplies Strings that only look numeric, which is not the computation the question asks for even on the rows where it happens not to throw.",
+    "snippets": [
+      {
+        "label": "the total needs those fields coerced back to Number",
+        "script": "%dw 2.0\noutput application/json\nvar csv = write([{sku: \"A1\", qty: 2, price: 9.5}, {sku: \"B2\", qty: 1, price: 20}], \"application/csv\")\nvar rows = read(csv, \"application/csv\")\n---\nsum(rows map ((r) -> (r.qty as Number) * (r.price as Number)))",
+        "expect": {
+          "output": "39"
+        },
+        "note": "Without `as Number` on both fields, this multiplies Strings that only look numeric, which is not the computation the question asks for even on the rows where it happens not to throw."
+      }
+    ]
+  },
+  "derivedFrom": "order-csv-envelope"
+}

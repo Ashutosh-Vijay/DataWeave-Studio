@@ -1,0 +1,34 @@
+{
+  "id": "exact-total-no-early-rounding-predict-3",
+  "unit": "precision",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "round() on an exact half rounds away from zero",
+  "topics": [
+    "sum",
+    "round",
+    "as String {format}"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[round(0.5), round(1.5), round(2.5), round(-0.5)]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[round(0.5), round(1.5), round(2.5), round(-0.5)]",
+  "explanation": {
+    "approach": "This is why the per-amount rounding above tips 10.125 up to 10.13 instead of down to 10.12 — and why doing it three times, before the sum, is not the same as doing it once, after.",
+    "snippets": [
+      {
+        "label": "round() on an exact half rounds away from zero",
+        "script": "%dw 2.0\noutput application/json\n---\n[round(0.5), round(1.5), round(2.5), round(-0.5)]",
+        "expect": {
+          "output": "[ 1, 2, 3, -1 ]"
+        },
+        "note": "This is why the per-amount rounding above tips 10.125 up to 10.13 instead of down to 10.12 — and why doing it three times, before the sum, is not the same as doing it once, after."
+      }
+    ]
+  },
+  "derivedFrom": "exact-total-no-early-rounding"
+}

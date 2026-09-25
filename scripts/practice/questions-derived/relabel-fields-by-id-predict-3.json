@@ -1,0 +1,36 @@
+{
+  "id": "relabel-fields-by-id-predict-3",
+  "unit": "dynamic-keys",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "mapObject hands you value first",
+  "topics": [
+    "computed keys",
+    "mapObject",
+    "duplicate keys"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload mapObject ((v, k, i) -> { (k): [v, i] })",
+    "payload": "{\"a\":\"A\"}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload mapObject ((v, k, i) -> { (k): [v, i] })",
+  "explanation": {
+    "approach": "The lambda's first parameter is the value, the second is the key, and the third is the index — the opposite order from how you would say the pair out loud.",
+    "snippets": [
+      {
+        "label": "mapObject hands you value first",
+        "script": "%dw 2.0\noutput application/json\n---\npayload mapObject ((v, k, i) -> { (k): [v, i] })",
+        "payload": "{\"a\":\"A\"}",
+        "expect": {
+          "output": "{\"a\":[\"A\",0]}"
+        },
+        "note": "The lambda's first parameter is the value, the second is the key, and the third is the index — the opposite order from how you would say the pair out loud."
+      }
+    ]
+  },
+  "derivedFrom": "relabel-fields-by-id"
+}

@@ -1,0 +1,51 @@
+{
+  "id": "mcq-flatmap-pairs",
+  "unit": "flatten-vs-flatmap",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "flatMap",
+    "map"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[1, 2] flatMap [$, $ * 10]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "[ 1, 2, 10, 20 ]",
+      "[ [ 1, 10 ], [ 2, 20 ] ]",
+      "[ 1, 10, 2, 20 ]",
+      "[ 10, 20 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[1, 2] flatMap [$, $ * 10]",
+  "explanation": {
+    "approach": "Each element produces a two-element Array, and `flatMap` joins them in order.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2] flatMap [$, $ * 10]",
+        "expect": {
+          "output": "[ 1, 10, 2, 20 ]"
+        },
+        "note": "Element by element, not column by column."
+      },
+      {
+        "label": "map keeps the pairs",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2] map [$, $ * 10]",
+        "expect": {
+          "output": "[ [ 1, 10 ], [ 2, 20 ] ]"
+        },
+        "note": "The same pairs, still nested."
+      }
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "id": "pivot-exam-scores-predict-5",
+  "unit": "pivot",
+  "mode": "predict",
+  "tier": "extra",
+  "title": "A record with no score at all still produces a column, filled with 0",
+  "topics": [
+    "groupBy",
+    "pluck",
+    "reduce",
+    "distinctBy"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/csv",
+  "given": {
+    "script": "%dw 2.0\noutput application/csv\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+    "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Cy\",\"subject\":\"Math\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/csv\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+  "explanation": {
+    "approach": "Cy's record has a subject but no score field. `.score` on that record is null, same as a subject with no record at all, so `default 0` covers both a missing row and a missing field with the same fallback.",
+    "snippets": [
+      {
+        "label": "A record with no score at all still produces a column, filled with 0",
+        "script": "%dw 2.0\noutput application/csv\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
+        "payload": "[{\"student\":\"Ada\",\"subject\":\"Math\",\"score\":90},{\"student\":\"Cy\",\"subject\":\"Math\"}]",
+        "outputMime": "application/csv",
+        "compare": "text",
+        "expect": {
+          "output": "student,Math\r\nAda,90\r\nCy,0\r\n"
+        },
+        "note": "Cy's record has a subject but no score field. `.score` on that record is null, same as a subject with no record at all, so `default 0` covers both a missing row and a missing field with the same fallback."
+      }
+    ]
+  },
+  "derivedFrom": "pivot-exam-scores"
+}

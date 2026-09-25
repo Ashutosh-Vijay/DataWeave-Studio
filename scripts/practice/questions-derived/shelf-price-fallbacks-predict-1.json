@@ -1,0 +1,35 @@
+{
+  "id": "shelf-price-fallbacks-predict-1",
+  "unit": "default-and-missing",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "A chain",
+  "topics": [
+    "default",
+    "if"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.salePrice default payload.listPrice default 0",
+    "payload": "{}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.salePrice default payload.listPrice default 0",
+  "explanation": {
+    "approach": "Both missing, so the last fallback is used.",
+    "snippets": [
+      {
+        "label": "A chain",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.salePrice default payload.listPrice default 0",
+        "payload": "{}",
+        "expect": {
+          "output": "0"
+        },
+        "note": "Both missing, so the last fallback is used."
+      }
+    ]
+  },
+  "derivedFrom": "shelf-price-fallbacks"
+}

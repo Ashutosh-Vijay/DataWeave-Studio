@@ -1,0 +1,35 @@
+{
+  "id": "total-with-rounding-predict-1",
+  "unit": "numbers-and-rounding",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "What sum alone returns",
+  "topics": [
+    "sum",
+    "round",
+    "floor",
+    "ceil"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nsum([10.2, 15.75, 8.33])"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nsum([10.2, 15.75, 8.33])",
+  "explanation": {
+    "approach": "Without rounding, you get the exact total with all decimal places. For money, this is usually wrong — you need a whole dollar amount.",
+    "snippets": [
+      {
+        "label": "What sum alone returns",
+        "script": "%dw 2.0\noutput application/json\n---\nsum([10.2, 15.75, 8.33])",
+        "expect": {
+          "output": "34.28"
+        },
+        "note": "Without rounding, you get the exact total with all decimal places. For money, this is usually wrong — you need a whole dollar amount."
+      }
+    ]
+  },
+  "derivedFrom": "total-with-rounding"
+}

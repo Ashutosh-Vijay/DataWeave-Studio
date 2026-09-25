@@ -1,0 +1,51 @@
+{
+  "id": "mcq-do-scope-leak",
+  "unit": "do-and-scope",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "do",
+    "var"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "payload": "{\"price\":10,\"qty\":3}",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\ndo { var t = payload.price * payload.qty --- { total: t, again: t } }",
+      "%dw 2.0\noutput application/json\nvar t = payload.price * payload.qty\n---\n{ total: t, again: t }",
+      "%dw 2.0\noutput application/json\n---\n{ total: do { var t = payload.price * payload.qty --- t }, again: t }",
+      "%dw 2.0\noutput application/json\n---\n{ total: payload.price * payload.qty }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\ndo { var t = payload.price * payload.qty --- { total: t, again: t } }",
+  "explanation": {
+    "approach": "A variable declared inside a `do` block exists only inside that block. To use it in several places, make the `do` wrap all of them, or declare it in the header.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\n{ total: do { var t = payload.price * payload.qty --- t }, again: t }",
+        "payload": "{\"price\":10,\"qty\":3}",
+        "expect": {
+          "error": true
+        },
+        "note": "Unable to resolve reference of: t."
+      },
+      {
+        "label": "Wrap everything that uses it",
+        "script": "%dw 2.0\noutput application/json\n---\ndo { var t = payload.price * payload.qty --- { total: t, again: t } }",
+        "payload": "{\"price\":10,\"qty\":3}",
+        "expect": {
+          "output": "{ \"total\": 30, \"again\": 30 }"
+        },
+        "note": "Both uses are inside the block."
+      }
+    ]
+  }
+}

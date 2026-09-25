@@ -1,0 +1,35 @@
+{
+  "id": "sum-with-reduce-predict-1",
+  "unit": "reduce-seed",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Extracting a field first",
+  "topics": [
+    "reduce",
+    "seed"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload reduce ((item, total = 0) -> total + item.amount)",
+    "payload": "[{\"id\":\"A\",\"amount\":10},{\"id\":\"B\",\"amount\":20},{\"id\":\"C\",\"amount\":15}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload reduce ((item, total = 0) -> total + item.amount)",
+  "explanation": {
+    "approach": "The same technique, but starting with objects. You extract `item.amount` for each and add it to the running total.",
+    "snippets": [
+      {
+        "label": "Extracting a field first",
+        "script": "%dw 2.0\noutput application/json\n---\npayload reduce ((item, total = 0) -> total + item.amount)",
+        "payload": "[{\"id\":\"A\",\"amount\":10},{\"id\":\"B\",\"amount\":20},{\"id\":\"C\",\"amount\":15}]",
+        "expect": {
+          "output": "45"
+        },
+        "note": "The same technique, but starting with objects. You extract `item.amount` for each and add it to the running total."
+      }
+    ]
+  },
+  "derivedFrom": "sum-with-reduce"
+}

@@ -62,6 +62,7 @@ interface SidebarProps {
   onOpenSecure: () => void;
   onOpenConfigCrypto: () => void;
   onOpenCompare: () => void;
+  onOpenPractice: () => void;
   onOpenFlowDesigner: () => void;
   onOpenJavaTester: () => void;
   onOpenOpenApi: () => void;
@@ -161,7 +162,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const {
     projectName, onProjectNameChange, currentFile, isDirty,
     onNew, onSave, onLoad, onDelete, listWorkspaces,
-    onOpenCurlImport, onInsertSnippet, onOpenSecure, onOpenConfigCrypto, onOpenCompare, onOpenFlowDesigner, onOpenJavaTester, onOpenOpenApi, onOpenModules, onOpenMcp, mcpRunning, onOpenSettings,
+    onOpenCurlImport, onInsertSnippet, onOpenSecure, onOpenConfigCrypto, onOpenCompare, onOpenPractice, onOpenFlowDesigner, onOpenJavaTester, onOpenOpenApi, onOpenModules, onOpenMcp, mcpRunning, onOpenSettings,
     onOpenReference, onOpenRecipes,
     collapsed, onToggleCollapse,
     requests, activeRequestId, onSelectRequest, onAddRequest, onRenameRequest, onRemoveRequest, onDuplicateRequest,
@@ -329,6 +330,17 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
         >
           <Icons.Compare size={18} />
+        </button>
+        <button
+          onClick={onOpenPractice}
+          title="Practice — graded DataWeave problems, offline"
+          aria-label="Practice"
+          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
+        >
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7 4h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" />
+            <path d="M9.5 9.5 11 11l-1.5 1.5" /><path d="M13 13h2" />
+          </svg>
         </button>
         <button
           onClick={onOpenOpenApi}

@@ -1,0 +1,87 @@
+{
+  "id": "array-merge-and-remove",
+  "unit": "concat-and-remove",
+  "tier": "easy",
+  "title": "Combine and delete from lists",
+  "topics": ["++", "--", "arrays"],
+  "prompt": "You are given an array of numbers, then two more arrays.\n\nCombine your first array with the second array. Then remove any elements that appear in the third array.\n\nReturn the final array.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "{\n  \"first\": [1, 2],\n  \"second\": [3, 4],\n  \"remove\": [2]\n}",
+      "output": "[1, 3, 4]"
+    },
+    {
+      "input": "{\n  \"first\": [5, 6, 7],\n  \"second\": [8],\n  \"remove\": [6, 8]\n}",
+      "output": "[5, 7]"
+    },
+    {
+      "input": "{\n  \"first\": [10],\n  \"second\": [20, 30],\n  \"remove\": []\n}",
+      "output": "[10, 20, 30]"
+    },
+    {
+      "input": "{\n  \"first\": [1, 2, 3],\n  \"second\": [2, 3, 4],\n  \"remove\": [1, 2, 3, 4]\n}",
+      "output": "[]"
+    },
+    {
+      "input": "{\n  \"first\": [7, 8, 9],\n  \"second\": [1, 2],\n  \"remove\": [99]\n}",
+      "output": "[7, 8, 9, 1, 2]"
+    }
+  ],
+  "hints": [
+    "Two operators in sequence. `++` comes first, then `--`. Read the inputs as `payload.first`, `payload.second`, `payload.remove`.",
+    "`++` glues two arrays into one. `--` removes elements that appear in the second array.",
+    "Both operators expect arrays on both sides. Nothing is converted for you — if you have the structure right, it just works."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.first ++ payload.second -- payload.remove",
+  "mustFail": [
+    {
+      "why": "hardcodes the sample answer",
+      "script": "%dw 2.0\noutput application/json\n---\n[1, 3, 4]"
+    },
+    {
+      "why": "does removal before merge, so loses items that need to survive the merge",
+      "script": "%dw 2.0\noutput application/json\n---\n(payload.first -- payload.remove) ++ payload.second"
+    }
+  ],
+  "explanation": {
+    "approach": "`++` and `--` are binary operators that work left to right. First, concatenate the two arrays. Then, filter out the unwanted elements. The order matters because you are removing from the combined result, not from the parts.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.first ++ payload.second -- payload.remove",
+        "payload": "{\"first\":[1,2],\"second\":[3,4],\"remove\":[2]}",
+        "expect": { "output": "[1, 3, 4]" },
+        "note": "Merge first, remove second. The 2 in `first` was part of the merge, so it is there to be removed."
+      },
+      {
+        "label": "Why order matters",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload.first -- payload.remove) ++ payload.second",
+        "payload": "{\"first\":[1,2],\"second\":[3,4],\"remove\":[2]}",
+        "expect": { "output": "[1, 3, 4]" },
+        "note": "Same input, same answer — but only by luck. If the item to remove was in `second`, this version would keep it. The wrong order hides when the trap applies."
+      },
+      {
+        "label": "Both operands are required to be arrays",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2] ++ [3, 4]",
+        "expect": { "output": "[1, 2, 3, 4]" },
+        "note": "`++` joins the right array into the left. Both must be arrays — scalar values are not auto-wrapped."
+      },
+      {
+        "label": "Remove an element that appears twice",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2, 2, 3] -- [2]",
+        "expect": { "output": "[1, 3]" },
+        "note": "`--` removes all instances of each element in the second array, not just the first."
+      },
+      {
+        "label": "The wrong-order case that reveals the trap",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload.first -- payload.remove) ++ payload.second",
+        "payload": "{\"first\":[1,2],\"second\":[2],\"remove\":[2]}",
+        "expect": { "output": "[1, 2]" },
+        "note": "Remove from `first` first, then merge. But `second` contains 2, which should have been removed — it comes back in the merge. The right answer filters the final result: `[1] ++ [2] -- [2] -> []`."
+      }
+    ]
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "id": "exact-total-no-early-rounding",
+  "unit": "precision",
+  "tier": "hard",
+  "title": "A total that must add up to the cent",
+  "topics": ["sum", "round", "as String {format}"],
+  "prompt": "You are given an array of transaction amounts, in dollars, as numbers (some negative, for refunds). Return `{ total }`, where `total` is the sum of all the amounts, formatted as a string with exactly two decimal places (for example `\"18.00\"`, not `\"18\"`).\n\nRound only once, at the very end, to produce the two-decimal string. Do not round any individual amount before summing — the amounts are exact, and there is nothing to protect them from.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[10.125, 10.125, 10.125]",
+      "output": "{\"total\":\"30.38\"}"
+    },
+    {
+      "input": "[]",
+      "output": "{\"total\":\"0.00\"}"
+    },
+    {
+      "input": "[19.995, -5.005, 3.01]",
+      "output": "{\"total\":\"18.00\"}"
+    },
+    {
+      "input": "[10.125, 10.125, 10.125, 10.125]",
+      "output": "{\"total\":\"40.50\"}"
+    }
+  ],
+  "hints": [
+    "This engine's numbers are exact decimals, not the IEEE doubles of JavaScript or Java — a habit like 'round early to avoid floating-point drift' is solving a problem that does not exist here.",
+    "Sum the whole array first, as-is, and only convert the total to a two-decimal string as the very last step.",
+    "If you round every amount to cents before summing 'just to be safe', try it on several amounts that each end in .125 — the total changes by a cent from what summing first and rounding once gives you."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ total: sum(payload) as String {format: \"0.00\"} }",
+  "mustFail": [
+    {
+      "why": "hardcodes the sample answer",
+      "script": "%dw 2.0\noutput application/json\n---\n{ total: \"30.38\" }"
+    },
+    {
+      "why": "rounds every amount to cents before summing, which is unneeded here and changes the total",
+      "script": "%dw 2.0\noutput application/json\n---\n{ total: sum(payload map ((round($ * 100)) / 100)) as String {format: \"0.00\"} }"
+    }
+  ],
+  "explanation": {
+    "approach": "DataWeave numbers are arbitrary-precision decimals, not IEEE 754 doubles. `0.1 + 0.2` really is `0.3` here — there is no accumulated binary rounding error to defend against. The trap runs backwards from what JavaScript or Java teach: a habit of rounding every intermediate amount 'to be safe' is not neutral. `sum` over the exact amounts and `round` (or a string format) applied once at the end give the mathematically correct total; rounding each amount first throws away precision the final answer needed, and the two totals can disagree by real money.",
+    "snippets": [
+      {
+        "label": "0.1 + 0.2 is exact here",
+        "script": "%dw 2.0\noutput application/json\n---\n{ v: 0.1 + 0.2, eq: (0.1 + 0.2) == 0.3, t: typeOf(0.1 + 0.2) }",
+        "expect": { "output": "{ \"v\": 0.3, \"eq\": true, \"t\": \"Number\" }" },
+        "note": "No floating-point residue, and the type is still a plain Number. The habit of guarding against `0.1 + 0.2 !== 0.3` comes from other languages and does not apply here."
+      },
+      {
+        "label": "Sum first, round once, at the end",
+        "script": "%dw 2.0\noutput application/json\n---\nsum([10.125, 10.125, 10.125]) as String {format: \"0.00\"}",
+        "expect": { "output": "\"30.38\"" },
+        "note": "The exact sum is 30.375. Formatting it to two decimals in one step rounds it once, giving 30.38."
+      },
+      {
+        "label": "Rounding each amount to cents first, then summing",
+        "script": "%dw 2.0\noutput application/json\n---\nsum([10.125, 10.125, 10.125] map ((round($ * 100)) / 100)) as String {format: \"0.00\"}",
+        "expect": { "output": "\"30.39\"" },
+        "note": "Each 10.125 rounds up to 10.13 on its own — `round` rounds a `.5` away from zero, and 10.125 * 100 is 1012.5. Three of those sum to 30.39, a cent more than summing the exact amounts and rounding once."
+      },
+      {
+        "label": "round() on an exact half rounds away from zero",
+        "script": "%dw 2.0\noutput application/json\n---\n[round(0.5), round(1.5), round(2.5), round(-0.5)]",
+        "expect": { "output": "[ 1, 2, 3, -1 ]" },
+        "note": "This is why the per-amount rounding above tips 10.125 up to 10.13 instead of down to 10.12 — and why doing it three times, before the sum, is not the same as doing it once, after."
+      },
+      {
+        "label": "A case where early rounding does not happen to move the total",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  correct: sum([19.995, -5.005, 3.01]) as String {format: \"0.00\"},\n  early: sum([19.995, -5.005, 3.01] map ((round($ * 100)) / 100)) as String {format: \"0.00\"}\n}",
+        "expect": { "output": "{ \"correct\": \"18.00\", \"early\": \"18.00\" }" },
+        "note": "The two approaches do not always disagree — here the per-amount rounding errors cancel out. That is what makes the habit dangerous: it passes most of the time, and only a specific mix of amounts, like three that each end in .125, exposes the cent it drops or adds."
+      }
+    ]
+  }
+}

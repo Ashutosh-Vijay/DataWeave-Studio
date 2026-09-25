@@ -1,0 +1,77 @@
+{
+  "id": "settings-overrides-merge",
+  "unit": "duplicate-keys",
+  "tier": "medium",
+  "title": "Apply environment overrides to default settings",
+  "topics": [
+    "++",
+    "mapObject",
+    "default",
+    "duplicate keys"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "`++` on two Objects does not replace fields; it appends the pairs of the right Object after those of the left, so a key present in both appears twice. Many JSON parsers then quietly keep only one of them, which hides the problem.",
+  "mode": "build",
+  "prompt": "A service reads `{ defaults, overrides }`. Every override is for a setting that exists in `defaults`. Return the effective settings: every default, with its value replaced where an override exists, keeping the defaults' key order.\n\nAn override may set a setting to `false` or `0`, and that override must win.\n\nThe output is compared exactly as text, so each setting must appear once.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "compare": "text",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "{\n  \"defaults\": {\n    \"timeout\": 30,\n    \"retries\": 3\n  },\n  \"overrides\": {}\n}",
+      "output": "{\n  \"timeout\": 30,\n  \"retries\": 3\n}"
+    },
+    {
+      "input": "{\n  \"defaults\": {\n    \"timeout\": 30,\n    \"retries\": 3\n  },\n  \"overrides\": {\n    \"retries\": 5\n  }\n}",
+      "output": "{\n  \"timeout\": 30,\n  \"retries\": 5\n}"
+    },
+    {
+      "input": "{\n  \"defaults\": {\n    \"cache\": true,\n    \"level\": \"info\"\n  },\n  \"overrides\": {\n    \"cache\": false\n  }\n}",
+      "output": "{\n  \"cache\": false,\n  \"level\": \"info\"\n}"
+    },
+    {
+      "input": "{\n  \"defaults\": {\n    \"a\": 1,\n    \"b\": 2,\n    \"c\": 3\n  },\n  \"overrides\": {\n    \"c\": 0,\n    \"a\": 9\n  }\n}",
+      "output": "{\n  \"a\": 9,\n  \"b\": 2,\n  \"c\": 0\n}"
+    }
+  ],
+  "hints": [
+    "Try `payload.defaults ++ payload.overrides` on the second hidden case and read the output as text.",
+    "Walk the defaults, and for each key take the override if there is one.",
+    "`payload.defaults mapObject ((v, k) -> { (k): payload.overrides[k] default v })`. `default` keeps `false` and `0`."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.defaults mapObject ((v, k) -> { (k): payload.overrides[k] default v })",
+  "mustFail": [
+    {
+      "why": "concatenates the objects, so an overridden setting appears twice",
+      "script": "%dw 2.0\noutput application/json\n---\npayload.defaults ++ payload.overrides"
+    },
+    {
+      "why": "tests the override for truthiness, so an override of false is ignored",
+      "script": "%dw 2.0\noutput application/json\n---\npayload.defaults mapObject ((v, k) -> { (k): if (payload.overrides[k] != null and payload.overrides[k] != false) payload.overrides[k] else v })"
+    }
+  ],
+  "explanation": {
+    "approach": "`++` is concatenation, not merging: both `retries` keys survive, and the output depends on which one the consumer reads. Walking the defaults and looking each key up in the overrides writes every key exactly once, in the defaults' order. `default` replaces only null, so an override of `false` or `0` wins as it should.",
+    "snippets": [
+      {
+        "label": "Concatenation keeps both",
+        "script": "%dw 2.0\noutput application/json indent=false\n---\n{ retries: 3 } ++ { retries: 5 }",
+        "outputMime": "application/json indent=false",
+        "expect": {
+          "output": "{\"retries\": 3,\"retries\": 5}"
+        },
+        "compare": "text",
+        "note": "Two keys with the same name."
+      },
+      {
+        "label": "false is not missing",
+        "script": "%dw 2.0\noutput application/json\n---\nfalse default true",
+        "expect": {
+          "output": "false"
+        },
+        "note": "The override wins."
+      }
+    ]
+  }
+}

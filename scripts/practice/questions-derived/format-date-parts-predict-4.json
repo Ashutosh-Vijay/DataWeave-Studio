@@ -1,0 +1,34 @@
+{
+  "id": "format-date-parts-predict-4",
+  "unit": "dates-formatting",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Day-of-month vs day-of-year in a leap year",
+  "topics": [
+    "date formatting",
+    "format patterns",
+    "as String"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{\n  jan1_dayOfMonth: |2024-01-01| as String {format: 'dd'},\n  dec31_dayOfMonth: |2024-12-31| as String {format: 'dd'},\n  dec31_dayOfYear: |2024-12-31| as String {format: 'DDD'}\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{\n  jan1_dayOfMonth: |2024-01-01| as String {format: 'dd'},\n  dec31_dayOfMonth: |2024-12-31| as String {format: 'dd'},\n  dec31_dayOfYear: |2024-12-31| as String {format: 'DDD'}\n}",
+  "explanation": {
+    "approach": "December 31 of a leap year is the 366th day. The day-of-month is 31 (within December), while day-of-year is 366 (within the entire year).",
+    "snippets": [
+      {
+        "label": "Day-of-month vs day-of-year in a leap year",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  jan1_dayOfMonth: |2024-01-01| as String {format: 'dd'},\n  dec31_dayOfMonth: |2024-12-31| as String {format: 'dd'},\n  dec31_dayOfYear: |2024-12-31| as String {format: 'DDD'}\n}",
+        "expect": {
+          "output": "{\"jan1_dayOfMonth\":\"01\",\"dec31_dayOfMonth\":\"31\",\"dec31_dayOfYear\":\"366\"}"
+        },
+        "note": "December 31 of a leap year is the 366th day. The day-of-month is 31 (within December), while day-of-year is 366 (within the entire year)."
+      }
+    ]
+  },
+  "derivedFrom": "format-date-parts"
+}

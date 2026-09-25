@@ -1,0 +1,34 @@
+{
+  "id": "format-date-parts-predict-0",
+  "unit": "dates-formatting",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "DD vs DDD format",
+  "topics": [
+    "date formatting",
+    "format patterns",
+    "as String"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{\n  withDD: |2027-03-05| as String {format: 'DD'},\n  withDDD: |2027-03-05| as String {format: 'DDD'}\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{\n  withDD: |2027-03-05| as String {format: 'DD'},\n  withDDD: |2027-03-05| as String {format: 'DDD'}\n}",
+  "explanation": {
+    "approach": "Same date, different padding. `DD` gives \"64\", `DDD` gives \"064\". Day-of-year is the same (64th day), just different widths.",
+    "snippets": [
+      {
+        "label": "DD vs DDD format",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  withDD: |2027-03-05| as String {format: 'DD'},\n  withDDD: |2027-03-05| as String {format: 'DDD'}\n}",
+        "expect": {
+          "output": "{\"withDD\":\"64\",\"withDDD\":\"064\"}"
+        },
+        "note": "Same date, different padding. `DD` gives \"64\", `DDD` gives \"064\". Day-of-year is the same (64th day), just different widths."
+      }
+    ]
+  },
+  "derivedFrom": "format-date-parts"
+}

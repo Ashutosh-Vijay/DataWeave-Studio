@@ -1,0 +1,35 @@
+{
+  "id": "config-with-defaults-predict-5",
+  "unit": "default-and-missing",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Missing field becomes null, then gets the default",
+  "topics": [
+    "default",
+    "null"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{timeout: payload.missing default 30}",
+    "payload": "{}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{timeout: payload.missing default 30}",
+  "explanation": {
+    "approach": "A field that does not exist returns `null` when accessed, so `default` treats it the same as an explicit `null`.",
+    "snippets": [
+      {
+        "label": "Missing field becomes null, then gets the default",
+        "script": "%dw 2.0\noutput application/json\n---\n{timeout: payload.missing default 30}",
+        "payload": "{}",
+        "expect": {
+          "output": "{ \"timeout\": 30 }"
+        },
+        "note": "A field that does not exist returns `null` when accessed, so `default` treats it the same as an explicit `null`."
+      }
+    ]
+  },
+  "derivedFrom": "config-with-defaults"
+}

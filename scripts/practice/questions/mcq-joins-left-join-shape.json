@@ -1,0 +1,52 @@
+{
+  "id": "mcq-joins-left-join-shape",
+  "unit": "joins",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "leftJoin",
+    "dw::core::Arrays"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "basics": "`leftJoin` from `dw::core::Arrays` returns one Object per match, `{ l: leftElement, r: rightElement }`. A left element with no match still appears, and the shape of its result is worth knowing before you select from it.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\nleftJoin([{ id: 1 }], [{ id: 2, n: \"x\" }], (l) -> l.id, (r) -> r.id)"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "[ ]",
+      "[ { \"l\": { \"id\": 1 } } ]",
+      "[ { \"id\": 1 } ]",
+      "[ { \"l\": { \"id\": 1 }, \"r\": null } ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\nleftJoin([{ id: 1 }], [{ id: 2, n: \"x\" }], (l) -> l.id, (r) -> r.id)",
+  "explanation": {
+    "approach": "An unmatched left element comes back with only an `l` field; there is no `r` key at all, not even a null one. Selecting `$.r.n` from it still gives null, which is usually what you want.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\nleftJoin([{ id: 1 }], [{ id: 2, n: \"x\" }], (l) -> l.id, (r) -> r.id)",
+        "expect": {
+          "output": "[{\"l\":{\"id\":1}}]"
+        },
+        "note": "No r at all."
+      },
+      {
+        "label": "Selecting through the missing r",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\n(leftJoin([{ id: 1 }], [], (l) -> l.id, (r) -> r.id))[0].r.n",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Null, without an error."
+      }
+    ]
+  }
+}

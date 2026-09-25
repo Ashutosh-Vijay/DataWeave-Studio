@@ -1,0 +1,64 @@
+{
+  "id": "mcq-date-keeps-format",
+  "unit": "dates-formatting",
+  "mode": "choice",
+  "tier": "max",
+  "title": "What does this return?",
+  "topics": [
+    "as",
+    "Date",
+    "format"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.d as Date {format: \"MM/dd/yyyy\"}",
+    "payload": "{\"d\":\"03/05/2024\"}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "\"03/05/2024\"",
+      "\"05/03/2024\"",
+      "\"2024-05-03\"",
+      "\"2024-03-05\""
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.d as Date {format: \"MM/dd/yyyy\"}",
+  "explanation": {
+    "approach": "The format given when parsing stays attached to the Date. When the JSON writer prints it, it uses that same format, so the output text looks unchanged. To get ISO text, format it explicitly.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.d as Date {format: \"MM/dd/yyyy\"}",
+        "payload": "{\"d\":\"03/05/2024\"}",
+        "expect": {
+          "output": "\"03/05/2024\""
+        },
+        "note": "It is a Date now, but it prints the way it was read."
+      },
+      {
+        "label": "It really is a Date",
+        "script": "%dw 2.0\noutput application/json\n---\ntypeOf(payload.d as Date {format: \"MM/dd/yyyy\"})",
+        "payload": "{\"d\":\"03/05/2024\"}",
+        "expect": {
+          "output": "\"Date\""
+        },
+        "note": "The conversion happened."
+      },
+      {
+        "label": "Getting ISO text",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.d as Date {format: \"MM/dd/yyyy\"} as String {format: \"yyyy-MM-dd\"}",
+        "payload": "{\"d\":\"03/05/2024\"}",
+        "expect": {
+          "output": "\"2024-03-05\""
+        },
+        "note": "Parse with one pattern, print with another."
+      }
+    ]
+  }
+}

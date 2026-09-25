@@ -1,0 +1,35 @@
+{
+  "id": "duplicate-key-collision-predict-0",
+  "unit": "duplicate-keys",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "A computed key",
+  "topics": [
+    "duplicate keys",
+    "object construction"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{(\"color\"): \"red\"}",
+    "payload": null
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{(\"color\"): \"red\"}",
+  "explanation": {
+    "approach": "Parentheses around the key expression make it a computed key. The key comes from evaluating the expression, not from a literal field name.",
+    "snippets": [
+      {
+        "label": "A computed key",
+        "script": "%dw 2.0\noutput application/json\n---\n{(\"color\"): \"red\"}",
+        "payload": null,
+        "expect": {
+          "output": "{ \"color\": \"red\" }"
+        },
+        "note": "Parentheses around the key expression make it a computed key. The key comes from evaluating the expression, not from a literal field name."
+      }
+    ]
+  },
+  "derivedFrom": "duplicate-key-collision"
+}

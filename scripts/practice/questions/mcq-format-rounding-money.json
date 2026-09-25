@@ -1,0 +1,44 @@
+{
+  "id": "mcq-format-rounding-money",
+  "unit": "precision",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "as",
+    "format",
+    "round"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ 1.005 as String {format: \"0.00\"}, round(1.005 * 100) / 100 ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "[ \"1.01\", 1 ]",
+      "[ \"1.01\", 1.01 ]",
+      "[ \"1.00\", 1.01 ]",
+      "[ \"1.00\", 1 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ 1.005 as String {format: \"0.00\"}, round(1.005 * 100) / 100 ]",
+  "explanation": {
+    "approach": "In languages with binary floating point, 1.005 is stored as slightly less than 1.005 and rounds down to 1.00. DataWeave stores it exactly, so both routes round the half up.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ 1.005 as String {format: \"0.00\"}, round(1.005 * 100) / 100 ]",
+        "expect": {
+          "output": "[ \"1.01\", 1.01 ]"
+        },
+        "note": "One is a String and one is a Number. They agree on the value."
+      }
+    ]
+  }
+}

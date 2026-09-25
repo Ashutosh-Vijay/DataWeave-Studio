@@ -1,0 +1,35 @@
+{
+  "id": "active-customers-predict-4",
+  "unit": "filter-and-null",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "What happens if the selector is wrong",
+  "topics": [
+    "filter",
+    "map"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.customers filter ($.status == \"active\")",
+    "payload": "[{\"name\":\"Ada\",\"status\":\"active\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.customers filter ($.status == \"active\")",
+  "explanation": {
+    "approach": "Worth seeing once. `payload.customers` does not exist here, and filtering null gives null rather than an error — so a mistyped selector produces an empty-looking result instead of a stack trace. Every array function behaves this way.",
+    "snippets": [
+      {
+        "label": "What happens if the selector is wrong",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.customers filter ($.status == \"active\")",
+        "payload": "[{\"name\":\"Ada\",\"status\":\"active\"}]",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Worth seeing once. `payload.customers` does not exist here, and filtering null gives null rather than an error — so a mistyped selector produces an empty-looking result instead of a stack trace. Every array function behaves this way."
+      }
+    ]
+  },
+  "derivedFrom": "active-customers"
+}

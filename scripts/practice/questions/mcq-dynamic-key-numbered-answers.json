@@ -1,0 +1,47 @@
+{
+  "id": "mcq-dynamic-key-numbered-answers",
+  "unit": "dynamic-keys",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "map",
+    "dynamic keys",
+    "index"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "A computed key can combine text and numbers: `(\"q\" ++ ($$ + 1))` gives q1, q2, and so on, from the position of each element. Merging the resulting Objects with `{( )}` gives one Object.",
+  "mode": "choice",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ (payload map { (\"q\" ++ ($$ + 1)): $ }) }",
+    "payload": "[\"yes\",\"no\",\"yes\"]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "{ \"q0\": \"yes\", \"q1\": \"no\", \"q2\": \"yes\" }",
+      "{ \"q\": \"yes\" }",
+      "[ { \"q1\": \"yes\" }, { \"q2\": \"no\" }, { \"q3\": \"yes\" } ]",
+      "{ \"q1\": \"yes\", \"q2\": \"no\", \"q3\": \"yes\" }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ (payload map { (\"q\" ++ ($$ + 1)): $ }) }",
+  "explanation": {
+    "approach": "The index starts at 0, and `+ 1` makes the names start at q1. `+` binds more tightly than `++`, so `$$ + 1` is worked out before being joined to \"q\". The outer `{( )}` merges the three one-field Objects.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ (payload map { (\"q\" ++ ($$ + 1)): $ }) }",
+        "payload": "[\"yes\",\"no\",\"yes\"]",
+        "expect": {
+          "output": "{\"q1\":\"yes\",\"q2\":\"no\",\"q3\":\"yes\"}"
+        },
+        "note": "Numbered from 1."
+      }
+    ]
+  }
+}

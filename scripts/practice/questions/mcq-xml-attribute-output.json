@@ -1,0 +1,65 @@
+{
+  "id": "mcq-xml-attribute-output",
+  "unit": "xml-namespaces",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "xml",
+    "@",
+    "output"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "The output is XML with `indent=false, writeDeclaration=false`. Given the payload below,\n\n**which script produces exactly this output?**\n\n```\n<item id=\"7\">Widget</item>\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/xml indent=false, writeDeclaration=false",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"id\":7,\"name\":\"Widget\"}",
+    "target": "<item id=\"7\">Widget</item>",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ item: { id: payload.id, name: payload.name } }",
+      "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ item @(id: payload.id): { name: payload.name } }",
+      "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ item @(id: payload.id): payload.name }",
+      "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ item: payload.name, @id: payload.id }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ item @(id: payload.id): payload.name }",
+  "explanation": {
+    "approach": "Attributes are written with `@( )` directly after the key. The value after the colon becomes the element's content. Writing the id as a field makes a child element instead.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ item @(id: payload.id): payload.name }",
+        "payload": "{\"id\":7,\"name\":\"Widget\"}",
+        "outputMime": "application/xml indent=false, writeDeclaration=false",
+        "expect": {
+          "output": "<item id=\"7\">Widget</item>"
+        },
+        "note": "Attribute plus text content."
+      },
+      {
+        "label": "Child elements instead",
+        "script": "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ item: { id: payload.id, name: payload.name } }",
+        "payload": "{\"id\":7,\"name\":\"Widget\"}",
+        "outputMime": "application/xml indent=false, writeDeclaration=false",
+        "expect": {
+          "output": "<item><id>7</id><name>Widget</name></item>"
+        },
+        "note": "Valid XML, different shape."
+      },
+      {
+        "label": "An attribute and a child",
+        "script": "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ item @(id: payload.id): { name: payload.name } }",
+        "payload": "{\"id\":7,\"name\":\"Widget\"}",
+        "outputMime": "application/xml indent=false, writeDeclaration=false",
+        "expect": {
+          "output": "<item id=\"7\"><name>Widget</name></item>"
+        },
+        "note": "Close, but the name is an element, not text."
+      }
+    ]
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "id": "mcq-eval-unknown-operator",
+  "unit": "expression-evaluator",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "match",
+    "recursion"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "A `match` without `else` compiles, but if a value reaches it that no case accepts, the script fails at run time. An evaluator that knows `+`, `-` and `*` will fail on any tree that contains another operator.",
+  "mode": "choice",
+  "prompt": "Each script evaluates a tree with the same evaluator, which handles `+`, `-` and `*` and has no `else`. **Which one fails?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"-\" -> ev(x.l) - ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev(5)",
+      "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"-\" -> ev(x.l) - ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev({ op: \"-\", l: 1, r: 9 })",
+      "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"-\" -> ev(x.l) - ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev({ op: \"*\", l: { op: \"+\", l: 1, r: 2 }, r: 4 })",
+      "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"-\" -> ev(x.l) - ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev({ op: \"/\", l: 8, r: 2 })"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"-\" -> ev(x.l) - ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev({ op: \"*\", l: { op: \"+\", l: 1, r: 2 }, r: 4 })",
+  "explanation": {
+    "approach": "No case accepts an operator of \"/\", and there is no `else`, so the match throws. A bare Number is a valid tree: it is the leaf case. A negative result is not an error.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"-\" -> ev(x.l) - ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev({ op: \"/\", l: 8, r: 2 })",
+        "expect": {
+          "error": true
+        },
+        "note": "None of the match cases matched."
+      },
+      {
+        "label": "A nested tree",
+        "script": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"-\" -> ev(x.l) - ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev({ op: \"*\", l: { op: \"+\", l: 1, r: 2 }, r: 4 })",
+        "expect": {
+          "output": "12"
+        },
+        "note": "(1 + 2) * 4."
+      }
+    ]
+  }
+}

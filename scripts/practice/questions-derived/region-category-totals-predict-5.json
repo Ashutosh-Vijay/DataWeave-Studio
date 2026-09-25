@@ -1,0 +1,36 @@
+{
+  "id": "region-category-totals-predict-5",
+  "unit": "nested-aggregation",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "pluck is the Object-to-Array alternative, useful for a flatter report",
+  "topics": [
+    "groupBy",
+    "mapObject",
+    "sum"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region pluck ((lines, region) -> { region: region, total: sum(lines.amount) })",
+    "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"West\",\"category\":\"Gadgets\",\"amount\":40},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region pluck ((lines, region) -> { region: region, total: sum(lines.amount) })",
+  "explanation": {
+    "approach": "",
+    "snippets": [
+      {
+        "label": "pluck is the Object-to-Array alternative, useful for a flatter report",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region pluck ((lines, region) -> { region: region, total: sum(lines.amount) })",
+        "payload": "[{\"region\":\"West\",\"category\":\"Widgets\",\"amount\":100},{\"region\":\"West\",\"category\":\"Gadgets\",\"amount\":40},{\"region\":\"East\",\"category\":\"Widgets\",\"amount\":90}]",
+        "expect": {
+          "output": "[ { \"region\": \"West\", \"total\": 140 }, { \"region\": \"East\", \"total\": 90 } ] "
+        },
+        "note": ""
+      }
+    ]
+  },
+  "derivedFrom": "region-category-totals"
+}

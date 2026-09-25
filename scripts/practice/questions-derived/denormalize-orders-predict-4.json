@@ -1,0 +1,38 @@
+{
+  "id": "denormalize-orders-predict-4",
+  "unit": "denormalize",
+  "mode": "predict",
+  "tier": "extra",
+  "title": "$ inside the inner map means the line item, not the order",
+  "topics": [
+    "flatMap",
+    "write",
+    "application/csv"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/csv",
+  "given": {
+    "script": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> order.line_items map {\n  orderId: $.order_id,\n  customer: $.customer,\n  sku: $.sku,\n  qty: $.qty,\n  price: $.price\n})",
+    "payload": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[{\"sku\":\"A1\",\"qty\":2,\"price\":9.99}]}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> order.line_items map {\n  orderId: $.order_id,\n  customer: $.customer,\n  sku: $.sku,\n  qty: $.qty,\n  price: $.price\n})",
+  "explanation": {
+    "approach": "This runs and produces a row, which is what makes it dangerous: `sku`, `qty`, and `price` are correct because those fields really do live on the line item, but `$.order_id` and `$.customer` look for fields on the line item too, find nothing, and quietly write empty cells instead of throwing.",
+    "snippets": [
+      {
+        "label": "$ inside the inner map means the line item, not the order",
+        "script": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> order.line_items map {\n  orderId: $.order_id,\n  customer: $.customer,\n  sku: $.sku,\n  qty: $.qty,\n  price: $.price\n})",
+        "payload": "[{\"order_id\":\"O1\",\"customer\":\"Ada\",\"line_items\":[{\"sku\":\"A1\",\"qty\":2,\"price\":9.99}]}]",
+        "outputMime": "application/csv",
+        "compare": "text",
+        "expect": {
+          "output": "orderId,customer,sku,qty,price\r\n,,A1,2,9.99\r\n"
+        },
+        "note": "This runs and produces a row, which is what makes it dangerous: `sku`, `qty`, and `price` are correct because those fields really do live on the line item, but `$.order_id` and `$.customer` look for fields on the line item too, find nothing, and quietly write empty cells instead of throwing."
+      }
+    ]
+  },
+  "derivedFrom": "denormalize-orders"
+}

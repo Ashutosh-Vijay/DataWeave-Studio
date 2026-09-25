@@ -1,0 +1,35 @@
+{
+  "id": "duplicate-key-collision-predict-4",
+  "unit": "duplicate-keys",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Preventing duplicates with groupBy",
+  "topics": [
+    "duplicate keys",
+    "object construction"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.name mapObject { ($$): $.value[0] }",
+    "payload": "[{\"name\":\"color\",\"value\":\"red\"},{\"name\":\"color\",\"value\":\"blue\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.name mapObject { ($$): $.value[0] }",
+  "explanation": {
+    "approach": "`groupBy` groups by the key expression and returns an object. If you want to collapse duplicates instead, group first, then pick one winner (here, the first one with `[0]`).",
+    "snippets": [
+      {
+        "label": "Preventing duplicates with groupBy",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.name mapObject { ($$): $.value[0] }",
+        "payload": "[{\"name\":\"color\",\"value\":\"red\"},{\"name\":\"color\",\"value\":\"blue\"}]",
+        "expect": {
+          "output": "{\n  \"color\": \"red\"\n}"
+        },
+        "note": "`groupBy` groups by the key expression and returns an object. If you want to collapse duplicates instead, group first, then pick one winner (here, the first one with `[0]`)."
+      }
+    ]
+  },
+  "derivedFrom": "duplicate-key-collision"
+}

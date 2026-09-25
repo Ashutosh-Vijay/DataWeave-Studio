@@ -1,0 +1,32 @@
+{
+  "id": "first-and-last-items-predict-1",
+  "unit": "sizeof-and-slicing",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Negative indexing: -1 is the last",
+  "topics": [
+    "sizeOf"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[1,2,3][-1]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[1,2,3][-1]",
+  "explanation": {
+    "approach": "Negative indices count from the end. -1 is the last, -2 is second-to-last, etc.",
+    "snippets": [
+      {
+        "label": "Negative indexing: -1 is the last",
+        "script": "%dw 2.0\noutput application/json\n---\n[1,2,3][-1]",
+        "expect": {
+          "output": "3"
+        },
+        "note": "Negative indices count from the end. -1 is the last, -2 is second-to-last, etc."
+      }
+    ]
+  },
+  "derivedFrom": "first-and-last-items"
+}

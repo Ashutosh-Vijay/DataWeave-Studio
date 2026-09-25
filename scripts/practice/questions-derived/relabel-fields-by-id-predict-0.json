@@ -1,0 +1,34 @@
+{
+  "id": "relabel-fields-by-id-predict-0",
+  "unit": "dynamic-keys",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "Looking a value up by a key you only know at runtime",
+  "topics": [
+    "computed keys",
+    "mapObject",
+    "duplicate keys"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\ndo {\n  var labels = {f1: 'name', f2: 'address'}\n  var k = 'f2'\n  ---\n  labels[k]\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var labels = {f1: 'name', f2: 'address'}\n  var k = 'f2'\n  ---\n  labels[k]\n}",
+  "explanation": {
+    "approach": "A bracket selector with a variable inside it reads the field whose name is the variable's value, not a field literally called `k`.",
+    "snippets": [
+      {
+        "label": "Looking a value up by a key you only know at runtime",
+        "script": "%dw 2.0\noutput application/json\n---\ndo {\n  var labels = {f1: 'name', f2: 'address'}\n  var k = 'f2'\n  ---\n  labels[k]\n}",
+        "expect": {
+          "output": "\"address\""
+        },
+        "note": "A bracket selector with a variable inside it reads the field whose name is the variable's value, not a field literally called `k`."
+      }
+    ]
+  },
+  "derivedFrom": "relabel-fields-by-id"
+}

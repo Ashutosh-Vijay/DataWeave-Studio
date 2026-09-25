@@ -1,0 +1,59 @@
+{
+  "id": "mcq-filter-order-sku",
+  "unit": "distinct-and-order",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": ["filter", "orderBy", "map"],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n[\"A-1\", \"C-3\"]\n```\n\nOnly one of the four does. The others are each wrong in a different way.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[{\"sku\":\"A-1\",\"qty\":40},{\"sku\":\"B-2\",\"qty\":20},{\"sku\":\"C-3\",\"qty\":30}]",
+    "target": "[\"A-1\",\"C-3\"]",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty > 25) orderBy $.sku) map $.sku",
+      "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty > 25) orderBy $.qty) map $.sku",
+      "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty >= 20) orderBy $.sku) map $.sku",
+      "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty > 25) orderBy $.sku) map $.qty"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty > 25) orderBy $.sku) map $.sku",
+  "explanation": {
+    "approach": "Three things have to be right at once — which rows survive, what order they come back in, and which field you keep — and each wrong option gets exactly one of them wrong. That is what a well-built multiple-choice question does: it separates the three decisions so a near-miss tells you which one you got wrong.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty > 25) orderBy $.sku) map $.sku",
+        "payload": "[{\"sku\":\"A-1\",\"qty\":40},{\"sku\":\"B-2\",\"qty\":20},{\"sku\":\"C-3\",\"qty\":30}]",
+        "expect": { "output": "[ \"A-1\", \"C-3\" ]" },
+        "note": "Keep the rows over 25, put them in `sku` order, take the `sku`."
+      },
+      {
+        "label": "Ordering by the wrong field",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty > 25) orderBy $.qty) map $.sku",
+        "payload": "[{\"sku\":\"A-1\",\"qty\":40},{\"sku\":\"B-2\",\"qty\":20},{\"sku\":\"C-3\",\"qty\":30}]",
+        "expect": { "output": "[ \"C-3\", \"A-1\" ]" },
+        "note": "The right rows, the wrong order. Ordering by `qty` puts 30 before 40, so C-3 comes first. The data was chosen so `sku` order and `qty` order disagree — if they agreed, this would not be a distractor at all, it would be a second correct answer."
+      },
+      {
+        "label": "The boundary, off by one row",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty >= 20) orderBy $.sku) map $.sku",
+        "payload": "[{\"sku\":\"A-1\",\"qty\":40},{\"sku\":\"B-2\",\"qty\":20},{\"sku\":\"C-3\",\"qty\":30}]",
+        "expect": { "output": "[ \"A-1\", \"B-2\", \"C-3\" ]" },
+        "note": "`>=` lets B-2 in at exactly 20. Boundary conditions are the most common real mistake and the most common exam distractor."
+      },
+      {
+        "label": "The right rows, the wrong field",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty > 25) orderBy $.sku) map $.qty",
+        "payload": "[{\"sku\":\"A-1\",\"qty\":40},{\"sku\":\"B-2\",\"qty\":20},{\"sku\":\"C-3\",\"qty\":30}]",
+        "expect": { "output": "[ 40, 30 ]" },
+        "note": "Everything correct up to the last step. Note these are Numbers, not Strings — the output does not even have the right type, which is often the quickest way to eliminate an option under time pressure."
+      }
+    ]
+  }
+}

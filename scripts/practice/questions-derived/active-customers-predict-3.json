@@ -1,0 +1,35 @@
+{
+  "id": "active-customers-predict-3",
+  "unit": "filter-and-null",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "The long form, if the shorthand is not comfortable yet",
+  "topics": [
+    "filter",
+    "map"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload filter ((c) -> c.status == \"active\") map ((c) -> c.name)",
+    "payload": "[{\"name\":\"Ada\",\"status\":\"active\"},{\"name\":\"Bo\",\"status\":\"inactive\"},{\"name\":\"Cy\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload filter ((c) -> c.status == \"active\") map ((c) -> c.name)",
+  "explanation": {
+    "approach": "Identical result. Naming the parameter is worth it once the lambdas nest and two `$`s would mean two different things.",
+    "snippets": [
+      {
+        "label": "The long form, if the shorthand is not comfortable yet",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filter ((c) -> c.status == \"active\") map ((c) -> c.name)",
+        "payload": "[{\"name\":\"Ada\",\"status\":\"active\"},{\"name\":\"Bo\",\"status\":\"inactive\"},{\"name\":\"Cy\"}]",
+        "expect": {
+          "output": "[ \"Ada\" ]"
+        },
+        "note": "Identical result. Naming the parameter is worth it once the lambdas nest and two `$`s would mean two different things."
+      }
+    ]
+  },
+  "derivedFrom": "active-customers"
+}

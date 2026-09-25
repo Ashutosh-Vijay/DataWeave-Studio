@@ -1,0 +1,51 @@
+{
+  "id": "mcq-joins-no-inner-join",
+  "unit": "joins",
+  "tier": "easy",
+  "title": "Which one fails?",
+  "topics": [
+    "dw::core::Arrays",
+    "join",
+    "leftJoin",
+    "outerJoin"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "basics": "The `dw::core::Arrays` module has three join functions: `join` keeps only matched pairs, `leftJoin` keeps every left element, and `outerJoin` keeps unmatched elements from both sides.",
+  "mode": "choice",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\ninnerJoin([{ id: 1 }], [{ id: 1 }], (l) -> l.id, (r) -> r.id)",
+      "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\nleftJoin([{ id: 1 }], [{ id: 2 }], (l) -> l.id, (r) -> r.id)",
+      "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\njoin([{ id: 1 }], [{ id: 1 }], (l) -> l.id, (r) -> r.id)",
+      "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\nouterJoin([{ id: 1 }], [{ id: 2 }], (l) -> l.id, (r) -> r.id)"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\njoin([{ id: 1 }], [{ id: 1 }], (l) -> l.id, (r) -> r.id)",
+  "explanation": {
+    "approach": "The inner join is called `join`. There is no `innerJoin`, so that name does not resolve, even with the module imported.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\ninnerJoin([{ id: 1 }], [{ id: 1 }], (l) -> l.id, (r) -> r.id)",
+        "expect": {
+          "error": true
+        },
+        "note": "Unable to resolve reference."
+      },
+      {
+        "label": "The inner join",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\njoin([{ id: 1 }], [{ id: 1 }], (l) -> l.id, (r) -> r.id)",
+        "expect": {
+          "output": "[{\"l\":{\"id\":1},\"r\":{\"id\":1}}]"
+        },
+        "note": "Matched pairs."
+      }
+    ]
+  }
+}

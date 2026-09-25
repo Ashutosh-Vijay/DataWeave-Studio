@@ -1,0 +1,38 @@
+{
+  "id": "catalogue-xml-prices-predict-0",
+  "unit": "xml-selectors",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Text and attribute of one element",
+  "topics": [
+    "xml",
+    "@",
+    ".*",
+    "as"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ text: payload.p.price, cur: payload.p.price.@currency }",
+    "payload": "<p><price currency=\"EUR\">1.50</price></p>"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ text: payload.p.price, cur: payload.p.price.@currency }",
+  "explanation": {
+    "approach": "Both are Strings.",
+    "snippets": [
+      {
+        "label": "Text and attribute of one element",
+        "script": "%dw 2.0\noutput application/json\n---\n{ text: payload.p.price, cur: payload.p.price.@currency }",
+        "payload": "<p><price currency=\"EUR\">1.50</price></p>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "{\"text\":\"1.50\",\"cur\":\"EUR\"}"
+        },
+        "note": "Both are Strings."
+      }
+    ]
+  },
+  "derivedFrom": "catalogue-xml-prices"
+}

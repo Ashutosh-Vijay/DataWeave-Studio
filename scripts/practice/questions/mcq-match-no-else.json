@@ -1,0 +1,48 @@
+{
+  "id": "mcq-match-no-else",
+  "unit": "match-and-types",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "Which one fails?",
+  "topics": [
+    "match",
+    "is"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Three of these return a value. **One fails when it runs.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n\"x\" match { case is Number -> \"n\" case is String -> \"s\" }",
+      "%dw 2.0\noutput application/json\n---\ntrue match { case is Number -> \"n\" case is String -> \"s\" }",
+      "%dw 2.0\noutput application/json\n---\n[1, \"a\", null] map ($ match { case is Number -> \"num\" case is Null -> \"null\" else -> \"other\" })",
+      "%dw 2.0\noutput application/json\n---\ntrue match { case is Number -> \"n\" else -> \"other\" }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\ntrue match { case is Number -> \"n\" else -> \"other\" }",
+  "explanation": {
+    "approach": "A `match` without `else` compiles, but if no case accepts the value at run time it throws. Add an `else` whenever the input is not fully under your control.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\ntrue match { case is Number -> \"n\" case is String -> \"s\" }",
+        "expect": {
+          "error": true
+        },
+        "note": "None of the match cases matched."
+      },
+      {
+        "label": "Type cases with an else",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, \"a\", null] map ($ match { case is Number -> \"num\" case is Null -> \"null\" else -> \"other\" })",
+        "expect": {
+          "output": "[ \"num\", \"other\", \"null\" ]"
+        },
+        "note": "Every value lands somewhere."
+      }
+    ]
+  }
+}

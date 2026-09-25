@@ -1,0 +1,62 @@
+{
+  "id": "mcq-agg-max-price-per-sku",
+  "unit": "nested-aggregation",
+  "tier": "easy",
+  "title": "Which script produces this output?",
+  "topics": [
+    "groupBy",
+    "mapObject",
+    "max"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "After `groupBy`, each group is an Array of rows, and selecting a field across it, `$.price`, gives the list of that field's values. `max`, `min`, `sum` and `avg` then reduce that list to one Number.",
+  "mode": "choice",
+  "prompt": "Report the highest price quoted for each SKU. Given the payload below,\n\n**which script produces exactly this output?**\n\n```\n{\"A\":9,\"B\":7}\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[{\"sku\":\"A\",\"price\":9},{\"sku\":\"B\",\"price\":7},{\"sku\":\"A\",\"price\":5}]",
+    "target": "{\"A\":9,\"B\":7}",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.sku mapObject { ($$): min($.price) }",
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.sku mapObject { ($$): $.price }",
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.sku mapObject { ($$): max($.price) }",
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.sku mapObject { ($$): $[-1].price }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.sku mapObject { ($$): max($.price) }",
+  "explanation": {
+    "approach": "Each group's prices are reduced with `max`. `min` gives the lowest, stopping at `$.price` leaves the list, and `$[-1]` picks the last quote. The data has A's highest quote first, so that \"the last one\" and \"the highest\" disagree.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.sku mapObject { ($$): max($.price) }",
+        "payload": "[{\"sku\":\"A\",\"price\":9},{\"sku\":\"B\",\"price\":7},{\"sku\":\"A\",\"price\":5}]",
+        "expect": {
+          "output": "{\"A\":9,\"B\":7}"
+        },
+        "note": "One Number per SKU."
+      },
+      {
+        "label": "The other reducers",
+        "script": "%dw 2.0\noutput application/json\n---\n[ sum([9, 5]), avg([9, 5]), min([9, 5]) ]",
+        "expect": {
+          "output": "[14,7,5]"
+        },
+        "note": "Same list, different questions."
+      },
+      {
+        "label": "Stopping at the list",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.sku mapObject { ($$): $.price }",
+        "payload": "[{\"sku\":\"A\",\"price\":5},{\"sku\":\"A\",\"price\":9}]",
+        "expect": {
+          "output": "{\"A\":[5,9]}"
+        },
+        "note": "All the prices, not the highest."
+      }
+    ]
+  }
+}

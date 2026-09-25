@@ -1,0 +1,33 @@
+{
+  "id": "delivered-at-only-when-delivered-predict-1",
+  "unit": "conditional-fields",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "A conditional field",
+  "topics": [
+    "conditional fields",
+    "if"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ id: 2, (deliveredAt: \"x\") if (false) }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ id: 2, (deliveredAt: \"x\") if (false) }",
+  "explanation": {
+    "approach": "No key at all.",
+    "snippets": [
+      {
+        "label": "A conditional field",
+        "script": "%dw 2.0\noutput application/json\n---\n{ id: 2, (deliveredAt: \"x\") if (false) }",
+        "expect": {
+          "output": "{\"id\":2}"
+        },
+        "note": "No key at all."
+      }
+    ]
+  },
+  "derivedFrom": "delivered-at-only-when-delivered"
+}

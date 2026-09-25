@@ -1,0 +1,34 @@
+{
+  "id": "generic-key-rewrite-predict-0",
+  "unit": "generic-key-rewrite",
+  "mode": "predict",
+  "tier": "extra",
+  "title": "camelKey on its own, including a mid-word digit",
+  "topics": [
+    "fun",
+    "mapObject",
+    "recursion"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\n---\n{\n  a: camelKey(\"user_id\"),\n  b: camelKey(\"full_name\"),\n  c: camelKey(\"item_2_id\"),\n  d: camelKey(\"already\")\n}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\n---\n{\n  a: camelKey(\"user_id\"),\n  b: camelKey(\"full_name\"),\n  c: camelKey(\"item_2_id\"),\n  d: camelKey(\"already\")\n}",
+  "explanation": {
+    "approach": "Splitting on `_` and capitalizing the first letter of every part after the first — a key with no underscore at all just comes back unchanged, which is what `camelKey(\"already\")` shows.",
+    "snippets": [
+      {
+        "label": "camelKey on its own, including a mid-word digit",
+        "script": "%dw 2.0\noutput application/json\nfun camelKey(s) = do {\n  var parts = s splitBy \"_\"\n  var rest = parts[1 to -1] default []\n  ---\n  parts[0] ++ ((rest map ((w) -> upper(w[0] default \"\") ++ (w[1 to -1] default \"\"))) joinBy \"\")\n}\n---\n{\n  a: camelKey(\"user_id\"),\n  b: camelKey(\"full_name\"),\n  c: camelKey(\"item_2_id\"),\n  d: camelKey(\"already\")\n}",
+        "expect": {
+          "output": "{ \"a\": \"userId\", \"b\": \"fullName\", \"c\": \"item2Id\", \"d\": \"already\" }"
+        },
+        "note": "Splitting on `_` and capitalizing the first letter of every part after the first — a key with no underscore at all just comes back unchanged, which is what `camelKey(\"already\")` shows."
+      }
+    ]
+  },
+  "derivedFrom": "generic-key-rewrite"
+}
