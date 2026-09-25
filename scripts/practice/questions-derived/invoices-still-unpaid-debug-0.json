@@ -1,0 +1,77 @@
+{
+  "id": "invoices-still-unpaid-debug-0",
+  "unit": "joins",
+  "mode": "debug",
+  "tier": "medium",
+  "title": "Fix it: find the invoices a bank payment file did not settle",
+  "topics": [
+    "leftJoin",
+    "dw::core::Arrays",
+    "contains"
+  ],
+  "basics": "`leftJoin(left, right, leftKey, rightKey)` from `dw::core::Arrays` pairs every element of `left` with the matching elements of `right`. Each result is `{ l, r }`, and a left element with no match comes back with no `r` at all, which is how you find the unmatched ones.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nAccounts receives `{ invoices, payments }`: open invoices `{ id, amount }` and the day's bank payments `{ invoiceId, paid }`. Return the ids of the invoices that no payment refers to, in invoice order.\n\nThe bank file is generated from a text export, so `invoiceId` sometimes arrives as a String (`\"101\"`) even though invoice ids are Numbers.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n(payload.invoices filter not (payload.payments.invoiceId contains $.id)).id default []",
+  "cases": [
+    {
+      "input": "{\n  \"invoices\": [\n    {\n      \"id\": 101,\n      \"amount\": 50\n    },\n    {\n      \"id\": 102,\n      \"amount\": 20\n    }\n  ],\n  \"payments\": [\n    {\n      \"invoiceId\": 101,\n      \"paid\": 50\n    }\n  ]\n}",
+      "output": "[102]"
+    },
+    {
+      "input": "{\n  \"invoices\": [\n    {\n      \"id\": 101,\n      \"amount\": 50\n    },\n    {\n      \"id\": 102,\n      \"amount\": 20\n    },\n    {\n      \"id\": 103,\n      \"amount\": 5\n    }\n  ],\n  \"payments\": [\n    {\n      \"invoiceId\": \"102\",\n      \"paid\": 20\n    }\n  ]\n}",
+      "output": "[101,103]"
+    },
+    {
+      "input": "{\n  \"invoices\": [\n    {\n      \"id\": 104,\n      \"amount\": 10\n    }\n  ],\n  \"payments\": []\n}",
+      "output": "[104]"
+    },
+    {
+      "input": "{\n  \"invoices\": [\n    {\n      \"id\": 105,\n      \"amount\": 10\n    }\n  ],\n  \"payments\": [\n    {\n      \"invoiceId\": \"105\",\n      \"paid\": 4\n    },\n    {\n      \"invoiceId\": 105,\n      \"paid\": 6\n    }\n  ]\n}",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "checks the payment ids with contains, which compares types, so a payment that quotes the id as text settles nothing"
+  ],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\n(leftJoin(payload.invoices, payload.payments, (i) -> i.id, (p) -> p.invoiceId) filter ($.r == null)).l.id default []",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\n(payload.invoices filter not (payload.payments.invoiceId contains $.id)).id default []"
+    }
+  ],
+  "explanation": {
+    "approach": "The unmatched rows are exactly what a left join exposes, as pairs without an `r`. The join also compares its keys as text, so the Number 101 and the String \"101\" match, which a `contains` check does not do. An invoice paid in two parts produces two pairs, but both have an `r`, so it is still correctly left out.",
+    "snippets": [
+      {
+        "label": "contains compares types",
+        "script": "%dw 2.0\noutput application/json\n---\n[101, 102] contains \"102\"",
+        "expect": {
+          "output": "false"
+        },
+        "note": "The String does not equal the Number."
+      },
+      {
+        "label": "A join does not",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\nsizeOf(join([{ id: 102 }], [{ invoiceId: \"102\" }], (i) -> i.id, (p) -> p.invoiceId))",
+        "expect": {
+          "output": "1"
+        },
+        "note": "The keys matched."
+      },
+      {
+        "label": "An unmatched pair",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\nleftJoin([{ id: 104 }], [], (i) -> i.id, (p) -> p.invoiceId)",
+        "expect": {
+          "output": "[{\"l\":{\"id\":104}}]"
+        },
+        "note": "No `r` at all."
+      }
+    ]
+  },
+  "derivedFrom": "invoices-still-unpaid"
+}

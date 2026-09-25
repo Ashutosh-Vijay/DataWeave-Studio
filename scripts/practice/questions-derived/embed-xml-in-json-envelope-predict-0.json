@@ -1,0 +1,34 @@
+{
+  "id": "embed-xml-in-json-envelope-predict-0",
+  "unit": "multi-format-embed",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "write returns text",
+  "topics": [
+    "write",
+    "xml",
+    "writer properties"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\ntypeOf(write({ order: { id: 1 } }, \"application/xml\"))"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\ntypeOf(write({ order: { id: 1 } }, \"application/xml\"))",
+  "explanation": {
+    "approach": "In the JSON output, it is an ordinary String field.",
+    "snippets": [
+      {
+        "label": "write returns text",
+        "script": "%dw 2.0\noutput application/json\n---\ntypeOf(write({ order: { id: 1 } }, \"application/xml\"))",
+        "expect": {
+          "output": "\"String\""
+        },
+        "note": "In the JSON output, it is an ordinary String field."
+      }
+    ]
+  },
+  "derivedFrom": "embed-xml-in-json-envelope"
+}

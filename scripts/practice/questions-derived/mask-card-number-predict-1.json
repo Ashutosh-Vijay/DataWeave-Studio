@@ -1,0 +1,34 @@
+{
+  "id": "mask-card-number-predict-1",
+  "unit": "update-operator",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Counting from the end",
+  "topics": [
+    "update",
+    "range",
+    "String"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n\"378282246310005\"[-4 to -1]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"378282246310005\"[-4 to -1]",
+  "explanation": {
+    "approach": "Works for any length.",
+    "snippets": [
+      {
+        "label": "Counting from the end",
+        "script": "%dw 2.0\noutput application/json\n---\n\"378282246310005\"[-4 to -1]",
+        "expect": {
+          "output": "\"0005\""
+        },
+        "note": "Works for any length."
+      }
+    ]
+  },
+  "derivedFrom": "mask-card-number"
+}

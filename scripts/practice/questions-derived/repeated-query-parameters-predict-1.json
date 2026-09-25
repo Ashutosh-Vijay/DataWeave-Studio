@@ -1,0 +1,36 @@
+{
+  "id": "repeated-query-parameters-predict-1",
+  "unit": "duplicate-keys",
+  "mode": "predict",
+  "tier": "easy",
+  "title": ".* with no match",
+  "topics": [
+    ".*",
+    "duplicate keys",
+    "default"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.*tag",
+    "payload": "{\"page\":\"3\"}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.*tag",
+  "explanation": {
+    "approach": "Null, not an empty array.",
+    "snippets": [
+      {
+        "label": ".* with no match",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.*tag",
+        "payload": "{\"page\":\"3\"}",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Null, not an empty array."
+      }
+    ]
+  },
+  "derivedFrom": "repeated-query-parameters"
+}

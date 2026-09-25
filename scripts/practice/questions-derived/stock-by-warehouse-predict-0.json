@@ -1,0 +1,36 @@
+{
+  "id": "stock-by-warehouse-predict-0",
+  "unit": "groupby-shape",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Grouping on the raw code",
+  "topics": [
+    "groupBy",
+    "mapObject",
+    "upper"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.wh mapObject ((rows, wh) -> { (wh): rows.sku })",
+    "payload": "[{\"sku\":\"A\",\"wh\":\"ldn\"},{\"sku\":\"B\",\"wh\":\"LDN\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.wh mapObject ((rows, wh) -> { (wh): rows.sku })",
+  "explanation": {
+    "approach": "Two keys for one warehouse.",
+    "snippets": [
+      {
+        "label": "Grouping on the raw code",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.wh mapObject ((rows, wh) -> { (wh): rows.sku })",
+        "payload": "[{\"sku\":\"A\",\"wh\":\"ldn\"},{\"sku\":\"B\",\"wh\":\"LDN\"}]",
+        "expect": {
+          "output": "{\"ldn\":[\"A\"],\"LDN\":[\"B\"]}"
+        },
+        "note": "Two keys for one warehouse."
+      }
+    ]
+  },
+  "derivedFrom": "stock-by-warehouse"
+}

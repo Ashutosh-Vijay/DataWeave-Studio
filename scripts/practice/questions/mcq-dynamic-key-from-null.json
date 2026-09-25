@@ -1,0 +1,52 @@
+{
+  "id": "mcq-dynamic-key-from-null",
+  "unit": "dynamic-keys",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "dynamic keys",
+    "default"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "A computed key must have a value that can be a name. When the expression inside the parentheses gives null, for example because a field is missing, there is no name to use.",
+  "mode": "choice",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "payload": "{\"label\":\"x\"}",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n{ (upper(payload.label)): 1 }",
+      "%dw 2.0\noutput application/json\n---\n{ (\"code_\" ++ (payload.code default 0)): payload.label }",
+      "%dw 2.0\noutput application/json\n---\n{ (payload.code): payload.label }",
+      "%dw 2.0\noutput application/json\n---\n{ (payload.code default \"unknown\"): payload.label }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ (payload.code default \"unknown\"): payload.label }",
+  "explanation": {
+    "approach": "`payload.code` is null here, and null cannot be coerced to a key, so the script fails. Supplying a fallback before the value is used as a key avoids it.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\n{ (payload.code): payload.label }",
+        "payload": "{\"label\":\"x\"}",
+        "expect": {
+          "error": true
+        },
+        "note": "Cannot coerce Null to Key."
+      },
+      {
+        "label": "With a fallback",
+        "script": "%dw 2.0\noutput application/json\n---\n{ (payload.code default \"unknown\"): payload.label }",
+        "payload": "{\"label\":\"x\"}",
+        "expect": {
+          "output": "{\"unknown\":\"x\"}"
+        },
+        "note": "A usable name."
+      }
+    ]
+  }
+}

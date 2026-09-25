@@ -1,0 +1,76 @@
+{
+  "id": "customer-spend-league",
+  "unit": "groupby-shape",
+  "tier": "medium",
+  "title": "Rank customers by what they spent this month",
+  "topics": [
+    "groupBy",
+    "pluck",
+    "sum",
+    "orderBy"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "`groupBy` returns an Object of buckets. To turn the buckets into rows, `pluck` walks the Object and builds one element per key: inside it, `$` is the bucket and `$$` is its key. `orderBy -x` sorts by x in descending order when x is a Number.",
+  "mode": "build",
+  "prompt": "The order service sends `{ customer, amount }` for every order this month. Return one `{ customer, total }` per customer, with `total` the sum of their orders, sorted with the biggest spender first.\n\nCancelled orders have `amount: null`. They count as 0.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"customer\": \"Ann\",\n    \"amount\": 10\n  },\n  {\n    \"customer\": \"Bo\",\n    \"amount\": 50\n  },\n  {\n    \"customer\": \"Ann\",\n    \"amount\": 15\n  }\n]",
+      "output": "[{\"customer\":\"Bo\",\"total\":50},{\"customer\":\"Ann\",\"total\":25}]"
+    },
+    {
+      "input": "[\n  {\n    \"customer\": \"Cy\",\n    \"amount\": 5\n  },\n  {\n    \"customer\": \"Cy\",\n    \"amount\": null\n  }\n]",
+      "output": "[{\"customer\":\"Cy\",\"total\":5}]"
+    },
+    {
+      "input": "[\n  {\n    \"customer\": \"Di\",\n    \"amount\": 1\n  },\n  {\n    \"customer\": \"Ed\",\n    \"amount\": null\n  },\n  {\n    \"customer\": \"Di\",\n    \"amount\": 2\n  }\n]",
+      "output": "[{\"customer\":\"Di\",\"total\":3},{\"customer\":\"Ed\",\"total\":0}]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Group by customer, then turn each group into a row with its total.",
+    "`sum` needs Numbers. What does it do with a null amount?",
+    "Replace nulls before summing: `sum($ map ($.amount default 0))`. Then `orderBy -$.total`."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.customer pluck { customer: $$, total: sum($ map ($.amount default 0)) } orderBy -$.total",
+  "mustFail": [
+    {
+      "why": "sums the amounts as they are, which fails on a cancelled order with a null amount",
+      "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.customer pluck { customer: $$, total: sum($.amount) } orderBy -$.total"
+    },
+    {
+      "why": "stops at mapObject, which gives one Object keyed by customer instead of ranked rows",
+      "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.customer mapObject { ($$): sum($ map ($.amount default 0)) }"
+    }
+  ],
+  "explanation": {
+    "approach": "Group, reshape each group with `pluck` so the result is an Array that can be sorted, then sort descending. The null amounts are the hidden edge: `sum` needs Numbers, so each null becomes 0 before the sum.",
+    "snippets": [
+      {
+        "label": "sum over a null",
+        "script": "%dw 2.0\noutput application/json\n---\nsum(payload)",
+        "payload": "[5,null]",
+        "expect": {
+          "error": true
+        },
+        "note": "A null in the list stops the sum."
+      },
+      {
+        "label": "Nulls replaced first",
+        "script": "%dw 2.0\noutput application/json\n---\nsum(payload map ($ default 0))",
+        "payload": "[5,null]",
+        "expect": {
+          "output": "5"
+        },
+        "note": "A cancelled order adds nothing."
+      }
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "id": "split-customer-name-predict-2",
+  "unit": "string-basics",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "The last word of a one-word name",
+  "topics": [
+    "splitBy",
+    "trim",
+    "regex"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n(\"Cher\" splitBy /\\s+/)[-1]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(\"Cher\" splitBy /\\s+/)[-1]",
+  "explanation": {
+    "approach": "The first word and the last word are the same element.",
+    "snippets": [
+      {
+        "label": "The last word of a one-word name",
+        "script": "%dw 2.0\noutput application/json\n---\n(\"Cher\" splitBy /\\s+/)[-1]",
+        "expect": {
+          "output": "\"Cher\""
+        },
+        "note": "The first word and the last word are the same element."
+      }
+    ]
+  },
+  "derivedFrom": "split-customer-name"
+}

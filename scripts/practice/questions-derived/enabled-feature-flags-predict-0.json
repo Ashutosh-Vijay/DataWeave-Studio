@@ -1,0 +1,34 @@
+{
+  "id": "enabled-feature-flags-predict-0",
+  "unit": "pluck-and-mapobject",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Not false is not the same as true",
+  "topics": [
+    "filterObject",
+    "pluck",
+    "keysOf"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[null != false, null == true]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[null != false, null == true]",
+  "explanation": {
+    "approach": "null passes the first test and fails the second.",
+    "snippets": [
+      {
+        "label": "Not false is not the same as true",
+        "script": "%dw 2.0\noutput application/json\n---\n[null != false, null == true]",
+        "expect": {
+          "output": "[true,false]"
+        },
+        "note": "null passes the first test and fails the second."
+      }
+    ]
+  },
+  "derivedFrom": "enabled-feature-flags"
+}

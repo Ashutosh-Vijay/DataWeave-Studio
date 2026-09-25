@@ -1,0 +1,54 @@
+{
+  "id": "mcq-pivot-fill-missing-columns",
+  "unit": "pivot",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "map",
+    "dynamic keys",
+    "selectors"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "Rows produced by a pivot should all have the same columns, or a CSV writer builds a header from the first row and misaligns the rest. Building each row from a fixed list of columns, rather than from what the row happens to contain, guarantees that.",
+  "mode": "choice",
+  "prompt": "Given the payload, **which script produces exactly this output?**\n\n```\n{\"a\":1,\"b\":null,\"c\":3}\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"cols\":[\"a\",\"b\",\"c\"],\"row\":{\"a\":1,\"c\":3}}",
+    "target": "{\"a\":1,\"b\":null,\"c\":3}",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload.row",
+      "%dw 2.0\noutput application/json\n---\n{ (payload.cols map (c) -> { (c): payload.row.c }) }",
+      "%dw 2.0\noutput application/json\n---\npayload.cols map (c) -> { (c): payload.row[c] }",
+      "%dw 2.0\noutput application/json\n---\n{ (payload.cols map (c) -> { (c): payload.row[c] }) }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ (payload.cols map (c) -> { (c): payload.row[c] }) }",
+  "explanation": {
+    "approach": "Walking the column list writes every column, and a column the row lacks looks up to null. `payload.row.c` asks for a field literally named \"c\" in every iteration, and forgetting the `{( )}` leaves an Array of one-field Objects.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ (payload.cols map (c) -> { (c): payload.row[c] }) }",
+        "payload": "{\"cols\":[\"a\",\"b\",\"c\"],\"row\":{\"a\":1,\"c\":3}}",
+        "expect": {
+          "output": "{\"a\":1,\"b\":null,\"c\":3}"
+        },
+        "note": "Every column, in the column order."
+      },
+      {
+        "label": "A literal selector",
+        "script": "%dw 2.0\noutput application/json\n---\n{ (payload.cols map (c) -> { (c): payload.row.c }) }",
+        "payload": "{\"cols\":[\"a\",\"b\",\"c\"],\"row\":{\"a\":1,\"c\":3}}",
+        "expect": {
+          "output": "{\"a\":3,\"b\":3,\"c\":3}"
+        },
+        "note": "`.c` is the field named c, every time."
+      }
+    ]
+  }
+}

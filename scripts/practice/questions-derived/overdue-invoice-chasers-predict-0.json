@@ -1,0 +1,35 @@
+{
+  "id": "overdue-invoice-chasers-predict-0",
+  "unit": "date-arithmetic",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Exactly on the boundary",
+  "topics": [
+    "daysBetween",
+    "as",
+    "Date",
+    "filter"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\ndaysBetween(\"2024-05-31\" as Date, \"2024-06-30\" as Date)"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\ndaysBetween(\"2024-05-31\" as Date, \"2024-06-30\" as Date)",
+  "explanation": {
+    "approach": "Included by `>=`, excluded by `>`.",
+    "snippets": [
+      {
+        "label": "Exactly on the boundary",
+        "script": "%dw 2.0\noutput application/json\n---\ndaysBetween(\"2024-05-31\" as Date, \"2024-06-30\" as Date)",
+        "expect": {
+          "output": "30"
+        },
+        "note": "Included by `>=`, excluded by `>`."
+      }
+    ]
+  },
+  "derivedFrom": "overdue-invoice-chasers"
+}

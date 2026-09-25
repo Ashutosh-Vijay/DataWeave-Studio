@@ -1,0 +1,72 @@
+{
+  "id": "orders-export-csv-debug-0",
+  "unit": "csv-round-trip",
+  "mode": "debug",
+  "tier": "medium",
+  "title": "Fix it: export orders to the csv the finance team imports",
+  "topics": [
+    "csv",
+    "output",
+    "as",
+    "format"
+  ],
+  "basics": "With `output application/csv`, an Array of flat Objects is written as CSV: the keys of the first Object become the header row and each Object becomes a line. The columns come out in the order the keys appear in each Object.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nFinance imports a CSV with exactly these columns, in this order: `id,customer,total`.\n\nOrders arrive as JSON with the customer nested, `{ id, customer: { name }, total }`. `total` must be written with exactly two decimals, so `9.5` becomes `9.50`. An order whose customer is not known yet has no `customer` object; leave that cell empty.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/csv",
+  "starter": "%dw 2.0\noutput application/csv\n---\npayload map { id: $.id, customer: $.customer.name, total: $.total }",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"id\": 1,\n    \"customer\": {\n      \"name\": \"Ann\"\n    },\n    \"total\": 12.25\n  }\n]",
+      "output": "id,customer,total\n1,Ann,12.25\n"
+    },
+    {
+      "input": "[\n  {\n    \"id\": 2,\n    \"customer\": {\n      \"name\": \"Bo\"\n    },\n    \"total\": 9.5\n  },\n  {\n    \"id\": 3,\n    \"customer\": {\n      \"name\": \"Cy\"\n    },\n    \"total\": 100\n  }\n]",
+      "output": "id,customer,total\n2,Bo,9.50\n3,Cy,100.00\n"
+    },
+    {
+      "input": "[\n  {\n    \"id\": 4,\n    \"total\": 5.75\n  }\n]",
+      "output": "id,customer,total\n4,,5.75\n"
+    },
+    {
+      "input": "[\n  {\n    \"total\": 1,\n    \"customer\": {\n      \"name\": \"Di\"\n    },\n    \"id\": 5\n  }\n]",
+      "output": "id,customer,total\n5,Di,1.00\n"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "writes the total as a Number, so 9.5 comes out as 9.5 instead of 9.50"
+  ],
+  "solution": "%dw 2.0\noutput application/csv\n---\npayload map { id: $.id, customer: $.customer.name, total: $.total as String {format: \"0.00\"} }",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/csv\n---\npayload map { id: $.id, customer: $.customer.name, total: $.total }"
+    }
+  ],
+  "explanation": {
+    "approach": "CSV has no nesting and no types, so each row is built as a flat Object with the columns in the order finance expects, and the total is formatted as text. The column order comes from the Object you build, which is why copying the input shape breaks when an upstream system reorders its keys.",
+    "snippets": [
+      {
+        "label": "A null value is an empty cell",
+        "script": "%dw 2.0\noutput application/csv\n---\n[{ id: 4, customer: null, total: \"5.75\" }]",
+        "outputMime": "application/csv",
+        "expect": {
+          "output": "id,customer,total\n4,,5.75\n"
+        },
+        "note": "Nothing between the two commas."
+      },
+      {
+        "label": "Columns follow the Object",
+        "script": "%dw 2.0\noutput application/csv\n---\n[{ total: \"1.00\", id: 5 }]",
+        "outputMime": "application/csv",
+        "expect": {
+          "output": "total,id\n1.00,5\n"
+        },
+        "note": "The header is built from the keys as written."
+      }
+    ]
+  },
+  "derivedFrom": "orders-export-csv"
+}

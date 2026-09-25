@@ -1,0 +1,34 @@
+{
+  "id": "latest-status-per-shipment-predict-1",
+  "unit": "distinct-and-order",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Reversing an empty array",
+  "topics": [
+    "orderBy",
+    "distinctBy",
+    "range"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[][-1 to 0]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[][-1 to 0]",
+  "explanation": {
+    "approach": "There is no element -1 to start from.",
+    "snippets": [
+      {
+        "label": "Reversing an empty array",
+        "script": "%dw 2.0\noutput application/json\n---\n[][-1 to 0]",
+        "expect": {
+          "output": "null"
+        },
+        "note": "There is no element -1 to start from."
+      }
+    ]
+  },
+  "derivedFrom": "latest-status-per-shipment"
+}

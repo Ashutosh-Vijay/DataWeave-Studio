@@ -1,0 +1,57 @@
+{
+  "id": "mcq-dup-key-constant-key-in-mapobject",
+  "unit": "duplicate-keys",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "mapObject",
+    "duplicate keys"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "Inside `mapObject`, each pair of the input produces the pairs of the output. If the key written for each pair is a fixed name rather than something computed from `$$`, every input pair produces the same output key.",
+  "mode": "choice",
+  "prompt": "The output is written with `indent=false`. **What does it return, exactly?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json indent=false",
+  "given": {
+    "script": "%dw 2.0\noutput application/json indent=false\n---\n{ x: 1, y: 2 } mapObject { kind: $ }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "{\"kind\": 2}",
+      "{\"kind\": 1,\"kind\": 2}",
+      "{\"x\": 1,\"y\": 2}",
+      "[{\"kind\": 1},{\"kind\": 2}]"
+    ]
+  },
+  "compare": "text",
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json indent=false\n---\n{ x: 1, y: 2 } mapObject { kind: $ }",
+  "explanation": {
+    "approach": "Each input pair writes a pair called `kind`, and a DataWeave Object keeps them all. The JSON writer prints both. A JSON reader downstream may keep either one, which is why a mistyped key like this can go unnoticed for a long time.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json indent=false\n---\n{ x: 1, y: 2 } mapObject { kind: $ }",
+        "outputMime": "application/json indent=false",
+        "expect": {
+          "output": "{\"kind\": 1,\"kind\": 2}"
+        },
+        "compare": "text",
+        "note": "Two `kind` keys."
+      },
+      {
+        "label": "With a computed key",
+        "script": "%dw 2.0\noutput application/json indent=false\n---\n{ x: 1, y: 2 } mapObject { ($$): $ }",
+        "outputMime": "application/json indent=false",
+        "expect": {
+          "output": "{\"x\": 1,\"y\": 2}"
+        },
+        "compare": "text",
+        "note": "Parentheses make the key come from `$$`."
+      }
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "id": "embed-xml-in-json-envelope-predict-1",
+  "unit": "multi-format-embed",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "The default layout",
+  "topics": [
+    "write",
+    "xml",
+    "writer properties"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nwrite({ order: { id: 1 } }, \"application/xml\")"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nwrite({ order: { id: 1 } }, \"application/xml\")",
+  "explanation": {
+    "approach": "A declaration and line breaks, unless you turn them off.",
+    "snippets": [
+      {
+        "label": "The default layout",
+        "script": "%dw 2.0\noutput application/json\n---\nwrite({ order: { id: 1 } }, \"application/xml\")",
+        "expect": {
+          "output": "\"<?xml version='1.0' encoding='UTF-8'?>\\n<order>\\n  <id>1</id>\\n</order>\""
+        },
+        "note": "A declaration and line breaks, unless you turn them off."
+      }
+    ]
+  },
+  "derivedFrom": "embed-xml-in-json-envelope"
+}

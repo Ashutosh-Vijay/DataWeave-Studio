@@ -1,0 +1,74 @@
+{
+  "id": "amounts-from-mixed-sources",
+  "unit": "match-and-types",
+  "tier": "medium",
+  "title": "Normalise amounts that arrive as numbers, text or nothing",
+  "topics": [
+    "match",
+    "is",
+    "as",
+    "default"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "basics": "`match` picks a branch by testing a value: `case n is Number -> ...` runs when the value is a Number, `case null -> ...` when it is null, and `else -> ...` catches anything left. Cases are tried from top to bottom and the first that fits wins.",
+  "mode": "build",
+  "prompt": "Payments reach the ledger from three systems. One sends `amount` as a Number, one as text such as `\"12.50\"`, and one leaves it `null` for zero-value transactions.\n\nReturn every amount as a Number: a Number stays as it is, numeric text is converted, and `null` becomes `0`. Anything that cannot be read as a number, such as `\"n/a\"`, becomes `null` so the ledger can flag it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[\n  5,\n  \"12.50\"\n]",
+      "output": "[5,12.5]"
+    },
+    {
+      "input": "[\n  null,\n  3\n]",
+      "output": "[0,3]"
+    },
+    {
+      "input": "[\n  \"n/a\",\n  \"7\"\n]",
+      "output": "[null,7]"
+    },
+    {
+      "input": "[\n  0,\n  null,\n  \"x\",\n  \"0.5\"\n]",
+      "output": "[0,0,null,0.5]"
+    }
+  ],
+  "hints": [
+    "Branch on the type of each value.",
+    "What should happen to `\"n/a\"`? And is that the same as what should happen to null?",
+    "For text, `($ as Number) default null` turns unreadable text into null. For null itself, return 0."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map ($ match {\n  case n is Number -> n\n  case null -> 0\n  case s is String -> (s as Number) default null\n  else -> null\n})",
+  "mustFail": [
+    {
+      "why": "coerces everything with a single fallback of 0, so unreadable text is booked as zero instead of flagged",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map (($ as Number) default 0)"
+    },
+    {
+      "why": "has no case for null, so a zero-value transaction falls through to else and becomes null",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map ($ match {\n  case n is Number -> n\n  case s is String -> (s as Number) default null\n  else -> null\n})"
+    }
+  ],
+  "explanation": {
+    "approach": "Two different \"no number\" situations need two different answers: null means zero, and junk text means unknown. A single coercion with a fallback cannot tell them apart; a `match` on the type can.",
+    "snippets": [
+      {
+        "label": "Unreadable text with a fallback",
+        "script": "%dw 2.0\noutput application/json\n---\n(\"n/a\" as Number) default null",
+        "expect": {
+          "output": "null"
+        },
+        "note": "`default` catches the failed coercion."
+      },
+      {
+        "label": "A null case",
+        "script": "%dw 2.0\noutput application/json\n---\nnull match { case n is Number -> n case null -> 0 else -> -1 }",
+        "expect": {
+          "output": "0"
+        },
+        "note": "`case null` matches exactly null."
+      }
+    ]
+  }
+}

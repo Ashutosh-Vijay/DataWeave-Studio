@@ -1,0 +1,36 @@
+{
+  "id": "strip-empty-fields-everywhere-predict-1",
+  "unit": "generic-key-rewrite",
+  "mode": "predict",
+  "tier": "extra",
+  "title": "The recursive function",
+  "topics": [
+    "fun",
+    "recursion",
+    "match",
+    "filterObject",
+    "mapObject"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun strip(v) = v match {\n  case o is Object -> o filterObject ((x) -> x != null and x != \"\") mapObject ((x, k) -> { (k): strip(x) })\n  case a is Array -> a map strip($)\n  else -> v\n}\n---\nstrip({ a: null, b: \"\", c: [null, { d: \"\", e: 1 }] })"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun strip(v) = v match {\n  case o is Object -> o filterObject ((x) -> x != null and x != \"\") mapObject ((x, k) -> { (k): strip(x) })\n  case a is Array -> a map strip($)\n  else -> v\n}\n---\nstrip({ a: null, b: \"\", c: [null, { d: \"\", e: 1 }] })",
+  "explanation": {
+    "approach": "Fields go, array elements stay.",
+    "snippets": [
+      {
+        "label": "The recursive function",
+        "script": "%dw 2.0\noutput application/json\nfun strip(v) = v match {\n  case o is Object -> o filterObject ((x) -> x != null and x != \"\") mapObject ((x, k) -> { (k): strip(x) })\n  case a is Array -> a map strip($)\n  else -> v\n}\n---\nstrip({ a: null, b: \"\", c: [null, { d: \"\", e: 1 }] })",
+        "expect": {
+          "output": "{\"c\":[null,{\"e\":1}]}"
+        },
+        "note": "Fields go, array elements stay."
+      }
+    ]
+  },
+  "derivedFrom": "strip-empty-fields-everywhere"
+}

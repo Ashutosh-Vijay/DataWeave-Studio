@@ -1,0 +1,44 @@
+{
+  "id": "mcq-error-try-success",
+  "unit": "error-handling",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "dw::Runtime",
+    "try"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "basics": "`try` from `dw::Runtime` runs a function and reports the outcome as data instead of letting a failure stop the script. On success it returns `{ success: true, result: ... }`.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\n[ try(() -> \"12\" as Number), try(() -> \"12\" as Number).result ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ { \"success\": true, \"result\": \"12\" }, \"12\" ]",
+      "[ 12, 12 ]",
+      "[ { \"result\": 12 }, 12 ]",
+      "[ { \"success\": true, \"result\": 12 }, 12 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\n[ try(() -> \"12\" as Number), try(() -> \"12\" as Number).result ]",
+  "explanation": {
+    "approach": "`try` always wraps the outcome, so the first element is the whole result Object. `.result` reads the value out of it. The coercion itself succeeded, so the value is the Number 12.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\n[ try(() -> \"12\" as Number), try(() -> \"12\" as Number).result ]",
+        "expect": {
+          "output": "[{\"success\":true,\"result\":12},12]"
+        },
+        "note": "Wrapped, then unwrapped."
+      }
+    ]
+  }
+}

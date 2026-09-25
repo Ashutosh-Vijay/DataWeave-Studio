@@ -1,0 +1,53 @@
+{
+  "id": "mcq-eval-subtraction-order",
+  "unit": "expression-evaluator",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "fun",
+    "recursion",
+    "match"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "An expression tree stores a calculation as data: `{ op: \"-\", l: 10, r: 4 }` means 10 - 4. An evaluator is a recursive function that returns a Number as it is and, for an operation, evaluates both sides first and then combines them.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"-\" -> ev(x.l) - ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev({ op: \"-\", l: 10, r: { op: \"-\", l: 4, r: 1 } })"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "13",
+      "7",
+      "5",
+      "-7"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"-\" -> ev(x.l) - ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev({ op: \"-\", l: 10, r: { op: \"-\", l: 4, r: 1 } })",
+  "explanation": {
+    "approach": "The right side is its own sub-tree, 4 - 1, and it is evaluated before the outer subtraction. The tree says 10 - (4 - 1), not (10 - 4) - 1, which would be 5.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"-\" -> ev(x.l) - ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev({ op: \"-\", l: 10, r: { op: \"-\", l: 4, r: 1 } })",
+        "expect": {
+          "output": "7"
+        },
+        "note": "The nesting decides the order."
+      },
+      {
+        "label": "The other grouping",
+        "script": "%dw 2.0\noutput application/json\nfun ev(e) = e match {\n  case n is Number -> n\n  case x if x.op == \"+\" -> ev(x.l) + ev(x.r)\n  case x if x.op == \"-\" -> ev(x.l) - ev(x.r)\n  case x if x.op == \"*\" -> ev(x.l) * ev(x.r)\n}\n---\nev({ op: \"-\", l: { op: \"-\", l: 10, r: 4 }, r: 1 })",
+        "expect": {
+          "output": "5"
+        },
+        "note": "A different tree, a different answer."
+      }
+    ]
+  }
+}

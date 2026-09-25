@@ -1,0 +1,37 @@
+{
+  "id": "product-tag-cloud-predict-0",
+  "unit": "flatten-vs-flatmap",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Selecting across products",
+  "topics": [
+    "flatten",
+    "lower",
+    "distinctBy",
+    "orderBy"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.tags",
+    "payload": "[{\"sku\":\"E\"},{\"sku\":\"F\",\"tags\":[\"green\"]}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.tags",
+  "explanation": {
+    "approach": "The product with no tags contributes nothing.",
+    "snippets": [
+      {
+        "label": "Selecting across products",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.tags",
+        "payload": "[{\"sku\":\"E\"},{\"sku\":\"F\",\"tags\":[\"green\"]}]",
+        "expect": {
+          "output": "[[\"green\"]]"
+        },
+        "note": "The product with no tags contributes nothing."
+      }
+    ]
+  },
+  "derivedFrom": "product-tag-cloud"
+}

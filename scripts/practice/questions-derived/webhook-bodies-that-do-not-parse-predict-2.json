@@ -1,0 +1,35 @@
+{
+  "id": "webhook-bodies-that-do-not-parse-predict-2",
+  "unit": "error-handling",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "A successful parse",
+  "topics": [
+    "dw::Runtime",
+    "try",
+    "read",
+    "default"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ntry(() -> read(\"[1,2]\", \"application/json\")).result"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ntry(() -> read(\"[1,2]\", \"application/json\")).result",
+  "explanation": {
+    "approach": "The parsed value is under `.result`.",
+    "snippets": [
+      {
+        "label": "A successful parse",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ntry(() -> read(\"[1,2]\", \"application/json\")).result",
+        "expect": {
+          "output": "[1,2]"
+        },
+        "note": "The parsed value is under `.result`."
+      }
+    ]
+  },
+  "derivedFrom": "webhook-bodies-that-do-not-parse"
+}

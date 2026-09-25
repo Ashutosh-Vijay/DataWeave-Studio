@@ -1,0 +1,47 @@
+{
+  "id": "mcq-key-rewrite-lookup-table",
+  "unit": "generic-key-rewrite",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "mapObject",
+    "default",
+    "dynamic keys"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "basics": "A rename table can be kept as data: `{ cust_no: \"customerId\" }`. Looking a key up in it with `renames[k]` gives the new name, or null when the key is not in the table, and `default k` keeps the original name in that case.",
+  "mode": "choice",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nvar renames = { cust_no: \"customerId\", amt: \"amount\" }\n---\npayload mapObject ((v, k) -> { (renames[k] default k): v })",
+    "payload": "{\"cust_no\":42,\"amt\":9.5,\"currency\":\"EUR\"}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "{ \"customerId\": 42, \"amount\": 9.5, \"currency\": \"EUR\" }",
+      "{ \"customerId\": 42, \"amount\": 9.5 }",
+      "{ \"cust_no\": 42, \"amt\": 9.5, \"currency\": \"EUR\" }",
+      "{ \"customerId\": 42, \"amount\": 9.5, \"currency\": null }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nvar renames = { cust_no: \"customerId\", amt: \"amount\" }\n---\npayload mapObject ((v, k) -> { (renames[k] default k): v })",
+  "explanation": {
+    "approach": "The key passed to `mapObject` works as a lookup key in another Object. Keys in the table are renamed; `currency` is not in the table, looks up to null, and keeps its own name through `default`.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nvar renames = { cust_no: \"customerId\", amt: \"amount\" }\n---\npayload mapObject ((v, k) -> { (renames[k] default k): v })",
+        "payload": "{\"cust_no\":42,\"amt\":9.5,\"currency\":\"EUR\"}",
+        "expect": {
+          "output": "{\"customerId\":42,\"amount\":9.5,\"currency\":\"EUR\"}"
+        },
+        "note": "Two renamed, one kept."
+      }
+    ]
+  }
+}

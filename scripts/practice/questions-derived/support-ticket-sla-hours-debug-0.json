@@ -1,0 +1,69 @@
+{
+  "id": "support-ticket-sla-hours-debug-0",
+  "unit": "date-arithmetic",
+  "mode": "debug",
+  "tier": "hard",
+  "title": "Fix it: did each support ticket meet its 24-hour sla",
+  "topics": [
+    "DateTime",
+    "as",
+    "Period"
+  ],
+  "basics": "A DateTime with an offset, such as `2024-05-01T13:00:00+02:00`, is one exact instant. Converting it with `as Number` gives the seconds since 1970 in UTC, so subtracting two of those gives the exact number of seconds between two instants, whatever their offsets.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nThe helpdesk exports tickets as `{ id, opened, resolved }`, both ISO date-times with an offset. Agents work in different countries, so the two timestamps of one ticket can have different offsets.\n\nReturn `{ id, hours, breached }` per ticket: `hours` is the time from opened to resolved in hours (it may be fractional), and `breached` is `true` when that is **more than** 24 hours.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\npayload map (t) -> do {\n  var hours = (t.resolved as DateTime - t.opened as DateTime).hours\n  ---\n  { id: t.id, hours: hours, breached: hours > 24 }\n}",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"id\": \"T1\",\n    \"opened\": \"2024-05-01T08:00:00Z\",\n    \"resolved\": \"2024-05-01T13:00:00Z\"\n  }\n]",
+      "output": "[{\"id\":\"T1\",\"hours\":5,\"breached\":false}]"
+    },
+    {
+      "input": "[\n  {\n    \"id\": \"T2\",\n    \"opened\": \"2024-05-01T08:00:00Z\",\n    \"resolved\": \"2024-05-02T10:00:00Z\"\n  }\n]",
+      "output": "[{\"id\":\"T2\",\"hours\":26,\"breached\":true}]"
+    },
+    {
+      "input": "[\n  {\n    \"id\": \"T3\",\n    \"opened\": \"2024-05-01T08:00:00Z\",\n    \"resolved\": \"2024-05-02T10:00:00+02:00\"\n  }\n]",
+      "output": "[{\"id\":\"T3\",\"hours\":24,\"breached\":false}]"
+    },
+    {
+      "input": "[\n  {\n    \"id\": \"T4\",\n    \"opened\": \"2024-05-01T09:00:00-05:00\",\n    \"resolved\": \"2024-05-01T16:30:00Z\"\n  }\n]",
+      "output": "[{\"id\":\"T4\",\"hours\":2.5,\"breached\":false}]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "reads .hours from the Period, which is the hours field of the duration, so 26 hours comes out as 2"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map (t) -> do {\n  var hours = ((t.resolved as DateTime as Number) - (t.opened as DateTime as Number)) / 3600\n  ---\n  { id: t.id, hours: hours, breached: hours > 24 }\n}",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map (t) -> do {\n  var hours = (t.resolved as DateTime - t.opened as DateTime).hours\n  ---\n  { id: t.id, hours: hours, breached: hours > 24 }\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "A Period prints nicely but is awkward to measure: its `hours` field is only part of it, so a 26-hour ticket reads as 2. Epoch seconds are a single Number per instant, already corrected for the offset, and the difference divided by 3600 is the exact duration in hours. The third hidden ticket looks like 26 hours on the clock and is exactly 24.",
+    "snippets": [
+      {
+        "label": "A Period and its hours field",
+        "script": "%dw 2.0\noutput application/json\n---\n{ period: |2024-05-02T10:00:00Z| - |2024-05-01T08:00:00Z|, hours: (|2024-05-02T10:00:00Z| - |2024-05-01T08:00:00Z|).hours }",
+        "expect": {
+          "output": "{\"period\":\"PT26H\",\"hours\":2}"
+        },
+        "note": "The field is not the total."
+      },
+      {
+        "label": "The same instant in two offsets",
+        "script": "%dw 2.0\noutput application/json\n---\n[|2024-05-02T10:00:00+02:00| as Number, |2024-05-02T08:00:00Z| as Number]",
+        "expect": {
+          "output": "[1714636800,1714636800]"
+        },
+        "note": "Different clock times, identical seconds."
+      }
+    ]
+  },
+  "derivedFrom": "support-ticket-sla-hours"
+}

@@ -1,0 +1,36 @@
+{
+  "id": "orders-export-csv-predict-0",
+  "unit": "csv-round-trip",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "A null value is an empty cell",
+  "topics": [
+    "csv",
+    "output",
+    "as",
+    "format"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/csv",
+  "given": {
+    "script": "%dw 2.0\noutput application/csv\n---\n[{ id: 4, customer: null, total: \"5.75\" }]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/csv\n---\n[{ id: 4, customer: null, total: \"5.75\" }]",
+  "explanation": {
+    "approach": "Nothing between the two commas.",
+    "snippets": [
+      {
+        "label": "A null value is an empty cell",
+        "script": "%dw 2.0\noutput application/csv\n---\n[{ id: 4, customer: null, total: \"5.75\" }]",
+        "outputMime": "application/csv",
+        "expect": {
+          "output": "id,customer,total\n4,,5.75\n"
+        },
+        "note": "Nothing between the two commas."
+      }
+    ]
+  },
+  "derivedFrom": "orders-export-csv"
+}

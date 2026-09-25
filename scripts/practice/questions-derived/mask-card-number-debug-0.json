@@ -1,0 +1,78 @@
+{
+  "id": "mask-card-number-debug-0",
+  "unit": "update-operator",
+  "mode": "debug",
+  "tier": "easy",
+  "title": "Fix it: mask the card number before a payment is logged",
+  "topics": [
+    "update",
+    "range",
+    "String"
+  ],
+  "basics": "The `update` operator changes one field inside a value and keeps everything else as it was: `payload update { case n at .card.number -> ... }` replaces the card number and leaves the other fields alone. Inside the case, `n` is the old value.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nPayment events must be logged without the full card number. Replace `card.number` with `\"**** \"` followed by its last four digits, and leave every other field exactly as it was.\n\nCard numbers are not all the same length: most are 16 digits, American Express is 15. Some events, such as bank transfers, have no `card` at all; log those unchanged.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\npayload update { case n at .card.number -> \"**** \" ++ n[12 to 15] }",
+  "cases": [
+    {
+      "input": "{\n  \"id\": \"p1\",\n  \"card\": {\n    \"number\": \"4111111111111111\",\n    \"expiry\": \"12/27\"\n  },\n  \"amount\": 20\n}",
+      "output": "{\"id\":\"p1\",\"card\":{\"number\":\"**** 1111\",\"expiry\":\"12/27\"},\"amount\":20}"
+    },
+    {
+      "input": "{\n  \"id\": \"p2\",\n  \"card\": {\n    \"number\": \"378282246310005\",\n    \"expiry\": \"01/28\"\n  },\n  \"amount\": 5\n}",
+      "output": "{\"id\":\"p2\",\"card\":{\"number\":\"**** 0005\",\"expiry\":\"01/28\"},\"amount\":5}"
+    },
+    {
+      "input": "{\n  \"id\": \"p3\",\n  \"iban\": \"GB00TEST\",\n  \"amount\": 9\n}",
+      "output": "{\"id\":\"p3\",\"iban\":\"GB00TEST\",\"amount\":9}"
+    },
+    {
+      "input": "{\n  \"id\": \"p4\",\n  \"card\": {\n    \"number\": \"5555555555554444\",\n    \"expiry\": \"03/26\"\n  },\n  \"amount\": 1\n}",
+      "output": "{\"id\":\"p4\",\"card\":{\"number\":\"**** 4444\",\"expiry\":\"03/26\"},\"amount\":1}"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "takes characters 12 to 15, which is the last four only for a 16-digit number"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload update { case n at .card.number -> \"**** \" ++ n[-4 to -1] }",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\npayload update { case n at .card.number -> \"**** \" ++ n[12 to 15] }"
+    }
+  ],
+  "explanation": {
+    "approach": "`update` is the tool for \"change one thing, keep the rest\", and a case whose path is not in the data is skipped, which is exactly what the bank-transfer event needs. For the digits, fixed positions assume a fixed length; negative indexes count from the end and work for any length.",
+    "snippets": [
+      {
+        "label": "Fixed positions on a 15-digit number",
+        "script": "%dw 2.0\noutput application/json\n---\n\"378282246310005\"[12 to 15]",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Position 15 does not exist, so the whole range is null."
+      },
+      {
+        "label": "Counting from the end",
+        "script": "%dw 2.0\noutput application/json\n---\n\"378282246310005\"[-4 to -1]",
+        "expect": {
+          "output": "\"0005\""
+        },
+        "note": "Works for any length."
+      },
+      {
+        "label": "update on a missing path",
+        "script": "%dw 2.0\noutput application/json\n---\npayload update { case n at .card.number -> \"x\" }",
+        "payload": "{\"id\":\"p3\",\"iban\":\"GB00TEST\"}",
+        "expect": {
+          "output": "{\"id\":\"p3\",\"iban\":\"GB00TEST\"}"
+        },
+        "note": "Nothing to change, so nothing changes."
+      }
+    ]
+  },
+  "derivedFrom": "mask-card-number"
+}

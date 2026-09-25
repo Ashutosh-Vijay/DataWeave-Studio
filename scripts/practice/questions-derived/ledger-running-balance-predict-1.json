@@ -1,0 +1,33 @@
+{
+  "id": "ledger-running-balance-predict-1",
+  "unit": "reduce-seed",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Appending to an Array with +",
+  "topics": [
+    "reduce",
+    "seed"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[{ n: 1 }] + { n: 2 }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[{ n: 1 }] + { n: 2 }",
+  "explanation": {
+    "approach": "`+` with an Array on the left appends the right side.",
+    "snippets": [
+      {
+        "label": "Appending to an Array with +",
+        "script": "%dw 2.0\noutput application/json\n---\n[{ n: 1 }] + { n: 2 }",
+        "expect": {
+          "output": "[{\"n\":1},{\"n\":2}]"
+        },
+        "note": "`+` with an Array on the left appends the right side."
+      }
+    ]
+  },
+  "derivedFrom": "ledger-running-balance"
+}

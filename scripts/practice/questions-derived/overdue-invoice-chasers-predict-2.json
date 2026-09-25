@@ -1,0 +1,35 @@
+{
+  "id": "overdue-invoice-chasers-predict-2",
+  "unit": "date-arithmetic",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "not against !",
+  "topics": [
+    "daysBetween",
+    "as",
+    "Date",
+    "filter"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[not false and false, !false and false]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[not false and false, !false and false]",
+  "explanation": {
+    "approach": "`not` applies to everything after it, `!` only to the next value.",
+    "snippets": [
+      {
+        "label": "not against !",
+        "script": "%dw 2.0\noutput application/json\n---\n[not false and false, !false and false]",
+        "expect": {
+          "output": "[true,false]"
+        },
+        "note": "`not` applies to everything after it, `!` only to the next value."
+      }
+    ]
+  },
+  "derivedFrom": "overdue-invoice-chasers"
+}

@@ -1,0 +1,52 @@
+{
+  "id": "mcq-tree-keeps-structure",
+  "unit": "tree-module",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "dw::util::Tree",
+    "mapLeafValues"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "`mapLeafValues` from `dw::util::Tree` applies a function to every leaf value, at any depth, inside Objects and Arrays alike. The Objects and Arrays themselves are rebuilt around the new values, so the shape of the data does not change.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\n{ a: [1, { b: 2 }], c: 3 } mapLeafValues $ + 1"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "{ \"a\": [ 1, { \"b\": 2 } ], \"c\": 4 }",
+      "{ \"a\": [ 2, { \"b\": 3 } ], \"c\": 4 }",
+      "[ 2, 3, 4 ]",
+      "{ \"a\": [ 2, { \"b\": 2 } ], \"c\": 4 }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\n{ a: [1, { b: 2 }], c: 3 } mapLeafValues $ + 1",
+  "explanation": {
+    "approach": "Every leaf is reached, however deep, and the structure around the leaves is kept. That is the difference from `mapObject`, which only sees the top level.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\n{ a: [1, { b: 2 }], c: 3 } mapLeafValues $ + 1",
+        "expect": {
+          "output": "{\"a\":[2,{\"b\":3}],\"c\":4}"
+        },
+        "note": "Same shape, every number plus one."
+      },
+      {
+        "label": "mapObject sees one level",
+        "script": "%dw 2.0\noutput application/json\n---\n{ c: 3, d: { e: 1 } } mapObject ((v, k) -> { (k): if (v is Number) v + 1 else v })",
+        "expect": {
+          "output": "{\"c\":4,\"d\":{\"e\":1}}"
+        },
+        "note": "The nested value is untouched."
+      }
+    ]
+  }
+}

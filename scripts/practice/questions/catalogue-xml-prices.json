@@ -1,0 +1,78 @@
+{
+  "id": "catalogue-xml-prices",
+  "unit": "xml-selectors",
+  "tier": "medium",
+  "title": "Read prices and currencies from a supplier's XML catalogue",
+  "topics": [
+    "xml",
+    "@",
+    ".*",
+    "as"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "basics": "An XML element can carry both text and attributes: in `<price currency=\"EUR\">9.50</price>`, the text is `9.50` and `currency` is an attribute. `payload.x.price` reads the text and `payload.x.price.@currency` reads the attribute. Everything read from XML is a String.",
+  "mode": "build",
+  "prompt": "A supplier sends its catalogue as XML:\n\n```\n<catalog><product id=\"1\"><name>Pen</name><price currency=\"EUR\">1.50</price></product></catalog>\n```\n\nReturn an array of `{ id, name, price, currency }` with `id` and `price` as Numbers. Products that are not priced yet have no `price` element; for those, `price` and `currency` are `null`.",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "<catalog><product id=\"1\"><name>Pen</name><price currency=\"EUR\">1.50</price></product><product id=\"2\"><name>Pad</name><price currency=\"GBP\">3</price></product></catalog>",
+      "output": "[{\"id\":1,\"name\":\"Pen\",\"price\":1.5,\"currency\":\"EUR\"},{\"id\":2,\"name\":\"Pad\",\"price\":3,\"currency\":\"GBP\"}]"
+    },
+    {
+      "input": "<catalog><product id=\"3\"><name>Ink</name></product></catalog>",
+      "output": "[{\"id\":3,\"name\":\"Ink\",\"price\":null,\"currency\":null}]"
+    },
+    {
+      "input": "<catalog><product id=\"4\"><name>Clip</name><price currency=\"USD\">0.10</price></product></catalog>",
+      "output": "[{\"id\":4,\"name\":\"Clip\",\"price\":0.1,\"currency\":\"USD\"}]"
+    },
+    {
+      "input": "<catalog><product id=\"5\"><name>Tape</name></product><product id=\"6\"><name>Glue</name><price currency=\"EUR\">2</price></product></catalog>",
+      "output": "[{\"id\":5,\"name\":\"Tape\",\"price\":null,\"currency\":null},{\"id\":6,\"name\":\"Glue\",\"price\":2,\"currency\":\"EUR\"}]"
+    }
+  ],
+  "hints": [
+    "Select every product with `.*product`, and read `id` from the product's attribute.",
+    "The currency is an attribute of the `price` element, not of the product.",
+    "`null as Number` fails. Coerce the price only when there is one."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.catalog.*product map {\n  id: $.@id as Number,\n  name: $.name,\n  price: if ($.price == null) null else $.price as Number,\n  currency: $.price.@currency\n}",
+  "mustFail": [
+    {
+      "why": "coerces the price unconditionally, which fails on a product that has no price yet",
+      "script": "%dw 2.0\noutput application/json\n---\npayload.catalog.*product map {\n  id: $.@id as Number,\n  name: $.name,\n  price: $.price as Number,\n  currency: $.price.@currency\n}"
+    },
+    {
+      "why": "reads the currency from the product element, which has no such attribute",
+      "script": "%dw 2.0\noutput application/json\n---\npayload.catalog.*product map {\n  id: $.@id as Number,\n  name: $.name,\n  price: if ($.price == null) null else $.price as Number,\n  currency: $.@currency\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "Attributes belong to the element they are written on, so the currency is `$.price.@currency`. Selecting through a missing `price` element gives null for both the text and the attribute, which is what the task wants, but coercing that null to Number fails, so the coercion needs a guard.",
+    "snippets": [
+      {
+        "label": "Text and attribute of one element",
+        "script": "%dw 2.0\noutput application/json\n---\n{ text: payload.p.price, cur: payload.p.price.@currency }",
+        "payload": "<p><price currency=\"EUR\">1.50</price></p>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "{\"text\":\"1.50\",\"cur\":\"EUR\"}"
+        },
+        "note": "Both are Strings."
+      },
+      {
+        "label": "A missing element",
+        "script": "%dw 2.0\noutput application/json\n---\n{ text: payload.p.price, cur: payload.p.price.@currency }",
+        "payload": "<p><name>Ink</name></p>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "{\"text\":null,\"cur\":null}"
+        },
+        "note": "Null, not an error, until you coerce it."
+      }
+    ]
+  }
+}

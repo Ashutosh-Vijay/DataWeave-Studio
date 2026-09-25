@@ -1,0 +1,35 @@
+{
+  "id": "shipping-label-from-order-predict-2",
+  "unit": "select-and-shape",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "What default \"\" does to it",
+  "topics": [
+    "selectors",
+    "null"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ city: payload.customer.address.city default \"\" }",
+    "payload": "{\"customer\":{\"address\":null}}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ city: payload.customer.address.city default \"\" }",
+  "explanation": {
+    "approach": "An empty String is a value. The printer cannot tell \"not known yet\" from \"blank\".",
+    "snippets": [
+      {
+        "label": "What default \"\" does to it",
+        "script": "%dw 2.0\noutput application/json\n---\n{ city: payload.customer.address.city default \"\" }",
+        "payload": "{\"customer\":{\"address\":null}}",
+        "expect": {
+          "output": "{\"city\":\"\"}"
+        },
+        "note": "An empty String is a value. The printer cannot tell \"not known yet\" from \"blank\"."
+      }
+    ]
+  },
+  "derivedFrom": "shipping-label-from-order"
+}

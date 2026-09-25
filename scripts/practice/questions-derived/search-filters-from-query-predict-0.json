@@ -1,0 +1,37 @@
+{
+  "id": "search-filters-from-query-predict-0",
+  "unit": "type-coercion",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Query values are text",
+  "topics": [
+    "as",
+    "default",
+    "Number",
+    "Boolean"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\ntypeOf(payload.page)",
+    "payload": "{\"page\":\"2\"}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\ntypeOf(payload.page)",
+  "explanation": {
+    "approach": "It looks like a number, but it is a String until coerced.",
+    "snippets": [
+      {
+        "label": "Query values are text",
+        "script": "%dw 2.0\noutput application/json\n---\ntypeOf(payload.page)",
+        "payload": "{\"page\":\"2\"}",
+        "expect": {
+          "output": "\"String\""
+        },
+        "note": "It looks like a number, but it is a String until coerced."
+      }
+    ]
+  },
+  "derivedFrom": "search-filters-from-query"
+}

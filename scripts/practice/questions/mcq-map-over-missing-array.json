@@ -1,0 +1,64 @@
+{
+  "id": "mcq-map-over-missing-array",
+  "unit": "map-basics",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "map",
+    "null"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "`map` applies a function to every element of an Array and returns a new Array of the results. When the value it is given is not there at all, the question is what comes back.",
+  "mode": "choice",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.items map $.sku",
+    "payload": "{\"orderId\":7}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "null",
+      "[ ]",
+      "[ null ]",
+      "It fails: items is missing"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.items map $.sku",
+  "explanation": {
+    "approach": "`payload.items` is null, and `map` over null returns null rather than failing or returning an empty Array. The same holds for `filter` and the other Array functions, so a mistyped field name gives null instead of an error.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.items map $.sku",
+        "payload": "{\"orderId\":7}",
+        "expect": {
+          "output": "null"
+        },
+        "note": "No error to warn you."
+      },
+      {
+        "label": "Guarding it",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload.items default []) map $.sku",
+        "payload": "{\"orderId\":7}",
+        "expect": {
+          "output": "[]"
+        },
+        "note": "An empty Array if you want one."
+      },
+      {
+        "label": "filter behaves the same",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.items filter ($.qty > 0)",
+        "payload": "{\"orderId\":7}",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Null in, null out."
+      }
+    ]
+  }
+}

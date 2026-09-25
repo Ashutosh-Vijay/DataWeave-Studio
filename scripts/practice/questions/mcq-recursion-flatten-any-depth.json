@@ -1,0 +1,55 @@
+{
+  "id": "mcq-recursion-flatten-any-depth",
+  "unit": "recursion",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "fun",
+    "recursion",
+    "flatMap",
+    "flatten"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "basics": "`flatten` removes one level of nesting. When lists can be nested to any depth, a recursive function can keep flattening: for each element, if it is itself an Array, flatten that too.",
+  "mode": "choice",
+  "prompt": "Given the payload, **which script produces exactly this output?**\n\n```\n[1,2,3,4]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[1,[2,[3,[4]]]]",
+    "target": "[1,2,3,4]",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\nfun flat(a) = a flatMap (if ($ is Array) $ else [$])\n---\nflat(payload)",
+      "%dw 2.0\noutput application/json\n---\nflatten(payload)",
+      "%dw 2.0\noutput application/json\n---\nflatten(flatten(payload))",
+      "%dw 2.0\noutput application/json\nfun flat(a) = a flatMap (if ($ is Array) flat($) else [$])\n---\nflat(payload)"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun flat(a) = a flatMap (if ($ is Array) flat($) else [$])\n---\nflat(payload)",
+  "explanation": {
+    "approach": "Each call to `flatten` removes exactly one level, and this list is three levels deep. The recursive function calls itself on every nested Array, so it reaches any depth. The last option forgets the recursive call and removes only one level.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nfun flat(a) = a flatMap (if ($ is Array) flat($) else [$])\n---\nflat(payload)",
+        "payload": "[1,[2,[3,[4]]]]",
+        "expect": {
+          "output": "[1,2,3,4]"
+        },
+        "note": "Every level."
+      },
+      {
+        "label": "Two flattens",
+        "script": "%dw 2.0\noutput application/json\n---\nflatten(flatten(payload))",
+        "payload": "[1,[2,[3,[4]]]]",
+        "expect": {
+          "output": "[1,2,3,[4]]"
+        },
+        "note": "Still one level short."
+      }
+    ]
+  }
+}

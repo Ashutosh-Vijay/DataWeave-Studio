@@ -1,0 +1,79 @@
+{
+  "id": "shipping-label-from-order-debug-0",
+  "unit": "select-and-shape",
+  "mode": "debug",
+  "tier": "easy",
+  "title": "Fix it: print a shipping label from an order webhook",
+  "topics": [
+    "selectors",
+    "null"
+  ],
+  "basics": "A selector such as `payload.customer.name` walks into nested data one key at a time. Writing `{ key: value, ... }` builds a new object with exactly the fields you list, in the order you list them. Most DataWeave you will write is these two things together: pick values out, put them into a new shape.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nAn order webhook arrives from the web shop. The label printer needs a flat object with exactly four fields: `orderId`, `name`, `city` and `postcode`.\n\nSome orders are sent before the customer has entered an address, and some before the customer is known at all. The label must still have all four fields. Anything the order does not have yet is `null`. Never an empty string.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n{\n  orderId: payload.id,\n  name: payload.customer.name default \"\",\n  city: payload.customer.address.city default \"\",\n  postcode: payload.customer.address.postcode default \"\"\n}",
+  "cases": [
+    {
+      "input": "{\n  \"id\": \"A-100\",\n  \"customer\": {\n    \"name\": \"Ada Lovelace\",\n    \"address\": {\n      \"line1\": \"1 Main St\",\n      \"city\": \"Leeds\",\n      \"postcode\": \"LS1 4AB\"\n    }\n  }\n}",
+      "output": "{\"orderId\":\"A-100\",\"name\":\"Ada Lovelace\",\"city\":\"Leeds\",\"postcode\":\"LS1 4AB\"}"
+    },
+    {
+      "input": "{\n  \"id\": \"A-101\",\n  \"customer\": {\n    \"name\": \"Bo Diddley\",\n    \"address\": null\n  }\n}",
+      "output": "{\"orderId\":\"A-101\",\"name\":\"Bo Diddley\",\"city\":null,\"postcode\":null}"
+    },
+    {
+      "input": "{\n  \"id\": \"A-102\"\n}",
+      "output": "{\"orderId\":\"A-102\",\"name\":null,\"city\":null,\"postcode\":null}"
+    },
+    {
+      "input": "{\n  \"id\": \"A-103\",\n  \"customer\": {\n    \"name\": \"Cy Twombly\",\n    \"address\": {\n      \"postcode\": \"M1 1AA\",\n      \"city\": \"Manchester\",\n      \"country\": \"GB\"\n    }\n  }\n}",
+      "output": "{\"orderId\":\"A-103\",\"name\":\"Cy Twombly\",\"city\":\"Manchester\",\"postcode\":\"M1 1AA\"}"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "falls back to an empty string, so a missing address prints as blank fields instead of null"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n{\n  orderId: payload.id,\n  name: payload.customer.name,\n  city: payload.customer.address.city,\n  postcode: payload.customer.address.postcode\n}",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\n{\n  orderId: payload.id,\n  name: payload.customer.name default \"\",\n  city: payload.customer.address.city default \"\",\n  postcode: payload.customer.address.postcode default \"\"\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "Selectors are null-safe: selecting a field from null, or from a field that is not there, gives null all the way down. So the straightforward object already handles the missing address and the missing customer. The two ways to get this wrong are both extra code: a `default` that turns null into \"\", and a condition that drops the key.",
+    "snippets": [
+      {
+        "label": "Selecting through a null address",
+        "script": "%dw 2.0\noutput application/json\n---\n{ city: payload.customer.address.city }",
+        "payload": "{\"customer\":{\"address\":null}}",
+        "expect": {
+          "output": "{\"city\":null}"
+        },
+        "note": "No error. The key is written, with a null value."
+      },
+      {
+        "label": "Selecting through a missing customer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.customer.address.postcode",
+        "payload": "{\"id\":\"A-102\"}",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Three levels into nothing is still just null."
+      },
+      {
+        "label": "What default \"\" does to it",
+        "script": "%dw 2.0\noutput application/json\n---\n{ city: payload.customer.address.city default \"\" }",
+        "payload": "{\"customer\":{\"address\":null}}",
+        "expect": {
+          "output": "{\"city\":\"\"}"
+        },
+        "note": "An empty String is a value. The printer cannot tell \"not known yet\" from \"blank\"."
+      }
+    ]
+  },
+  "derivedFrom": "shipping-label-from-order"
+}

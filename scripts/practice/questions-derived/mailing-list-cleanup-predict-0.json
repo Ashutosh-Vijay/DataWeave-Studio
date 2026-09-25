@@ -1,0 +1,35 @@
+{
+  "id": "mailing-list-cleanup-predict-0",
+  "unit": "string-basics",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Spaces are not empty",
+  "topics": [
+    "trim",
+    "lower",
+    "filter",
+    "isEmpty"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[isEmpty(\"   \"), isEmpty(trim(\"   \"))]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[isEmpty(\"   \"), isEmpty(trim(\"   \"))]",
+  "explanation": {
+    "approach": "Only after trimming does it count as blank.",
+    "snippets": [
+      {
+        "label": "Spaces are not empty",
+        "script": "%dw 2.0\noutput application/json\n---\n[isEmpty(\"   \"), isEmpty(trim(\"   \"))]",
+        "expect": {
+          "output": "[false,true]"
+        },
+        "note": "Only after trimming does it count as blank."
+      }
+    ]
+  },
+  "derivedFrom": "mailing-list-cleanup"
+}

@@ -1,0 +1,53 @@
+{
+  "id": "mcq-entries-of-object",
+  "unit": "pivot",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "entriesOf",
+    "keysOf",
+    "valuesOf"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "`keysOf` returns the keys of an Object and `valuesOf` its values. `entriesOf` returns both together: one Object per pair, holding the key, the value and the pair's attributes.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nentriesOf({ cpu: 71, mem: 40 })"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ { \"key\": \"cpu\", \"value\": 71, \"attributes\": { } }, { \"key\": \"mem\", \"value\": 40, \"attributes\": { } } ]",
+      "[ { \"cpu\": 71 }, { \"mem\": 40 } ]",
+      "{ \"keys\": [ \"cpu\", \"mem\" ], \"values\": [ 71, 40 ] }",
+      "[ [ \"cpu\", 71 ], [ \"mem\", 40 ] ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nentriesOf({ cpu: 71, mem: 40 })",
+  "explanation": {
+    "approach": "Each entry is an Object with fixed field names: `key`, `value` and `attributes`. The attributes are there for XML, where a key can carry attributes; for JSON they are always empty.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\nentriesOf({ cpu: 71, mem: 40 })",
+        "expect": {
+          "output": "[{\"key\":\"cpu\",\"value\":71,\"attributes\":{}},{\"key\":\"mem\",\"value\":40,\"attributes\":{}}]"
+        },
+        "note": "Named fields, not pairs in an Array."
+      },
+      {
+        "label": "keysOf and valuesOf",
+        "script": "%dw 2.0\noutput application/json\n---\n[keysOf({ cpu: 71 }), valuesOf({ cpu: 71 })]",
+        "expect": {
+          "output": "[[\"cpu\"],[71]]"
+        },
+        "note": "The two halves separately."
+      }
+    ]
+  }
+}

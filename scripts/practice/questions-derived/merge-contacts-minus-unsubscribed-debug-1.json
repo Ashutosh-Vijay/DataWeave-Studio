@@ -1,0 +1,69 @@
+{
+  "id": "merge-contacts-minus-unsubscribed-debug-1",
+  "unit": "concat-and-remove",
+  "mode": "debug",
+  "tier": "easy",
+  "title": "Fix it: merge two contact lists and remove the unsubscribed",
+  "topics": [
+    "++",
+    "--",
+    "-"
+  ],
+  "basics": "`++` joins two Arrays into one. `--` removes from the left Array every element that appears in the right Array. `-` removes a single value: `[1, 2, 3] - 2` is `[1, 3]`.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nMarketing combines the CRM contacts and the web-shop contacts into one send list, `payload.crm` followed by `payload.shop`. Duplicates are fine at this stage; another step removes them.\n\nAnyone in `payload.unsubscribed` must not receive the mail, however many times they appear in the two lists.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n(payload.crm ++ payload.shop) - payload.unsubscribed[0]",
+  "cases": [
+    {
+      "input": "{\n  \"crm\": [\n    \"a@x.com\",\n    \"b@x.com\"\n  ],\n  \"shop\": [\n    \"c@x.com\"\n  ],\n  \"unsubscribed\": [\n    \"b@x.com\"\n  ]\n}",
+      "output": "[\"a@x.com\",\"c@x.com\"]"
+    },
+    {
+      "input": "{\n  \"crm\": [\n    \"a@x.com\"\n  ],\n  \"shop\": [\n    \"a@x.com\",\n    \"d@x.com\"\n  ],\n  \"unsubscribed\": [\n    \"a@x.com\"\n  ]\n}",
+      "output": "[\"d@x.com\"]"
+    },
+    {
+      "input": "{\n  \"crm\": [\n    \"a@x.com\",\n    \"e@x.com\"\n  ],\n  \"shop\": [\n    \"f@x.com\",\n    \"e@x.com\"\n  ],\n  \"unsubscribed\": [\n    \"e@x.com\",\n    \"f@x.com\"\n  ]\n}",
+      "output": "[\"a@x.com\"]"
+    },
+    {
+      "input": "{\n  \"crm\": [\n    \"a@x.com\"\n  ],\n  \"shop\": [],\n  \"unsubscribed\": []\n}",
+      "output": "[\"a@x.com\"]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "removes only the first unsubscribed address with -, so a second unsubscribed address stays"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload.crm ++ payload.shop) -- payload.unsubscribed",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\n(payload.crm ++ payload.shop) - payload.unsubscribed[0]"
+    }
+  ],
+  "explanation": {
+    "approach": "Join first, then remove, so the removal sees every copy. `--` removes all occurrences of every value in its right-hand Array. `-` removes one value, all occurrences of it.",
+    "snippets": [
+      {
+        "label": "-- removes every copy",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"a\", \"b\", \"a\"] -- [\"a\"]",
+        "expect": {
+          "output": "[\"b\"]"
+        },
+        "note": "Both \"a\"s are gone."
+      },
+      {
+        "label": "- with a list removes the list as one value",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"a\", \"b\"] - [\"a\"]",
+        "expect": {
+          "output": "[\"a\",\"b\"]"
+        },
+        "note": "Nothing matches the Array [\"a\"] as a whole, so nothing is removed."
+      }
+    ]
+  },
+  "derivedFrom": "merge-contacts-minus-unsubscribed"
+}

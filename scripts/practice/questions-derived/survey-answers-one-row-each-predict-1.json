@@ -1,0 +1,37 @@
+{
+  "id": "survey-answers-one-row-each-predict-1",
+  "unit": "pivot",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "A lookup that finds nothing",
+  "topics": [
+    "groupBy",
+    "pluck",
+    "distinctBy",
+    "dynamic keys"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.question == \"q2\"))[0].answer",
+    "payload": "[{\"question\":\"q1\",\"answer\":\"yes\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload filter ($.question == \"q2\"))[0].answer",
+  "explanation": {
+    "approach": "The skipped question comes out as null.",
+    "snippets": [
+      {
+        "label": "A lookup that finds nothing",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.question == \"q2\"))[0].answer",
+        "payload": "[{\"question\":\"q1\",\"answer\":\"yes\"}]",
+        "expect": {
+          "output": "null"
+        },
+        "note": "The skipped question comes out as null."
+      }
+    ]
+  },
+  "derivedFrom": "survey-answers-one-row-each"
+}

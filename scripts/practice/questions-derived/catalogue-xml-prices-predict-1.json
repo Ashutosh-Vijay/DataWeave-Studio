@@ -1,0 +1,38 @@
+{
+  "id": "catalogue-xml-prices-predict-1",
+  "unit": "xml-selectors",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "A missing element",
+  "topics": [
+    "xml",
+    "@",
+    ".*",
+    "as"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ text: payload.p.price, cur: payload.p.price.@currency }",
+    "payload": "<p><name>Ink</name></p>"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ text: payload.p.price, cur: payload.p.price.@currency }",
+  "explanation": {
+    "approach": "Null, not an error, until you coerce it.",
+    "snippets": [
+      {
+        "label": "A missing element",
+        "script": "%dw 2.0\noutput application/json\n---\n{ text: payload.p.price, cur: payload.p.price.@currency }",
+        "payload": "<p><name>Ink</name></p>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "{\"text\":null,\"cur\":null}"
+        },
+        "note": "Null, not an error, until you coerce it."
+      }
+    ]
+  },
+  "derivedFrom": "catalogue-xml-prices"
+}

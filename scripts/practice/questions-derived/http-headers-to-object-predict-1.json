@@ -1,0 +1,36 @@
+{
+  "id": "http-headers-to-object-predict-1",
+  "unit": "dynamic-keys",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Merged",
+  "topics": [
+    "dynamic keys",
+    "map",
+    "lower"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ (payload map { ($.name): $.value }) }",
+    "payload": "[{\"name\":\"a\",\"value\":\"1\"},{\"name\":\"b\",\"value\":\"2\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ (payload map { ($.name): $.value }) }",
+  "explanation": {
+    "approach": "One object with both keys.",
+    "snippets": [
+      {
+        "label": "Merged",
+        "script": "%dw 2.0\noutput application/json\n---\n{ (payload map { ($.name): $.value }) }",
+        "payload": "[{\"name\":\"a\",\"value\":\"1\"},{\"name\":\"b\",\"value\":\"2\"}]",
+        "expect": {
+          "output": "{\"a\":\"1\",\"b\":\"2\"}"
+        },
+        "note": "One object with both keys."
+      }
+    ]
+  },
+  "derivedFrom": "http-headers-to-object"
+}

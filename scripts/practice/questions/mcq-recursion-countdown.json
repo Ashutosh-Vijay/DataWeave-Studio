@@ -1,0 +1,45 @@
+{
+  "id": "mcq-recursion-countdown",
+  "unit": "recursion",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "fun",
+    "recursion",
+    "++"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "basics": "A recursive function calls itself with a smaller input and stops at a base case. `countdown(n)` can be written as \"n, followed by the countdown from n - 1\", stopping with an empty list at 0.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun countdown(n) = if (n <= 0) [] else [n] ++ countdown(n - 1)\n---\n[countdown(3), countdown(0)]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ [ 3, 2, 1 ], [ ] ]",
+      "[ [ 1, 2, 3 ], [ ] ]",
+      "[ [ 3, 2, 1, 0 ], [ 0 ] ]",
+      "[ [ 3, 2, 1 ], null ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun countdown(n) = if (n <= 0) [] else [n] ++ countdown(n - 1)\n---\n[countdown(3), countdown(0)]",
+  "explanation": {
+    "approach": "Each call puts its own number in front of the result of the next call, so the numbers come out in descending order. The base case returns an empty list, and 0 itself is not included.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nfun countdown(n) = if (n <= 0) [] else [n] ++ countdown(n - 1)\n---\n[countdown(3), countdown(0)]",
+        "expect": {
+          "output": "[[3,2,1],[]]"
+        },
+        "note": "3 ++ (2 ++ (1 ++ []))."
+      }
+    ]
+  }
+}

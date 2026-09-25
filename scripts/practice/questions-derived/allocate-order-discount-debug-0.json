@@ -1,0 +1,70 @@
+{
+  "id": "allocate-order-discount-debug-0",
+  "unit": "precision",
+  "mode": "debug",
+  "tier": "extra",
+  "title": "Fix it: spread an order discount across its lines, to the cent",
+  "topics": [
+    "floor",
+    "sum",
+    "reduce",
+    "map"
+  ],
+  "basics": "Splitting an amount in proportion to other amounts produces fractions of a cent, and rounding each share on its own can make the shares add up to a cent more or less than the whole. The usual fix is to round every share down and then hand the leftover cents to chosen lines.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nAn order has lines `{ sku, amount }` (amounts in cents) and a `discount` in cents. Spread the discount across the lines in proportion to their amounts:\n\n1. each line gets `floor(discount * amount / total)`, where `total` is the sum of the line amounts;\n2. whatever is left over after that goes, in full, to the **first line with the largest amount**.\n\nReturn `{ sku, discount }` per line. The discounts must add up exactly to the order discount.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\ndo {\n  var total = sum(payload.lines.amount)\n  ---\n  payload.lines map { sku: $.sku, discount: round(payload.discount * $.amount / total) }\n}",
+  "cases": [
+    {
+      "input": "{\n  \"discount\": 100,\n  \"lines\": [\n    {\n      \"sku\": \"A\",\n      \"amount\": 600\n    },\n    {\n      \"sku\": \"B\",\n      \"amount\": 300\n    },\n    {\n      \"sku\": \"C\",\n      \"amount\": 100\n    }\n  ]\n}",
+      "output": "[{\"sku\":\"A\",\"discount\":60},{\"sku\":\"B\",\"discount\":30},{\"sku\":\"C\",\"discount\":10}]"
+    },
+    {
+      "input": "{\n  \"discount\": 99,\n  \"lines\": [\n    {\n      \"sku\": \"A\",\n      \"amount\": 500\n    },\n    {\n      \"sku\": \"B\",\n      \"amount\": 250\n    },\n    {\n      \"sku\": \"C\",\n      \"amount\": 250\n    }\n  ]\n}",
+      "output": "[{\"sku\":\"A\",\"discount\":51},{\"sku\":\"B\",\"discount\":24},{\"sku\":\"C\",\"discount\":24}]"
+    },
+    {
+      "input": "{\n  \"discount\": 10,\n  \"lines\": [\n    {\n      \"sku\": \"A\",\n      \"amount\": 333\n    },\n    {\n      \"sku\": \"B\",\n      \"amount\": 333\n    },\n    {\n      \"sku\": \"C\",\n      \"amount\": 334\n    }\n  ]\n}",
+      "output": "[{\"sku\":\"A\",\"discount\":3},{\"sku\":\"B\",\"discount\":3},{\"sku\":\"C\",\"discount\":4}]"
+    },
+    {
+      "input": "{\n  \"discount\": 7,\n  \"lines\": [\n    {\n      \"sku\": \"A\",\n      \"amount\": 100\n    }\n  ]\n}",
+      "output": "[{\"sku\":\"A\",\"discount\":7}]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "rounds each share to the nearest cent, so the shares can add up to more than the discount"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var amounts = payload.lines.amount\n  var total = sum(amounts)\n  var shares = amounts map floor(payload.discount * $ / total)\n  var left = payload.discount - sum(shares)\n  var top = amounts indexOf max(amounts)\n  ---\n  payload.lines map { sku: $.sku, discount: shares[$$] + (if ($$ == top) left else 0) }\n}",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\ndo {\n  var total = sum(payload.lines.amount)\n  ---\n  payload.lines map { sku: $.sku, discount: round(payload.discount * $.amount / total) }\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "Rounding every share independently is where cents appear from nowhere: 99 split 50/25/25 rounds to 50, 25 and 25, which is 100. Rounding every share down and handing out the difference guarantees the total. The sample divides evenly, so neither mistake shows until the hidden orders.",
+    "snippets": [
+      {
+        "label": "Independent rounding",
+        "script": "%dw 2.0\noutput application/json\n---\n[round(99 * 500 / 1000), round(99 * 250 / 1000), round(99 * 250 / 1000)]",
+        "expect": {
+          "output": "[50,25,25]"
+        },
+        "note": "Adds up to 100, one cent more than the discount."
+      },
+      {
+        "label": "Position of the largest",
+        "script": "%dw 2.0\noutput application/json\n---\n[333, 333, 334] indexOf max([333, 333, 334])",
+        "expect": {
+          "output": "2"
+        },
+        "note": "The third line."
+      }
+    ]
+  },
+  "derivedFrom": "allocate-order-discount"
+}

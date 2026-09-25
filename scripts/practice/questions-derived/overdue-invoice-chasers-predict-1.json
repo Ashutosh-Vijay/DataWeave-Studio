@@ -1,0 +1,35 @@
+{
+  "id": "overdue-invoice-chasers-predict-1",
+  "unit": "date-arithmetic",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "One day short",
+  "topics": [
+    "daysBetween",
+    "as",
+    "Date",
+    "filter"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\ndaysBetween(\"2024-06-01\" as Date, \"2024-06-30\" as Date)"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\ndaysBetween(\"2024-06-01\" as Date, \"2024-06-30\" as Date)",
+  "explanation": {
+    "approach": "Not chased yet.",
+    "snippets": [
+      {
+        "label": "One day short",
+        "script": "%dw 2.0\noutput application/json\n---\ndaysBetween(\"2024-06-01\" as Date, \"2024-06-30\" as Date)",
+        "expect": {
+          "output": "29"
+        },
+        "note": "Not chased yet."
+      }
+    ]
+  },
+  "derivedFrom": "overdue-invoice-chasers"
+}

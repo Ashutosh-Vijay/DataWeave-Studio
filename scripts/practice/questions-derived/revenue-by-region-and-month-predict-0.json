@@ -1,0 +1,34 @@
+{
+  "id": "revenue-by-region-and-month-predict-0",
+  "unit": "nested-aggregation",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "The month key",
+  "topics": [
+    "groupBy",
+    "mapObject",
+    "sum"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n\"2024-01-15\"[0 to 6]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"2024-01-15\"[0 to 6]",
+  "explanation": {
+    "approach": "Year and month, so the same month in different years stays apart.",
+    "snippets": [
+      {
+        "label": "The month key",
+        "script": "%dw 2.0\noutput application/json\n---\n\"2024-01-15\"[0 to 6]",
+        "expect": {
+          "output": "\"2024-01\""
+        },
+        "note": "Year and month, so the same month in different years stays apart."
+      }
+    ]
+  },
+  "derivedFrom": "revenue-by-region-and-month"
+}

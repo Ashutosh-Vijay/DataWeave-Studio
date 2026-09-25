@@ -1,0 +1,34 @@
+{
+  "id": "split-the-bill-predict-0",
+  "unit": "numbers-and-rounding",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Rounding each share",
+  "topics": [
+    "floor",
+    "mod",
+    "map"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nsum((0 to 2) map round(1000 / 3))"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nsum((0 to 2) map round(1000 / 3))",
+  "explanation": {
+    "approach": "A cent short.",
+    "snippets": [
+      {
+        "label": "Rounding each share",
+        "script": "%dw 2.0\noutput application/json\n---\nsum((0 to 2) map round(1000 / 3))",
+        "expect": {
+          "output": "999"
+        },
+        "note": "A cent short."
+      }
+    ]
+  },
+  "derivedFrom": "split-the-bill"
+}

@@ -1,0 +1,79 @@
+{
+  "id": "enabled-feature-flags-debug-1",
+  "unit": "pluck-and-mapobject",
+  "mode": "debug",
+  "tier": "easy",
+  "title": "Fix it: list the feature flags that are switched on",
+  "topics": [
+    "filterObject",
+    "pluck",
+    "keysOf"
+  ],
+  "basics": "An Object is a set of key-value pairs. `filterObject` keeps the pairs whose value passes a test, and still returns an Object. `pluck` turns an Object into an Array; inside it, `$` is the value and `$$` is the key.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nThe config service returns flags as an object, for example `{ \"darkMode\": true, \"beta\": false }`. Return an array of the names of the flags that are switched on, in their original order.\n\nA flag that has not been decided yet is `null`. It is not on.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\npayload filterObject $ pluck $$",
+  "cases": [
+    {
+      "input": "{\n  \"darkMode\": true,\n  \"beta\": false,\n  \"newCheckout\": true\n}",
+      "output": "[\"darkMode\",\"newCheckout\"]"
+    },
+    {
+      "input": "{\n  \"darkMode\": null,\n  \"beta\": true\n}",
+      "output": "[\"beta\"]"
+    },
+    {
+      "input": "{\n  \"a\": false,\n  \"b\": null\n}",
+      "output": "[]"
+    },
+    {
+      "input": "{}",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "uses the flag value itself as the condition, which fails on an undecided null flag"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload filterObject ($ == true) pluck $$",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\npayload filterObject $ pluck $$"
+    }
+  ],
+  "explanation": {
+    "approach": "Filter on the value, then take the keys. A null flag is neither true nor false, so the test has to ask for `true` itself; asking for \"not false\" lets null through.",
+    "snippets": [
+      {
+        "label": "Not false is not the same as true",
+        "script": "%dw 2.0\noutput application/json\n---\n[null != false, null == true]",
+        "expect": {
+          "output": "[true,false]"
+        },
+        "note": "null passes the first test and fails the second."
+      },
+      {
+        "label": "A null value as the condition",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filterObject $ pluck $$",
+        "payload": "{\"darkMode\":null,\"beta\":true}",
+        "expect": {
+          "error": true
+        },
+        "note": "A filter condition has to be a Boolean, and null is not one."
+      },
+      {
+        "label": "Keys of the filtered object",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filterObject ($ == true) pluck $$",
+        "payload": "{\"darkMode\":null,\"beta\":true}",
+        "expect": {
+          "output": "[\"beta\"]"
+        },
+        "note": "`pluck $$` gives the keys, in order."
+      }
+    ]
+  },
+  "derivedFrom": "enabled-feature-flags"
+}

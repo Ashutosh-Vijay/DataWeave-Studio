@@ -1,0 +1,54 @@
+{
+  "id": "mcq-key-rewrite-crash-on-array",
+  "unit": "generic-key-rewrite",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "fun",
+    "recursion",
+    "match",
+    "mapObject"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "basics": "A recursive key rewrite has to be ready for every kind of value it might meet: Objects, Arrays and plain values. `mapObject` only accepts an Object, so calling it on an Array stops the script.",
+  "mode": "choice",
+  "prompt": "Each script upper-cases every key of the payload `{ \"a\": { \"b\": [ { \"c\": 1 } ] } }`. Three of them run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "payload": "{\"a\":{\"b\":[{\"c\":1}]}}",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\nfun up(v) = v mapObject ((x, k) -> { (upper(k)): if (x is Object or x is Array) up(x) else x })\n---\nup(payload)",
+      "%dw 2.0\noutput application/json\nfun up(v) = v match {\n  case o is Object -> o mapObject ((x, k) -> { (upper(k)): up(x) })\n  case a is Array -> a map up($)\n  else -> v\n}\n---\nup(payload)",
+      "%dw 2.0\noutput application/json\n---\npayload mapObject ((x, k) -> { (upper(k)): x })",
+      "%dw 2.0\noutput application/json\nfun up(v) = v match {\n  case o is Object -> o mapObject ((x, k) -> { (upper(k)): up(x) })\n  else -> v\n}\n---\nup(payload)"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun up(v) = v match {\n  case o is Object -> o mapObject ((x, k) -> { (upper(k)): up(x) })\n  case a is Array -> a map up($)\n  else -> v\n}\n---\nup(payload)",
+  "explanation": {
+    "approach": "The failing version sends the Array under `b` back into itself, and the first thing it does is call `mapObject` on it. The versions that run either handle Arrays with `map`, stop at the Array, or never recurse at all. Two of those run but give the wrong answer, which is a different problem.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\nfun up(v) = v mapObject ((x, k) -> { (upper(k)): if (x is Object or x is Array) up(x) else x })\n---\nup(payload)",
+        "payload": "{\"a\":{\"b\":[{\"c\":1}]}}",
+        "expect": {
+          "error": true
+        },
+        "note": "mapObject was handed an Array."
+      },
+      {
+        "label": "Stopping at the Array runs, but misses c",
+        "script": "%dw 2.0\noutput application/json\nfun up(v) = v match {\n  case o is Object -> o mapObject ((x, k) -> { (upper(k)): up(x) })\n  else -> v\n}\n---\nup(payload)",
+        "payload": "{\"a\":{\"b\":[{\"c\":1}]}}",
+        "expect": {
+          "output": "{\"A\":{\"B\":[{\"c\":1}]}}"
+        },
+        "note": "Running is not the same as being right."
+      }
+    ]
+  }
+}

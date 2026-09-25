@@ -1,0 +1,45 @@
+{
+  "id": "mcq-dynamic-key-prefix",
+  "unit": "dynamic-keys",
+  "tier": "easy",
+  "title": "Which script produces this output?",
+  "topics": [
+    "mapObject",
+    "dynamic keys",
+    "++"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "`mapObject` rebuilds an Object pair by pair. Writing the key as `(\"x_\" ++ $$)` builds a new name from the old one, and `$` is the value.",
+  "mode": "choice",
+  "prompt": "Given the payload, **which script produces exactly this output?**\n\n```\n{\"crm_id\":1,\"crm_name\":\"Ann\"}\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"id\":1,\"name\":\"Ann\"}",
+    "target": "{\"crm_id\":1,\"crm_name\":\"Ann\"}",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload mapObject { (\"crm_\" ++ $$): $ }",
+      "%dw 2.0\noutput application/json\n---\npayload mapObject { (\"crm_\" ++ $): $$ }",
+      "%dw 2.0\noutput application/json\n---\npayload pluck { (\"crm_\" ++ $$): $ }",
+      "%dw 2.0\noutput application/json\n---\npayload mapObject { crm_: $ }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload mapObject { (\"crm_\" ++ $$): $ }",
+  "explanation": {
+    "approach": "The key is built from `$$`, the old key, and the value stays `$`. Swapping them puts values in the key position; `pluck` makes an Array; a literal key names every field the same.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload mapObject { (\"crm_\" ++ $$): $ }",
+        "payload": "{\"id\":1,\"name\":\"Ann\"}",
+        "expect": {
+          "output": "{\"crm_id\":1,\"crm_name\":\"Ann\"}"
+        },
+        "note": "Prefixed keys, same values."
+      }
+    ]
+  }
+}

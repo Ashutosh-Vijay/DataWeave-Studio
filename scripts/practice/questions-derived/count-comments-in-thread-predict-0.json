@@ -1,0 +1,35 @@
+{
+  "id": "count-comments-in-thread-predict-0",
+  "unit": "recursion",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "The leaf case",
+  "topics": [
+    "fun",
+    "recursion",
+    "sum",
+    "default"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun count(c) = 1 + sum((c.replies default []) map count($))\n---\ncount({ id: 9 })"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun count(c) = 1 + sum((c.replies default []) map count($))\n---\ncount({ id: 9 })",
+  "explanation": {
+    "approach": "No replies: 1 plus the sum of nothing.",
+    "snippets": [
+      {
+        "label": "The leaf case",
+        "script": "%dw 2.0\noutput application/json\nfun count(c) = 1 + sum((c.replies default []) map count($))\n---\ncount({ id: 9 })",
+        "expect": {
+          "output": "1"
+        },
+        "note": "No replies: 1 plus the sum of nothing."
+      }
+    ]
+  },
+  "derivedFrom": "count-comments-in-thread"
+}

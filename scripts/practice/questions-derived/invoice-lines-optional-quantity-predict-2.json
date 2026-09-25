@@ -1,0 +1,36 @@
+{
+  "id": "invoice-lines-optional-quantity-predict-2",
+  "unit": "default-and-missing",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "With parentheses",
+  "topics": [
+    "default",
+    "map",
+    "precedence"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n(payload.qty default 1) * payload.price",
+    "payload": "{\"qty\":3,\"price\":5}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload.qty default 1) * payload.price",
+  "explanation": {
+    "approach": "The fallback applies to the quantity, then the product is taken.",
+    "snippets": [
+      {
+        "label": "With parentheses",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload.qty default 1) * payload.price",
+        "payload": "{\"qty\":3,\"price\":5}",
+        "expect": {
+          "output": "15"
+        },
+        "note": "The fallback applies to the quantity, then the product is taken."
+      }
+    ]
+  },
+  "derivedFrom": "invoice-lines-optional-quantity"
+}

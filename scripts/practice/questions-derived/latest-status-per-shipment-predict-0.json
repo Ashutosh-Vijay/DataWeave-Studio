@@ -1,0 +1,36 @@
+{
+  "id": "latest-status-per-shipment-predict-0",
+  "unit": "distinct-and-order",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "distinctBy keeps the first",
+  "topics": [
+    "orderBy",
+    "distinctBy",
+    "range"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n(payload distinctBy $.shipment).status",
+    "payload": "[{\"shipment\":\"S1\",\"status\":\"in_transit\"},{\"shipment\":\"S1\",\"status\":\"delivered\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload distinctBy $.shipment).status",
+  "explanation": {
+    "approach": "Whatever came first wins.",
+    "snippets": [
+      {
+        "label": "distinctBy keeps the first",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload distinctBy $.shipment).status",
+        "payload": "[{\"shipment\":\"S1\",\"status\":\"in_transit\"},{\"shipment\":\"S1\",\"status\":\"delivered\"}]",
+        "expect": {
+          "output": "[\"in_transit\"]"
+        },
+        "note": "Whatever came first wins."
+      }
+    ]
+  },
+  "derivedFrom": "latest-status-per-shipment"
+}

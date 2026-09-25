@@ -1,0 +1,33 @@
+{
+  "id": "phone-numbers-digits-only-predict-0",
+  "unit": "string-basics",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Everything but digits and +",
+  "topics": [
+    "replace",
+    "regex"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n\"+44 (0)20 7946-0000\" replace /[^0-9+]/ with \"\""
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"+44 (0)20 7946-0000\" replace /[^0-9+]/ with \"\"",
+  "explanation": {
+    "approach": "The (0) is kept as a digit. Whether to drop it is a business rule, not a formatting one.",
+    "snippets": [
+      {
+        "label": "Everything but digits and +",
+        "script": "%dw 2.0\noutput application/json\n---\n\"+44 (0)20 7946-0000\" replace /[^0-9+]/ with \"\"",
+        "expect": {
+          "output": "\"+4402079460000\""
+        },
+        "note": "The (0) is kept as a digit. Whether to drop it is a business rule, not a formatting one."
+      }
+    ]
+  },
+  "derivedFrom": "phone-numbers-digits-only"
+}

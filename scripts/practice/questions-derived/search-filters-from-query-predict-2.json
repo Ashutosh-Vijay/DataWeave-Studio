@@ -1,0 +1,37 @@
+{
+  "id": "search-filters-from-query-predict-2",
+  "unit": "type-coercion",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Fallback, then coerce",
+  "topics": [
+    "as",
+    "default",
+    "Number",
+    "Boolean"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n(payload.size default \"20\") as Number",
+    "payload": "{}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload.size default \"20\") as Number",
+  "explanation": {
+    "approach": "The fallback is used, and it coerces cleanly.",
+    "snippets": [
+      {
+        "label": "Fallback, then coerce",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload.size default \"20\") as Number",
+        "payload": "{}",
+        "expect": {
+          "output": "20"
+        },
+        "note": "The fallback is used, and it coerces cleanly."
+      }
+    ]
+  },
+  "derivedFrom": "search-filters-from-query"
+}

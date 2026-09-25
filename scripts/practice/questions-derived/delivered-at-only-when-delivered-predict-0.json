@@ -1,0 +1,33 @@
+{
+  "id": "delivered-at-only-when-delivered-predict-0",
+  "unit": "conditional-fields",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "A null value is still a field",
+  "topics": [
+    "conditional fields",
+    "if"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ id: 2, deliveredAt: if (false) \"x\" else null }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ id: 2, deliveredAt: if (false) \"x\" else null }",
+  "explanation": {
+    "approach": "The key is there.",
+    "snippets": [
+      {
+        "label": "A null value is still a field",
+        "script": "%dw 2.0\noutput application/json\n---\n{ id: 2, deliveredAt: if (false) \"x\" else null }",
+        "expect": {
+          "output": "{\"id\":2,\"deliveredAt\":null}"
+        },
+        "note": "The key is there."
+      }
+    ]
+  },
+  "derivedFrom": "delivered-at-only-when-delivered"
+}

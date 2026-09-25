@@ -1,0 +1,71 @@
+{
+  "id": "count-comments-in-thread-debug-1",
+  "unit": "recursion",
+  "mode": "debug",
+  "tier": "hard",
+  "title": "Fix it: count every comment in a discussion thread",
+  "topics": [
+    "fun",
+    "recursion",
+    "sum",
+    "default"
+  ],
+  "basics": "A recursive function calls itself on a smaller part of the input. For nested data, the function handles one level and calls itself for each child; the recursion stops at the elements that have no children.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nThe forum API returns a thread as its first comment, where every comment is `{ id, replies }` and `replies` is an array of comments in the same shape. A comment with no replies may have no `replies` field at all.\n\nReturn the total number of comments in the thread, including the first one.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\nfun count(c) = sum((c.replies default []) map count($))\n---\ncount(payload)",
+  "cases": [
+    {
+      "input": "{\n  \"id\": 1,\n  \"replies\": [\n    {\n      \"id\": 2\n    },\n    {\n      \"id\": 3\n    }\n  ]\n}",
+      "output": "3"
+    },
+    {
+      "input": "{\n  \"id\": 1,\n  \"replies\": [\n    {\n      \"id\": 2,\n      \"replies\": [\n        {\n          \"id\": 4\n        },\n        {\n          \"id\": 5,\n          \"replies\": [\n            {\n              \"id\": 6\n            }\n          ]\n        }\n      ]\n    },\n    {\n      \"id\": 3\n    }\n  ]\n}",
+      "output": "6"
+    },
+    {
+      "input": "{\n  \"id\": 1\n}",
+      "output": "1"
+    },
+    {
+      "input": "{\n  \"id\": 1,\n  \"replies\": []\n}",
+      "output": "1"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "recurses but forgets to count each comment itself, so it returns 0"
+  ],
+  "solution": "%dw 2.0\noutput application/json\nfun count(c) = 1 + sum((c.replies default []) map count($))\n---\ncount(payload)",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\nfun count(c) = sum((c.replies default []) map count($))\n---\ncount(payload)"
+    }
+  ],
+  "explanation": {
+    "approach": "A thread has no fixed depth, so a fixed number of selectors cannot count it. A function that counts one comment and asks itself to count each reply handles any depth. The `default []` makes a comment without replies the place where the recursion stops, and `sum` of an empty Array is 0.",
+    "snippets": [
+      {
+        "label": "The leaf case",
+        "script": "%dw 2.0\noutput application/json\nfun count(c) = 1 + sum((c.replies default []) map count($))\n---\ncount({ id: 9 })",
+        "expect": {
+          "output": "1"
+        },
+        "note": "No replies: 1 plus the sum of nothing."
+      },
+      {
+        "label": "One level only",
+        "script": "%dw 2.0\noutput application/json\n---\n1 + sizeOf(payload.replies default [])",
+        "payload": "{\"id\":1,\"replies\":[{\"id\":2,\"replies\":[{\"id\":4}]}]}",
+        "expect": {
+          "output": "2"
+        },
+        "note": "Comment 4 is never seen."
+      }
+    ]
+  },
+  "derivedFrom": "count-comments-in-thread"
+}

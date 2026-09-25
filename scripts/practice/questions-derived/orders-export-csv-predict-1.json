@@ -1,0 +1,36 @@
+{
+  "id": "orders-export-csv-predict-1",
+  "unit": "csv-round-trip",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Columns follow the Object",
+  "topics": [
+    "csv",
+    "output",
+    "as",
+    "format"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/csv",
+  "given": {
+    "script": "%dw 2.0\noutput application/csv\n---\n[{ total: \"1.00\", id: 5 }]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/csv\n---\n[{ total: \"1.00\", id: 5 }]",
+  "explanation": {
+    "approach": "The header is built from the keys as written.",
+    "snippets": [
+      {
+        "label": "Columns follow the Object",
+        "script": "%dw 2.0\noutput application/csv\n---\n[{ total: \"1.00\", id: 5 }]",
+        "outputMime": "application/csv",
+        "expect": {
+          "output": "total,id\n1.00,5\n"
+        },
+        "note": "The header is built from the keys as written."
+      }
+    ]
+  },
+  "derivedFrom": "orders-export-csv"
+}

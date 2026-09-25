@@ -1,0 +1,44 @@
+{
+  "id": "mcq-joins-left-join-fan-out",
+  "unit": "joins",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "leftJoin",
+    "dw::core::Arrays"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "A join pairs each left element with **every** right element whose key matches. If one left element matches two right elements, it appears in two pairs.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\nleftJoin([{ id: 1 }, { id: 2 }], [{ id: 1, n: \"a\" }, { id: 1, n: \"b\" }], (l) -> l.id, (r) -> r.id) map (($.l.id as String) ++ \":\" ++ ($.r.n default \"-\"))"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ \"1:a\", \"2:-\" ]",
+      "[ \"1:b\", \"2:-\" ]",
+      "[ \"1:a\", \"1:b\" ]",
+      "[ \"1:a\", \"1:b\", \"2:-\" ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\nleftJoin([{ id: 1 }, { id: 2 }], [{ id: 1, n: \"a\" }, { id: 1, n: \"b\" }], (l) -> l.id, (r) -> r.id) map (($.l.id as String) ++ \":\" ++ ($.r.n default \"-\"))",
+  "explanation": {
+    "approach": "Left element 1 matches both right elements and so produces two pairs. Left element 2 matches nothing and, because this is a left join, still appears once, with no `r`. Joining on a key that is not unique on the right multiplies rows.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\nleftJoin([{ id: 1 }, { id: 2 }], [{ id: 1, n: \"a\" }, { id: 1, n: \"b\" }], (l) -> l.id, (r) -> r.id) map (($.l.id as String) ++ \":\" ++ ($.r.n default \"-\"))",
+        "expect": {
+          "output": "[\"1:a\",\"1:b\",\"2:-\"]"
+        },
+        "note": "Three rows from two left elements."
+      }
+    ]
+  }
+}

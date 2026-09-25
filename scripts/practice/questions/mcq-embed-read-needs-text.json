@@ -1,0 +1,52 @@
+{
+  "id": "mcq-embed-read-needs-text",
+  "unit": "multi-format-embed",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "read",
+    "write"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "basics": "`read` parses text: its first argument is a String (or binary data) holding a document. `write` goes the other way and produces such a String from a value.",
+  "mode": "choice",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "payload": "{\"a\":1}",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\nread(payload, \"application/json\")",
+      "%dw 2.0\noutput application/json\n---\nread(\"[1, 2]\", \"application/json\")[0]",
+      "%dw 2.0\noutput application/json\n---\nread(write(payload, \"application/json\"), \"application/json\")",
+      "%dw 2.0\noutput application/json\n---\nwrite(payload, \"application/json\")"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nread(write(payload, \"application/json\"), \"application/json\")",
+  "explanation": {
+    "approach": "The payload has already been parsed into an Object, so there is no text left to read. `read` is for a document that arrives as a String inside the data, such as an escaped JSON body in a field.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\nread(payload, \"application/json\")",
+        "payload": "{\"a\":1}",
+        "expect": {
+          "error": true
+        },
+        "note": "An Object is not text."
+      },
+      {
+        "label": "A round trip",
+        "script": "%dw 2.0\noutput application/json\n---\nread(write(payload, \"application/json\"), \"application/json\")",
+        "payload": "{\"a\":1}",
+        "expect": {
+          "output": "{\"a\":1}"
+        },
+        "note": "Write to text, read it back."
+      }
+    ]
+  }
+}

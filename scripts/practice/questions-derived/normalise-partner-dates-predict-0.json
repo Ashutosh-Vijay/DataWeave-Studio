@@ -1,0 +1,36 @@
+{
+  "id": "normalise-partner-dates-predict-0",
+  "unit": "dates-formatting",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "A parsed Date prints the way it was read",
+  "topics": [
+    "match",
+    "matches",
+    "as",
+    "Date",
+    "format"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n\"05/03/2024\" as Date {format: \"dd/MM/yyyy\"}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"05/03/2024\" as Date {format: \"dd/MM/yyyy\"}",
+  "explanation": {
+    "approach": "It is a Date, but its text form is unchanged.",
+    "snippets": [
+      {
+        "label": "A parsed Date prints the way it was read",
+        "script": "%dw 2.0\noutput application/json\n---\n\"05/03/2024\" as Date {format: \"dd/MM/yyyy\"}",
+        "expect": {
+          "output": "\"05/03/2024\""
+        },
+        "note": "It is a Date, but its text form is unchanged."
+      }
+    ]
+  },
+  "derivedFrom": "normalise-partner-dates"
+}

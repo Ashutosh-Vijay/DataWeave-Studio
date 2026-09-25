@@ -1,0 +1,35 @@
+{
+  "id": "edi-line-numbers-predict-0",
+  "unit": "map-basics",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Gluing zeros on",
+  "topics": [
+    "map",
+    "index",
+    "as",
+    "format"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n\"00\" ++ 10"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"00\" ++ 10",
+  "explanation": {
+    "approach": "Four digits.",
+    "snippets": [
+      {
+        "label": "Gluing zeros on",
+        "script": "%dw 2.0\noutput application/json\n---\n\"00\" ++ 10",
+        "expect": {
+          "output": "\"0010\""
+        },
+        "note": "Four digits."
+      }
+    ]
+  },
+  "derivedFrom": "edi-line-numbers"
+}

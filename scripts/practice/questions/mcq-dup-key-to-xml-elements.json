@@ -1,0 +1,46 @@
+{
+  "id": "mcq-dup-key-to-xml-elements",
+  "unit": "duplicate-keys",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "xml",
+    "duplicate keys",
+    "output"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "basics": "XML allows an element to contain several children with the same name, and a DataWeave Object allows the same key more than once. When an Object is written as XML, each pair becomes one element, so repeated keys become repeated elements.",
+  "mode": "choice",
+  "prompt": "The output is XML with `indent=false, writeDeclaration=false`. **What does it write?**",
+  "inputMime": "application/json",
+  "outputMime": "application/xml indent=false, writeDeclaration=false",
+  "given": {
+    "script": "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ order: { line: \"A\", line: \"B\" } }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "<order><line>A B</line></order>",
+      "<order><line>B</line></order>",
+      "<order><line>A</line></order>",
+      "<order><line>A</line><line>B</line></order>"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ order: { line: \"A\", line: \"B\" } }",
+  "explanation": {
+    "approach": "In XML, repeated keys are not a problem but the normal way to write a list. This is why reading XML gives Objects with repeated keys, and why `.*` exists to read them.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ order: { line: \"A\", line: \"B\" } }",
+        "outputMime": "application/xml indent=false, writeDeclaration=false",
+        "expect": {
+          "output": "<order><line>A</line><line>B</line></order>"
+        },
+        "note": "One element per pair."
+      }
+    ]
+  }
+}

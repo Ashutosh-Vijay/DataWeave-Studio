@@ -1,0 +1,45 @@
+{
+  "id": "mcq-agg-average-per-department",
+  "unit": "nested-aggregation",
+  "tier": "easy",
+  "title": "Which script produces this output?",
+  "topics": [
+    "groupBy",
+    "mapObject",
+    "avg"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "`avg` returns the average of an Array of Numbers. After `groupBy`, each group is an Array of rows, so `avg($.salary)` inside a `mapObject` gives each group's average.",
+  "mode": "choice",
+  "prompt": "Given the payload, **which script produces exactly this output?**\n\n```\n{\"ops\":45,\"dev\":60}\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[{\"dept\":\"ops\",\"salary\":40},{\"dept\":\"dev\",\"salary\":60},{\"dept\":\"ops\",\"salary\":50}]",
+    "target": "{\"ops\":45,\"dev\":60}",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.dept mapObject { ($$): avg($.salary) }",
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.dept mapObject { ($$): sum($.salary) }",
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.dept mapObject { ($$): sizeOf($) }",
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.dept pluck { ($$): avg($.salary) }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.dept mapObject { ($$): avg($.salary) }",
+  "explanation": {
+    "approach": "Group, then reduce each group to one Number with `mapObject` so the result stays keyed by department. `sum` and `sizeOf` give a total and a count; `pluck` gives an Array.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.dept mapObject { ($$): avg($.salary) }",
+        "payload": "[{\"dept\":\"ops\",\"salary\":40},{\"dept\":\"dev\",\"salary\":60},{\"dept\":\"ops\",\"salary\":50}]",
+        "expect": {
+          "output": "{\"ops\":45,\"dev\":60}"
+        },
+        "note": "(40 + 50) / 2 for ops."
+      }
+    ]
+  }
+}

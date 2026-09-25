@@ -1,0 +1,35 @@
+{
+  "id": "shipping-label-from-order-predict-0",
+  "unit": "select-and-shape",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Selecting through a null address",
+  "topics": [
+    "selectors",
+    "null"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ city: payload.customer.address.city }",
+    "payload": "{\"customer\":{\"address\":null}}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ city: payload.customer.address.city }",
+  "explanation": {
+    "approach": "No error. The key is written, with a null value.",
+    "snippets": [
+      {
+        "label": "Selecting through a null address",
+        "script": "%dw 2.0\noutput application/json\n---\n{ city: payload.customer.address.city }",
+        "payload": "{\"customer\":{\"address\":null}}",
+        "expect": {
+          "output": "{\"city\":null}"
+        },
+        "note": "No error. The key is written, with a null value."
+      }
+    ]
+  },
+  "derivedFrom": "shipping-label-from-order"
+}

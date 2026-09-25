@@ -1,0 +1,68 @@
+{
+  "id": "phone-numbers-digits-only-debug-0",
+  "unit": "string-basics",
+  "mode": "debug",
+  "tier": "medium",
+  "title": "Fix it: strip phone numbers down to digits for the sms gateway",
+  "topics": [
+    "replace",
+    "regex"
+  ],
+  "basics": "`s replace x with y` replaces every match of x in s. The x can be a regular expression between slashes, where a character class such as `[^0-9]` means \"any character that is not a digit\".",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nThe SMS gateway accepts only digits, with an optional leading `+` for the country code. Customers typed their numbers every way imaginable: spaces, dashes, dots, brackets.\n\nReturn each number with everything except digits and `+` removed.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\npayload map ($ replace \" \" with \"\")",
+  "cases": [
+    {
+      "input": "[\n  \"020 7946 0000\",\n  \"0161 496 0000\"\n]",
+      "output": "[\"02079460000\",\"01614960000\"]"
+    },
+    {
+      "input": "[\n  \"+44 20 7946-0000\"\n]",
+      "output": "[\"+442079460000\"]"
+    },
+    {
+      "input": "[\n  \"(020) 7946.0000\",\n  \"+1-555-0100\"\n]",
+      "output": "[\"02079460000\",\"+15550100\"]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "removes only spaces, so dashes, dots and brackets stay in"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map ($ replace /[^0-9+]/ with \"\")",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map ($ replace \" \" with \"\")"
+    }
+  ],
+  "explanation": {
+    "approach": "Listing every separator to remove never ends. Describe what to keep instead, and remove everything else with a negated character class.",
+    "snippets": [
+      {
+        "label": "Everything but digits and +",
+        "script": "%dw 2.0\noutput application/json\n---\n\"+44 (0)20 7946-0000\" replace /[^0-9+]/ with \"\"",
+        "expect": {
+          "output": "\"+4402079460000\""
+        },
+        "note": "The (0) is kept as a digit. Whether to drop it is a business rule, not a formatting one."
+      },
+      {
+        "label": "Only the spaces",
+        "script": "%dw 2.0\noutput application/json\n---\n\"+1-555-0100\" replace \" \" with \"\"",
+        "expect": {
+          "output": "\"+1-555-0100\""
+        },
+        "note": "The dashes are untouched."
+      }
+    ]
+  },
+  "derivedFrom": "phone-numbers-digits-only"
+}

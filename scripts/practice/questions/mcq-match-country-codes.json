@@ -1,0 +1,43 @@
+{
+  "id": "mcq-match-country-codes",
+  "unit": "match-and-types",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "match"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "`match` compares a value against a list of cases and returns the result of the first that fits. Literal cases such as `case \"GB\" -> ...` work like a lookup table, and `else` handles everything not listed.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[\"GB\", \"FR\", \"gb\", \"DE\"] map ($ match {\n  case \"GB\" -> \"United Kingdom\"\n  case \"FR\" -> \"France\"\n  else -> \"Other\"\n})"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "[ \"United Kingdom\", \"France\", null, null ]",
+      "[ \"United Kingdom\", \"France\", \"United Kingdom\", \"Other\" ]",
+      "[ \"United Kingdom\", \"France\", \"Other\", \"Other\" ]",
+      "[ \"United Kingdom\", \"France\", \"Other\" ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[\"GB\", \"FR\", \"gb\", \"DE\"] map ($ match {\n  case \"GB\" -> \"United Kingdom\"\n  case \"FR\" -> \"France\"\n  else -> \"Other\"\n})",
+  "explanation": {
+    "approach": "String cases are compared exactly, so \"gb\" does not match \"GB\" and falls through to `else`, as does \"DE\". Upper-case the value first if the codes can arrive in either case.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"GB\", \"FR\", \"gb\", \"DE\"] map ($ match {\n  case \"GB\" -> \"United Kingdom\"\n  case \"FR\" -> \"France\"\n  else -> \"Other\"\n})",
+        "expect": {
+          "output": "[\"United Kingdom\",\"France\",\"Other\",\"Other\"]"
+        },
+        "note": "Case matters."
+      }
+    ]
+  }
+}

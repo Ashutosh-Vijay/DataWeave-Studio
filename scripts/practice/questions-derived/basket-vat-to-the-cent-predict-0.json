@@ -1,0 +1,34 @@
+{
+  "id": "basket-vat-to-the-cent-predict-0",
+  "unit": "numbers-and-rounding",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Rounding to cents",
+  "topics": [
+    "round",
+    "sum",
+    "map"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nround(12.34 * 0.2 * 100) / 100"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nround(12.34 * 0.2 * 100) / 100",
+  "explanation": {
+    "approach": "2.468 becomes 2.47.",
+    "snippets": [
+      {
+        "label": "Rounding to cents",
+        "script": "%dw 2.0\noutput application/json\n---\nround(12.34 * 0.2 * 100) / 100",
+        "expect": {
+          "output": "2.47"
+        },
+        "note": "2.468 becomes 2.47."
+      }
+    ]
+  },
+  "derivedFrom": "basket-vat-to-the-cent"
+}

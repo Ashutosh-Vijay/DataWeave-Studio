@@ -1,0 +1,72 @@
+{
+  "id": "customer-spend-league-debug-1",
+  "unit": "groupby-shape",
+  "mode": "debug",
+  "tier": "medium",
+  "title": "Fix it: rank customers by what they spent this month",
+  "topics": [
+    "groupBy",
+    "pluck",
+    "sum",
+    "orderBy"
+  ],
+  "basics": "`groupBy` returns an Object of buckets. To turn the buckets into rows, `pluck` walks the Object and builds one element per key: inside it, `$` is the bucket and `$$` is its key. `orderBy -x` sorts by x in descending order when x is a Number.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nThe order service sends `{ customer, amount }` for every order this month. Return one `{ customer, total }` per customer, with `total` the sum of their orders, sorted with the biggest spender first.\n\nCancelled orders have `amount: null`. They count as 0.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\npayload groupBy $.customer mapObject { ($$): sum($ map ($.amount default 0)) }",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"customer\": \"Ann\",\n    \"amount\": 10\n  },\n  {\n    \"customer\": \"Bo\",\n    \"amount\": 50\n  },\n  {\n    \"customer\": \"Ann\",\n    \"amount\": 15\n  }\n]",
+      "output": "[{\"customer\":\"Bo\",\"total\":50},{\"customer\":\"Ann\",\"total\":25}]"
+    },
+    {
+      "input": "[\n  {\n    \"customer\": \"Cy\",\n    \"amount\": 5\n  },\n  {\n    \"customer\": \"Cy\",\n    \"amount\": null\n  }\n]",
+      "output": "[{\"customer\":\"Cy\",\"total\":5}]"
+    },
+    {
+      "input": "[\n  {\n    \"customer\": \"Di\",\n    \"amount\": 1\n  },\n  {\n    \"customer\": \"Ed\",\n    \"amount\": null\n  },\n  {\n    \"customer\": \"Di\",\n    \"amount\": 2\n  }\n]",
+      "output": "[{\"customer\":\"Di\",\"total\":3},{\"customer\":\"Ed\",\"total\":0}]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "stops at mapObject, which gives one Object keyed by customer instead of ranked rows"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.customer pluck { customer: $$, total: sum($ map ($.amount default 0)) } orderBy -$.total",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.customer mapObject { ($$): sum($ map ($.amount default 0)) }"
+    }
+  ],
+  "explanation": {
+    "approach": "Group, reshape each group with `pluck` so the result is an Array that can be sorted, then sort descending. The null amounts are the hidden edge: `sum` needs Numbers, so each null becomes 0 before the sum.",
+    "snippets": [
+      {
+        "label": "sum over a null",
+        "script": "%dw 2.0\noutput application/json\n---\nsum(payload)",
+        "payload": "[5,null]",
+        "expect": {
+          "error": true
+        },
+        "note": "A null in the list stops the sum."
+      },
+      {
+        "label": "Nulls replaced first",
+        "script": "%dw 2.0\noutput application/json\n---\nsum(payload map ($ default 0))",
+        "payload": "[5,null]",
+        "expect": {
+          "output": "5"
+        },
+        "note": "A cancelled order adds nothing."
+      }
+    ]
+  },
+  "derivedFrom": "customer-spend-league"
+}

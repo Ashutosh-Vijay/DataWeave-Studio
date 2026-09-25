@@ -1,0 +1,81 @@
+{
+  "id": "split-the-bill",
+  "unit": "numbers-and-rounding",
+  "tier": "medium",
+  "title": "Split a restaurant bill so the parts add up to the total",
+  "topics": [
+    "floor",
+    "mod",
+    "map"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "`floor(x)` rounds down to a whole number. `a mod b` is the remainder after dividing a by b: `10 mod 3` is 1. Working in whole cents avoids fractions of a cent altogether.",
+  "mode": "build",
+  "prompt": "A payments app splits a bill evenly between `people` diners. The bill `total` is in cents. Return an array with one amount per diner, in cents, that adds up to exactly `total`.\n\nWhen it does not divide evenly, the leftover cents go one each to the first diners in the list.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "{\n  \"total\": 1000,\n  \"people\": 4\n}",
+      "output": "[250,250,250,250]"
+    },
+    {
+      "input": "{\n  \"total\": 1000,\n  \"people\": 3\n}",
+      "output": "[334,333,333]"
+    },
+    {
+      "input": "{\n  \"total\": 1001,\n  \"people\": 4\n}",
+      "output": "[251,250,250,250]"
+    },
+    {
+      "input": "{\n  \"total\": 5,\n  \"people\": 3\n}",
+      "output": "[2,2,1]"
+    }
+  ],
+  "hints": [
+    "Everyone gets the whole-cent share. Some people get one cent more.",
+    "How many cents are left over? `total mod people`.",
+    "Build the list with a range `(0 to people - 1)` and give 1 extra cent to each position lower than the remainder."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var share = floor(payload.total / payload.people)\n  var extra = payload.total mod payload.people\n  ---\n  (0 to payload.people - 1) map (share + (if ($ < extra) 1 else 0))\n}",
+  "mustFail": [
+    {
+      "why": "rounds each share, so the parts do not add up to the total",
+      "script": "%dw 2.0\noutput application/json\n---\n(0 to payload.people - 1) map round(payload.total / payload.people)"
+    },
+    {
+      "why": "gives the leftover cents to the last diners instead of the first",
+      "script": "%dw 2.0\noutput application/json\n---\ndo {\n  var share = floor(payload.total / payload.people)\n  var extra = payload.total mod payload.people\n  ---\n  (0 to payload.people - 1) map (share + (if ($ >= payload.people - extra) 1 else 0))\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "Rounding each share independently cannot guarantee the total: 1000 split three ways rounds to 333 three times, and a cent disappears. Take the whole-cent share for everyone, count what is left with `mod`, and hand those cents out one at a time.",
+    "snippets": [
+      {
+        "label": "Rounding each share",
+        "script": "%dw 2.0\noutput application/json\n---\nsum((0 to 2) map round(1000 / 3))",
+        "expect": {
+          "output": "999"
+        },
+        "note": "A cent short."
+      },
+      {
+        "label": "Share and remainder",
+        "script": "%dw 2.0\noutput application/json\n---\n[floor(1000 / 3), 1000 mod 3]",
+        "expect": {
+          "output": "[333,1]"
+        },
+        "note": "Three shares of 333 and one cent over."
+      },
+      {
+        "label": "A range as a counter",
+        "script": "%dw 2.0\noutput application/json\n---\n(0 to 2) map $",
+        "expect": {
+          "output": "[0,1,2]"
+        },
+        "note": "One element per diner, numbered from 0."
+      }
+    ]
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "id": "split-the-bill-debug-0",
+  "unit": "numbers-and-rounding",
+  "mode": "debug",
+  "tier": "medium",
+  "title": "Fix it: split a restaurant bill so the parts add up to the total",
+  "topics": [
+    "floor",
+    "mod",
+    "map"
+  ],
+  "basics": "`floor(x)` rounds down to a whole number. `a mod b` is the remainder after dividing a by b: `10 mod 3` is 1. Working in whole cents avoids fractions of a cent altogether.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nA payments app splits a bill evenly between `people` diners. The bill `total` is in cents. Return an array with one amount per diner, in cents, that adds up to exactly `total`.\n\nWhen it does not divide evenly, the leftover cents go one each to the first diners in the list.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n(0 to payload.people - 1) map round(payload.total / payload.people)",
+  "cases": [
+    {
+      "input": "{\n  \"total\": 1000,\n  \"people\": 4\n}",
+      "output": "[250,250,250,250]"
+    },
+    {
+      "input": "{\n  \"total\": 1000,\n  \"people\": 3\n}",
+      "output": "[334,333,333]"
+    },
+    {
+      "input": "{\n  \"total\": 1001,\n  \"people\": 4\n}",
+      "output": "[251,250,250,250]"
+    },
+    {
+      "input": "{\n  \"total\": 5,\n  \"people\": 3\n}",
+      "output": "[2,2,1]"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "rounds each share, so the parts do not add up to the total"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var share = floor(payload.total / payload.people)\n  var extra = payload.total mod payload.people\n  ---\n  (0 to payload.people - 1) map (share + (if ($ < extra) 1 else 0))\n}",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\n(0 to payload.people - 1) map round(payload.total / payload.people)"
+    }
+  ],
+  "explanation": {
+    "approach": "Rounding each share independently cannot guarantee the total: 1000 split three ways rounds to 333 three times, and a cent disappears. Take the whole-cent share for everyone, count what is left with `mod`, and hand those cents out one at a time.",
+    "snippets": [
+      {
+        "label": "Rounding each share",
+        "script": "%dw 2.0\noutput application/json\n---\nsum((0 to 2) map round(1000 / 3))",
+        "expect": {
+          "output": "999"
+        },
+        "note": "A cent short."
+      },
+      {
+        "label": "Share and remainder",
+        "script": "%dw 2.0\noutput application/json\n---\n[floor(1000 / 3), 1000 mod 3]",
+        "expect": {
+          "output": "[333,1]"
+        },
+        "note": "Three shares of 333 and one cent over."
+      },
+      {
+        "label": "A range as a counter",
+        "script": "%dw 2.0\noutput application/json\n---\n(0 to 2) map $",
+        "expect": {
+          "output": "[0,1,2]"
+        },
+        "note": "One element per diner, numbered from 0."
+      }
+    ]
+  },
+  "derivedFrom": "split-the-bill"
+}

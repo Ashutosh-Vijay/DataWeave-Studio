@@ -1,0 +1,71 @@
+{
+  "id": "http-headers-to-object-debug-1",
+  "unit": "dynamic-keys",
+  "mode": "debug",
+  "tier": "medium",
+  "title": "Fix it: turn a list of http headers into a lookup object",
+  "topics": [
+    "dynamic keys",
+    "map",
+    "lower"
+  ],
+  "basics": "A key in parentheses is computed from an expression: `{ (k): v }` uses the value of `k` as the field name. Wrapping an Array of objects in `{( )}` merges them into one object: `{ ([{a: 1}, {b: 2}]) }` is `{ a: 1, b: 2 }`.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nAn API gateway logs request headers as an array of `{ name, value }`. Downstream code wants a single object keyed by header name, so it can read `headers.\"content-type\"`.\n\nHTTP header names are case-insensitive, and different clients send `Content-Type` or `content-type`. Use the lower-case name as the key.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n{ (payload map { ($.name): $.value }) }",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"name\": \"accept\",\n    \"value\": \"application/json\"\n  },\n  {\n    \"name\": \"x-request-id\",\n    \"value\": \"r-1\"\n  }\n]",
+      "output": "{\"accept\":\"application/json\",\"x-request-id\":\"r-1\"}"
+    },
+    {
+      "input": "[\n  {\n    \"name\": \"Content-Type\",\n    \"value\": \"text/xml\"\n  }\n]",
+      "output": "{\"content-type\":\"text/xml\"}"
+    },
+    {
+      "input": "[\n  {\n    \"name\": \"X-Request-Id\",\n    \"value\": \"r-2\"\n  },\n  {\n    \"name\": \"Accept\",\n    \"value\": \"*/*\"\n  }\n]",
+      "output": "{\"x-request-id\":\"r-2\",\"accept\":\"*/*\"}"
+    },
+    {
+      "input": "[]",
+      "output": "{}"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "keeps the name as sent, so Content-Type and content-type are different keys"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ (payload map { (lower($.name)): $.value }) }",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\n{ (payload map { ($.name): $.value }) }"
+    }
+  ],
+  "explanation": {
+    "approach": "A computed key needs parentheses, and the list of one-field objects that `map` produces has to be merged with `{( )}`. Lower-casing the name makes the key predictable no matter how the client spelled it.",
+    "snippets": [
+      {
+        "label": "One object per header",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map { ($.name): $.value }",
+        "payload": "[{\"name\":\"a\",\"value\":\"1\"},{\"name\":\"b\",\"value\":\"2\"}]",
+        "expect": {
+          "output": "[{\"a\":\"1\"},{\"b\":\"2\"}]"
+        },
+        "note": "An Array, not a lookup object."
+      },
+      {
+        "label": "Merged",
+        "script": "%dw 2.0\noutput application/json\n---\n{ (payload map { ($.name): $.value }) }",
+        "payload": "[{\"name\":\"a\",\"value\":\"1\"},{\"name\":\"b\",\"value\":\"2\"}]",
+        "expect": {
+          "output": "{\"a\":\"1\",\"b\":\"2\"}"
+        },
+        "note": "One object with both keys."
+      }
+    ]
+  },
+  "derivedFrom": "http-headers-to-object"
+}

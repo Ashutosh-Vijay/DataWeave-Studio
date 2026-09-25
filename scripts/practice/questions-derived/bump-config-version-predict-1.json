@@ -1,0 +1,36 @@
+{
+  "id": "bump-config-version-predict-1",
+  "unit": "update-operator",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "With ! it is created",
+  "topics": [
+    "update",
+    "!",
+    "default"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload update { case v at .app.version! -> (v default 0) + 1 }",
+    "payload": "{\"app\":{\"name\":\"billing\"}}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload update { case v at .app.version! -> (v default 0) + 1 }",
+  "explanation": {
+    "approach": "The old value was null.",
+    "snippets": [
+      {
+        "label": "With ! it is created",
+        "script": "%dw 2.0\noutput application/json\n---\npayload update { case v at .app.version! -> (v default 0) + 1 }",
+        "payload": "{\"app\":{\"name\":\"billing\"}}",
+        "expect": {
+          "output": "{\"app\":{\"name\":\"billing\",\"version\":1}}"
+        },
+        "note": "The old value was null."
+      }
+    ]
+  },
+  "derivedFrom": "bump-config-version"
+}

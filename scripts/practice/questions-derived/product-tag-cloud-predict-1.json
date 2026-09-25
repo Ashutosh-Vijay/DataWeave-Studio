@@ -1,0 +1,37 @@
+{
+  "id": "product-tag-cloud-predict-1",
+  "unit": "flatten-vs-flatmap",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "flatMap on a missing field",
+  "topics": [
+    "flatten",
+    "lower",
+    "distinctBy",
+    "orderBy"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload flatMap $.tags",
+    "payload": "[{\"sku\":\"E\"},{\"sku\":\"F\",\"tags\":[\"green\"]}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload flatMap $.tags",
+  "explanation": {
+    "approach": "",
+    "snippets": [
+      {
+        "label": "flatMap on a missing field",
+        "script": "%dw 2.0\noutput application/json\n---\npayload flatMap $.tags",
+        "payload": "[{\"sku\":\"E\"},{\"sku\":\"F\",\"tags\":[\"green\"]}]",
+        "expect": {
+          "output": "[null,\"green\"]"
+        },
+        "note": ""
+      }
+    ]
+  },
+  "derivedFrom": "product-tag-cloud"
+}

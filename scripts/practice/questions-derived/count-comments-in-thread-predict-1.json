@@ -1,0 +1,37 @@
+{
+  "id": "count-comments-in-thread-predict-1",
+  "unit": "recursion",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "One level only",
+  "topics": [
+    "fun",
+    "recursion",
+    "sum",
+    "default"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n1 + sizeOf(payload.replies default [])",
+    "payload": "{\"id\":1,\"replies\":[{\"id\":2,\"replies\":[{\"id\":4}]}]}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n1 + sizeOf(payload.replies default [])",
+  "explanation": {
+    "approach": "Comment 4 is never seen.",
+    "snippets": [
+      {
+        "label": "One level only",
+        "script": "%dw 2.0\noutput application/json\n---\n1 + sizeOf(payload.replies default [])",
+        "payload": "{\"id\":1,\"replies\":[{\"id\":2,\"replies\":[{\"id\":4}]}]}",
+        "expect": {
+          "output": "2"
+        },
+        "note": "Comment 4 is never seen."
+      }
+    ]
+  },
+  "derivedFrom": "count-comments-in-thread"
+}

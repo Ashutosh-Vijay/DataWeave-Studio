@@ -1,0 +1,36 @@
+{
+  "id": "http-headers-to-object-predict-0",
+  "unit": "dynamic-keys",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "One object per header",
+  "topics": [
+    "dynamic keys",
+    "map",
+    "lower"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload map { ($.name): $.value }",
+    "payload": "[{\"name\":\"a\",\"value\":\"1\"},{\"name\":\"b\",\"value\":\"2\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map { ($.name): $.value }",
+  "explanation": {
+    "approach": "An Array, not a lookup object.",
+    "snippets": [
+      {
+        "label": "One object per header",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map { ($.name): $.value }",
+        "payload": "[{\"name\":\"a\",\"value\":\"1\"},{\"name\":\"b\",\"value\":\"2\"}]",
+        "expect": {
+          "output": "[{\"a\":\"1\"},{\"b\":\"2\"}]"
+        },
+        "note": "An Array, not a lookup object."
+      }
+    ]
+  },
+  "derivedFrom": "http-headers-to-object"
+}

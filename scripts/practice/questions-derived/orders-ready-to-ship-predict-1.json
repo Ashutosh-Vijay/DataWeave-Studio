@@ -1,0 +1,34 @@
+{
+  "id": "orders-ready-to-ship-predict-1",
+  "unit": "filter-and-null",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "isEmpty covers both",
+  "topics": [
+    "filter",
+    "isEmpty",
+    "and"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[isEmpty(null), isEmpty(\"\"), isEmpty(\"TRK1\")]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[isEmpty(null), isEmpty(\"\"), isEmpty(\"TRK1\")]",
+  "explanation": {
+    "approach": "The first two are the \"no tracking\" cases.",
+    "snippets": [
+      {
+        "label": "isEmpty covers both",
+        "script": "%dw 2.0\noutput application/json\n---\n[isEmpty(null), isEmpty(\"\"), isEmpty(\"TRK1\")]",
+        "expect": {
+          "output": "[true,true,false]"
+        },
+        "note": "The first two are the \"no tracking\" cases."
+      }
+    ]
+  },
+  "derivedFrom": "orders-ready-to-ship"
+}

@@ -1,0 +1,34 @@
+{
+  "id": "embed-xml-in-json-envelope-predict-2",
+  "unit": "multi-format-embed",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "An empty Array is not nothing",
+  "topics": [
+    "write",
+    "xml",
+    "writer properties"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nwrite({ order: { line: [] } }, \"application/xml\", { indent: false, writeDeclaration: false })"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nwrite({ order: { line: [] } }, \"application/xml\", { indent: false, writeDeclaration: false })",
+  "explanation": {
+    "approach": "One empty element, which the partner reads as a line with no SKU.",
+    "snippets": [
+      {
+        "label": "An empty Array is not nothing",
+        "script": "%dw 2.0\noutput application/json\n---\nwrite({ order: { line: [] } }, \"application/xml\", { indent: false, writeDeclaration: false })",
+        "expect": {
+          "output": "\"<order><line/></order>\""
+        },
+        "note": "One empty element, which the partner reads as a line with no SKU."
+      }
+    ]
+  },
+  "derivedFrom": "embed-xml-in-json-envelope"
+}

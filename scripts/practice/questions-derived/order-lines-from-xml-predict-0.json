@@ -1,0 +1,38 @@
+{
+  "id": "order-lines-from-xml-predict-0",
+  "unit": "xml-selectors",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "The single-value selector on two lines",
+  "topics": [
+    "xml",
+    ".*",
+    "@",
+    "default"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.order.line.@sku",
+    "payload": "<order id=\"8\"><line sku=\"A\" qty=\"1\"/><line sku=\"B\" qty=\"5\"/></order>"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.order.line.@sku",
+  "explanation": {
+    "approach": "Only the first line is read.",
+    "snippets": [
+      {
+        "label": "The single-value selector on two lines",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.order.line.@sku",
+        "payload": "<order id=\"8\"><line sku=\"A\" qty=\"1\"/><line sku=\"B\" qty=\"5\"/></order>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "\"A\""
+        },
+        "note": "Only the first line is read."
+      }
+    ]
+  },
+  "derivedFrom": "order-lines-from-xml"
+}

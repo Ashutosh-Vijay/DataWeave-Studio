@@ -1,0 +1,74 @@
+{
+  "id": "order-lines-from-xml-debug-1",
+  "unit": "xml-selectors",
+  "mode": "debug",
+  "tier": "easy",
+  "title": "Fix it: read order lines from an xml order that may have one line, several, or none",
+  "topics": [
+    "xml",
+    ".*",
+    "@",
+    "default"
+  ],
+  "basics": "In XML, the same element name can repeat: `<line/><line/>`. `payload.order.line` selects only the first one; `payload.order.*line` selects all of them as an Array. Attributes are read with `@`, so `.@sku` is the value of the `sku` attribute.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nThe ERP sends orders as XML:\n\n```\n<order id=\"7\"><line sku=\"A\" qty=\"2\"/></order>\n```\n\nReturn `{ orderId, lines }` where `lines` is an array of `{ sku, qty }` with `qty` as a Number. An order may have any number of lines, including none. With no lines, `lines` is an empty array.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n{\n  orderId: payload.order.@id,\n  lines: payload.order.*line map { sku: $.@sku, qty: $.@qty as Number }\n}",
+  "cases": [
+    {
+      "input": "<order id=\"7\"><line sku=\"A\" qty=\"2\"/></order>",
+      "output": "{\"orderId\":\"7\",\"lines\":[{\"sku\":\"A\",\"qty\":2}]}"
+    },
+    {
+      "input": "<order id=\"8\"><line sku=\"A\" qty=\"1\"/><line sku=\"B\" qty=\"5\"/></order>",
+      "output": "{\"orderId\":\"8\",\"lines\":[{\"sku\":\"A\",\"qty\":1},{\"sku\":\"B\",\"qty\":5}]}"
+    },
+    {
+      "input": "<order id=\"9\"></order>",
+      "output": "{\"orderId\":\"9\",\"lines\":[]}"
+    },
+    {
+      "input": "<order id=\"10\"><line sku=\"C\" qty=\"3\"/><line sku=\"D\" qty=\"1\"/><line sku=\"E\" qty=\"2\"/></order>",
+      "output": "{\"orderId\":\"10\",\"lines\":[{\"sku\":\"C\",\"qty\":3},{\"sku\":\"D\",\"qty\":1},{\"sku\":\"E\",\"qty\":2}]}"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "reads all lines but has no fallback, so an order without lines gives null instead of []"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n{\n  orderId: payload.order.@id,\n  lines: (payload.order.*line default []) map { sku: $.@sku, qty: $.@qty as Number }\n}",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\n{\n  orderId: payload.order.@id,\n  lines: payload.order.*line map { sku: $.@sku, qty: $.@qty as Number }\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "A repeated XML element is several keys with the same name, and the single-value selector stops at the first. `.*` collects them all, which covers one and many alike. With none at all it gives null, and mapping null gives null, so a `default []` is needed for the empty order.",
+    "snippets": [
+      {
+        "label": "The single-value selector on two lines",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.order.line.@sku",
+        "payload": "<order id=\"8\"><line sku=\"A\" qty=\"1\"/><line sku=\"B\" qty=\"5\"/></order>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "\"A\""
+        },
+        "note": "Only the first line is read."
+      },
+      {
+        "label": ".* on an order with no lines",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.order.*line",
+        "payload": "<order id=\"9\"></order>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Not an empty array."
+      }
+    ]
+  },
+  "derivedFrom": "order-lines-from-xml"
+}

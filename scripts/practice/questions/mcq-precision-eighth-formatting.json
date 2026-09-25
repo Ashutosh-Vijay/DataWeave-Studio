@@ -1,0 +1,45 @@
+{
+  "id": "mcq-precision-eighth-formatting",
+  "unit": "precision",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "as",
+    "format",
+    "round"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "A number pattern with a fixed number of decimals, such as `\"0.00\"`, rounds the value to fit. How it rounds a value that is exactly halfway, such as 0.125 to two places, varies between languages.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ (1 / 8) as String {format: \"0.00\"}, round(0.125 * 100) / 100 ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "[ \"0.13\", 0.12 ]",
+      "[ \"0.13\", 0.13 ]",
+      "[ \"0.12\", 0.13 ]",
+      "[ \"0.12\", 0.12 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ (1 / 8) as String {format: \"0.00\"}, round(0.125 * 100) / 100 ]",
+  "explanation": {
+    "approach": "Both the formatter and `round` send an exact half upwards here: 0.125 becomes 0.13 either way. Half-even rounding, common in finance tools, would give 0.12, so reports produced by different systems can differ by a cent on exactly these values.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ (1 / 8) as String {format: \"0.00\"}, round(0.125 * 100) / 100 ]",
+        "expect": {
+          "output": "[\"0.13\",0.13]"
+        },
+        "note": "Half up in both."
+      }
+    ]
+  }
+}
