@@ -1,0 +1,82 @@
+{
+  "id": "overdue-invoice-chasers",
+  "unit": "date-arithmetic",
+  "tier": "medium",
+  "title": "Which unpaid invoices need a chaser letter today",
+  "topics": [
+    "daysBetween",
+    "as",
+    "Date",
+    "filter"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "`daysBetween(from, to)` counts the whole days from one Date to another. Dates in JSON arrive as text, so they are converted first with `as Date`. A filter can then compare the number of days with a limit.",
+  "mode": "build",
+  "prompt": "Accounts sends `{ today, invoices }`, where each invoice is `{ id, due, paid }` and dates are ISO text. A chaser letter goes out for every invoice that is **not paid** and is **30 or more days** past its due date as of `today`.\n\nReturn the ids of the invoices that need a chaser, in their original order.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "{\n  \"today\": \"2024-06-30\",\n  \"invoices\": [\n    {\n      \"id\": \"I1\",\n      \"due\": \"2024-05-01\",\n      \"paid\": false\n    },\n    {\n      \"id\": \"I2\",\n      \"due\": \"2024-06-20\",\n      \"paid\": false\n    }\n  ]\n}",
+      "output": "[\"I1\"]"
+    },
+    {
+      "input": "{\n  \"today\": \"2024-06-30\",\n  \"invoices\": [\n    {\n      \"id\": \"I3\",\n      \"due\": \"2024-05-31\",\n      \"paid\": false\n    },\n    {\n      \"id\": \"I4\",\n      \"due\": \"2024-06-01\",\n      \"paid\": false\n    }\n  ]\n}",
+      "output": "[\"I3\"]"
+    },
+    {
+      "input": "{\n  \"today\": \"2024-06-30\",\n  \"invoices\": [\n    {\n      \"id\": \"I5\",\n      \"due\": \"2024-01-01\",\n      \"paid\": true\n    },\n    {\n      \"id\": \"I6\",\n      \"due\": \"2024-03-01\",\n      \"paid\": false\n    }\n  ]\n}",
+      "output": "[\"I6\"]"
+    },
+    {
+      "input": "{\n  \"today\": \"2024-06-30\",\n  \"invoices\": []\n}",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Keep the invoices that are unpaid and old enough, then take their ids.",
+    "Invoice I3 in the hidden data is due exactly 30 days before today. Does \"30 or more\" include it?",
+    "Convert both dates with `as Date` before calling `daysBetween(due, today)`, and use `>=`. For \"not paid\", write `!$.paid`: `not` binds more loosely than `and` and would negate the whole condition."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload.invoices filter (!$.paid and daysBetween($.due as Date, payload.today as Date) >= 30)).id default []",
+  "mustFail": [
+    {
+      "why": "uses > 30, so an invoice exactly 30 days overdue is not chased",
+      "script": "%dw 2.0\noutput application/json\n---\n(payload.invoices filter (!$.paid and daysBetween($.due as Date, payload.today as Date) > 30)).id default []"
+    },
+    {
+      "why": "ignores the paid flag, so settled invoices get chaser letters",
+      "script": "%dw 2.0\noutput application/json\n---\n(payload.invoices filter (daysBetween($.due as Date, payload.today as Date) >= 30)).id default []"
+    }
+  ],
+  "explanation": {
+    "approach": "Two conditions, and one of them has a boundary. \"30 or more\" means `>=`, and the hidden data has an invoice exactly 30 days out to check that. `daysBetween` wants Dates, so the ISO text is coerced first.",
+    "snippets": [
+      {
+        "label": "Exactly on the boundary",
+        "script": "%dw 2.0\noutput application/json\n---\ndaysBetween(\"2024-05-31\" as Date, \"2024-06-30\" as Date)",
+        "expect": {
+          "output": "30"
+        },
+        "note": "Included by `>=`, excluded by `>`."
+      },
+      {
+        "label": "One day short",
+        "script": "%dw 2.0\noutput application/json\n---\ndaysBetween(\"2024-06-01\" as Date, \"2024-06-30\" as Date)",
+        "expect": {
+          "output": "29"
+        },
+        "note": "Not chased yet."
+      },
+      {
+        "label": "not against !",
+        "script": "%dw 2.0\noutput application/json\n---\n[not false and false, !false and false]",
+        "expect": {
+          "output": "[true,false]"
+        },
+        "note": "`not` applies to everything after it, `!` only to the next value."
+      }
+    ]
+  }
+}

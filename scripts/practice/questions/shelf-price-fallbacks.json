@@ -1,0 +1,73 @@
+{
+  "id": "shelf-price-fallbacks",
+  "unit": "default-and-missing",
+  "tier": "medium",
+  "title": "Pick the shelf price from a sale price, a list price, or neither",
+  "topics": [
+    "default",
+    "if"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "`default` can be chained: `a default b default c` gives the first of the three that is not null. It only ever replaces null, so a real value such as `0` or `false` is kept.",
+  "mode": "build",
+  "prompt": "The product feed has `{ sku, salePrice, listPrice }`, and either price may be missing. The shelf price is the sale price if there is one, otherwise the list price, otherwise 0.\n\nPromotional items are sometimes given away with a sale price of `0`. That is a real sale price and must be used.\n\nReturn `{ sku, price }` for each product.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"sku\": \"A\",\n    \"listPrice\": 10\n  },\n  {\n    \"sku\": \"B\",\n    \"salePrice\": 5\n  }\n]",
+      "output": "[{\"sku\":\"A\",\"price\":10},{\"sku\":\"B\",\"price\":5}]"
+    },
+    {
+      "input": "[\n  {\n    \"sku\": \"C\",\n    \"salePrice\": 7,\n    \"listPrice\": 9\n  }\n]",
+      "output": "[{\"sku\":\"C\",\"price\":7}]"
+    },
+    {
+      "input": "[\n  {\n    \"sku\": \"D\",\n    \"salePrice\": 0,\n    \"listPrice\": 12\n  }\n]",
+      "output": "[{\"sku\":\"D\",\"price\":0}]"
+    },
+    {
+      "input": "[\n  {\n    \"sku\": \"E\"\n  }\n]",
+      "output": "[{\"sku\":\"E\",\"price\":0}]"
+    }
+  ],
+  "hints": [
+    "Three candidates in order of preference. There is an operator that picks the first one that is present.",
+    "Chain it: `$.salePrice default $.listPrice default 0`. Then check the order of the chain against the task.",
+    "Avoid tests like `> 0`: a free item has a sale price of 0, and it is still the price."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map { sku: $.sku, price: $.salePrice default $.listPrice default 0 }",
+  "mustFail": [
+    {
+      "why": "tests the sale price with > 0, so a free promotional item gets its list price",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map { sku: $.sku, price: if (($.salePrice default 0) > 0) $.salePrice else ($.listPrice default 0) }"
+    },
+    {
+      "why": "chains the fallbacks in the wrong order, so the list price wins whenever both exist",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map { sku: $.sku, price: $.listPrice default $.salePrice default 0 }"
+    }
+  ],
+  "explanation": {
+    "approach": "`default` answers \"is it missing?\", which is exactly the rule. A numeric test such as `> 0` answers a different question and loses the free items. The order of the chain is the order of preference.",
+    "snippets": [
+      {
+        "label": "Zero is not missing",
+        "script": "%dw 2.0\noutput application/json\n---\n0 default 99",
+        "expect": {
+          "output": "0"
+        },
+        "note": "`default` keeps any value that is not null."
+      },
+      {
+        "label": "A chain",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.salePrice default payload.listPrice default 0",
+        "payload": "{}",
+        "expect": {
+          "output": "0"
+        },
+        "note": "Both missing, so the last fallback is used."
+      }
+    ]
+  }
+}
