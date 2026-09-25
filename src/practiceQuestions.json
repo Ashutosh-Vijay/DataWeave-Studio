@@ -3693,7 +3693,7 @@
     "cases": [],
     "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority pluck ((orders, priority) -> { priority: priority, count: sizeOf(orders) })",
     "explanation": {
-      "approach": "`pluck` is `mapObject`'s sibling that returns an array. Not what this task asked for, but it is the shape you usually want for a report or a CSV — and see that `priority` has come back out as a String, because that is what it became when it was a key.",
+      "approach": "",
       "snippets": [
         {
           "label": "If you want counts as an array of rows instead",
@@ -3702,7 +3702,7 @@
           "expect": {
             "output": "[ { \"priority\": \"1\", \"count\": 2 }, { \"priority\": \"2\", \"count\": 1 } ]"
           },
-          "note": "`pluck` is `mapObject`'s sibling that returns an array. Not what this task asked for, but it is the shape you usually want for a report or a CSV — and see that `priority` has come back out as a String, because that is what it became when it was a key."
+          "note": ""
         }
       ]
     },
@@ -3868,7 +3868,7 @@
     "cases": [],
     "solution": "%dw 2.0\noutput application/json\n---\nsum(payload map $.amount)",
     "explanation": {
-      "approach": "An alternative path: extract the amounts into an array, then pass it to `sum`. `sum` also returns 0 for an empty array, but `reduce` gives you more control over each step.",
+      "approach": "",
       "snippets": [
         {
           "label": "The alternative: sum function",
@@ -3877,7 +3877,7 @@
           "expect": {
             "output": "45"
           },
-          "note": "An alternative path: extract the amounts into an array, then pass it to `sum`. `sum` also returns 0 for an empty array, but `reduce` gives you more control over each step."
+          "note": ""
         }
       ]
     },
@@ -4023,7 +4023,7 @@
     "cases": [],
     "solution": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} mapObject ((value, key) -> { (key): value })",
     "explanation": {
-      "approach": "`mapObject` rebuilds an object instead of an array. The computed key `(key)` becomes the field name. Same parameter order as `pluck`.",
+      "approach": "",
       "snippets": [
         {
           "label": "mapObject returns an object, not an array",
@@ -4032,7 +4032,7 @@
           "expect": {
             "output": "{ \"a\": \"apple\", \"b\": \"banana\" }"
           },
-          "note": "`mapObject` rebuilds an object instead of an array. The computed key `(key)` becomes the field name. Same parameter order as `pluck`."
+          "note": ""
         }
       ]
     },
@@ -12645,7 +12645,7 @@
     "cases": [],
     "solution": "%dw 2.0\noutput application/json\n---\n{ raw: typeOf(payload), grouped: typeOf(payload groupBy $.region) }",
     "explanation": {
-      "approach": "An Array goes in and an Object comes out. That one line decides everything after it: the next step has to be an object function, and reaching for `map` here is an error rather than a wrong answer.",
+      "approach": "",
       "snippets": [
         {
           "label": "Check the shape before you chain anything onto it",
@@ -12654,7 +12654,7 @@
           "expect": {
             "output": "{ \"raw\": \"Array\", \"grouped\": \"Object\" }"
           },
-          "note": "An Array goes in and an Object comes out. That one line decides everything after it: the next step has to be an object function, and reaching for `map` here is an error rather than a wrong answer."
+          "note": ""
         }
       ]
     },
@@ -12753,7 +12753,7 @@
     "cases": [],
     "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region pluck ((lines, region) -> { region: region, total: sum(lines.amount) })",
     "explanation": {
-      "approach": "Same grouped Object, but `pluck` turns it into an Array of `{region, total}` rows instead of a nested Object. Neither `pluck` nor `mapObject` is `map` in disguise — each names what the input actually is.",
+      "approach": "",
       "snippets": [
         {
           "label": "pluck is the Object-to-Array alternative, useful for a flatter report",
@@ -12762,7 +12762,7 @@
           "expect": {
             "output": "[ { \"region\": \"West\", \"total\": 140 }, { \"region\": \"East\", \"total\": 90 } ] "
           },
-          "note": "Same grouped Object, but `pluck` turns it into an Array of `{region, total}` rows instead of a nested Object. Neither `pluck` nor `mapObject` is `map` in disguise — each names what the input actually is."
+          "note": ""
         }
       ]
     },

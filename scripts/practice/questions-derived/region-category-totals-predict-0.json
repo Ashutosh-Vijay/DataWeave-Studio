@@ -19,7 +19,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\n{ raw: typeOf(payload), grouped: typeOf(payload groupBy $.region) }",
   "explanation": {
-    "approach": "An Array goes in and an Object comes out. That one line decides everything after it: the next step has to be an object function, and reaching for `map` here is an error rather than a wrong answer.",
+    "approach": "",
     "snippets": [
       {
         "label": "Check the shape before you chain anything onto it",
@@ -28,7 +28,7 @@
         "expect": {
           "output": "{ \"raw\": \"Array\", \"grouped\": \"Object\" }"
         },
-        "note": "An Array goes in and an Object comes out. That one line decides everything after it: the next step has to be an object function, and reaching for `map` here is an error rather than a wrong answer."
+        "note": ""
       }
     ]
   },

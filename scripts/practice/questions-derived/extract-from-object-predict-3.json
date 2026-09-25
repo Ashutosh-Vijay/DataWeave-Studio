@@ -18,7 +18,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\n{a: 'apple', b: 'banana'} mapObject ((value, key) -> { (key): value })",
   "explanation": {
-    "approach": "`mapObject` rebuilds an object instead of an array. The computed key `(key)` becomes the field name. Same parameter order as `pluck`.",
+    "approach": "",
     "snippets": [
       {
         "label": "mapObject returns an object, not an array",
@@ -27,7 +27,7 @@
         "expect": {
           "output": "{ \"a\": \"apple\", \"b\": \"banana\" }"
         },
-        "note": "`mapObject` rebuilds an object instead of an array. The computed key `(key)` becomes the field name. Same parameter order as `pluck`."
+        "note": ""
       }
     ]
   },

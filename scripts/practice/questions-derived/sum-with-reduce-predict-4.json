@@ -18,7 +18,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\nsum(payload map $.amount)",
   "explanation": {
-    "approach": "An alternative path: extract the amounts into an array, then pass it to `sum`. `sum` also returns 0 for an empty array, but `reduce` gives you more control over each step.",
+    "approach": "",
     "snippets": [
       {
         "label": "The alternative: sum function",
@@ -27,7 +27,7 @@
         "expect": {
           "output": "45"
         },
-        "note": "An alternative path: extract the amounts into an array, then pass it to `sum`. `sum` also returns 0 for an empty array, but `reduce` gives you more control over each step."
+        "note": ""
       }
     ]
   },

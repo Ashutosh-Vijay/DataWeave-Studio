@@ -125,12 +125,10 @@ for (const file of files) {
     const verdict = soundChoice(satisfies, c.answer);
     if (!verdict.ok) problems.push(`choice unsound — ${verdict.why}`);
     else console.log(`   choice       ${c.options.length} options run, ${verdict.why}`);
-
-    if (problems.length) {
-      failures += problems.length;
-      for (const p of problems) console.log(`   ✗ ${p}`);
-    }
-    continue;
+    // NO `continue` here. It used to skip checks 3 and 4, so a choice
+    // question's explanation was never executed and its prose never checked —
+    // the two rules this gate exists for, silently not applied to what became
+    // the largest group of questions in the set.
   }
 
   // A predict question has no cases: it is graded against whatever the engine
@@ -145,32 +143,27 @@ for (const file of files) {
     if (!r.ok) problems.push(`the script it asks you to read does not run: ${r.error.split('\n')[0]}`);
     else if (!r.output.trim()) problems.push('the script it asks you to read returns nothing');
     else console.log(`   given        runs, returns ${norm(r.output).slice(0, 55)} (${r.ms}ms)`);
+  }
 
-    if (problems.length) {
-      failures += problems.length;
-      for (const p of problems) console.log(`   ✗ ${p}`);
+  // 1 and 2 apply only to a question that is graded against hidden cases.
+  if (mode === 'build' || mode === 'debug') {
+    const ref = await gradeScript(q.solution);
+    if (ref.solved) {
+      console.log(`   solution     passes ${ref.total}/${ref.total} cases (${ref.ms}ms)`);
+    } else {
+      problems.push(
+        `solution fails case ${ref.failure.index}: ` +
+          (ref.failure.error
+            ? ref.failure.error.split('\n')[0]
+            : `wanted ${norm(ref.failure.want)}, got ${norm(ref.failure.got)}`),
+      );
     }
-    continue;
-  }
 
-  // 1. the reference solution
-  const ref = await gradeScript(q.solution);
-  if (ref.solved) {
-    console.log(`   solution     passes ${ref.total}/${ref.total} cases (${ref.ms}ms)`);
-  } else {
-    problems.push(
-      `solution fails case ${ref.failure.index}: ` +
-        (ref.failure.error
-          ? ref.failure.error.split('\n')[0]
-          : `wanted ${norm(ref.failure.want)}, got ${norm(ref.failure.got)}`),
-    );
-  }
-
-  // 2. the wrong answers must be caught, and by a HIDDEN case where possible
-  for (const mf of q.mustFail ?? []) {
-    const r = await gradeScript(mf.script);
-    if (r.solved) problems.push(`mustFail passed anyway — "${mf.why}"`);
-    else console.log(`   mustFail     caught at case ${r.failure.index}${r.failure.hidden ? ' (hidden)' : ''} — ${mf.why}`);
+    for (const mf of q.mustFail ?? []) {
+      const r = await gradeScript(mf.script);
+      if (r.solved) problems.push(`mustFail passed anyway — "${mf.why}"`);
+      else console.log(`   mustFail     caught at case ${r.failure.index}${r.failure.hidden ? ' (hidden)' : ''} — ${mf.why}`);
+    }
   }
 
   // 3. every snippet runs, and says what the explanation says it says
@@ -203,7 +196,15 @@ for (const file of files) {
   }
 
   // 4. nothing named in prose that no snippet demonstrated
-  const executed = [q.solution, ...ran].join('\n');
+  // Everything the engine actually ran for this question. The options and the
+  // `given` script count: they are executed, so a name demonstrated only there
+  // has been demonstrated.
+  const executed = [
+    q.solution ?? '',
+    q.given?.script ?? '',
+    ...(q.choice?.options ?? []),
+    ...ran,
+  ].join('\n');
   // Scanned field by field, with fenced blocks stripped first. Joining the
   // fields let an odd backtick in one pair with one in the next, and a ```
   // fence threw the pairing off for everything after it — which flagged

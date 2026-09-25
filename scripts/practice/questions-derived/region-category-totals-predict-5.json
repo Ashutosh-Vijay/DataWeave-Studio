@@ -19,7 +19,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region pluck ((lines, region) -> { region: region, total: sum(lines.amount) })",
   "explanation": {
-    "approach": "Same grouped Object, but `pluck` turns it into an Array of `{region, total}` rows instead of a nested Object. Neither `pluck` nor `mapObject` is `map` in disguise — each names what the input actually is.",
+    "approach": "",
     "snippets": [
       {
         "label": "pluck is the Object-to-Array alternative, useful for a flatter report",
@@ -28,7 +28,7 @@
         "expect": {
           "output": "[ { \"region\": \"West\", \"total\": 140 }, { \"region\": \"East\", \"total\": 90 } ] "
         },
-        "note": "Same grouped Object, but `pluck` turns it into an Array of `{region, total}` rows instead of a nested Object. Neither `pluck` nor `mapObject` is `map` in disguise — each names what the input actually is."
+        "note": ""
       }
     ]
   },

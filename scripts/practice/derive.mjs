@@ -24,6 +24,37 @@
 import { readFileSync, readdirSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
+/**
+ * Every DataWeave function name, so a derived note can be checked against what
+ * its own snippet actually runs.
+ */
+const FUNCTIONS = new Set(
+  Object.values(JSON.parse(readFileSync('src-tauri/resources/mcp/dw_functions.json', 'utf8')))
+    .map((f) => f.name)
+    .filter((n) => /^[A-Za-z][\w$]*$/.test(n)),
+);
+
+/**
+ * A snippet's note was written beside its siblings, where other snippets
+ * demonstrated the functions it mentions. Pulled out on its own, the note can
+ * name things this question never runs — which is exactly what check 4 refuses,
+ * and it refused five of these. Drop the note rather than ship a claim the
+ * question cannot back up.
+ */
+function noteSurvivesAlone(note, script) {
+  if (!note) return false;
+  for (const [, span] of String(note).matchAll(/`([^`]+)`/g)) {
+    const bare = span.trim();
+    const named = FUNCTIONS.has(bare)
+      ? [bare]
+      : [...span.matchAll(/(?<![\w$.:])([A-Za-z_$][\w$]*)\s*\(/g)].map((m) => m[1]).filter((n) => FUNCTIONS.has(n));
+    for (const n of named) {
+      if (!new RegExp(`(?<![\w$])${n}(?![\w$])`).test(script)) return false;
+    }
+  }
+  return true;
+}
+
 const SRC = 'scripts/practice/questions';
 const OUT = 'scripts/practice/questions-derived';
 const dry = process.argv.includes('--dry');
@@ -60,7 +91,13 @@ function worthPredicting(s) {
   return true;
 }
 
-const files = readdirSync(SRC).filter((f) => f.endsWith('.json') && !f.startsWith('_'));
+// `mcq-*` is excluded deliberately. Deriving from those explanations works and
+// would add roughly 150 more questions — but it happened by accident the first
+// time the MCQs landed, doubling the set to 567 with nothing judging whether
+// the results were worth solving. That should be a decision, not a side effect.
+const files = readdirSync(SRC).filter(
+  (f) => f.endsWith('.json') && !f.startsWith('_') && !f.startsWith('mcq-'),
+);
 const debugQs = [];
 const predictQs = [];
 
@@ -120,7 +157,12 @@ for (const file of files) {
       // there is nothing stored here that could drift.
       cases: [],
       solution: s.script,
-      explanation: { approach: s.note ?? '', snippets: [s] },
+      // The note appears twice — as the approach and on the snippet itself —
+      // and the gate reads both, so blanking only one changed nothing.
+      explanation: (() => {
+        const keep = noteSurvivesAlone(s.note, s.script);
+        return { approach: keep ? s.note : '', snippets: [keep ? s : { ...s, note: '' }] };
+      })(),
       derivedFrom: q.id,
     });
   }

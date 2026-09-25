@@ -19,7 +19,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority pluck ((orders, priority) -> { priority: priority, count: sizeOf(orders) })",
   "explanation": {
-    "approach": "`pluck` is `mapObject`'s sibling that returns an array. Not what this task asked for, but it is the shape you usually want for a report or a CSV — and see that `priority` has come back out as a String, because that is what it became when it was a key.",
+    "approach": "",
     "snippets": [
       {
         "label": "If you want counts as an array of rows instead",
@@ -28,7 +28,7 @@
         "expect": {
           "output": "[ { \"priority\": \"1\", \"count\": 2 }, { \"priority\": \"2\", \"count\": 1 } ]"
         },
-        "note": "`pluck` is `mapObject`'s sibling that returns an array. Not what this task asked for, but it is the shape you usually want for a report or a CSV — and see that `priority` has come back out as a String, because that is what it became when it was a key."
+        "note": ""
       }
     ]
   },

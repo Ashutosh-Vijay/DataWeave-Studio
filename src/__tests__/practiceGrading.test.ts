@@ -59,6 +59,16 @@ describe('outputsMatch — formatting must never be the thing that fails you', (
     expect(outputsMatch('{"a":2}', '{"a":1}')).toBe(false);
   });
 
+  it('treats CRLF and LF as the same, so a question is not platform-dependent', () => {
+    // DataWeave's CSV writer follows the platform line separator, so the same
+    // question produced CRLF on Windows and LF on Linux, and the gate's verdict
+    // changed with the operating system. Both the plain-text path and CSV
+    // embedded inside a JSON string value are covered.
+    expect(outputsMatch('a,b\r\n1,2\r\n', 'a,b\n1,2\n')).toBe(true);
+    expect(outputsMatch('{"csv":"a,b\\r\\n"}', '{"csv":"a,b\\n"}')).toBe(true);
+    expect(outputsMatch('a,b\r\n', 'a,b\n', 'text')).toBe(true);
+  });
+
   it('falls back to text when the output is not JSON, so XML and CSV work untold', () => {
     expect(outputsMatch('a,b\n1,2\n', 'a,b\n1,2\n')).toBe(true);
     expect(outputsMatch('<r><a>1</a></r>', '<r><a>1</a></r>')).toBe(true);

@@ -190,6 +190,13 @@ export function nextUnsolved(
 export function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (a === null || b === null || typeof a !== typeof b) return false;
+  // Two strings that differ only in line endings are the same answer. Inside
+  // JSON output a line ending is the ESCAPED sequence \r\n, so it is still two
+  // ordinary characters until the parse — normalising the raw text beforehand
+  // cannot reach it, and a CSV embedded in a JSON field slips through.
+  if (typeof a === 'string' && typeof b === 'string') {
+    return a.replace(/\r\n/g, '\n') === b.replace(/\r\n/g, '\n');
+  }
   if (typeof a !== 'object') return false;
   if (Array.isArray(a) !== Array.isArray(b)) return false;
   if (Array.isArray(a)) {
@@ -211,13 +218,28 @@ export function deepEqual(a: unknown, b: unknown): boolean {
  * having to remember to set the mode.
  */
 export function outputsMatch(got: string, want: string, compare: 'json' | 'text' = 'json'): boolean {
+  // Line endings are normalised for EVERY mode, before anything else.
+  //
+  // DataWeave's CSV writer uses the platform line separator, so the same
+  // question produced "a,b\r\n" on Windows and "a,b\n" on Linux and the gate's
+  // verdict changed with the operating system — which quietly breaks the rule
+  // the whole pipeline rests on. It is not only the text path: CSV embedded in
+  // a JSON string keeps its \r\n inside the value, so JSON.parse succeeds and
+  // the strings still differ.
+  //
+  // The cost is that a question whose point IS the difference between CRLF and
+  // LF cannot be expressed. That is a fair trade against questions that pass on
+  // one machine and fail on another.
+  const g = got.replace(/\r\n/g, '\n');
+  const w = want.replace(/\r\n/g, '\n');
+
   if (compare === 'text') {
-    return got.replace(/\r\n/g, '\n').trimEnd() === want.replace(/\r\n/g, '\n').trimEnd();
+    return g.trimEnd() === w.trimEnd();
   }
   try {
-    return deepEqual(JSON.parse(got), JSON.parse(want));
+    return deepEqual(JSON.parse(g), JSON.parse(w));
   } catch {
-    return got.trim() === want.trim();
+    return g.trim() === w.trim();
   }
 }
 
