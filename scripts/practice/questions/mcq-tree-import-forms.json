@@ -1,0 +1,53 @@
+{
+  "id": "mcq-tree-import-forms",
+  "unit": "tree-module",
+  "tier": "easy",
+  "title": "Which one fails?",
+  "topics": [
+    "dw::util::Tree",
+    "mapLeafValues",
+    "import"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "basics": "`mapLeafValues` changes every leaf value in a structure, at any depth, and keeps the structure as it is. It lives in the `dw::util::Tree` module, which is not loaded automatically, so a script has to import it before using it.",
+  "mode": "choice",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "payload": "{\"a\":\" x \",\"b\":[\" y\"]}",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\nimport mapLeafValues from dw::util::Tree\n---\npayload mapLeafValues trim($)",
+      "%dw 2.0\noutput application/json\n---\npayload mapLeafValues trim($)",
+      "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\npayload mapLeafValues trim($)",
+      "%dw 2.0\noutput application/json\nimport dw::util::Tree\n---\nTree::mapLeafValues(payload, (v, p) -> trim(v))"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\npayload mapLeafValues trim($)",
+  "explanation": {
+    "approach": "Functions outside core have to be imported. Importing everything, importing the one name, or importing the module and calling through `Tree::` all work. With no import, the name is unknown.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\npayload mapLeafValues trim($)",
+        "payload": "{\"a\":\" x \"}",
+        "expect": {
+          "error": true
+        },
+        "note": "Unable to resolve reference of: mapLeafValues."
+      },
+      {
+        "label": "Imported",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\npayload mapLeafValues trim($)",
+        "payload": "{\"a\":\" x \",\"b\":[\" y\"]}",
+        "expect": {
+          "output": "{\"a\":\"x\",\"b\":[\"y\"]}"
+        },
+        "note": "Every String, including the one inside the Array."
+      }
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "id": "mcq-key-rewrite-values-untouched",
+  "unit": "generic-key-rewrite",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "mapObject",
+    "upper"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "Inside `mapObject ((v, k) -> ...)`, `v` is the value and `k` is the key. Whatever you put in parentheses before the colon becomes the new key, and whatever comes after it becomes the new value.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ code: \"eur\", name: \"euro\" } mapObject ((v, k) -> { (upper(k)): v })"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "{ \"code\": \"EUR\", \"name\": \"EURO\" }",
+      "{ \"CODE\": \"EUR\", \"NAME\": \"EURO\" }",
+      "[ { \"CODE\": \"eur\" }, { \"NAME\": \"euro\" } ]",
+      "{ \"CODE\": \"eur\", \"NAME\": \"euro\" }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ code: \"eur\", name: \"euro\" } mapObject ((v, k) -> { (upper(k)): v })",
+  "explanation": {
+    "approach": "Only the key expression is upper-cased; the value is passed through as it is. And `mapObject` always returns an Object, never an Array.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ code: \"eur\", name: \"euro\" } mapObject ((v, k) -> { (upper(k)): v })",
+        "expect": {
+          "output": "{\"CODE\":\"eur\",\"NAME\":\"euro\"}"
+        },
+        "note": "Keys renamed, values untouched."
+      }
+    ]
+  }
+}
