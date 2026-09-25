@@ -1,0 +1,74 @@
+{
+  "id": "order-lines-with-product-names",
+  "unit": "joins",
+  "tier": "medium",
+  "title": "Look up product names for order lines",
+  "topics": [
+    "groupBy",
+    "var",
+    "default",
+    "join"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "basics": "A lookup table can be built once with `groupBy`: `payload.products groupBy $.sku` is an Object keyed by SKU, so `bySku[\"A1\"]` finds that product's entries directly. Declared as a `var` in the header, it is built once for the whole script.",
+  "mode": "build",
+  "prompt": "You receive `{ lines, products }`: order lines `{ sku, qty }` and the product catalogue `{ sku, name }`.\n\nReturn every line as `{ sku, name, qty }`, in the original order. A line whose SKU is not in the catalogue must still appear, with `name: \"UNKNOWN\"`.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "{\n  \"lines\": [\n    {\n      \"sku\": \"A1\",\n      \"qty\": 2\n    },\n    {\n      \"sku\": \"B2\",\n      \"qty\": 1\n    }\n  ],\n  \"products\": [\n    {\n      \"sku\": \"A1\",\n      \"name\": \"Pen\"\n    },\n    {\n      \"sku\": \"B2\",\n      \"name\": \"Pad\"\n    }\n  ]\n}",
+      "output": "[{\"sku\":\"A1\",\"name\":\"Pen\",\"qty\":2},{\"sku\":\"B2\",\"name\":\"Pad\",\"qty\":1}]"
+    },
+    {
+      "input": "{\n  \"lines\": [\n    {\n      \"sku\": \"Z9\",\n      \"qty\": 1\n    },\n    {\n      \"sku\": \"A1\",\n      \"qty\": 3\n    }\n  ],\n  \"products\": [\n    {\n      \"sku\": \"A1\",\n      \"name\": \"Pen\"\n    }\n  ]\n}",
+      "output": "[{\"sku\":\"Z9\",\"name\":\"UNKNOWN\",\"qty\":1},{\"sku\":\"A1\",\"name\":\"Pen\",\"qty\":3}]"
+    },
+    {
+      "input": "{\n  \"lines\": [],\n  \"products\": [\n    {\n      \"sku\": \"A1\",\n      \"name\": \"Pen\"\n    }\n  ]\n}",
+      "output": "[]"
+    },
+    {
+      "input": "{\n  \"lines\": [\n    {\n      \"sku\": \"B2\",\n      \"qty\": 1\n    },\n    {\n      \"sku\": \"B2\",\n      \"qty\": 4\n    }\n  ],\n  \"products\": [\n    {\n      \"sku\": \"B2\",\n      \"name\": \"Pad\"\n    }\n  ]\n}",
+      "output": "[{\"sku\":\"B2\",\"name\":\"Pad\",\"qty\":1},{\"sku\":\"B2\",\"name\":\"Pad\",\"qty\":4}]"
+    }
+  ],
+  "hints": [
+    "Build a lookup from SKU to product once, then map the lines.",
+    "A SKU that is not in the catalogue looks up to null. What should the name be then?",
+    "`var bySku = payload.products groupBy $.sku`, then `name: bySku[$.sku][0].name default \"UNKNOWN\"`."
+  ],
+  "solution": "%dw 2.0\noutput application/json\nvar bySku = payload.products groupBy $.sku\n---\npayload.lines map { sku: $.sku, name: bySku[$.sku][0].name default \"UNKNOWN\", qty: $.qty }",
+  "mustFail": [
+    {
+      "why": "uses an inner join, which drops any line whose SKU is not in the catalogue",
+      "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\njoin(payload.lines, payload.products, (l) -> l.sku, (p) -> p.sku) map { sku: $.l.sku, name: $.r.name, qty: $.l.qty }"
+    },
+    {
+      "why": "looks the name up without a fallback, so an unknown SKU gets a null name",
+      "script": "%dw 2.0\noutput application/json\nvar bySku = payload.products groupBy $.sku\n---\npayload.lines map { sku: $.sku, name: bySku[$.sku][0].name, qty: $.qty }"
+    }
+  ],
+  "explanation": {
+    "approach": "Grouping the catalogue by SKU once gives a lookup Object, so each line finds its product with a key instead of scanning the catalogue. A missing SKU looks up to null all the way through `[0].name`, and `default` supplies the placeholder. An inner `join` would be shorter, but it drops unmatched lines, which the task forbids.",
+    "snippets": [
+      {
+        "label": "A lookup table",
+        "script": "%dw 2.0\noutput application/json\nvar bySku = [{ sku: \"A1\", name: \"Pen\" }] groupBy $.sku\n---\nbySku[\"A1\"][0].name",
+        "expect": {
+          "output": "\"Pen\""
+        },
+        "note": "One step, however big the catalogue."
+      },
+      {
+        "label": "A missing key",
+        "script": "%dw 2.0\noutput application/json\nvar bySku = [{ sku: \"A1\", name: \"Pen\" }] groupBy $.sku\n---\nbySku[\"Z9\"][0].name",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Null all the way down."
+      }
+    ]
+  }
+}

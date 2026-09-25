@@ -1,0 +1,75 @@
+{
+  "id": "bump-config-version",
+  "unit": "update-operator",
+  "tier": "medium",
+  "title": "Bump the version in a deployment config, adding it if missing",
+  "topics": [
+    "update",
+    "!",
+    "default"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "`update` changes a value at a path and keeps the rest of the structure: `payload update { case v at .app.version -> v + 1 }`. A case whose path is not in the data normally does nothing. Adding `!` to the end of the path creates the field when it is missing.",
+  "mode": "build",
+  "prompt": "Every deployment increments `app.version` in the config. Return the config unchanged except for `app.version`, which goes up by 1.\n\nConfigs created before versioning was introduced have no `version` field in `app`. Those start at version 1.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "{\n  \"app\": {\n    \"name\": \"orders\",\n    \"version\": 3\n  },\n  \"region\": \"eu\"\n}",
+      "output": "{\"app\":{\"name\":\"orders\",\"version\":4},\"region\":\"eu\"}"
+    },
+    {
+      "input": "{\n  \"app\": {\n    \"name\": \"billing\"\n  },\n  \"region\": \"us\"\n}",
+      "output": "{\"app\":{\"name\":\"billing\",\"version\":1},\"region\":\"us\"}"
+    },
+    {
+      "input": "{\n  \"app\": {\n    \"name\": \"auth\",\n    \"version\": 0,\n    \"debug\": true\n  }\n}",
+      "output": "{\"app\":{\"name\":\"auth\",\"version\":1,\"debug\":true}}"
+    },
+    {
+      "input": "{\n  \"app\": {\n    \"name\": \"edge\",\n    \"version\": 9\n  }\n}",
+      "output": "{\"app\":{\"name\":\"edge\",\"version\":10}}"
+    }
+  ],
+  "hints": [
+    "`update` with a case on `.app.version` handles the sample.",
+    "On the second hidden config there is no version. What does `update` do with a path that is not there?",
+    "Add `!` to create it: `case v at .app.version! -> (v default 0) + 1`."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload update { case v at .app.version! -> (v default 0) + 1 }",
+  "mustFail": [
+    {
+      "why": "updates only an existing version, so a config without one is left unversioned",
+      "script": "%dw 2.0\noutput application/json\n---\npayload update { case v at .app.version -> v + 1 }"
+    },
+    {
+      "why": "replaces the whole app object, which drops every other field in it",
+      "script": "%dw 2.0\noutput application/json\n---\npayload update { case a at .app -> { version: (a.version default 0) + 1 } }"
+    }
+  ],
+  "explanation": {
+    "approach": "`update` is the right tool for changing one field in a nested document. Without `!`, a missing field is skipped silently, which is the behaviour you want for optional data and exactly the wrong one here. With `!` the field is created, and its old value arrives as null, which `default 0` turns into a starting point.",
+    "snippets": [
+      {
+        "label": "A missing path is skipped",
+        "script": "%dw 2.0\noutput application/json\n---\npayload update { case v at .app.version -> v + 1 }",
+        "payload": "{\"app\":{\"name\":\"billing\"}}",
+        "expect": {
+          "output": "{\"app\":{\"name\":\"billing\"}}"
+        },
+        "note": "No error and no change."
+      },
+      {
+        "label": "With ! it is created",
+        "script": "%dw 2.0\noutput application/json\n---\npayload update { case v at .app.version! -> (v default 0) + 1 }",
+        "payload": "{\"app\":{\"name\":\"billing\"}}",
+        "expect": {
+          "output": "{\"app\":{\"name\":\"billing\",\"version\":1}}"
+        },
+        "note": "The old value was null."
+      }
+    ]
+  }
+}

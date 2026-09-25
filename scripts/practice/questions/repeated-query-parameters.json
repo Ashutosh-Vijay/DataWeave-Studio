@@ -1,0 +1,75 @@
+{
+  "id": "repeated-query-parameters",
+  "unit": "duplicate-keys",
+  "tier": "medium",
+  "title": "Collect every value of a query parameter that repeats",
+  "topics": [
+    ".*",
+    "duplicate keys",
+    "default"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "A DataWeave Object may hold the same key more than once, which is how repeated query parameters such as `?tag=a&tag=b` arrive. `payload.tag` returns only the first value; the multi-value selector `payload.*tag` returns all of them as an Array.",
+  "mode": "build",
+  "prompt": "The gateway turns a query string into an object, and a repeated parameter becomes a repeated key:\n\n```\n{ \"tag\": \"red\", \"tag\": \"sale\", \"page\": \"2\" }\n```\n\nReturn `{ tags, page }` where `tags` is an array of every `tag` value in order, and `page` is a Number. A request with no `tag` has `tags: []`.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "{ \"tag\": \"red\", \"tag\": \"sale\", \"page\": \"2\" }",
+      "output": "{\"tags\":[\"red\",\"sale\"],\"page\":2}"
+    },
+    {
+      "input": "{ \"tag\": \"new\", \"page\": \"1\" }",
+      "output": "{\"tags\":[\"new\"],\"page\":1}"
+    },
+    {
+      "input": "{ \"page\": \"3\" }",
+      "output": "{\"tags\":[],\"page\":3}"
+    },
+    {
+      "input": "{ \"page\": \"1\", \"tag\": \"a\", \"tag\": \"b\", \"tag\": \"c\" }",
+      "output": "{\"tags\":[\"a\",\"b\",\"c\"],\"page\":1}"
+    }
+  ],
+  "hints": [
+    "Try `payload.tag` on the sample. How many values do you get back?",
+    "The multi-value selector returns every match as an Array.",
+    "`payload.*tag` is null when there is no tag at all, so add `default []`."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ tags: payload.*tag default [], page: payload.page as Number }",
+  "mustFail": [
+    {
+      "why": "has no fallback, so a request without any tag gives null instead of []",
+      "script": "%dw 2.0\noutput application/json\n---\n{ tags: payload.*tag, page: payload.page as Number }"
+    },
+    {
+      "why": "reads the first tag only and wraps it, which is right only for requests with exactly one tag",
+      "script": "%dw 2.0\noutput application/json\n---\n{ tags: [payload.tag], page: payload.page as Number }"
+    }
+  ],
+  "explanation": {
+    "approach": "Repeated keys are legal in a DataWeave Object, and they are how repeated parameters and repeated XML elements arrive. The single-value selector stops at the first, and `.*` collects them all. On a request with none, `.*` gives null, so `default []` keeps the type stable.",
+    "snippets": [
+      {
+        "label": "One selector, two answers",
+        "script": "%dw 2.0\noutput application/json\n---\n{ first: payload.tag, all: payload.*tag }",
+        "payload": "{ \"tag\": \"red\", \"tag\": \"sale\" }",
+        "expect": {
+          "output": "{\"first\":\"red\",\"all\":[\"red\",\"sale\"]}"
+        },
+        "note": "The second tag is invisible to `.tag`."
+      },
+      {
+        "label": ".* with no match",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.*tag",
+        "payload": "{\"page\":\"3\"}",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Null, not an empty array."
+      }
+    ]
+  }
+}
