@@ -1,0 +1,97 @@
+{
+  "id": "embed-xml-in-json-envelope",
+  "unit": "multi-format-embed",
+  "tier": "extra",
+  "title": "Send an XML document inside a JSON envelope",
+  "topics": [
+    "write",
+    "xml",
+    "writer properties"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "basics": "`write(value, \"application/xml\")` turns a value into XML text, a String, which can then be placed inside a JSON field like any other String. A third argument passes writer properties, such as `{ indent: false, writeDeclaration: false }`, which control how the text is laid out.",
+  "mode": "build",
+  "prompt": "A logistics partner accepts orders as JSON, but the order itself must be an XML document in a String field:\n\n```\n{ \"ref\": \"O-1\", \"xml\": \"<order><id>O-1</id><line>A</line></order>\" }\n```\n\nThe payload is `{ id, lines }`, where `lines` is an array of SKUs. Build the envelope with `ref` set to the id, and `xml` holding an `order` element with one `id` and one `line` element per SKU, written on one line with no XML declaration.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "{\n  \"id\": \"O-1\",\n  \"lines\": [\n    \"A\"\n  ]\n}",
+      "output": "{\"ref\":\"O-1\",\"xml\":\"<order><id>O-1</id><line>A</line></order>\"}"
+    },
+    {
+      "input": "{\n  \"id\": \"O-2\",\n  \"lines\": [\n    \"A\",\n    \"B\"\n  ]\n}",
+      "output": "{\"ref\":\"O-2\",\"xml\":\"<order><id>O-2</id><line>A</line><line>B</line></order>\"}"
+    },
+    {
+      "input": "{\n  \"id\": \"O-3\",\n  \"lines\": []\n}",
+      "output": "{\"ref\":\"O-3\",\"xml\":\"<order><id>O-3</id></order>\"}"
+    },
+    {
+      "input": "{\n  \"id\": \"O-4\",\n  \"lines\": [\n    \"C\",\n    \"D\",\n    \"E\"\n  ]\n}",
+      "output": "{\"ref\":\"O-4\",\"xml\":\"<order><id>O-4</id><line>C</line><line>D</line><line>E</line></order>\"}"
+    }
+  ],
+  "hints": [
+    "`write` returns a String. Build the XML structure as an Object with a single root key, then write it.",
+    "An Array under a key becomes repeated elements with that key.",
+    "Pass `{ indent: false, writeDeclaration: false }` as the third argument of `write`. Then try an order with no lines: an empty Array still writes an element, so make the field conditional."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n{\n  ref: payload.id,\n  xml: write({ order: { id: payload.id, (line: payload.lines) if (!isEmpty(payload.lines)) } }, \"application/xml\", { indent: false, writeDeclaration: false })\n}",
+  "mustFail": [
+    {
+      "why": "writes the lines unconditionally, and an empty Array still produces one empty line element",
+      "script": "%dw 2.0\noutput application/json\n---\n{\n  ref: payload.id,\n  xml: write({ order: { id: payload.id, line: payload.lines } }, \"application/xml\", { indent: false, writeDeclaration: false })\n}"
+    },
+    {
+      "why": "leaves the writer defaults, so the String carries an XML declaration and line breaks",
+      "script": "%dw 2.0\noutput application/json\n---\n{\n  ref: payload.id,\n  xml: write({ order: { id: payload.id, line: payload.lines } }, \"application/xml\")\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "Embedding one format in another means serialising the inner document to a String first, which is what `write` does. The value written has to be a valid XML shape, with a single root, and the writer properties go in the third argument. The hidden trap is the empty order: an empty Array under `line` does not vanish, it becomes one empty `<line/>`, so the field has to be left out when there are no lines.",
+    "snippets": [
+      {
+        "label": "write returns text",
+        "script": "%dw 2.0\noutput application/json\n---\ntypeOf(write({ order: { id: 1 } }, \"application/xml\"))",
+        "expect": {
+          "output": "\"String\""
+        },
+        "note": "In the JSON output, it is an ordinary String field."
+      },
+      {
+        "label": "The default layout",
+        "script": "%dw 2.0\noutput application/json\n---\nwrite({ order: { id: 1 } }, \"application/xml\")",
+        "expect": {
+          "output": "\"<?xml version='1.0' encoding='UTF-8'?>\\n<order>\\n  <id>1</id>\\n</order>\""
+        },
+        "note": "A declaration and line breaks, unless you turn them off."
+      },
+      {
+        "label": "An empty Array is not nothing",
+        "script": "%dw 2.0\noutput application/json\n---\nwrite({ order: { line: [] } }, \"application/xml\", { indent: false, writeDeclaration: false })",
+        "expect": {
+          "output": "\"<order><line/></order>\""
+        },
+        "note": "One empty element, which the partner reads as a line with no SKU."
+      },
+      {
+        "label": "Two roots",
+        "script": "%dw 2.0\noutput application/json\n---\nwrite({ id: 1, lines: [] }, \"application/xml\")",
+        "expect": {
+          "error": true
+        },
+        "note": "An XML document needs exactly one root element."
+      },
+      {
+        "label": "An Array becomes repeated elements",
+        "script": "%dw 2.0\noutput application/json\n---\nwrite({ order: { line: [\"A\", \"B\"] } }, \"application/xml\", { indent: false, writeDeclaration: false })",
+        "expect": {
+          "output": "\"<order><line>A</line><line>B</line></order>\""
+        },
+        "note": "One element per value."
+      }
+    ]
+  }
+}

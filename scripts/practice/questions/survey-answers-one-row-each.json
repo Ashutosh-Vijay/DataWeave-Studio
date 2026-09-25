@@ -1,0 +1,76 @@
+{
+  "id": "survey-answers-one-row-each",
+  "unit": "pivot",
+  "tier": "hard",
+  "title": "Turn survey answers into one row per respondent",
+  "topics": [
+    "groupBy",
+    "pluck",
+    "distinctBy",
+    "dynamic keys"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "Pivoting turns rows into columns: many `{ respondent, question, answer }` rows become one row per respondent with a key per question. The keys come from the data, so they are computed with `(expr): value`, and the full set of questions has to be discovered first.",
+  "mode": "build",
+  "prompt": "A survey tool exports one row per answer: `{ respondent, question, answer }`. The analytics team wants one object per respondent, in the order respondents first appear, with `respondent` followed by one key for **every question anybody answered**.\n\nA respondent who skipped a question must still have that key, with the value `null`, so every row has the same columns.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"respondent\": \"r1\",\n    \"question\": \"q1\",\n    \"answer\": \"yes\"\n  },\n  {\n    \"respondent\": \"r1\",\n    \"question\": \"q2\",\n    \"answer\": \"no\"\n  },\n  {\n    \"respondent\": \"r2\",\n    \"question\": \"q1\",\n    \"answer\": \"no\"\n  },\n  {\n    \"respondent\": \"r2\",\n    \"question\": \"q2\",\n    \"answer\": \"yes\"\n  }\n]",
+      "output": "[{\"respondent\":\"r1\",\"q1\":\"yes\",\"q2\":\"no\"},{\"respondent\":\"r2\",\"q1\":\"no\",\"q2\":\"yes\"}]"
+    },
+    {
+      "input": "[\n  {\n    \"respondent\": \"r1\",\n    \"question\": \"q1\",\n    \"answer\": \"yes\"\n  },\n  {\n    \"respondent\": \"r2\",\n    \"question\": \"q2\",\n    \"answer\": \"no\"\n  }\n]",
+      "output": "[{\"respondent\":\"r1\",\"q1\":\"yes\",\"q2\":null},{\"respondent\":\"r2\",\"q1\":null,\"q2\":\"no\"}]"
+    },
+    {
+      "input": "[\n  {\n    \"respondent\": \"r3\",\n    \"question\": \"age\",\n    \"answer\": \"40\"\n  }\n]",
+      "output": "[{\"respondent\":\"r3\",\"age\":\"40\"}]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Group by respondent and spread each respondent's answers into one object. Then look at the second hidden case.",
+    "The columns are every distinct question in the whole export, not just the ones this respondent answered.",
+    "Collect `payload.question distinctBy $` once, then for each respondent build `{ (questions map (q) -> { (q): (answers filter $.question == q)[0].answer }) }`."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var questions = payload.question distinctBy $\n  ---\n  payload groupBy $.respondent pluck ((answers, who) -> {\n    respondent: who,\n    (questions map (q) -> { (q): (answers filter ($.question == q))[0].answer })\n  })\n}",
+  "mustFail": [
+    {
+      "why": "spreads only the questions each respondent answered, so a skipped question is a missing key instead of null",
+      "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.respondent pluck ((answers, who) -> {\n  respondent: who,\n  (answers map { ($.question): $.answer })\n})"
+    },
+    {
+      "why": "pivots the wrong way round, one row per question",
+      "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.question pluck ((answers, q) -> {\n  question: q,\n  (answers map { ($.respondent): $.answer })\n})"
+    }
+  ],
+  "explanation": {
+    "approach": "A pivot has to know its columns before it builds any row, because a row cannot know about questions it never saw. Discover the full set once, then build every row from that set, looking each answer up and getting null where there is none.",
+    "snippets": [
+      {
+        "label": "The columns, discovered once",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.question distinctBy $",
+        "payload": "[{\"question\":\"q1\"},{\"question\":\"q2\"},{\"question\":\"q1\"}]",
+        "expect": {
+          "output": "[\"q1\",\"q2\"]"
+        },
+        "note": "First-seen order."
+      },
+      {
+        "label": "A lookup that finds nothing",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.question == \"q2\"))[0].answer",
+        "payload": "[{\"question\":\"q1\",\"answer\":\"yes\"}]",
+        "expect": {
+          "output": "null"
+        },
+        "note": "The skipped question comes out as null."
+      }
+    ]
+  }
+}
