@@ -1,0 +1,52 @@
+{
+  "id": "mcq-map-nested-index",
+  "unit": "map-basics",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "map",
+    "index"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "Inside `map`, `$$` is the index of the current element. When one `map` sits inside another, each has its own `$` and `$$`, and the inner ones hide the outer ones.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[[\"a\", \"b\"], [\"c\"]] map ($ map $$)"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "[ [ 0, 1 ], [ 2 ] ]",
+      "[ [ 0, 1 ], [ 0 ] ]",
+      "[ [ 0, 0 ], [ 1 ] ]",
+      "[ 0, 1 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[[\"a\", \"b\"], [\"c\"]] map ($ map $$)",
+  "explanation": {
+    "approach": "The inner `$$` counts the elements of the inner Array, starting again at 0 for each. To use the outer index inside, name the outer lambda's parameters.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[[\"a\", \"b\"], [\"c\"]] map ($ map $$)",
+        "expect": {
+          "output": "[[0,1],[0]]"
+        },
+        "note": "Counted per inner Array."
+      },
+      {
+        "label": "The outer index",
+        "script": "%dw 2.0\noutput application/json\n---\n[[\"a\", \"b\"], [\"c\"]] map ((row, i) -> row map i)",
+        "expect": {
+          "output": "[[0,0],[1]]"
+        },
+        "note": "A named parameter reaches past the inner lambda."
+      }
+    ]
+  }
+}

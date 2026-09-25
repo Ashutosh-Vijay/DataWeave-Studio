@@ -1,0 +1,46 @@
+{
+  "id": "mcq-schema-type-checks",
+  "unit": "schema-validator",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "is",
+    "type"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "`value is Type` checks the type of a value at run time and returns a Boolean: `5 is Number` is true. It is the building block of a validator: one `is` per field.",
+  "mode": "choice",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ id: payload.id is Number, name: payload.name is String, tags: payload.tags is Array }",
+    "payload": "{\"id\":\"7\",\"name\":\"Ann\",\"tags\":[]}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "{ \"id\": false, \"name\": true, \"tags\": true }",
+      "{ \"id\": true, \"name\": true, \"tags\": false }",
+      "{ \"id\": true, \"name\": true, \"tags\": true }",
+      "{ \"id\": false, \"name\": true, \"tags\": false }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ id: payload.id is Number, name: payload.name is String, tags: payload.tags is Array }",
+  "explanation": {
+    "approach": "The id arrived as the String \"7\", so it is not a Number, however numeric it looks. An empty Array is still an Array.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ id: payload.id is Number, name: payload.name is String, tags: payload.tags is Array }",
+        "payload": "{\"id\":\"7\",\"name\":\"Ann\",\"tags\":[]}",
+        "expect": {
+          "output": "{\"id\":false,\"name\":true,\"tags\":true}"
+        },
+        "note": "`is` does not coerce."
+      }
+    ]
+  }
+}

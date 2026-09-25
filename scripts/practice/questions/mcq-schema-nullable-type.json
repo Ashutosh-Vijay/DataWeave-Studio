@@ -1,0 +1,45 @@
+{
+  "id": "mcq-schema-nullable-type",
+  "unit": "schema-validator",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "is",
+    "type",
+    "Null"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "A type can be a union of alternatives written with `|`: `String | Null` means \"a String or null\". It is how a schema says a field is optional.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ null is String, null is String | Null, \"a\" is String | Null, 5 is String | Null ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ false, true, true, false ]",
+      "[ true, true, true, false ]",
+      "[ false, true, true, true ]",
+      "[ false, false, true, false ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ null is String, null is String | Null, \"a\" is String | Null, 5 is String | Null ]",
+  "explanation": {
+    "approach": "null is not a String, but it is a member of `String | Null`. A Number is in neither alternative.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ null is String, null is String | Null, \"a\" is String | Null, 5 is String | Null ]",
+        "expect": {
+          "output": "[false,true,true,false]"
+        },
+        "note": "The union accepts either."
+      }
+    ]
+  }
+}

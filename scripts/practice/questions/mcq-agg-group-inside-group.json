@@ -1,0 +1,46 @@
+{
+  "id": "mcq-agg-group-inside-group",
+  "unit": "nested-aggregation",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "groupBy",
+    "mapObject"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "Inside a `mapObject` that follows `groupBy`, each group is a plain Array again, so it can be grouped a second time. The result is an Object of Objects.",
+  "mode": "choice",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.r mapObject ((rows, r) -> { (r): rows groupBy $.c mapObject { ($$): sum($.n) } })",
+    "payload": "[{\"r\":\"EU\",\"c\":\"x\",\"n\":1},{\"r\":\"EU\",\"c\":\"y\",\"n\":2},{\"r\":\"US\",\"c\":\"x\",\"n\":3}]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "{ \"EU\": { \"x\": 1, \"y\": 2 }, \"US\": { \"x\": 3 } }",
+      "{ \"x\": { \"EU\": 1, \"US\": 3 }, \"y\": { \"EU\": 2 } }",
+      "{ \"EU\": 3, \"US\": 3 }",
+      "{ \"EU\": [ { \"x\": 1 }, { \"y\": 2 } ], \"US\": [ { \"x\": 3 } ] }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.r mapObject ((rows, r) -> { (r): rows groupBy $.c mapObject { ($$): sum($.n) } })",
+  "explanation": {
+    "approach": "The outer grouping decides the first level of keys, region, and the inner grouping the second, category. `mapObject` at each level keeps both levels as Objects.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.r mapObject ((rows, r) -> { (r): rows groupBy $.c mapObject { ($$): sum($.n) } })",
+        "payload": "[{\"r\":\"EU\",\"c\":\"x\",\"n\":1},{\"r\":\"EU\",\"c\":\"y\",\"n\":2},{\"r\":\"US\",\"c\":\"x\",\"n\":3}]",
+        "expect": {
+          "output": "{\"EU\":{\"x\":1,\"y\":2},\"US\":{\"x\":3}}"
+        },
+        "note": "Region first, then category."
+      }
+    ]
+  }
+}

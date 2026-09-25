@@ -1,0 +1,54 @@
+{
+  "id": "mcq-error-or-else-try",
+  "unit": "error-handling",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "dw::Runtime",
+    "try",
+    "orElseTry",
+    "orElse"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "`try` returns a result Object. `orElse` unwraps it: the value on success, a fallback otherwise. `orElseTry` instead attempts a second function when the first failed, and hands back another result Object.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ntry(() -> 1 / 0) orElseTry (() -> 2)"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "{ \"success\": false, \"result\": 2 }",
+      "2",
+      "It fails: Division by zero",
+      "{ \"success\": true, \"result\": 2 }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ntry(() -> 1 / 0) orElseTry (() -> 2)",
+  "explanation": {
+    "approach": "The first attempt fails, so the second is tried, and it succeeds. `orElseTry` keeps the result wrapped, so it can be chained again; `orElse` is what finally turns it into a plain value.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ntry(() -> 1 / 0) orElseTry (() -> 2)",
+        "expect": {
+          "output": "{\"success\":true,\"result\":2}"
+        },
+        "note": "Still a result Object."
+      },
+      {
+        "label": "Unwrapped with orElse",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ntry(() -> 1 / 0) orElse 2",
+        "expect": {
+          "output": "2"
+        },
+        "note": "A plain value."
+      }
+    ]
+  }
+}
