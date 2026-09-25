@@ -60,14 +60,29 @@ type Tier = (typeof TIERS)[number];
  * is user-configurable, so a tier could change hue when somebody picked a new
  * accent. The ramp is fixed and its steps are validated for both surfaces.
  */
+// Labels follow effort levels (Low → Ultra), not easy/hard. The ids stay
+// easy/hard because every question file and the authoring pipeline use them.
 const TIER_META: Record<Tier, { colour: string; label: string; blurb: string }> = {
-  easy:   { colour: 'var(--tier-1)', label: 'Easy',   blurb: 'One idea at a time' },
+  easy:   { colour: 'var(--tier-1)', label: 'Low',    blurb: 'One idea at a time' },
   medium: { colour: 'var(--tier-2)', label: 'Medium', blurb: 'Two ideas, and a shape that surprises you' },
-  hard:   { colour: 'var(--tier-3)', label: 'Hard',   blurb: 'Something a working Mule developer hits' },
+  hard:   { colour: 'var(--tier-3)', label: 'High',   blurb: 'Something a working Mule developer hits' },
   extra:  { colour: 'var(--tier-4)', label: 'Extra',  blurb: 'Needs a technique, not just a function' },
   max:    { colour: 'var(--tier-5)', label: 'Max',    blurb: 'Recursive, or a shape discovered from the data' },
   ultra:  { colour: 'var(--tier-6)', label: 'Ultra',  blurb: 'Write an interpreter in a mapping language' },
 };
+
+/**
+ * How a question is answered, so the list can be narrowed to one way of
+ * working. `debug` sits with `build`: both mean writing a script that has to
+ * pass hidden cases.
+ */
+const KINDS: { id: string; label: string; match: (q: PracticeQuestion) => boolean }[] = [
+  { id: 'all',     label: 'All',             match: () => true },
+  { id: 'choice',  label: 'Multiple choice', match: (q) => q.mode === 'choice' },
+  { id: 'code',    label: 'Write code',      match: (q) => !q.mode || q.mode === 'build' || q.mode === 'debug' },
+  { id: 'predict', label: 'Type the output', match: (q) => q.mode === 'predict' },
+];
+const KIND_KEY = 'dw-practice-kind-v1';
 
 /**
  * What is remembered about a question.
@@ -352,6 +367,13 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
   const editorFont = useEditorFont();
   const [progress, setProgress] = useState<Record<string, Progress>>(loadProgress);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [kind, setKind] = useState<string>(() => {
+    try {
+      return localStorage.getItem(KIND_KEY) ?? 'all';
+    } catch {
+      return 'all';
+    }
+  });
   const [script, setScript] = useState('');
   /**
    * Every question's editor contents, so leaving one and coming back does not
@@ -648,9 +670,16 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
   // topics covered — there is no second number to report.
   const solvedCount = QUESTIONS.filter((q) => progress[q.id]?.solved).length;
 
-  /** Where "Next" goes: the next thing you have not done, wrapping around. */
+  const shown = QUESTIONS.filter((KINDS.find((k) => k.id === kind) ?? KINDS[0]).match);
+
+  /**
+   * Where "Next" goes: the next thing you have not done, wrapping around —
+   * within the filter, so choosing "Multiple choice" means Next stays on
+   * multiple choice.
+   */
   const upNext = question
-    ? nextUnsolved(QUESTIONS, question.id, (id) => !!progress[id]?.solved)
+    ? nextUnsolved(shown, question.id, (id) => !!progress[id]?.solved) ??
+      nextUnsolved(QUESTIONS, question.id, (id) => !!progress[id]?.solved)
     : null;
 
   if (!open) return null;
@@ -755,8 +784,36 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
               }}
             />
 
+            <div className="flex flex-wrap gap-1 mb-5 p-1 rounded-lg border border-line w-fit">
+              {KINDS.map((k) => {
+                const all = QUESTIONS.filter(k.match);
+                const active = k.id === kind;
+                return (
+                  <button
+                    key={k.id}
+                    onClick={() => {
+                      setKind(k.id);
+                      try {
+                        localStorage.setItem(KIND_KEY, k.id);
+                      } catch {
+                        /* blocked storage — the filter just is not remembered */
+                      }
+                    }}
+                    className={`h-7 px-3 rounded-md text-[12px] cursor-pointer transition-colors ${
+                      active ? 'bg-surface-2 text-content font-medium' : 'text-content-faint hover:text-content'
+                    }`}
+                  >
+                    {k.label}
+                    <span className="ml-1.5 text-[11px] text-content-ghost tabular-nums">
+                      {all.filter((q) => progress[q.id]?.solved).length}/{all.length}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
             {TIERS.map((tier) => {
-              const inTier = QUESTIONS.filter((q) => q.tier === tier);
+              const inTier = shown.filter((q) => q.tier === tier);
               if (!inTier.length) return null;
               return (
                 <div key={tier} className="mb-7">
@@ -792,6 +849,11 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
                             }}
                           />
                           <span className="text-[13px] text-content flex-1 truncate">{q.title}</span>
+                          {kind === 'all' && q.mode && q.mode !== 'build' && (
+                            <span className="text-[10px] font-mono text-content-faint px-1.5 rounded border border-line-subtle">
+                              {{ choice: 'MCQ', debug: 'Fix', predict: 'Predict' }[q.mode]}
+                            </span>
+                          )}
                           {p?.viewedSolution && (
                             <span className="text-[10px] text-content-ghost">solution seen</span>
                           )}
