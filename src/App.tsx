@@ -60,6 +60,7 @@ import { QueryEditor } from './components/QueryEditor';
 // Lazy-loaded modals — each is only mounted when the user opens it. Cuts
 // ~150-200KB off the initial bundle.
 const AboutDialog = lazy(() => import('./components/AboutDialog').then((m) => ({ default: m.AboutDialog })));
+import { RatingPrompt } from './components/RatingForm';
 const FeedbackDialog = lazy(() => import('./components/FeedbackDialog').then((m) => ({ default: m.FeedbackDialog })));
 const SecurePropertiesTool = lazy(() => import('./components/SecurePropertiesTool').then((m) => ({ default: m.SecurePropertiesTool })));
 const ConfigCryptoPanel = lazy(() => import('./components/ConfigCryptoPanel').then((m) => ({ default: m.ConfigCryptoPanel })));
@@ -2211,6 +2212,9 @@ function App() {
           <FeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} appVersion={appVersion} />
         </Suspense>
       )}
+
+      {/* Asks for a rating from the 3rd session on, 90s in. Skippable for good. */}
+      <RatingPrompt appVersion={appVersion} />
 
       {/* Secure Properties Tool dialog */}
       {secureToolOpen && (

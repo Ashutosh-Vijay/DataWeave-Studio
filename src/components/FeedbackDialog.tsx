@@ -2,28 +2,32 @@ import { useEffect, useState } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { isTauri } from '../bridge';
 import { Icons } from './Icons';
+import { RatingForm } from './RatingForm';
 
 /**
  * Feedback / bug report / feature request.
  *
- * Respects the offline / no-telemetry promise: the app NEVER sends anything.
- * It composes a GitHub "new issue" URL (title + body, pre-filled) and hands it
+ * Rate: five faces and a comment, sent to the site (see RatingForm) — the one
+ * option that needs no GitHub account, so it is the default.
+ *
+ * Bug / Feature / Other: the app sends nothing. It composes a GitHub "new issue" URL (title + body, pre-filled) and hands it
  * to the browser when the user clicks — exactly like the existing "Star on
  * GitHub" links. The user reviews and submits it on GitHub themselves. A Copy
  * button is offered as an offline fallback.
  */
 const REPO = 'Ashutosh-Vijay/DataWeave-Studio';
 
-type Kind = 'bug' | 'feature' | 'other';
+type Kind = 'rate' | 'bug' | 'feature' | 'other';
 
 const KINDS: { id: Kind; label: string }[] = [
+  { id: 'rate', label: 'Rate' },
   { id: 'bug', label: 'Bug' },
   { id: 'feature', label: 'Feature' },
   { id: 'other', label: 'Other' },
 ];
 
 export function FeedbackDialog({ open, onClose, appVersion }: { open: boolean; onClose: () => void; appVersion?: string }) {
-  const [kind, setKind] = useState<Kind>('bug');
+  const [kind, setKind] = useState<Kind>('rate');
   const [title, setTitle] = useState('');
   const [details, setDetails] = useState('');
 
@@ -35,7 +39,7 @@ export function FeedbackDialog({ open, onClose, appVersion }: { open: boolean; o
   }, [open, onClose]);
 
   // Reset when reopened so a stale draft doesn't linger.
-  useEffect(() => { if (open) { setKind('bug'); setTitle(''); setDetails(''); } }, [open]);
+  useEffect(() => { if (open) { setKind('rate'); setTitle(''); setDetails(''); } }, [open]);
 
   if (!open) return null;
 
@@ -87,7 +91,7 @@ export function FeedbackDialog({ open, onClose, appVersion }: { open: boolean; o
           <div className="flex-1 min-w-0">
             <div className="text-[14.5px] font-semibold" style={{ color: 'var(--content)' }}>Send feedback</div>
             <div className="text-[12px] mt-[3px]" style={{ color: 'var(--content-muted)' }}>
-              Found a bug or want a feature? Tell me here.
+              Rate it, report a bug, or ask for a feature.
             </div>
           </div>
           <button onClick={onClose} className="w-7 h-7 rounded-md flex items-center justify-center cursor-pointer hover:bg-surface-2 shrink-0" style={{ color: 'var(--content-faint)' }} aria-label="Close">
@@ -114,6 +118,10 @@ export function FeedbackDialog({ open, onClose, appVersion }: { open: boolean; o
             })}
           </div>
 
+          {kind === 'rate' ? (
+            <RatingForm appVersion={appVersion} onDone={onClose} />
+          ) : (
+          <>
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-[0.5px] mb-1.5" style={{ color: 'var(--content-faint)' }}>Title</label>
             <input
@@ -139,12 +147,15 @@ export function FeedbackDialog({ open, onClose, appVersion }: { open: boolean; o
           <div className="flex items-start gap-2 text-[11.5px] leading-relaxed" style={{ color: 'var(--content-muted)' }}>
             <Icons.Secure size={12} style={{ marginTop: 2, color: 'var(--content-faint)', flexShrink: 0 }} />
             <span>
-              Opens a pre-filled issue on GitHub <b>in your browser</b> — the app itself sends nothing. You review and submit it there (a GitHub account is needed). No account? Use <b>Copy</b> and email it.
+              Opens a pre-filled issue on GitHub <b>in your browser</b> — the app itself sends nothing. You review and submit it there (a GitHub account is needed). No account? Use <b>Rate</b> — its comment box needs no account — or <b>Copy</b> and email it.
             </span>
           </div>
+          </>
+          )}
         </div>
 
         {/* Footer */}
+        {kind !== 'rate' && (
         <div className="px-5 py-3 flex items-center gap-2" style={{ borderTop: '1px solid var(--line-subtle)', background: 'var(--surface-2)' }}>
           <button
             onClick={copy}
@@ -166,6 +177,7 @@ export function FeedbackDialog({ open, onClose, appVersion }: { open: boolean; o
             Open on GitHub ↗
           </button>
         </div>
+        )}
       </div>
     </div>
   );

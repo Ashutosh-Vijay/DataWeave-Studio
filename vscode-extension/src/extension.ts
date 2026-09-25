@@ -582,6 +582,28 @@ async function handleInvoke(
       await vscode.env.openExternal(vscode.Uri.parse(args.url as string));
       return null;
 
+    // The rating form's POST. The webview's CSP only allows its own origin, so
+    // the request is made here; the URLs come from the webview so the list
+    // lives in one place (src/components/RatingForm.tsx).
+    case 'send_feedback': {
+      let last = 'Could not reach the feedback server.';
+      for (const url of args.urls as string[]) {
+        try {
+          const r = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(args.body),
+          });
+          if (r.ok) return null;
+          last = ((await r.json().catch(() => null)) as { error?: string } | null)?.error ?? `The server answered ${r.status}.`;
+          if (r.status === 400 || r.status === 429) break;
+        } catch {
+          /* blocked or offline — try the other domain */
+        }
+      }
+      throw new Error(last);
+    }
+
     default:
       throw new Error(`Command not implemented in extension host yet: ${cmd}`);
   }
