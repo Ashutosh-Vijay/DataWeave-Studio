@@ -1,0 +1,34 @@
+{
+  "id": "embed-xml-in-json-envelope-predict-4",
+  "unit": "multi-format-embed",
+  "mode": "predict",
+  "tier": "hard",
+  "title": "An Array becomes repeated elements",
+  "topics": [
+    "write",
+    "xml",
+    "writer properties"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nwrite({ order: { line: [\"A\", \"B\"] } }, \"application/xml\", { indent: false, writeDeclaration: false })"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nwrite({ order: { line: [\"A\", \"B\"] } }, \"application/xml\", { indent: false, writeDeclaration: false })",
+  "explanation": {
+    "approach": "One element per value.",
+    "snippets": [
+      {
+        "label": "An Array becomes repeated elements",
+        "script": "%dw 2.0\noutput application/json\n---\nwrite({ order: { line: [\"A\", \"B\"] } }, \"application/xml\", { indent: false, writeDeclaration: false })",
+        "expect": {
+          "output": "\"<order><line>A</line><line>B</line></order>\""
+        },
+        "note": "One element per value."
+      }
+    ]
+  },
+  "derivedFrom": "embed-xml-in-json-envelope"
+}

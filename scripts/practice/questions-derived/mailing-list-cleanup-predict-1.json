@@ -1,0 +1,37 @@
+{
+  "id": "mailing-list-cleanup-predict-1",
+  "unit": "string-basics",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Filtering first",
+  "topics": [
+    "trim",
+    "lower",
+    "filter",
+    "isEmpty"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload filter not isEmpty($) map lower(trim($))",
+    "payload": "[\"   \",\"CY@EXAMPLE.COM\"]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload filter not isEmpty($) map lower(trim($))",
+  "explanation": {
+    "approach": "The spaces-only entry slipped through and came out as an empty String.",
+    "snippets": [
+      {
+        "label": "Filtering first",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filter not isEmpty($) map lower(trim($))",
+        "payload": "[\"   \",\"CY@EXAMPLE.COM\"]",
+        "expect": {
+          "output": "[\"\",\"cy@example.com\"]"
+        },
+        "note": "The spaces-only entry slipped through and came out as an empty String."
+      }
+    ]
+  },
+  "derivedFrom": "mailing-list-cleanup"
+}

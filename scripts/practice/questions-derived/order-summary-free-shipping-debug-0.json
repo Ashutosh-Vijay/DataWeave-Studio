@@ -1,0 +1,61 @@
+{
+  "id": "order-summary-free-shipping-debug-0",
+  "unit": "do-and-scope",
+  "mode": "debug",
+  "tier": "medium",
+  "title": "Fix it: price an order summary with a free-shipping threshold",
+  "topics": [
+    "do",
+    "var",
+    "sum"
+  ],
+  "basics": "A `do` block names intermediate results inside an expression: `do { var x = ... --- x * 2 }`. The variables exist only inside the block, and each is computed once, so a value used in several places is written once.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nThe checkout sends lines `{ price, qty }`. Return `{ subtotal, shipping, total }`:\n\n- `subtotal` is the sum of price times quantity,\n- shipping is free (`0`) when the subtotal is **50 or more**, otherwise `4.99`,\n- `total` is subtotal plus shipping.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\ndo {\n  var subtotal = sum(payload map ($.price * $.qty))\n  var shipping = if (subtotal > 50) 0 else 4.99\n  ---\n  { subtotal: subtotal, shipping: shipping, total: subtotal + shipping }\n}",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"price\": 30,\n    \"qty\": 1\n  },\n  {\n    \"price\": 25,\n    \"qty\": 1\n  }\n]",
+      "output": "{\"subtotal\":55,\"shipping\":0,\"total\":55}"
+    },
+    {
+      "input": "[\n  {\n    \"price\": 25,\n    \"qty\": 2\n  }\n]",
+      "output": "{\"subtotal\":50,\"shipping\":0,\"total\":50}"
+    },
+    {
+      "input": "[\n  {\n    \"price\": 10,\n    \"qty\": 3\n  }\n]",
+      "output": "{\"subtotal\":30,\"shipping\":4.99,\"total\":34.99}"
+    },
+    {
+      "input": "[\n  {\n    \"price\": 12,\n    \"qty\": 4\n  }\n]",
+      "output": "{\"subtotal\":48,\"shipping\":4.99,\"total\":52.99}"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "uses > 50, so an order of exactly 50 is charged shipping"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var subtotal = sum(payload map ($.price * $.qty))\n  var shipping = if (subtotal >= 50) 0 else 4.99\n  ---\n  { subtotal: subtotal, shipping: shipping, total: subtotal + shipping }\n}",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\ndo {\n  var subtotal = sum(payload map ($.price * $.qty))\n  var shipping = if (subtotal > 50) 0 else 4.99\n  ---\n  { subtotal: subtotal, shipping: shipping, total: subtotal + shipping }\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "Naming the subtotal once keeps the three fields consistent: shipping and total are both computed from the same value. The threshold is inclusive, which is what the order of exactly 50 checks. The sample has single quantities, so the quantity is easy to overlook.",
+    "snippets": [
+      {
+        "label": "A do block",
+        "script": "%dw 2.0\noutput application/json\n---\ndo { var subtotal = 50 --- { free: subtotal >= 50, strict: subtotal > 50 } }",
+        "expect": {
+          "output": "{\"free\":true,\"strict\":false}"
+        },
+        "note": "The two tests disagree only at exactly 50."
+      }
+    ]
+  },
+  "derivedFrom": "order-summary-free-shipping"
+}

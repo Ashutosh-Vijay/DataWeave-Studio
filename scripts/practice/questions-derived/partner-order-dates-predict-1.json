@@ -1,0 +1,34 @@
+{
+  "id": "partner-order-dates-predict-1",
+  "unit": "dates-formatting",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "DD is the day of the year",
+  "topics": [
+    "as",
+    "Date",
+    "format"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n|2024-03-05| as String {format: \"DD/MM/yyyy\"}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n|2024-03-05| as String {format: \"DD/MM/yyyy\"}",
+  "explanation": {
+    "approach": "31 + 29 + 5.",
+    "snippets": [
+      {
+        "label": "DD is the day of the year",
+        "script": "%dw 2.0\noutput application/json\n---\n|2024-03-05| as String {format: \"DD/MM/yyyy\"}",
+        "expect": {
+          "output": "\"65/03/2024\""
+        },
+        "note": "31 + 29 + 5."
+      }
+    ]
+  },
+  "derivedFrom": "partner-order-dates"
+}

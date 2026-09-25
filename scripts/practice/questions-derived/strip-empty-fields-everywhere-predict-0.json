@@ -1,0 +1,37 @@
+{
+  "id": "strip-empty-fields-everywhere-predict-0",
+  "unit": "generic-key-rewrite",
+  "mode": "predict",
+  "tier": "extra",
+  "title": "The writer option",
+  "topics": [
+    "fun",
+    "recursion",
+    "match",
+    "filterObject",
+    "mapObject"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json skipNullOn=\"objects\"",
+  "given": {
+    "script": "%dw 2.0\noutput application/json skipNullOn=\"objects\"\n---\n{ a: null, b: \"\", c: [null, { d: null }] }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json skipNullOn=\"objects\"\n---\n{ a: null, b: \"\", c: [null, { d: null }] }",
+  "explanation": {
+    "approach": "Null fields go at every depth. The empty String stays.",
+    "snippets": [
+      {
+        "label": "The writer option",
+        "script": "%dw 2.0\noutput application/json skipNullOn=\"objects\"\n---\n{ a: null, b: \"\", c: [null, { d: null }] }",
+        "outputMime": "application/json skipNullOn=\"objects\"",
+        "expect": {
+          "output": "{\"b\":\"\",\"c\":[null,{}]}"
+        },
+        "note": "Null fields go at every depth. The empty String stays."
+      }
+    ]
+  },
+  "derivedFrom": "strip-empty-fields-everywhere"
+}

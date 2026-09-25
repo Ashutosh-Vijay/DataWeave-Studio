@@ -1,0 +1,38 @@
+{
+  "id": "order-lines-from-xml-predict-1",
+  "unit": "xml-selectors",
+  "mode": "predict",
+  "tier": "easy",
+  "title": ".* on an order with no lines",
+  "topics": [
+    "xml",
+    ".*",
+    "@",
+    "default"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.order.*line",
+    "payload": "<order id=\"9\"></order>"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.order.*line",
+  "explanation": {
+    "approach": "Not an empty array.",
+    "snippets": [
+      {
+        "label": ".* on an order with no lines",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.order.*line",
+        "payload": "<order id=\"9\"></order>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Not an empty array."
+      }
+    ]
+  },
+  "derivedFrom": "order-lines-from-xml"
+}

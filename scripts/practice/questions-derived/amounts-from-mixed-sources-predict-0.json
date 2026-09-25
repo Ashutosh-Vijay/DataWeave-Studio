@@ -1,0 +1,35 @@
+{
+  "id": "amounts-from-mixed-sources-predict-0",
+  "unit": "match-and-types",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Unreadable text with a fallback",
+  "topics": [
+    "match",
+    "is",
+    "as",
+    "default"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n(\"n/a\" as Number) default null"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(\"n/a\" as Number) default null",
+  "explanation": {
+    "approach": "`default` catches the failed coercion.",
+    "snippets": [
+      {
+        "label": "Unreadable text with a fallback",
+        "script": "%dw 2.0\noutput application/json\n---\n(\"n/a\" as Number) default null",
+        "expect": {
+          "output": "null"
+        },
+        "note": "`default` catches the failed coercion."
+      }
+    ]
+  },
+  "derivedFrom": "amounts-from-mixed-sources"
+}

@@ -1,0 +1,35 @@
+{
+  "id": "amounts-from-mixed-sources-predict-1",
+  "unit": "match-and-types",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "A null case",
+  "topics": [
+    "match",
+    "is",
+    "as",
+    "default"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\nnull match { case n is Number -> n case null -> 0 else -> -1 }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nnull match { case n is Number -> n case null -> 0 else -> -1 }",
+  "explanation": {
+    "approach": "`case null` matches exactly null.",
+    "snippets": [
+      {
+        "label": "A null case",
+        "script": "%dw 2.0\noutput application/json\n---\nnull match { case n is Number -> n case null -> 0 else -> -1 }",
+        "expect": {
+          "output": "0"
+        },
+        "note": "`case null` matches exactly null."
+      }
+    ]
+  },
+  "derivedFrom": "amounts-from-mixed-sources"
+}

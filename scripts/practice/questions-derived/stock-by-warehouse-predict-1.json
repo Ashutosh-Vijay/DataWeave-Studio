@@ -1,0 +1,36 @@
+{
+  "id": "stock-by-warehouse-predict-1",
+  "unit": "groupby-shape",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "groupBy without the reshape",
+  "topics": [
+    "groupBy",
+    "mapObject",
+    "upper"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload groupBy upper($.wh)",
+    "payload": "[{\"sku\":\"D\",\"wh\":\"Man\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy upper($.wh)",
+  "explanation": {
+    "approach": "The buckets hold the original rows.",
+    "snippets": [
+      {
+        "label": "groupBy without the reshape",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy upper($.wh)",
+        "payload": "[{\"sku\":\"D\",\"wh\":\"Man\"}]",
+        "expect": {
+          "output": "{\"MAN\":[{\"sku\":\"D\",\"wh\":\"Man\"}]}"
+        },
+        "note": "The buckets hold the original rows."
+      }
+    ]
+  },
+  "derivedFrom": "stock-by-warehouse"
+}

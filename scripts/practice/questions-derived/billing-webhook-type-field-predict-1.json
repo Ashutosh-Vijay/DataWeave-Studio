@@ -1,0 +1,36 @@
+{
+  "id": "billing-webhook-type-field-predict-1",
+  "unit": "select-and-shape",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Quoted after the dot",
+  "topics": [
+    "selectors",
+    "reserved words",
+    "null"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.\"type\"",
+    "payload": "{\"type\":\"invoice.paid\"}"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.\"type\"",
+  "explanation": {
+    "approach": "Same field, now selectable.",
+    "snippets": [
+      {
+        "label": "Quoted after the dot",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.\"type\"",
+        "payload": "{\"type\":\"invoice.paid\"}",
+        "expect": {
+          "output": "\"invoice.paid\""
+        },
+        "note": "Same field, now selectable."
+      }
+    ]
+  },
+  "derivedFrom": "billing-webhook-type-field"
+}

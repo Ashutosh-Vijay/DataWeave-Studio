@@ -1,0 +1,36 @@
+{
+  "id": "normalise-partner-dates-predict-2",
+  "unit": "dates-formatting",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "What a matches case binds",
+  "topics": [
+    "match",
+    "matches",
+    "as",
+    "Date",
+    "format"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n\"2024-03-05\" match { case m matches /\\d{4}-\\d{2}-\\d{2}/ -> m else -> null }"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"2024-03-05\" match { case m matches /\\d{4}-\\d{2}-\\d{2}/ -> m else -> null }",
+  "explanation": {
+    "approach": "An Array: the whole match, then any groups. Keep a separate name for the text itself.",
+    "snippets": [
+      {
+        "label": "What a matches case binds",
+        "script": "%dw 2.0\noutput application/json\n---\n\"2024-03-05\" match { case m matches /\\d{4}-\\d{2}-\\d{2}/ -> m else -> null }",
+        "expect": {
+          "output": "[\"2024-03-05\"]"
+        },
+        "note": "An Array: the whole match, then any groups. Keep a separate name for the text itself."
+      }
+    ]
+  },
+  "derivedFrom": "normalise-partner-dates"
+}

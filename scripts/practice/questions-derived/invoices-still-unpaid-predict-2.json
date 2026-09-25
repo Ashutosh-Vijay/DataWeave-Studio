@@ -1,0 +1,34 @@
+{
+  "id": "invoices-still-unpaid-predict-2",
+  "unit": "joins",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "An unmatched pair",
+  "topics": [
+    "leftJoin",
+    "dw::core::Arrays",
+    "contains"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\nleftJoin([{ id: 104 }], [], (i) -> i.id, (p) -> p.invoiceId)"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\nleftJoin([{ id: 104 }], [], (i) -> i.id, (p) -> p.invoiceId)",
+  "explanation": {
+    "approach": "No `r` at all.",
+    "snippets": [
+      {
+        "label": "An unmatched pair",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\nleftJoin([{ id: 104 }], [], (i) -> i.id, (p) -> p.invoiceId)",
+        "expect": {
+          "output": "[{\"l\":{\"id\":104}}]"
+        },
+        "note": "No `r` at all."
+      }
+    ]
+  },
+  "derivedFrom": "invoices-still-unpaid"
+}

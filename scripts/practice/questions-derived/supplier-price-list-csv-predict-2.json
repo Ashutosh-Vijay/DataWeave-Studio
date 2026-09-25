@@ -1,0 +1,34 @@
+{
+  "id": "supplier-price-list-csv-predict-2",
+  "unit": "csv-round-trip",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "default catches the failed coercion",
+  "topics": [
+    "csv",
+    "as",
+    "default"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/csv",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n(\"\" as Number) default 0"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(\"\" as Number) default 0",
+  "explanation": {
+    "approach": "The fallback is used instead of the error.",
+    "snippets": [
+      {
+        "label": "default catches the failed coercion",
+        "script": "%dw 2.0\noutput application/json\n---\n(\"\" as Number) default 0",
+        "expect": {
+          "output": "0"
+        },
+        "note": "The fallback is used instead of the error."
+      }
+    ]
+  },
+  "derivedFrom": "supplier-price-list-csv"
+}

@@ -1,0 +1,37 @@
+{
+  "id": "survey-answers-one-row-each-predict-0",
+  "unit": "pivot",
+  "mode": "predict",
+  "tier": "medium",
+  "title": "The columns, discovered once",
+  "topics": [
+    "groupBy",
+    "pluck",
+    "distinctBy",
+    "dynamic keys"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload.question distinctBy $",
+    "payload": "[{\"question\":\"q1\"},{\"question\":\"q2\"},{\"question\":\"q1\"}]"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.question distinctBy $",
+  "explanation": {
+    "approach": "First-seen order.",
+    "snippets": [
+      {
+        "label": "The columns, discovered once",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.question distinctBy $",
+        "payload": "[{\"question\":\"q1\"},{\"question\":\"q2\"},{\"question\":\"q1\"}]",
+        "expect": {
+          "output": "[\"q1\",\"q2\"]"
+        },
+        "note": "First-seen order."
+      }
+    ]
+  },
+  "derivedFrom": "survey-answers-one-row-each"
+}

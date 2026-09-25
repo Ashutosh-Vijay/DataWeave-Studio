@@ -1,0 +1,71 @@
+{
+  "id": "repeated-query-parameters-debug-1",
+  "unit": "duplicate-keys",
+  "mode": "debug",
+  "tier": "medium",
+  "title": "Fix it: collect every value of a query parameter that repeats",
+  "topics": [
+    ".*",
+    "duplicate keys",
+    "default"
+  ],
+  "basics": "A DataWeave Object may hold the same key more than once, which is how repeated query parameters such as `?tag=a&tag=b` arrive. `payload.tag` returns only the first value; the multi-value selector `payload.*tag` returns all of them as an Array.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nThe gateway turns a query string into an object, and a repeated parameter becomes a repeated key:\n\n```\n{ \"tag\": \"red\", \"tag\": \"sale\", \"page\": \"2\" }\n```\n\nReturn `{ tags, page }` where `tags` is an array of every `tag` value in order, and `page` is a Number. A request with no `tag` has `tags: []`.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n{ tags: [payload.tag], page: payload.page as Number }",
+  "cases": [
+    {
+      "input": "{ \"tag\": \"red\", \"tag\": \"sale\", \"page\": \"2\" }",
+      "output": "{\"tags\":[\"red\",\"sale\"],\"page\":2}"
+    },
+    {
+      "input": "{ \"tag\": \"new\", \"page\": \"1\" }",
+      "output": "{\"tags\":[\"new\"],\"page\":1}"
+    },
+    {
+      "input": "{ \"page\": \"3\" }",
+      "output": "{\"tags\":[],\"page\":3}"
+    },
+    {
+      "input": "{ \"page\": \"1\", \"tag\": \"a\", \"tag\": \"b\", \"tag\": \"c\" }",
+      "output": "{\"tags\":[\"a\",\"b\",\"c\"],\"page\":1}"
+    }
+  ],
+  "hints": [
+    "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
+    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "reads the first tag only and wraps it, which is right only for requests with exactly one tag"
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ tags: payload.*tag default [], page: payload.page as Number }",
+  "mustFail": [
+    {
+      "why": "the unfixed script",
+      "script": "%dw 2.0\noutput application/json\n---\n{ tags: [payload.tag], page: payload.page as Number }"
+    }
+  ],
+  "explanation": {
+    "approach": "Repeated keys are legal in a DataWeave Object, and they are how repeated parameters and repeated XML elements arrive. The single-value selector stops at the first, and `.*` collects them all. On a request with none, `.*` gives null, so `default []` keeps the type stable.",
+    "snippets": [
+      {
+        "label": "One selector, two answers",
+        "script": "%dw 2.0\noutput application/json\n---\n{ first: payload.tag, all: payload.*tag }",
+        "payload": "{ \"tag\": \"red\", \"tag\": \"sale\" }",
+        "expect": {
+          "output": "{\"first\":\"red\",\"all\":[\"red\",\"sale\"]}"
+        },
+        "note": "The second tag is invisible to `.tag`."
+      },
+      {
+        "label": ".* with no match",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.*tag",
+        "payload": "{\"page\":\"3\"}",
+        "expect": {
+          "output": "null"
+        },
+        "note": "Null, not an empty array."
+      }
+    ]
+  },
+  "derivedFrom": "repeated-query-parameters"
+}

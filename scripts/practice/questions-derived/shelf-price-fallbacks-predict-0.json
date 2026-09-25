@@ -1,0 +1,33 @@
+{
+  "id": "shelf-price-fallbacks-predict-0",
+  "unit": "default-and-missing",
+  "mode": "predict",
+  "tier": "easy",
+  "title": "Zero is not missing",
+  "topics": [
+    "default",
+    "if"
+  ],
+  "prompt": "What does this return? Read it — do not run it.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n0 default 99"
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n0 default 99",
+  "explanation": {
+    "approach": "`default` keeps any value that is not null.",
+    "snippets": [
+      {
+        "label": "Zero is not missing",
+        "script": "%dw 2.0\noutput application/json\n---\n0 default 99",
+        "expect": {
+          "output": "0"
+        },
+        "note": "`default` keeps any value that is not null."
+      }
+    ]
+  },
+  "derivedFrom": "shelf-price-fallbacks"
+}
