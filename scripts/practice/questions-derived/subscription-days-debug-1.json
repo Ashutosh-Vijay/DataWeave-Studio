@@ -36,7 +36,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "uses between(), whose .days is the leftover days after whole months"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\npayload map {\n  id: $.id,\n  days: (($.end as Date) - ($.start as Date)).days\n}",
@@ -47,7 +47,7 @@
     }
   ],
   "explanation": {
-    "approach": "DataWeave gives you two different subtractions between dates, and they mean different things. One produces a **duration** — an elapsed amount of time. The other produces a **calendar period** — years, months and days, the way a person reads a gap off a calendar. The task asks for whole days, which is the first one. Reaching for the function whose name matches the question gets you the second.",
+    "approach": "DataWeave gives you two different subtractions between dates, and they mean different things. One produces a **duration**, an elapsed amount of time. The other produces a **calendar period**, years, months and days, the way a person reads a gap off a calendar. The task asks for whole days, which is the first one. Reaching for the function whose name matches the question gets you the second.",
     "snippets": [
       {
         "label": "What subtracting two dates gives you",
@@ -55,7 +55,7 @@
         "expect": {
           "output": "{ \"value\": \"PT672H\", \"kind\": \"Period\" }"
         },
-        "note": "Not a number — a Period, printed as `PT672H`. It is an elapsed duration held in hours, and 672 hours is 28 days. This is why the answer cannot just be `end - start`."
+        "note": "Not a number: a Period, printed as `PT672H`. It is an elapsed duration held in hours, and 672 hours is 28 days. This is why the answer cannot just be `end - start`."
       },
       {
         "label": "Pulling days out of that duration",
@@ -71,7 +71,7 @@
         "expect": {
           "output": "{ \"period\": \"P1M\", \"days\": 0 }"
         },
-        "note": "`between` gives a calendar period: `P1M`, one month. Its `.days` is the **leftover** days after the whole months are taken out — and here there are none, so it is 0. The function named for the job returns zero for a month-long subscription, and it does it silently."
+        "note": "`between` gives a calendar period: `P1M`, one month. Its `.days` is the **leftover** days after the whole months are taken out, and here there are none, so it is 0. The function named for the job returns zero for a month-long subscription, and it does it silently."
       },
       {
         "label": "The same trap with a remainder, which is how it survives review",
@@ -79,7 +79,7 @@
         "expect": {
           "output": "{ \"period\": \"P1M15D\", \"days\": 15, \"correct\": 43 }"
         },
-        "note": "This is the dangerous shape. `between` returns 15 rather than 0, so it looks like a plausible number rather than an obvious bug — and it is off by 28. A test whose only fixture is a mid-month span would pass."
+        "note": "This is the dangerous shape. `between` returns 15 rather than 0, so it looks like a plausible number rather than an obvious bug, and it is off by 28. A test whose only fixture is a mid-month span would pass."
       },
       {
         "label": "The `as Date` is not load-bearing here",
@@ -96,7 +96,7 @@
         "expect": {
           "output": "{ \"leap\": 29, \"common\": 28 }"
         },
-        "note": "Worth confirming rather than assuming. The duration is measured between two real instants, so February's length is already accounted for — there is nothing to special-case."
+        "note": "Worth confirming rather than assuming. The duration is measured between two real instants, so February's length is already accounted for, so there is nothing to special-case."
       }
     ]
   },

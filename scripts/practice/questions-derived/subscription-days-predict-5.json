@@ -8,7 +8,7 @@
     "Period",
     "as"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -17,7 +17,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\n{\n  leap: (|2028-03-01| - |2028-02-01|).days,\n  common: (|2027-03-01| - |2027-02-01|).days\n}",
   "explanation": {
-    "approach": "Worth confirming rather than assuming. The duration is measured between two real instants, so February's length is already accounted for — there is nothing to special-case.",
+    "approach": "Worth confirming rather than assuming. The duration is measured between two real instants, so February's length is already accounted for, so there is nothing to special-case.",
     "snippets": [
       {
         "label": "Leap years come out right without any help",
@@ -25,7 +25,7 @@
         "expect": {
           "output": "{ \"leap\": 29, \"common\": 28 }"
         },
-        "note": "Worth confirming rather than assuming. The duration is measured between two real instants, so February's length is already accounted for — there is nothing to special-case."
+        "note": "Worth confirming rather than assuming. The duration is measured between two real instants, so February's length is already accounted for, so there is nothing to special-case."
       }
     ]
   },

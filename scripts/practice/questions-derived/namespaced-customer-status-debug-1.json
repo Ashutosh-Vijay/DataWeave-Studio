@@ -9,7 +9,7 @@
     "namespace-qualified selectors",
     "@id"
   ],
-  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nA legacy SOAP service returns customer records. Each `<cust:Customer>` element carries a business `id` attribute, a `<cust:Name>`, and a `<cust:Status>` (its lifecycle status, e.g. `ACTIVE`). Some records also carry an unrelated `<audit:Status>` from a separate compliance system, sitting as a sibling of `<cust:Status>` — it is a different field that happens to share the same local name.\n\nReturn an array of `{ id, name, status }`, where `status` is always the **customer** status (the `cust` namespace one), never the audit one, regardless of which element comes first in the document.\n\nThe two namespaces are declared on the root `<soap:Envelope>` element; read the sample input to find their URIs.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nA legacy SOAP service returns customer records. Each `<cust:Customer>` element carries a business `id` attribute, a `<cust:Name>`, and a `<cust:Status>` (its lifecycle status, e.g. `ACTIVE`). Some records also carry an unrelated `<audit:Status>` from a separate compliance system, sitting as a sibling of `<cust:Status>`. It is a different field that happens to share the same local name.\n\nReturn an array of `{ id, name, status }`, where `status` is always the **customer** status (the `cust` namespace one), never the audit one, regardless of which element comes first in the document.\n\nThe two namespaces are declared on the root `<soap:Envelope>` element; read the sample input to find their URIs.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
   "inputMime": "application/xml",
   "outputMime": "application/json",
   "starter": "%dw 2.0\noutput application/json\nns soap http://schemas.xmlsoap.org/soap/envelope/\nns cust http://acme.com/customer\n---\npayload.soap#Envelope.soap#Body.cust#GetCustomersResponse.*cust#Customer map {\n  id: $.@id,\n  name: $.cust#Name,\n  status: $.Status\n}",
@@ -33,7 +33,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "uses a bare .Status selector, which matches whichever Status element (cust or audit) happens to come first in document order"
   ],
   "solution": "%dw 2.0\noutput application/json\nns soap http://schemas.xmlsoap.org/soap/envelope/\nns cust http://acme.com/customer\nns audit http://acme.com/audit\n---\npayload.soap#Envelope.soap#Body.cust#GetCustomersResponse.*cust#Customer map {\n  id: $.@id,\n  name: $.cust#Name,\n  status: $.cust#Status\n}",
@@ -44,7 +44,7 @@
     }
   ],
   "explanation": {
-    "approach": "A namespace-qualified element is identified by its local name AND its namespace URI together — the two form one key. But a selector written without a namespace prefix, like `.Status`, only ever asks about the local name. When a document has exactly one element with that local name, the distinction never comes up and the bare selector looks perfectly fine. It only breaks once a second element with the same local name — in a different namespace — enters the document, and it breaks silently: it just returns whichever one appears first, with no error to flag the ambiguity.",
+    "approach": "A namespace-qualified element is identified by its local name AND its namespace URI together: the two form one key. But a selector written without a namespace prefix, like `.Status`, only ever asks about the local name. When a document has exactly one element with that local name, the distinction never comes up and the bare selector looks perfectly fine. It only breaks once a second element with the same local name (in a different namespace) enters the document, and it breaks silently: it just returns whichever one appears first, with no error to flag the ambiguity.",
     "snippets": [
       {
         "label": "Two elements, same local name, different namespaces",
@@ -54,7 +54,7 @@
         "expect": {
           "output": "\"OK\""
         },
-        "note": "The bare `.Status` selector matches `a:Status` simply because it is the first sibling in the document — not because it belongs to any particular namespace. `b:Status` is silently skipped."
+        "note": "The bare `.Status` selector matches `a:Status` simply because it is the first sibling in the document, not because it belongs to any particular namespace. `b:Status` is silently skipped."
       },
       {
         "label": "Qualifying both selectors resolves the ambiguity",
@@ -74,7 +74,7 @@
         "expect": {
           "output": "[ { \"id\": \"C-1\", \"name\": \"Alice Chen\", \"status\": \"REVIEWED\" }, { \"id\": \"C-2\", \"name\": \"Bob Martinez\", \"status\": \"FLAGGED\" } ]"
         },
-        "note": "Both customers come back with the audit system's status instead of their own, because in this feed `audit:Status` happens to be written before `cust:Status` inside each `Customer`. The output is well-formed JSON with plausible-looking values — nothing about it looks like a bug."
+        "note": "Both customers come back with the audit system's status instead of their own, because in this feed `audit:Status` happens to be written before `cust:Status` inside each `Customer`. The output is well-formed JSON with plausible-looking values, and nothing about it looks like a bug."
       },
       {
         "label": "The same bug is invisible when the audit field is absent",

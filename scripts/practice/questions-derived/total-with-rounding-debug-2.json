@@ -38,7 +38,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "uses floor instead of round, always truncating"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\nround(sum(payload))",
@@ -49,7 +49,7 @@
     }
   ],
   "explanation": {
-    "approach": "Sum turns an array of numbers into one number. Round then adjusts that number to the nearest integer. The trap is that division in DataWeave always produces decimals — `7 / 2` is `3.5`, not `3`. Formatting with `#` does not round it either.",
+    "approach": "Sum turns an array of numbers into one number. Round then adjusts that number to the nearest integer. The trap is that division in DataWeave always produces decimals: `7 / 2` is `3.5`, not `3`. Formatting with `#` does not round it either.",
     "snippets": [
       {
         "label": "The answer",
@@ -65,7 +65,7 @@
         "expect": {
           "output": "34.28"
         },
-        "note": "Without rounding, you get the exact total with all decimal places. For money, this is usually wrong — you need a whole dollar amount."
+        "note": "Without rounding, you get the exact total with all decimal places. For money, this is usually wrong; you need a whole dollar amount."
       },
       {
         "label": "Division is never integer division",

@@ -10,7 +10,7 @@
     "floor",
     "ceil"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -19,7 +19,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\nsum([10.2, 15.75, 8.33])",
   "explanation": {
-    "approach": "Without rounding, you get the exact total with all decimal places. For money, this is usually wrong — you need a whole dollar amount.",
+    "approach": "Without rounding, you get the exact total with all decimal places. For money, this is usually wrong; you need a whole dollar amount.",
     "snippets": [
       {
         "label": "What sum alone returns",
@@ -27,7 +27,7 @@
         "expect": {
           "output": "34.28"
         },
-        "note": "Without rounding, you get the exact total with all decimal places. For money, this is usually wrong — you need a whole dollar amount."
+        "note": "Without rounding, you get the exact total with all decimal places. For money, this is usually wrong; you need a whole dollar amount."
       }
     ]
   },

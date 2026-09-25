@@ -8,7 +8,7 @@
     "do",
     "scope"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -18,7 +18,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\nvar seenSoFar = []\n---\npayload map (delivery) -> delivery ++ { seenSoFar: seenSoFar }",
   "explanation": {
-    "approach": "`seenSoFar` is computed once, before the map starts, and every element gets back the exact same empty value. A header var cannot accumulate anything as a map goes along — there is no hidden mutable state to update.",
+    "approach": "`seenSoFar` is computed once, before the map starts, and every element gets back the exact same empty value. A header var cannot accumulate anything as a map goes along: there is no hidden mutable state to update.",
     "snippets": [
       {
         "label": "A header var never sees what happens per element",
@@ -27,7 +27,7 @@
         "expect": {
           "output": "[{\"eventId\":\"E1\",\"seenSoFar\":[]},{\"eventId\":\"E2\",\"seenSoFar\":[]}]"
         },
-        "note": "`seenSoFar` is computed once, before the map starts, and every element gets back the exact same empty value. A header var cannot accumulate anything as a map goes along — there is no hidden mutable state to update."
+        "note": "`seenSoFar` is computed once, before the map starts, and every element gets back the exact same empty value. A header var cannot accumulate anything as a map goes along: there is no hidden mutable state to update."
       }
     ]
   },

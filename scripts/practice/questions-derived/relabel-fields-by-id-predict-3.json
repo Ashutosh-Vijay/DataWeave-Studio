@@ -9,7 +9,7 @@
     "mapObject",
     "duplicate keys"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -19,7 +19,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\npayload mapObject ((v, k, i) -> { (k): [v, i] })",
   "explanation": {
-    "approach": "The lambda's first parameter is the value, the second is the key, and the third is the index — the opposite order from how you would say the pair out loud.",
+    "approach": "The lambda's first parameter is the value, the second is the key, and the third is the index, the opposite order from how you would say the pair out loud.",
     "snippets": [
       {
         "label": "mapObject hands you value first",
@@ -28,7 +28,7 @@
         "expect": {
           "output": "{\"a\":[\"A\",0]}"
         },
-        "note": "The lambda's first parameter is the value, the second is the key, and the third is the index — the opposite order from how you would say the pair out loud."
+        "note": "The lambda's first parameter is the value, the second is the key, and the third is the index, the opposite order from how you would say the pair out loud."
       }
     ]
   },

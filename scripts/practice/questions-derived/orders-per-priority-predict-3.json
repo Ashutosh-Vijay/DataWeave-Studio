@@ -9,7 +9,7 @@
     "mapObject",
     "sizeOf"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -19,7 +19,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority mapObject ((orders, priority) -> { (priority): sizeOf(orders) })",
   "explanation": {
-    "approach": "Same result. Note the order: **value first, then key**, which is the opposite of how 'key-value' reads. Getting this backwards is a common source of confusion, and because both are often Strings it may not fail — it just produces nonsense.",
+    "approach": "Same result. Note the order: **value first, then key**, which is the opposite of how 'key-value' reads. Getting this backwards is a common source of confusion, and because both are often Strings it may not fail; it just produces nonsense.",
     "snippets": [
       {
         "label": "The named-parameter form",
@@ -28,7 +28,7 @@
         "expect": {
           "output": "{ \"1\": 2, \"2\": 1 }"
         },
-        "note": "Same result. Note the order: **value first, then key**, which is the opposite of how 'key-value' reads. Getting this backwards is a common source of confusion, and because both are often Strings it may not fail — it just produces nonsense."
+        "note": "Same result. Note the order: **value first, then key**, which is the opposite of how 'key-value' reads. Getting this backwards is a common source of confusion, and because both are often Strings it may not fail; it just produces nonsense."
       }
     ]
   },

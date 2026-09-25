@@ -9,7 +9,7 @@
     "write",
     "application/csv"
   ],
-  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nEach order in the input is `{ order_id, customer, line_items }`, where `line_items` is an array of `{ sku, qty, price }`.\n\nProduce a CSV with one row per line item — `orderId, customer, sku, qty, price` — where `orderId` and `customer` are repeated on every row that came from that order. An order with no line items contributes no rows at all. A line item missing a field leaves that cell empty rather than failing the row.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nEach order in the input is `{ order_id, customer, line_items }`, where `line_items` is an array of `{ sku, qty, price }`.\n\nProduce a CSV with one row per line item (`orderId, customer, sku, qty, price`) where `orderId` and `customer` are repeated on every row that came from that order. An order with no line items contributes no rows at all. A line item missing a field leaves that cell empty rather than failing the row.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
   "inputMime": "application/json",
   "outputMime": "application/csv",
   "compare": "text",
@@ -38,7 +38,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "uses $ inside the inner map instead of naming the order, so $.order_id and $.customer resolve against the line item and come out blank on every row"
   ],
   "solution": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((order) -> (order.line_items default []) map ((li) -> {\n  orderId: order.order_id,\n  customer: order.customer,\n  sku: li.sku,\n  qty: li.qty,\n  price: li.price\n}))",
@@ -49,7 +49,7 @@
     }
   ],
   "explanation": {
-    "approach": "The row count here is decided by the children, not the parents: one order can become zero rows, one row, or five. That rules out a plain `map`, which always produces exactly one output element per input element — the tool for `n` inputs to a variable number of outputs is `flatMap`, which runs a function that itself returns an array for each element, then concatenates all of those arrays into one flat list. Inside that function, the order's own fields — `order_id`, `customer` — have to be read off a named parameter, because the inner `map` over `line_items` rebinds `$` to the line item; reaching for `$.order_id` there silently reads a field that does not exist on a line item and gets `null` instead of an error.",
+    "approach": "The row count here is decided by the children, not the parents: one order can become zero rows, one row, or five. That rules out a plain `map`, which always produces exactly one output element per input element; the tool for `n` inputs to a variable number of outputs is `flatMap`, which runs a function that itself returns an array for each element, then concatenates all of those arrays into one flat list. Inside that function, the order's own fields (`order_id`, `customer`) have to be read off a named parameter, because the inner `map` over `line_items` rebinds `$` to the line item; reaching for `$.order_id` there silently reads a field that does not exist on a line item and gets `null` instead of an error.",
     "snippets": [
       {
         "label": "map alone gives one array per order, not one flat list",
@@ -58,7 +58,7 @@
         "expect": {
           "output": "[ [ { \"orderId\": \"O1\", \"sku\": \"A1\" }, { \"orderId\": \"O1\", \"sku\": \"A2\" } ], [ { \"orderId\": \"O2\", \"sku\": \"B1\" } ] ]"
         },
-        "note": "Two orders in, two arrays out — nested one level too deep for a flat CSV, where every line item needs to be a sibling row, not tucked inside its parent's array."
+        "note": "Two orders in, two arrays out, nested one level too deep for a flat CSV, where every line item needs to be a sibling row, not tucked inside its parent's array."
       },
       {
         "label": "flatMap flattens that one level, which is exactly one level too many",
@@ -67,7 +67,7 @@
         "expect": {
           "output": "[ { \"orderId\": \"O1\", \"sku\": \"A1\" }, { \"orderId\": \"O1\", \"sku\": \"A2\" } ]"
         },
-        "note": "Same shape of function, but flattened into one list of rows, `orderId` repeated on each one — this is the sibling-rows shape the CSV writer needs."
+        "note": "Same shape of function, but flattened into one list of rows, `orderId` repeated on each one. This is the sibling-rows shape the CSV writer needs."
       },
       {
         "label": "The full solution as CSV",
@@ -89,7 +89,7 @@
         "expect": {
           "output": "orderId,customer,sku,qty,price\r\nO2,Bo,B1,5,1.25\r\n"
         },
-        "note": "Mapping over an empty `line_items` array returns an empty array of rows, and `flatMap` concatenating an empty array in is the same as not visiting that order at all — O1 never appears."
+        "note": "Mapping over an empty `line_items` array returns an empty array of rows, and `flatMap` concatenating an empty array in is the same as not visiting that order at all: O1 never appears."
       },
       {
         "label": "$ inside the inner map means the line item, not the order",
@@ -111,7 +111,7 @@
         "expect": {
           "output": "orderId,customer,sku,qty,price\r\nO1,Ada,A1,2,\r\n"
         },
-        "note": "`li.price` on a line item with no `price` key is `null`, and the CSV writer renders a `null` cell as empty rather than the literal word null — the row still has all five columns, so the file stays rectangular."
+        "note": "`li.price` on a line item with no `price` key is `null`, and the CSV writer renders a `null` cell as empty rather than the literal word null. The row still has all five columns, so the file stays rectangular."
       }
     ]
   },

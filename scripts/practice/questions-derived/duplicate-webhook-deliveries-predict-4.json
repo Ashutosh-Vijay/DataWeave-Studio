@@ -8,7 +8,7 @@
     "do",
     "scope"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -17,7 +17,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\n[1,2,3][0 to -1]",
   "explanation": {
-    "approach": "This is why the first element needs an explicit `if (idx == 0) []` instead of trusting `payload[0 to idx - 1]` to come out empty on its own — at `idx = 0` that range is `[0 to -1]`, which is the whole array, not an empty one.",
+    "approach": "This is why the first element needs an explicit `if (idx == 0) []` instead of trusting `payload[0 to idx - 1]` to come out empty on its own. At `idx = 0` that range is `[0 to -1]`, which is the whole array, not an empty one.",
     "snippets": [
       {
         "label": "A range ending in `-1` means 'to the last element', not 'to nothing'",
@@ -25,7 +25,7 @@
         "expect": {
           "output": "[1,2,3]"
         },
-        "note": "This is why the first element needs an explicit `if (idx == 0) []` instead of trusting `payload[0 to idx - 1]` to come out empty on its own — at `idx = 0` that range is `[0 to -1]`, which is the whole array, not an empty one."
+        "note": "This is why the first element needs an explicit `if (idx == 0) []` instead of trusting `payload[0 to idx - 1]` to come out empty on its own. At `idx = 0` that range is `[0 to -1]`, which is the whole array, not an empty one."
       }
     ]
   },

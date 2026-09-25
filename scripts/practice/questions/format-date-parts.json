@@ -42,7 +42,7 @@
       "script": "%dw 2.0\noutput application/json\n---\n{\n  \"day\": \"05\",\n  \"month\": \"03\",\n  \"dayOfYear\": \"064\",\n  \"year\": \"2027\"\n}"
     },
     {
-      "why": "uses DD (day-of-year, 2 letters) instead of DDD (3 letters) — both are day-of-year but different padding",
+      "why": "uses DD (day-of-year, 2 letters) instead of DDD (3 letters); both are day-of-year but different padding",
       "script": "%dw 2.0\noutput application/json\n---\ndo {\n  var d = payload as Date\n  ---\n  {\n    day: d as String {format: 'dd'},\n    month: d as String {format: 'MM'},\n    dayOfYear: d as String {format: 'DD'},\n    year: d as String {format: 'yyyy'}\n  }\n}"
     }
   ],

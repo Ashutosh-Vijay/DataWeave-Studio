@@ -9,7 +9,7 @@
     "match",
     "recursion"
   ],
-  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nThe payload is an arithmetic expression tree. It is either a plain number (a leaf), or an object `{ op, l, r }` where `op` is one of `\"+\"`, `\"-\"`, `\"*\"`, `\"/\"`, and `l` and `r` are themselves expression trees — a number, or another `{ op, l, r }` node, to any depth.\n\nWrite a script that evaluates the tree down to a single number.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nThe payload is an arithmetic expression tree. It is either a plain number (a leaf), or an object `{ op, l, r }` where `op` is one of `\"+\"`, `\"-\"`, `\"*\"`, `\"/\"`, and `l` and `r` are themselves expression trees: a number, or another `{ op, l, r }` node, to any depth.\n\nWrite a script that evaluates the tree down to a single number.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "starter": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> o.op match {\n    case \"+\" -> o.l + o.r\n    case \"-\" -> o.l - o.r\n    case \"*\" -> o.l * o.r\n    case \"/\" -> o.l / o.r\n  }\n}\n---\neval(payload)",
@@ -41,7 +41,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "handles one level: combines o.l and o.r directly instead of recursing into them first, so it throws the moment either side is itself a node rather than a number"
   ],
   "solution": "%dw 2.0\noutput application/json\nfun eval(v) = v match {\n  case n is Number -> n\n  case o is Object -> evalNode(o)\n}\nfun evalNode(o) = o.op match {\n  case \"+\" -> eval(o.l) + eval(o.r)\n  case \"-\" -> eval(o.l) - eval(o.r)\n  case \"*\" -> eval(o.l) * eval(o.r)\n  case \"/\" -> eval(o.l) / eval(o.r)\n}\n---\neval(payload)",
@@ -52,7 +52,7 @@
     }
   ],
   "explanation": {
-    "approach": "The tree has exactly two shapes at every level: a plain number, or a node with an operator and two more trees underneath it. `match` picks the shape with `case n is Number` and `case o is Object`. The number case is the leaf — it just returns itself. The object case cannot apply its operator to `o.l` and `o.r` directly, because those are trees too, not necessarily numbers; they have to go through `eval` again first. Splitting that into two functions — `eval` for the shape test, `evalNode` for applying the operator once both sides are already evaluated — makes them mutually recursive (`eval` calls `evalNode`, `evalNode` calls `eval`), and neither needs a return-type annotation to compile. The near-miss is applying the operator before recursing: it happens to work when both sides are already numbers, and throws the instant one of them is not.",
+    "approach": "The tree has exactly two shapes at every level: a plain number, or a node with an operator and two more trees underneath it. `match` picks the shape with `case n is Number` and `case o is Object`. The number case is the leaf: it just returns itself. The object case cannot apply its operator to `o.l` and `o.r` directly, because those are trees too, not necessarily numbers; they have to go through `eval` again first. Splitting that into two functions (`eval` for the shape test, `evalNode` for applying the operator once both sides are already evaluated) makes them mutually recursive (`eval` calls `evalNode`, `evalNode` calls `eval`), and neither needs a return-type annotation to compile. The near-miss is applying the operator before recursing: it happens to work when both sides are already numbers, and throws the instant one of them is not.",
     "snippets": [
       {
         "label": "The leaf case: a bare number evaluates to itself",
@@ -61,7 +61,7 @@
         "expect": {
           "output": "7"
         },
-        "note": "No operator to apply, no recursion to do — `match` falls straight into `case n is Number` and returns it."
+        "note": "No operator to apply, no recursion to do: `match` falls straight into `case n is Number` and returns it."
       },
       {
         "label": "Two mutually recursive functions, no return-type annotation on either",
@@ -79,7 +79,7 @@
         "expect": {
           "error": true
         },
-        "note": "`o.l` is itself a node, not a number, and `+` cannot be applied between an Object and a Number. This version never calls `eval` again on `o.l` or `o.r` — it just applies the operator to whatever is there."
+        "note": "`o.l` is itself a node, not a number, and `+` cannot be applied between an Object and a Number. This version never calls `eval` again on `o.l` or `o.r`; it just applies the operator to whatever is there."
       },
       {
         "label": "The same near-miss, on a tree that happens to be only one level deep",

@@ -37,8 +37,8 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
-    "uses DD (day-of-year, 2 letters) instead of DDD (3 letters) — both are day-of-year but different padding"
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
+    "uses DD (day-of-year, 2 letters) instead of DDD (3 letters); both are day-of-year but different padding"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var d = payload as Date\n  ---\n  {\n    day: d as String {format: 'dd'},\n    month: d as String {format: 'MM'},\n    dayOfYear: d as String {format: 'DDD'},\n    year: d as String {format: 'yyyy'}\n  }\n}",
   "mustFail": [

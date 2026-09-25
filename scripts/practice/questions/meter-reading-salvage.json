@@ -4,7 +4,7 @@
   "tier": "extra",
   "title": "Salvage the good meter readings from a bad batch",
   "topics": ["try", "dw::Runtime"],
-  "prompt": "A batch of raw meter readings arrives as `{ id, value }`, where `value` is a String that is supposed to represent a number but sometimes is not — empty, `null`, or text.\n\nReturn `{ ok, failed }`: `ok` is an array of `{ id, value }` for every reading whose `value` coerces to a Number, with `value` as that Number; `failed` is an array of just the `id`s whose `value` does not coerce. One bad reading must not stop the rest of the batch from being processed.",
+  "prompt": "A batch of raw meter readings arrives as `{ id, value }`, where `value` is a String that is supposed to represent a number but sometimes is not: empty, `null`, or text.\n\nReturn `{ ok, failed }`: `ok` is an array of `{ id, value }` for every reading whose `value` coerces to a Number, with `value` as that Number; `failed` is an array of just the `id`s whose `value` does not coerce. One bad reading must not stop the rest of the batch from being processed.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "starter": "%dw 2.0\noutput application/json\n---\n",
@@ -31,9 +31,9 @@
     }
   ],
   "hints": [
-    "Coercing a bad String with `as Number` throws — it does not return null or a sentinel value. Left alone, that exception unwinds the whole script, not just the one record it happened on.",
+    "Coercing a bad String with `as Number` throws: it does not return null or a sentinel value. Left alone, that exception unwinds the whole script, not just the one record it happened on.",
     "`dw::Runtime` has a `try` function: `try(() -> someExpression)` runs the expression and comes back with `{ success: true, result }` or `{ success: false, error }` instead of throwing. Wrap the risky coercion in a zero-argument lambda and pass it to `try`.",
-    "Checking `value != null` and `!isEmpty(value)` first does not help — a String like `\"abc\"` is neither null nor empty, and `as Number` throws on it anyway. The only thing that actually contains the failure is running the coercion inside `try` and branching on `.success`."
+    "Checking `value != null` and `!isEmpty(value)` first does not help: a String like `\"abc\"` is neither null nor empty, and `as Number` throws on it anyway. The only thing that actually contains the failure is running the coercion inside `try` and branching on `.success`."
   ],
   "solution": "%dw 2.0\nimport * from dw::Runtime\noutput application/json\nvar results = payload map (r) -> { id: r.id, t: try(() -> r.value as Number) }\n---\n{\n  ok: (results filter ($.t.success)) map { id: $.id, value: $.t.result },\n  failed: (results filter (!$.t.success)) map $.id\n}",
   "mustFail": [
@@ -51,7 +51,7 @@
     }
   ],
   "explanation": {
-    "approach": "`as Number` on a bad String does not return `null` or fail quietly — it throws, and by default that exception propagates out of the whole script, not just out of the one record that caused it. `dw::Runtime` has `try(() -> expr)`, a function that runs a zero-argument lambda and catches whatever it throws, coming back with `{ success: true, result }` or `{ success: false, error }` either way. Wrapping just the risky coercion in `try` — not the whole record, and not a hand-rolled null/empty check first — is what lets the rest of the batch keep going.",
+    "approach": "`as Number` on a bad String does not return `null` or fail quietly. It throws, and by default that exception propagates out of the whole script, not just out of the one record that caused it. `dw::Runtime` has `try(() -> expr)`, a function that runs a zero-argument lambda and catches whatever it throws, coming back with `{ success: true, result }` or `{ success: false, error }` either way. Wrapping just the risky coercion in `try` (not the whole record, and not a hand-rolled null/empty check first) is what lets the rest of the batch keep going.",
     "snippets": [
       {
         "label": "try on a coercion that succeeds",
@@ -82,7 +82,7 @@
         "label": "checking for null and empty first does not prevent the throw",
         "script": "%dw 2.0\noutput application/json\n---\nif (\"abc\" != null and !isEmpty(\"abc\")) \"abc\" as Number else -1",
         "expect": { "error": true },
-        "note": "\"abc\" passes both guards — it is neither null nor empty — and the coercion still throws. The guard catches the wrong condition; only wrapping the coercion itself in try actually contains the failure."
+        "note": "\"abc\" passes both guards (it is neither null nor empty), and the coercion still throws. The guard catches the wrong condition; only wrapping the coercion itself in try actually contains the failure."
       }
     ]
   }

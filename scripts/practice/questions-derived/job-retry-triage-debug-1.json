@@ -37,7 +37,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "puts the plain `is Number` case above the escalation guard, so no number can ever reach ESCALATE"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\npayload map (job) -> {\n  id: job.id,\n  status: job.retries match {\n    case n if (n is Number and n >= 3) -> \"ESCALATE\"\n    case n is Number -> \"RETRYING\"\n    case null -> \"NEW\"\n    else -> \"INVALID\"\n  }\n}",
@@ -48,7 +48,7 @@
     }
   ],
   "explanation": {
-    "approach": "`match` is tried top to bottom and stops at the first case that fits — it is not \"find the most specific case\", it is \"find the first one\". A case can test a type with `is Type`, or test an arbitrary condition with `if (...)`, but DataWeave does not let a single case do both at once; `case n is Number if (n >= 3)` is a compile error, not a stricter case. To get both a type check and a threshold on the same branch, the type check has to move inside the guard's own condition with `and`. Once that branch exists, it has to be listed before the plain `is Number` case — a bare `is Number` case placed first will catch every number, including the ones the guarded case further down was written to catch, and that guarded case becomes unreachable code that never causes an error and never runs.",
+    "approach": "`match` is tried top to bottom and stops at the first case that fits. It is not \"find the most specific case\", it is \"find the first one\". A case can test a type with `is Type`, or test an arbitrary condition with `if (...)`, but DataWeave does not let a single case do both at once; `case n is Number if (n >= 3)` is a compile error, not a stricter case. To get both a type check and a threshold on the same branch, the type check has to move inside the guard's own condition with `and`. Once that branch exists, it has to be listed before the plain `is Number` case, because a bare `is Number` case placed first will catch every number, including the ones the guarded case further down was written to catch, and that guarded case becomes unreachable code that never causes an error and never runs.",
     "snippets": [
       {
         "label": "A case cannot combine `is Type` and a guard",
@@ -56,7 +56,7 @@
         "expect": {
           "error": true
         },
-        "note": "This is not \"Number, and also at least 3\" — it simply does not compile. The type test and the guard cannot live on the same case."
+        "note": "This is not \"Number, and also at least 3\". It simply does not compile. The type test and the guard cannot live on the same case."
       },
       {
         "label": "The threshold has to go inside the guard's condition instead",
@@ -72,7 +72,7 @@
         "expect": {
           "output": "\"num\""
         },
-        "note": "Same two cases, reversed order. `10` satisfies both, but `match` stops at the first fit — `case n is Number` — so the guarded case below it never runs, for any number at all, not just this one."
+        "note": "Same two cases, reversed order. `10` satisfies both, but `match` stops at the first fit (`case n is Number`), so the guarded case below it never runs, for any number at all, not just this one."
       },
       {
         "label": "`null` gets its own case, not `is Number`",
@@ -88,7 +88,7 @@
         "expect": {
           "output": "\"other\""
         },
-        "note": "A Boolean matches none of the specific cases, so it lands on `else` — this is where a corrupted `retries` field (a string, a boolean, an object) ends up as `INVALID`."
+        "note": "A Boolean matches none of the specific cases, so it lands on `else`. This is where a corrupted `retries` field (a string, a boolean, an object) ends up as `INVALID`."
       }
     ]
   },

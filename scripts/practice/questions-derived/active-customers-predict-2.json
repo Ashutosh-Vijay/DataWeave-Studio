@@ -8,7 +8,7 @@
     "filter",
     "map"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -18,7 +18,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\npayload map (if ($.status == \"active\") $.name else null)",
   "explanation": {
-    "approach": "`map` always returns one element per input element — it cannot drop anything. The rejected rows come back as nulls and the array is still length 3. This is the single most common way this task is got wrong.",
+    "approach": "`map` always returns one element per input element. It cannot drop anything. The rejected rows come back as nulls and the array is still length 3. This is the single most common way this task is got wrong.",
     "snippets": [
       {
         "label": "The tempting alternative, and what it actually returns",
@@ -27,7 +27,7 @@
         "expect": {
           "output": "[ \"Ada\", null, null ]"
         },
-        "note": "`map` always returns one element per input element — it cannot drop anything. The rejected rows come back as nulls and the array is still length 3. This is the single most common way this task is got wrong."
+        "note": "`map` always returns one element per input element. It cannot drop anything. The rejected rows come back as nulls and the array is still length 3. This is the single most common way this task is got wrong."
       }
     ]
   },

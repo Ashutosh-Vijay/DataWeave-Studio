@@ -9,7 +9,7 @@
     "mapObject",
     "sum"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -19,7 +19,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region mapObject ((lines, region) -> {\n  (region): sum(lines.amount)\n})",
   "explanation": {
-    "approach": "This is one level of aggregation — a single total per region. It compiles and runs, but it throws away the category breakdown the report actually needs; West's Widgets and Gadgets are already merged into 140 before there is any chance to split them back out.",
+    "approach": "This is one level of aggregation: a single total per region. It compiles and runs, but it throws away the category breakdown the report actually needs; West's Widgets and Gadgets are already merged into 140 before there is any chance to split them back out.",
     "snippets": [
       {
         "label": "mapObject, going Object to Object, is the shape that fits",
@@ -28,7 +28,7 @@
         "expect": {
           "output": "{ \"West\": 140, \"East\": 90 }"
         },
-        "note": "This is one level of aggregation — a single total per region. It compiles and runs, but it throws away the category breakdown the report actually needs; West's Widgets and Gadgets are already merged into 140 before there is any chance to split them back out."
+        "note": "This is one level of aggregation: a single total per region. It compiles and runs, but it throws away the category breakdown the report actually needs; West's Widgets and Gadgets are already merged into 140 before there is any chance to split them back out."
       }
     ]
   },

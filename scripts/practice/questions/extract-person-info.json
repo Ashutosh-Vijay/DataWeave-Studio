@@ -31,9 +31,9 @@
     }
   ],
   "hints": [
-    "Grab each person from the array and pick out the three fields you need. If a field does not exist, accessing it will not crash — it will just be `null`.",
+    "Grab each person from the array and pick out the three fields you need. If a field does not exist, accessing it will not crash; it will just be `null`.",
     "Use `map` to transform each person. Inside the map, build a new object with the three fields: `{name: ..., age: ..., city: ...}`.",
-    "You do not need to guard against missing fields. `$.fieldName` will silently return `null` if the field is not there. A typo in your selector will produce a null in the output instead of an error — that is the trap."
+    "You do not need to guard against missing fields. `$.fieldName` will silently return `null` if the field is not there. A typo in your selector will produce a null in the output instead of an error. That is the trap."
   ],
   "solution": "%dw 2.0\noutput application/json\n---\npayload map {name: $.name, age: $.age, city: $.city}",
   "mustFail": [
@@ -67,14 +67,14 @@
         "script": "%dw 2.0\noutput application/json\n---\npayload map {name: $.name, age: $.age, city: $.city}",
         "payload": "[{}]",
         "expect": { "output": "[ { \"name\": null, \"age\": null, \"city\": null } ]" },
-        "note": "Every field access returns null, so you get an object with all nulls. This is not an error — the output is still valid JSON."
+        "note": "Every field access returns null, so you get an object with all nulls. This is not an error: the output is still valid JSON."
       },
       {
         "label": "What a typo looks like",
         "script": "%dw 2.0\noutput application/json\n---\npayload map {name: $.fullName, age: $.age, city: $.city}",
         "payload": "[{\"name\": \"Alice\", \"age\": 30, \"city\": \"NYC\"}]",
         "expect": { "output": "[ { \"name\": null, \"age\": 30, \"city\": \"NYC\" } ]" },
-        "note": "`$.fullName` does not exist, so it becomes null. No compilation error, no warning — the mapping just silently drops the name. This is why the first hint says a typo ships silently."
+        "note": "`$.fullName` does not exist, so it becomes null. No compilation error, no warning. The mapping just silently drops the name. This is why the first hint says a typo ships silently."
       },
       {
         "label": "Order is preserved",

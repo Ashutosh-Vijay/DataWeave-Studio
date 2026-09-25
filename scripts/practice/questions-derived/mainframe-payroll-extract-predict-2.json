@@ -10,7 +10,7 @@
     "fixed-width",
     "trim"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "text/plain",
   "outputMime": "application/json",
   "given": {
@@ -19,7 +19,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\n{\n  raw: \"E00001Alice Chen          0004250.00ENG\"[26 to 35],\n  rawType: typeOf(\"E00001Alice Chen          0004250.00ENG\"[26 to 35]),\n  asNumber: \"E00001Alice Chen          0004250.00ENG\"[26 to 35] as Number\n}",
   "explanation": {
-    "approach": "The salary column comes out as the String \"0004250.00\". as Number drops the leading zeros and keeps the cents — 4250, not a display string.",
+    "approach": "The salary column comes out as the String \"0004250.00\". as Number drops the leading zeros and keeps the cents: 4250, not a display string.",
     "snippets": [
       {
         "label": "A parsed field is still a String until you say otherwise",
@@ -27,7 +27,7 @@
         "expect": {
           "output": "{ \"raw\": \"0004250.00\", \"rawType\": \"String\", \"asNumber\": 4250 }"
         },
-        "note": "The salary column comes out as the String \"0004250.00\". as Number drops the leading zeros and keeps the cents — 4250, not a display string."
+        "note": "The salary column comes out as the String \"0004250.00\". as Number drops the leading zeros and keeps the cents: 4250, not a display string."
       }
     ]
   },

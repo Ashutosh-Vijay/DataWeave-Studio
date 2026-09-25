@@ -47,7 +47,7 @@
     }
   ],
   "explanation": {
-    "approach": "Two independent jobs — decide *which* records survive, and decide *what* each surviving record becomes. `filter` does the first, `map` does the second, and chaining them left to right reads in the order you thought of them.",
+    "approach": "Two independent jobs: decide *which* records survive, and decide *what* each surviving record becomes. `filter` does the first, `map` does the second, and chaining them left to right reads in the order you thought of them.",
     "snippets": [
       {
         "label": "The answer",
@@ -60,14 +60,14 @@
         "label": "Why the missing field needs no guard",
         "script": "%dw 2.0\noutput application/json\n---\nnull == \"active\"",
         "expect": { "output": "false" },
-        "note": "`Cy` has no `status`, so `$.status` is `null` — a missing key is null, not an error. Comparing null to a string is simply false, so the record drops out on its own. An `if ($.status != null and ...)` guard would be dead weight."
+        "note": "`Cy` has no `status`, so `$.status` is `null`: a missing key is null, not an error. Comparing null to a string is simply false, so the record drops out on its own. An `if ($.status != null and ...)` guard would be dead weight."
       },
       {
         "label": "The tempting alternative, and what it actually returns",
         "script": "%dw 2.0\noutput application/json\n---\npayload map (if ($.status == \"active\") $.name else null)",
         "payload": "[{\"name\":\"Ada\",\"status\":\"active\"},{\"name\":\"Bo\",\"status\":\"inactive\"},{\"name\":\"Cy\"}]",
         "expect": { "output": "[ \"Ada\", null, null ]" },
-        "note": "`map` always returns one element per input element — it cannot drop anything. The rejected rows come back as nulls and the array is still length 3. This is the single most common way this task is got wrong."
+        "note": "`map` always returns one element per input element. It cannot drop anything. The rejected rows come back as nulls and the array is still length 3. This is the single most common way this task is got wrong."
       },
       {
         "label": "The long form, if the shorthand is not comfortable yet",
@@ -81,7 +81,7 @@
         "script": "%dw 2.0\noutput application/json\n---\npayload.customers filter ($.status == \"active\")",
         "payload": "[{\"name\":\"Ada\",\"status\":\"active\"}]",
         "expect": { "output": "null" },
-        "note": "Worth seeing once. `payload.customers` does not exist here, and filtering null gives null rather than an error — so a mistyped selector produces an empty-looking result instead of a stack trace. Every array function behaves this way."
+        "note": "Worth seeing once. `payload.customers` does not exist here, and filtering null gives null rather than an error, so a mistyped selector produces an empty-looking result instead of a stack trace. Every array function behaves this way."
       }
     ]
   }

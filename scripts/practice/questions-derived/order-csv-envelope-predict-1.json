@@ -8,7 +8,7 @@
     "write",
     "read"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -17,7 +17,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\nwrite([{price: 3, sku: \"F6\", qty: 4}], \"application/csv\")",
   "explanation": {
-    "approach": "This row's own JSON lists price, then sku, then qty, and the CSV header comes out in that same order — price first. Nothing about `write` knows the columns are supposed to read sku, qty, price.",
+    "approach": "This row's own JSON lists price, then sku, then qty, and the CSV header comes out in that same order, price first. Nothing about `write` knows the columns are supposed to read sku, qty, price.",
     "snippets": [
       {
         "label": "column order follows the object's own field order, not the question's",
@@ -25,7 +25,7 @@
         "expect": {
           "output": "\"price,sku,qty\\r\\n3,F6,4\\r\\n\""
         },
-        "note": "This row's own JSON lists price, then sku, then qty, and the CSV header comes out in that same order — price first. Nothing about `write` knows the columns are supposed to read sku, qty, price."
+        "note": "This row's own JSON lists price, then sku, then qty, and the CSV header comes out in that same order, price first. Nothing about `write` knows the columns are supposed to read sku, qty, price."
       }
     ]
   },

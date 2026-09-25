@@ -4,7 +4,7 @@
   "tier": "hard",
   "title": "Flag repeat webhook deliveries",
   "topics": ["do", "scope"],
-  "prompt": "A webhook provider delivers at least once, so the same event can show up more than once in a batch. Deliveries arrive in the order they were received, each with an `eventId`.\n\nReturn each delivery with a `duplicate` field added: `true` if the same `eventId` already appeared **earlier** in the batch, `false` if this is that event's first delivery. Only look backward — a later repeat does not make the first delivery a duplicate.",
+  "prompt": "A webhook provider delivers at least once, so the same event can show up more than once in a batch. Deliveries arrive in the order they were received, each with an `eventId`.\n\nReturn each delivery with a `duplicate` field added: `true` if the same `eventId` already appeared **earlier** in the batch, `false` if this is that event's first delivery. Only look backward: a later repeat does not make the first delivery a duplicate.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "starter": "%dw 2.0\noutput application/json\n---\n",
@@ -31,9 +31,9 @@
     }
   ],
   "hints": [
-    "You need to know what happened at every position before this one — not whether the `eventId` appears anywhere in the whole batch.",
+    "You need to know what happened at every position before this one, not whether the `eventId` appears anywhere in the whole batch.",
     "`map` can hand you the index of the current element as a second parameter. A `do` block right there lets you name the slice of the array that comes before that index, without writing the slice twice.",
-    "A `var` declared in the header runs once, before the `map` starts, and has no idea which element is currently being looked at — it cannot hold 'everyone seen so far' the way a mutable loop variable would. The 'seen so far' slice has to be recomputed inside the map, for every element."
+    "A `var` declared in the header runs once, before the `map` starts, and has no idea which element is currently being looked at. It cannot hold 'everyone seen so far' the way a mutable loop variable would. The 'seen so far' slice has to be recomputed inside the map, for every element."
   ],
   "solution": "%dw 2.0\noutput application/json\n---\npayload map (delivery, idx) -> delivery ++ { duplicate: do {\n  var priorIds = if (idx == 0) [] else (payload[0 to idx - 1]).eventId\n  ---\n  priorIds contains delivery.eventId\n} }",
   "mustFail": [
@@ -58,13 +58,13 @@
         "script": "%dw 2.0\noutput application/json\nvar seenSoFar = []\n---\npayload map (delivery) -> delivery ++ { seenSoFar: seenSoFar }",
         "payload": "[{\"eventId\":\"E1\"},{\"eventId\":\"E2\"}]",
         "expect": { "output": "[{\"eventId\":\"E1\",\"seenSoFar\":[]},{\"eventId\":\"E2\",\"seenSoFar\":[]}]" },
-        "note": "`seenSoFar` is computed once, before the map starts, and every element gets back the exact same empty value. A header var cannot accumulate anything as a map goes along — there is no hidden mutable state to update."
+        "note": "`seenSoFar` is computed once, before the map starts, and every element gets back the exact same empty value. A header var cannot accumulate anything as a map goes along: there is no hidden mutable state to update."
       },
       {
-        "label": "`$$` — and the slice built from it — only exists inside the map",
+        "label": "`$$` (and the slice built from it) only exists inside the map",
         "script": "%dw 2.0\noutput application/json\nvar x = $$\n---\nx",
         "expect": { "error": true },
-        "note": "The index is not available at the header at all, which is why 'everyone before this element' cannot be hoisted out of the `map` — it has no `$$` to slice from up there."
+        "note": "The index is not available at the header at all, which is why 'everyone before this element' cannot be hoisted out of the `map`: it has no `$$` to slice from up there."
       },
       {
         "label": "The correct shape: recompute the earlier slice per element",
@@ -84,7 +84,7 @@
         "label": "A range ending in `-1` means 'to the last element', not 'to nothing'",
         "script": "%dw 2.0\noutput application/json\n---\n[1,2,3][0 to -1]",
         "expect": { "output": "[1,2,3]" },
-        "note": "This is why the first element needs an explicit `if (idx == 0) []` instead of trusting `payload[0 to idx - 1]` to come out empty on its own — at `idx = 0` that range is `[0 to -1]`, which is the whole array, not an empty one."
+        "note": "This is why the first element needs an explicit `if (idx == 0) []` instead of trusting `payload[0 to idx - 1]` to come out empty on its own. At `idx = 0` that range is `[0 to -1]`, which is the whole array, not an empty one."
       }
     ]
   }

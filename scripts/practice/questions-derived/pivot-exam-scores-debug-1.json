@@ -10,7 +10,7 @@
     "reduce",
     "distinctBy"
   ],
-  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nYou are given exam records, each `{ student, subject, score }` — one row per student per subject they sat. Pivot this into one CSV row per student, with one column per subject.\n\nThe list of subjects is not given anywhere; it has to be discovered from the data, in the order each subject first appears. If a student has no record for some subject that other students do have, that student's cell for it is `0` — every row must have every column, or the file is not a rectangle.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
+  "prompt": "The script in the editor is **almost** right. It passes on the sample and fails on a case you cannot see.\n\nThe original task was:\n\nYou are given exam records, each `{ student, subject, score }`, one row per student per subject they sat. Pivot this into one CSV row per student, with one column per subject.\n\nThe list of subjects is not given anywhere; it has to be discovered from the data, in the order each subject first appears. If a student has no record for some subject that other students do have, that student's cell for it is `0`: every row must have every column, or the file is not a rectangle.\n\nFind what is wrong and fix it. You can press Run to see what it currently does.",
   "inputMime": "application/json",
   "outputMime": "application/csv",
   "compare": "text",
@@ -39,7 +39,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "builds each row only from the subjects that student actually has, instead of the full discovered list, so a student missing a subject produces a row with fewer columns than the others and the CSV comes out ragged"
   ],
   "solution": "%dw 2.0\noutput application/csv\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
@@ -50,7 +50,7 @@
     }
   ],
   "explanation": {
-    "approach": "The set of output columns is not known until the whole input has been looked at, so it has to be computed once, up front, rather than assembled row by row. `(payload map $.subject) distinctBy $` collects every subject exactly once, in the order it first shows up, and `distinctBy` keeping the first match is what makes that order the same regardless of which student happens to mention a subject first. From there, `groupBy $.student` buckets the records per student, and for each bucket a `reduce` over the full subject list — not over that student's own rows — builds one row with a key for every column, filling in `0` wherever that student has no matching record. Reducing over the student's own rows instead of the discovered list is the natural-looking mistake: it works until two students have different subjects, at which point the rows stop having the same columns.",
+    "approach": "The set of output columns is not known until the whole input has been looked at, so it has to be computed once, up front, rather than assembled row by row. `(payload map $.subject) distinctBy $` collects every subject exactly once, in the order it first shows up, and `distinctBy` keeping the first match is what makes that order the same regardless of which student happens to mention a subject first. From there, `groupBy $.student` buckets the records per student, and for each bucket a `reduce` over the full subject list (not over that student's own rows) builds one row with a key for every column, filling in `0` wherever that student has no matching record. Reducing over the student's own rows instead of the discovered list is the natural-looking mistake: it works until two students have different subjects, at which point the rows stop having the same columns.",
     "snippets": [
       {
         "label": "Discovering the columns, in first-seen order",
@@ -59,7 +59,7 @@
         "expect": {
           "output": "[ \"Math\", \"Bio\" ]"
         },
-        "note": "Math and Bio, each once, in the order they first appear — Bo's second Math record does not add a duplicate or move anything."
+        "note": "Math and Bio, each once, in the order they first appear. Bo's second Math record does not add a duplicate or move anything."
       },
       {
         "label": "groupBy buckets by student; the row is built by reduce over the SUBJECT list",
@@ -90,7 +90,7 @@
         "expect": {
           "output": "student,Math,Bio\r\nAda,90,70\r\nBo,60\r\n"
         },
-        "note": "This compiles, runs, and looks right for Ada. Bo only ever appears with a Math record, so his row only ever gets a Math key — the writer takes its header from the first row (Ada's, with Bio) and then writes Bo's shorter row underneath it misaligned, one column short, instead of erroring."
+        "note": "This compiles, runs, and looks right for Ada. Bo only ever appears with a Math record, so his row only ever gets a Math key. The writer takes its header from the first row (Ada's, with Bio) and then writes Bo's shorter row underneath it misaligned, one column short, instead of erroring."
       },
       {
         "label": "A subject discovered late still becomes a column for the students seen earlier",
@@ -101,7 +101,7 @@
         "expect": {
           "output": "student,Math,Chem\r\nAda,90,0\r\nBo,60,80\r\n"
         },
-        "note": "Chem is not discovered until Bo's second record, three rows into the payload, but the discovery pass runs over the whole input before any row is built, so Ada's row — built after discovery — still gets a Chem column, filled with 0."
+        "note": "Chem is not discovered until Bo's second record, three rows into the payload, but the discovery pass runs over the whole input before any row is built, so Ada's row (built after discovery) still gets a Chem column, filled with 0."
       },
       {
         "label": "A record with no score at all still produces a column, filled with 0",

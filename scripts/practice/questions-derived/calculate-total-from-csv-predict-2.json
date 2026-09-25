@@ -10,7 +10,7 @@
     "max",
     "as"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/csv",
   "outputMime": "application/json",
   "given": {
@@ -20,7 +20,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\nmax(payload map $.amount)",
   "explanation": {
-    "approach": "The largest amount is 25.50, and this returns \"9\". `max` compares rather than calculates, and comparing text puts \"9\" after \"25.50\" the same way \"z\" comes after \"ab\". Note the quotes in the answer — it did not even come back as a number.",
+    "approach": "The largest amount is 25.50, and this returns \"9\". `max` compares rather than calculates, and comparing text puts \"9\" after \"25.50\" the same way \"z\" comes after \"ab\". Note the quotes in the answer: it did not even come back as a number.",
     "snippets": [
       {
         "label": "The same data, the same lack of coercion, a wrong answer",
@@ -30,7 +30,7 @@
         "expect": {
           "output": "\"9\""
         },
-        "note": "The largest amount is 25.50, and this returns \"9\". `max` compares rather than calculates, and comparing text puts \"9\" after \"25.50\" the same way \"z\" comes after \"ab\". Note the quotes in the answer — it did not even come back as a number."
+        "note": "The largest amount is 25.50, and this returns \"9\". `max` compares rather than calculates, and comparing text puts \"9\" after \"25.50\" the same way \"z\" comes after \"ab\". Note the quotes in the answer: it did not even come back as a number."
       }
     ]
   },

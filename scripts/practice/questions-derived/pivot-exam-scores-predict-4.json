@@ -10,7 +10,7 @@
     "reduce",
     "distinctBy"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/csv",
   "given": {
@@ -20,7 +20,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/csv\nvar subjects = (payload map $.subject) distinctBy $\n---\npayload groupBy $.student pluck ((rows, student) -> subjects reduce ((subj, acc = { student: student }) -> acc ++ { (subj): (rows filter ($.subject == subj))[0].score default 0 }))",
   "explanation": {
-    "approach": "Chem is not discovered until Bo's second record, three rows into the payload, but the discovery pass runs over the whole input before any row is built, so Ada's row — built after discovery — still gets a Chem column, filled with 0.",
+    "approach": "Chem is not discovered until Bo's second record, three rows into the payload, but the discovery pass runs over the whole input before any row is built, so Ada's row (built after discovery) still gets a Chem column, filled with 0.",
     "snippets": [
       {
         "label": "A subject discovered late still becomes a column for the students seen earlier",
@@ -31,7 +31,7 @@
         "expect": {
           "output": "student,Math,Chem\r\nAda,90,0\r\nBo,60,80\r\n"
         },
-        "note": "Chem is not discovered until Bo's second record, three rows into the payload, but the discovery pass runs over the whole input before any row is built, so Ada's row — built after discovery — still gets a Chem column, filled with 0."
+        "note": "Chem is not discovered until Bo's second record, three rows into the payload, but the discovery pass runs over the whole input before any row is built, so Ada's row (built after discovery) still gets a Chem column, filled with 0."
       }
     ]
   },

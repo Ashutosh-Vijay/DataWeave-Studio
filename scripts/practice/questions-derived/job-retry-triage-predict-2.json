@@ -9,7 +9,7 @@
     "is",
     "else"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -18,7 +18,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\n10 match {\n  case n is Number -> \"num\"\n  case n if (n >= 3) -> \"big\"\n  else -> \"other\"\n}",
   "explanation": {
-    "approach": "Same two cases, reversed order. `10` satisfies both, but `match` stops at the first fit — `case n is Number` — so the guarded case below it never runs, for any number at all, not just this one.",
+    "approach": "Same two cases, reversed order. `10` satisfies both, but `match` stops at the first fit (`case n is Number`), so the guarded case below it never runs, for any number at all, not just this one.",
     "snippets": [
       {
         "label": "Swap the order and the guard goes dead",
@@ -26,7 +26,7 @@
         "expect": {
           "output": "\"num\""
         },
-        "note": "Same two cases, reversed order. `10` satisfies both, but `match` stops at the first fit — `case n is Number` — so the guarded case below it never runs, for any number at all, not just this one."
+        "note": "Same two cases, reversed order. `10` satisfies both, but `match` stops at the first fit (`case n is Number`), so the guarded case below it never runs, for any number at all, not just this one."
       }
     ]
   },

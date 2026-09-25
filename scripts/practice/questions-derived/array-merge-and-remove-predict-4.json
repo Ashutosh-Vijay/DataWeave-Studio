@@ -9,7 +9,7 @@
     "--",
     "arrays"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -19,7 +19,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\n(payload.first -- payload.remove) ++ payload.second",
   "explanation": {
-    "approach": "Remove from `first` first, then merge. But `second` contains 2, which should have been removed — it comes back in the merge. The right answer filters the final result: `[1] ++ [2] -- [2] -> []`.",
+    "approach": "Remove from `first` first, then merge. But `second` contains 2, which should have been removed. It comes back in the merge. The right answer filters the final result: `[1] ++ [2] -- [2] -> []`.",
     "snippets": [
       {
         "label": "The wrong-order case that reveals the trap",
@@ -28,7 +28,7 @@
         "expect": {
           "output": "[1, 2]"
         },
-        "note": "Remove from `first` first, then merge. But `second` contains 2, which should have been removed — it comes back in the merge. The right answer filters the final result: `[1] ++ [2] -- [2] -> []`."
+        "note": "Remove from `first` first, then merge. But `second` contains 2, which should have been removed. It comes back in the merge. The right answer filters the final result: `[1] ++ [2] -- [2] -> []`."
       }
     ]
   },

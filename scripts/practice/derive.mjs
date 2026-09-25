@@ -130,7 +130,7 @@ for (const file of files) {
       cases: q.cases,
       hints: [
         'Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.',
-        'Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.',
+        'Ask what kind of input would break this: an empty list, a missing field, a value in a different order.',
         mf.why,
       ],
       solution: q.solution,
@@ -153,7 +153,7 @@ for (const file of files) {
       tier: { medium: 'easy', hard: 'medium', extra: 'hard', max: 'extra', ultra: 'max' }[q.tier] ?? q.tier,
       title: s.label,
       topics: q.topics,
-      prompt: 'What does this return? Read it — do not run it.',
+      prompt: 'What does this return? Work it out by reading it, then reveal the answer.',
       inputMime: s.payloadMime ?? q.inputMime,
       outputMime: s.outputMime ?? q.outputMime,
       given: { script: s.script, payload: s.payload },
@@ -184,4 +184,4 @@ mkdirSync(OUT, { recursive: true });
 for (const q of [...debugQs, ...predictQs]) {
   writeFileSync(join(OUT, `${q.id}.json`), JSON.stringify(q, null, 2) + '\n', 'utf8');
 }
-console.log(`\nwritten to ${OUT}/ — regenerate any time, it is disposable.`);
+console.log(`\nwritten to ${OUT}/. Regenerate any time; it is disposable.`);

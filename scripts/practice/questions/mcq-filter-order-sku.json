@@ -24,7 +24,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty > 25) orderBy $.sku) map $.sku",
   "explanation": {
-    "approach": "Three things have to be right at once — which rows survive, what order they come back in, and which field you keep — and each wrong option gets exactly one of them wrong. That is what a well-built multiple-choice question does: it separates the three decisions so a near-miss tells you which one you got wrong.",
+    "approach": "Three things have to be right at once: which rows survive, what order they come back in, and which field you keep, and each wrong option gets exactly one of them wrong. That is what a well-built multiple-choice question does: it separates the three decisions so a near-miss tells you which one you got wrong.",
     "snippets": [
       {
         "label": "The answer",
@@ -38,7 +38,7 @@
         "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty > 25) orderBy $.qty) map $.sku",
         "payload": "[{\"sku\":\"A-1\",\"qty\":40},{\"sku\":\"B-2\",\"qty\":20},{\"sku\":\"C-3\",\"qty\":30}]",
         "expect": { "output": "[ \"C-3\", \"A-1\" ]" },
-        "note": "The right rows, the wrong order. Ordering by `qty` puts 30 before 40, so C-3 comes first. The data was chosen so `sku` order and `qty` order disagree — if they agreed, this would not be a distractor at all, it would be a second correct answer."
+        "note": "The right rows, the wrong order. Ordering by `qty` puts 30 before 40, so C-3 comes first. The data was chosen so `sku` order and `qty` order disagree. If they agreed, this would not be a distractor at all, it would be a second correct answer."
       },
       {
         "label": "The boundary, off by one row",
@@ -52,7 +52,7 @@
         "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.qty > 25) orderBy $.sku) map $.qty",
         "payload": "[{\"sku\":\"A-1\",\"qty\":40},{\"sku\":\"B-2\",\"qty\":20},{\"sku\":\"C-3\",\"qty\":30}]",
         "expect": { "output": "[ 40, 30 ]" },
-        "note": "Everything correct up to the last step. Note these are Numbers, not Strings — the output does not even have the right type, which is often the quickest way to eliminate an option under time pressure."
+        "note": "Everything correct up to the last step. Note these are Numbers, not Strings, so the output does not even have the right type, which is often the quickest way to eliminate an option under time pressure."
       }
     ]
   }

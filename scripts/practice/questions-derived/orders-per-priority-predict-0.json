@@ -9,7 +9,7 @@
     "mapObject",
     "sizeOf"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -19,7 +19,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.priority",
   "explanation": {
-    "approach": "Two things to notice. It is an object, not an array. And the keys are the strings `\"1\"` and `\"2\"` even though `priority` was a number — an object key is always a name, so the grouping value is coerced on the way in.",
+    "approach": "Two things to notice. It is an object, not an array. And the keys are the strings `\"1\"` and `\"2\"` even though `priority` was a number, because an object key is always a name, so the grouping value is coerced on the way in.",
     "snippets": [
       {
         "label": "Look at what groupBy returns first",
@@ -28,7 +28,7 @@
         "expect": {
           "output": "{ \"1\": [ { \"id\": \"A\", \"priority\": 1 }, { \"id\": \"C\", \"priority\": 1 } ], \"2\": [ { \"id\": \"B\", \"priority\": 2 } ] }"
         },
-        "note": "Two things to notice. It is an object, not an array. And the keys are the strings `\"1\"` and `\"2\"` even though `priority` was a number — an object key is always a name, so the grouping value is coerced on the way in."
+        "note": "Two things to notice. It is an object, not an array. And the keys are the strings `\"1\"` and `\"2\"` even though `priority` was a number, because an object key is always a name, so the grouping value is coerced on the way in."
       }
     ]
   },

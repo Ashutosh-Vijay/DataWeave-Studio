@@ -32,7 +32,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "no seed, so empty array gives null instead of 0"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\npayload reduce ((item, total = 0) -> total + item.amount)",
@@ -43,7 +43,7 @@
     }
   ],
   "explanation": {
-    "approach": "`reduce` walks an array one element at a time, passing the current element and the accumulated result to a function. The seed is the starting value — with no seed, an empty array gives null, which is not a number and causes arithmetic to fail.",
+    "approach": "`reduce` walks an array one element at a time, passing the current element and the accumulated result to a function. The seed is the starting value. With no seed, an empty array gives null, which is not a number and causes arithmetic to fail.",
     "snippets": [
       {
         "label": "How reduce processes elements",

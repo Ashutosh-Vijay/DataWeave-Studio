@@ -9,7 +9,7 @@
     "--",
     "arrays"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -18,7 +18,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\n[1, 2] ++ [3, 4]",
   "explanation": {
-    "approach": "`++` joins the right array into the left. Both must be arrays — scalar values are not auto-wrapped.",
+    "approach": "`++` joins the right array into the left. Both must be arrays; scalar values are not auto-wrapped.",
     "snippets": [
       {
         "label": "Both operands are required to be arrays",
@@ -26,7 +26,7 @@
         "expect": {
           "output": "[1, 2, 3, 4]"
         },
-        "note": "`++` joins the right array into the left. Both must be arrays — scalar values are not auto-wrapped."
+        "note": "`++` joins the right array into the left. Both must be arrays; scalar values are not auto-wrapped."
       }
     ]
   },

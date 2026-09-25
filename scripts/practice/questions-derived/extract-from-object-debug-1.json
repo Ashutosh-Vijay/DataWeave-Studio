@@ -32,7 +32,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "swaps the parameter order, getting id and price backwards"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\npayload pluck ((price, id) -> { id: id, price: price })",
@@ -43,7 +43,7 @@
     }
   ],
   "explanation": {
-    "approach": "`pluck` and `mapObject` both iterate an object. `pluck` returns an array of the results; `mapObject` returns an object. Both pass you the value first, then the key — the opposite of the way you read them in English (key-value), which is why this order surprises people.",
+    "approach": "`pluck` and `mapObject` both iterate an object. `pluck` returns an array of the results; `mapObject` returns an object. Both pass you the value first, then the key, the opposite of the way you read them in English (key-value), which is why this order surprises people.",
     "snippets": [
       {
         "label": "What pluck does",

@@ -33,7 +33,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "calls map directly on the object groupBy returns, which is a hard engine error, not a smaller or partial result"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region mapObject ((lines, region) -> {\n  (region): lines groupBy $.category mapObject ((catLines, category) -> {\n    (category): sum(catLines.amount)\n  })\n})",
@@ -44,7 +44,7 @@
     }
   ],
   "explanation": {
-    "approach": "`groupBy` never returns an Array — it returns an Object whose keys are the grouping values and whose values are the Arrays of matching items. That means the next step in the chain has to be something that iterates an Object, which is `pluck` (Object to Array) or `mapObject` (Object to Object), never `map` (Array to Array). A two-level report just applies this twice: group by region into an Object of Arrays, then inside each Array group by category and reduce each bucket to a single number with `sum`.",
+    "approach": "`groupBy` never returns an Array. It returns an Object whose keys are the grouping values and whose values are the Arrays of matching items. That means the next step in the chain has to be something that iterates an Object, which is `pluck` (Object to Array) or `mapObject` (Object to Object), never `map` (Array to Array). A two-level report just applies this twice: group by region into an Object of Arrays, then inside each Array group by category and reduce each bucket to a single number with `sum`.",
     "snippets": [
       {
         "label": "Check the shape before you chain anything onto it",
@@ -71,7 +71,7 @@
         "expect": {
           "error": true
         },
-        "note": "`UnexpectedFunctionCallTypesException`: map wants an Array and was handed an Object. This is not a wrong answer that runs — it does not run at all, which is exactly why it is easy to write without noticing: the mistake shows up as a stack trace, not a bad number."
+        "note": "`UnexpectedFunctionCallTypesException`: map wants an Array and was handed an Object. This is not a wrong answer that runs. It does not run at all, which is exactly why it is easy to write without noticing: the mistake shows up as a stack trace, not a bad number."
       },
       {
         "label": "mapObject, going Object to Object, is the shape that fits",
@@ -80,7 +80,7 @@
         "expect": {
           "output": "{ \"West\": 140, \"East\": 90 }"
         },
-        "note": "This is one level of aggregation — a single total per region. It compiles and runs, but it throws away the category breakdown the report actually needs; West's Widgets and Gadgets are already merged into 140 before there is any chance to split them back out."
+        "note": "This is one level of aggregation: a single total per region. It compiles and runs, but it throws away the category breakdown the report actually needs; West's Widgets and Gadgets are already merged into 140 before there is any chance to split them back out."
       },
       {
         "label": "The full two-level chain",
@@ -98,7 +98,7 @@
         "expect": {
           "output": "[ { \"region\": \"West\", \"total\": 140 }, { \"region\": \"East\", \"total\": 90 } ] "
         },
-        "note": "Same grouped Object, but `pluck` turns it into an Array of `{region, total}` rows instead of a nested Object. Neither `pluck` nor `mapObject` is `map` in disguise — each names what the input actually is."
+        "note": "Same grouped Object, but `pluck` turns it into an Array of `{region, total}` rows instead of a nested Object. Neither `pluck` nor `mapObject` is `map` in disguise; each names what the input actually is."
       }
     ]
   },

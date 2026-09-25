@@ -9,7 +9,7 @@
     "is",
     "else"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -18,7 +18,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\ntrue match {\n  case n is Number -> \"num\"\n  case null -> \"isNull\"\n  else -> \"other\"\n}",
   "explanation": {
-    "approach": "A Boolean matches none of the specific cases, so it lands on `else` — this is where a corrupted `retries` field (a string, a boolean, an object) ends up as `INVALID`.",
+    "approach": "A Boolean matches none of the specific cases, so it lands on `else`. This is where a corrupted `retries` field (a string, a boolean, an object) ends up as `INVALID`.",
     "snippets": [
       {
         "label": "Everything else falls to `else`",
@@ -26,7 +26,7 @@
         "expect": {
           "output": "\"other\""
         },
-        "note": "A Boolean matches none of the specific cases, so it lands on `else` — this is where a corrupted `retries` field (a string, a boolean, an object) ends up as `INVALID`."
+        "note": "A Boolean matches none of the specific cases, so it lands on `else`. This is where a corrupted `retries` field (a string, a boolean, an object) ends up as `INVALID`."
       }
     ]
   },

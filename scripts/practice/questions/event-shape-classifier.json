@@ -4,7 +4,7 @@
   "tier": "extra",
   "title": "Classify raw events by their shape",
   "topics": ["type", "is"],
-  "prompt": "A raw event feed mixes several shapes with no discriminator field to tell them apart — only the fields present say what an event is.\n\nDeclare a `ClickEvent` type with `x` and `y`, both Numbers, and a `KeyEvent` type with `key`, a String. For each event, return `{ id, type }`, where `type` is `\"Click\"` if it matches `ClickEvent`, `\"Key\"` if it matches `KeyEvent`, or `\"Unknown\"` otherwise. An event can only be classified by checking it against the declared types with `is` — there is no field named `type` on the input to read.\n\nIf an event matches both shapes at once, classify it as `\"Click\"`.",
+  "prompt": "A raw event feed mixes several shapes with no discriminator field to tell them apart. Only the fields present say what an event is.\n\nDeclare a `ClickEvent` type with `x` and `y`, both Numbers, and a `KeyEvent` type with `key`, a String. For each event, return `{ id, type }`, where `type` is `\"Click\"` if it matches `ClickEvent`, `\"Key\"` if it matches `KeyEvent`, or `\"Unknown\"` otherwise. An event can only be classified by checking it against the declared types with `is`. There is no field named `type` on the input to read.\n\nIf an event matches both shapes at once, classify it as `\"Click\"`.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "starter": "%dw 2.0\noutput application/json\n---\n",
@@ -31,9 +31,9 @@
     }
   ],
   "hints": [
-    "`type Name = { ... }` declares a shape, and `value is Name` checks a value against it structurally — you never build an instance of the type, you only test against it.",
+    "`type Name = { ... }` declares a shape, and `value is Name` checks a value against it structurally. You never build an instance of the type, you only test against it.",
     "The check is open, not exact: an object with extra fields the type does not mention can still satisfy it. What fails the check is a required field that is missing, or present with the wrong type.",
-    "The output field the question asks for is named `type`. Writing it as a bare key, `{ type: ... }`, does not compile — `type` is a reserved word there. Quote it: `{ \"type\": ... }`. And test `is ClickEvent` before `is KeyEvent`, since an event can satisfy both and the question says Click wins."
+    "The output field the question asks for is named `type`. Writing it as a bare key, `{ type: ... }`, does not compile, because `type` is a reserved word there. Quote it: `{ \"type\": ... }`. And test `is ClickEvent` before `is KeyEvent`, since an event can satisfy both and the question says Click wins."
   ],
   "solution": "%dw 2.0\ntype ClickEvent = { x: Number, y: Number }\ntype KeyEvent = { key: String }\noutput application/json\n---\npayload map (e) -> {\n  id: e.id,\n  \"type\": if (e is ClickEvent) \"Click\" else if (e is KeyEvent) \"Key\" else \"Unknown\"\n}",
   "mustFail": [
@@ -51,7 +51,7 @@
     }
   ],
   "explanation": {
-    "approach": "`type Name = { ... }` declares a shape once, and `value is Name` tests any value against it — that is the whole mechanism, no constructors involved. The check is structural and open: a value with extra fields the type never mentioned still matches, but a missing required field or one with the wrong type does not. The part that actually trips people up is naming the output field: the natural name for a classification result is `type`, and `type` is a reserved word wherever DataWeave expects a bare identifier for an object key. It has to be quoted. The other thing the exercise forces is a decision about order: once a value can satisfy two declared types at once, whichever `is` check runs first wins, so the order of the checks is part of the answer, not an implementation detail.",
+    "approach": "`type Name = { ... }` declares a shape once, and `value is Name` tests any value against it. That is the whole mechanism, no constructors involved. The check is structural and open: a value with extra fields the type never mentioned still matches, but a missing required field or one with the wrong type does not. The part that actually trips people up is naming the output field: the natural name for a classification result is `type`, and `type` is a reserved word wherever DataWeave expects a bare identifier for an object key. It has to be quoted. The other thing the exercise forces is a decision about order: once a value can satisfy two declared types at once, whichever `is` check runs first wins, so the order of the checks is part of the answer, not an implementation detail.",
     "snippets": [
       {
         "label": "`is` is structural and open on extra fields",
@@ -63,7 +63,7 @@
         "label": "`type` as a bare object key does not compile",
         "script": "%dw 2.0\noutput application/json\n---\n{ type: \"Click\" }",
         "expect": { "error": true },
-        "note": "CompilationException: the name `type` is a reserved word. This is not about the type SYSTEM at all — it is the plain object-literal syntax rejecting the identifier, and it is exactly the key this question needs to produce."
+        "note": "CompilationException: the name `type` is a reserved word. This is not about the type SYSTEM at all. It is the plain object-literal syntax rejecting the identifier, and it is exactly the key this question needs to produce."
       },
       {
         "label": "quoting the key is all it takes",

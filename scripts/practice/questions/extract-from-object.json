@@ -27,7 +27,7 @@
     }
   ],
   "hints": [
-    "You need a function that turns an object into rows. Look at `pluck` and `mapObject` — one returns an array, the other returns an object.",
+    "You need a function that turns an object into rows. Look at `pluck` and `mapObject`: one returns an array, the other returns an object.",
     "Both `pluck` and `mapObject` give you the value and the key as parameters. Notice their order: the value comes FIRST, the key comes second. This is the opposite of how people usually read a key-value pair out loud.",
     "In the lambda `(value, key) -> ...`, use the key to build the `id` field and the value to build the `price` field."
   ],
@@ -43,7 +43,7 @@
     }
   ],
   "explanation": {
-    "approach": "`pluck` and `mapObject` both iterate an object. `pluck` returns an array of the results; `mapObject` returns an object. Both pass you the value first, then the key — the opposite of the way you read them in English (key-value), which is why this order surprises people.",
+    "approach": "`pluck` and `mapObject` both iterate an object. `pluck` returns an array of the results; `mapObject` returns an object. Both pass you the value first, then the key, the opposite of the way you read them in English (key-value), which is why this order surprises people.",
     "snippets": [
       {
         "label": "What pluck does",

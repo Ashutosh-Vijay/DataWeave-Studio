@@ -10,7 +10,7 @@
     "reduce",
     "distinctBy"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/csv",
   "given": {
@@ -20,7 +20,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/csv\n---\npayload groupBy $.student pluck ((rows, student) -> rows reduce ((r, acc = {student: student}) -> acc ++ {(r.subject): r.score}))",
   "explanation": {
-    "approach": "This compiles, runs, and looks right for Ada. Bo only ever appears with a Math record, so his row only ever gets a Math key — the writer takes its header from the first row (Ada's, with Bio) and then writes Bo's shorter row underneath it misaligned, one column short, instead of erroring.",
+    "approach": "This compiles, runs, and looks right for Ada. Bo only ever appears with a Math record, so his row only ever gets a Math key. The writer takes its header from the first row (Ada's, with Bio) and then writes Bo's shorter row underneath it misaligned, one column short, instead of erroring.",
     "snippets": [
       {
         "label": "The near-miss: reducing over a student's OWN rows instead of the full subject list",
@@ -31,7 +31,7 @@
         "expect": {
           "output": "student,Math,Bio\r\nAda,90,70\r\nBo,60\r\n"
         },
-        "note": "This compiles, runs, and looks right for Ada. Bo only ever appears with a Math record, so his row only ever gets a Math key — the writer takes its header from the first row (Ada's, with Bio) and then writes Bo's shorter row underneath it misaligned, one column short, instead of erroring."
+        "note": "This compiles, runs, and looks right for Ada. Bo only ever appears with a Math record, so his row only ever gets a Math key. The writer takes its header from the first row (Ada's, with Bio) and then writes Bo's shorter row underneath it misaligned, one column short, instead of erroring."
       }
     ]
   },

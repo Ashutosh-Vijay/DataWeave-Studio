@@ -10,7 +10,7 @@
     "fixed-width",
     "trim"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "text/plain",
   "outputMime": "application/json",
   "given": {
@@ -19,7 +19,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\ntrim(\"E00001Alice Chen          0004250.00ENG\"[6 to 25])",
   "explanation": {
-    "approach": "line[6 to 25] is the 20-character name column, spaces and all. trim removes the padding — it does not know or care where the padding came from.",
+    "approach": "line[6 to 25] is the 20-character name column, spaces and all. trim removes the padding; it does not know or care where the padding came from.",
     "snippets": [
       {
         "label": "A range selector plus trim pulls one field out",
@@ -27,7 +27,7 @@
         "expect": {
           "output": "\"Alice Chen\""
         },
-        "note": "line[6 to 25] is the 20-character name column, spaces and all. trim removes the padding — it does not know or care where the padding came from."
+        "note": "line[6 to 25] is the 20-character name column, spaces and all. trim removes the padding; it does not know or care where the padding came from."
       }
     ]
   },

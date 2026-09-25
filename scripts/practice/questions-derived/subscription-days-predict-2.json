@@ -8,7 +8,7 @@
     "Period",
     "as"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -17,7 +17,7 @@
   "cases": [],
   "solution": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\n{\n  period: between(|2027-03-01|, |2027-02-01|),\n  days: between(|2027-03-01|, |2027-02-01|).days\n}",
   "explanation": {
-    "approach": "`between` gives a calendar period: `P1M`, one month. Its `.days` is the **leftover** days after the whole months are taken out — and here there are none, so it is 0. The function named for the job returns zero for a month-long subscription, and it does it silently.",
+    "approach": "`between` gives a calendar period: `P1M`, one month. Its `.days` is the **leftover** days after the whole months are taken out, and here there are none, so it is 0. The function named for the job returns zero for a month-long subscription, and it does it silently.",
     "snippets": [
       {
         "label": "Why not between(), which is the obvious candidate",
@@ -25,7 +25,7 @@
         "expect": {
           "output": "{ \"period\": \"P1M\", \"days\": 0 }"
         },
-        "note": "`between` gives a calendar period: `P1M`, one month. Its `.days` is the **leftover** days after the whole months are taken out — and here there are none, so it is 0. The function named for the job returns zero for a month-long subscription, and it does it silently."
+        "note": "`between` gives a calendar period: `P1M`, one month. Its `.days` is the **leftover** days after the whole months are taken out, and here there are none, so it is 0. The function named for the job returns zero for a month-long subscription, and it does it silently."
       }
     ]
   },

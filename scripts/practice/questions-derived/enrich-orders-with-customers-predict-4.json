@@ -9,7 +9,7 @@
     "dw::core::Arrays",
     "object merging"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -19,7 +19,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\npayload.orders\n  map ((o) -> do {\n    var match = (payload.customers filter ($.id == o.customerId))[0]\n    ---\n    { orderId: o.orderId, customerId: o.customerId, customerName: match.name }\n  })\n  filter ($.customerName != null)",
   "explanation": {
-    "approach": "This looks reasonable and passes on data where everything matches. But the trailing `filter` that was meant to clean up ends up deleting order O3 entirely, because it has no customer and so no way to tell 'unmatched' apart from 'exclude this row'. The question asked for O3 to appear with `customerName: null` — it just vanished instead.",
+    "approach": "This looks reasonable and passes on data where everything matches. But the trailing `filter` that was meant to clean up ends up deleting order O3 entirely, because it has no customer and so no way to tell 'unmatched' apart from 'exclude this row'. The question asked for O3 to appear with `customerName: null`. It just vanished instead.",
     "snippets": [
       {
         "label": "The plausible wrong approach: a nested filter per row",
@@ -28,7 +28,7 @@
         "expect": {
           "output": "[{\"orderId\":\"O1\",\"customerId\":1,\"customerName\":\"Ann\"}]"
         },
-        "note": "This looks reasonable and passes on data where everything matches. But the trailing `filter` that was meant to clean up ends up deleting order O3 entirely, because it has no customer and so no way to tell 'unmatched' apart from 'exclude this row'. The question asked for O3 to appear with `customerName: null` — it just vanished instead."
+        "note": "This looks reasonable and passes on data where everything matches. But the trailing `filter` that was meant to clean up ends up deleting order O3 entirely, because it has no customer and so no way to tell 'unmatched' apart from 'exclude this row'. The question asked for O3 to appear with `customerName: null`. It just vanished instead."
       }
     ]
   },

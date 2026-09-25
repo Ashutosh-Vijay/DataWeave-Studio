@@ -5,7 +5,7 @@
   "title": "Rename every field to its human-readable label",
   "compare": "text",
   "topics": ["computed keys", "mapObject", "duplicate keys"],
-  "prompt": "You are given `payload.data`, an object of raw values keyed by internal field IDs like `f1`, `f2`, and `payload.labels`, an object mapping some of those same field IDs to human-readable names.\n\nBuild a new object with the same values, but with each key replaced by its label. A field ID that has no entry in `labels` keeps its original key.\n\nTwo different field IDs can be labeled with the exact same name (two internal fields both meaning \"comments\", say). When that happens, keep **both** entries in the output under that shared name, in the order they appear in `data` — do not collapse them.",
+  "prompt": "You are given `payload.data`, an object of raw values keyed by internal field IDs like `f1`, `f2`, and `payload.labels`, an object mapping some of those same field IDs to human-readable names.\n\nBuild a new object with the same values, but with each key replaced by its label. A field ID that has no entry in `labels` keeps its original key.\n\nTwo different field IDs can be labeled with the exact same name (two internal fields both meaning \"comments\", say). When that happens, keep **both** entries in the output under that shared name, in the order they appear in `data`. Do not collapse them.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "starter": "%dw 2.0\noutput application/json\n---\n",
@@ -32,9 +32,9 @@
     }
   ],
   "hints": [
-    "You need to build an object whose keys come from data, not from the script text. `mapObject` walks an object and lets you produce a new one; wrapping an expression in parentheses as a key — `(expr): value` — makes it a computed key, evaluated rather than read literally.",
-    "`mapObject` hands its lambda the value, the key, and the position, in that order — value first. The field ID you need for the lookup is the second parameter. To read a field of `labels` whose name you only know at runtime, use a bracket selector like `payload.labels[k]`; when the ID is not present, that gives `null`, and `default` supplies the fallback.",
-    "Leaving off the parentheses does not error — it silently changes the meaning. `{ k: v }` builds a field literally named `k` for every entry, not whatever value the variable `k` holds, so you would get the same key repeated for every row instead of the labels you looked up."
+    "You need to build an object whose keys come from data, not from the script text. `mapObject` walks an object and lets you produce a new one; wrapping an expression in parentheses as a key (`(expr): value`) makes it a computed key, evaluated rather than read literally.",
+    "`mapObject` hands its lambda the value, the key, and the position, in that order: value first. The field ID you need for the lookup is the second parameter. To read a field of `labels` whose name you only know at runtime, use a bracket selector like `payload.labels[k]`; when the ID is not present, that gives `null`, and `default` supplies the fallback.",
+    "Leaving off the parentheses does not error; it silently changes the meaning. `{ k: v }` builds a field literally named `k` for every entry, not whatever value the variable `k` holds, so you would get the same key repeated for every row instead of the labels you looked up."
   ],
   "solution": "%dw 2.0\noutput application/json\n---\npayload.data mapObject ((v, k, i) -> { (payload.labels[k] default k): v })",
   "mustFail": [
@@ -48,7 +48,7 @@
     }
   ],
   "explanation": {
-    "approach": "The new key for each field is not known when the script is written — it depends on looking the field ID up in `labels`. `mapObject` gives you each value and key of `data` in turn; wrapping the looked-up label in parentheses, `(payload.labels[k] default k): v`, makes DataWeave evaluate it into a key rather than treating it as a literal field name. Because DataWeave objects are ordered lists of pairs, two fields that resolve to the same label both survive in the output side by side, instead of the second overwriting the first.",
+    "approach": "The new key for each field is not known when the script is written. It depends on looking the field ID up in `labels`. `mapObject` gives you each value and key of `data` in turn; wrapping the looked-up label in parentheses, `(payload.labels[k] default k): v`, makes DataWeave evaluate it into a key rather than treating it as a literal field name. Because DataWeave objects are ordered lists of pairs, two fields that resolve to the same label both survive in the output side by side, instead of the second overwriting the first.",
     "snippets": [
       {
         "label": "Looking a value up by a key you only know at runtime",
@@ -73,7 +73,7 @@
         "script": "%dw 2.0\noutput application/json\n---\npayload mapObject ((v, k, i) -> { (k): [v, i] })",
         "payload": "{\"a\":\"A\"}",
         "expect": { "output": "{\"a\":[\"A\",0]}" },
-        "note": "The lambda's first parameter is the value, the second is the key, and the third is the index — the opposite order from how you would say the pair out loud."
+        "note": "The lambda's first parameter is the value, the second is the key, and the third is the index, the opposite order from how you would say the pair out loud."
       },
       {
         "label": "The wrong way: forgetting the parentheses when renaming",

@@ -10,7 +10,7 @@
     "max",
     "as"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/csv",
   "outputMime": "application/json",
   "given": {
@@ -20,7 +20,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\nsum(payload map $.amount)",
   "explanation": {
-    "approach": "No coercion, and the right answer. Arithmetic coerces a numeric String for you, so the first thing most people try works — and teaches them the wrong lesson.",
+    "approach": "No coercion, and the right answer. Arithmetic coerces a numeric String for you, so the first thing most people try works, and teaches them the wrong lesson.",
     "snippets": [
       {
         "label": "The sum works anyway, which is the trap",
@@ -30,7 +30,7 @@
         "expect": {
           "output": "44.5"
         },
-        "note": "No coercion, and the right answer. Arithmetic coerces a numeric String for you, so the first thing most people try works — and teaches them the wrong lesson."
+        "note": "No coercion, and the right answer. Arithmetic coerces a numeric String for you, so the first thing most people try works, and teaches them the wrong lesson."
       }
     ]
   },

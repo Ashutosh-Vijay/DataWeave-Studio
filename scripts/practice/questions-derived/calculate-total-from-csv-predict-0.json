@@ -10,7 +10,7 @@
     "max",
     "as"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/csv",
   "outputMime": "application/json",
   "given": {
@@ -20,7 +20,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\npayload map typeOf($.amount)",
   "explanation": {
-    "approach": "No surprise yet. A CSV has no types — every field is text, including the ones that look like numbers.",
+    "approach": "No surprise yet. A CSV has no types: every field is text, including the ones that look like numbers.",
     "snippets": [
       {
         "label": "What the column really is",
@@ -30,7 +30,7 @@
         "expect": {
           "output": "[ \"String\", \"String\", \"String\" ]"
         },
-        "note": "No surprise yet. A CSV has no types — every field is text, including the ones that look like numbers."
+        "note": "No surprise yet. A CSV has no types: every field is text, including the ones that look like numbers."
       }
     ]
   },

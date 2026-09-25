@@ -10,7 +10,7 @@
     "partial application",
     "reduce"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -19,7 +19,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\nfun applyOp(op: String, amount: Number) = (x: Number) -> op match {\n  case \"add\" -> x + amount\n  case \"mul\" -> x * amount\n  else -> x\n}\n---\nthen(10, applyOp(\"add\", 5))",
   "explanation": {
-    "approach": "then(10, applyOp(\"add\", 5)) is then(10, f) where f is the function from the previous snippet — it runs f(10) and gets 15. This is the form the pipeline is built from.",
+    "approach": "then(10, applyOp(\"add\", 5)) is then(10, f) where f is the function from the previous snippet, so it runs f(10) and gets 15. This is the form the pipeline is built from.",
     "snippets": [
       {
         "label": "then's function-call form composes it",
@@ -27,7 +27,7 @@
         "expect": {
           "output": "15"
         },
-        "note": "then(10, applyOp(\"add\", 5)) is then(10, f) where f is the function from the previous snippet — it runs f(10) and gets 15. This is the form the pipeline is built from."
+        "note": "then(10, applyOp(\"add\", 5)) is then(10, f) where f is the function from the previous snippet, so it runs f(10) and gets 15. This is the form the pipeline is built from."
       }
     ]
   },

@@ -10,7 +10,7 @@
     "reduce",
     "distinctBy"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/csv",
   "given": {
@@ -20,7 +20,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\n(payload map $.subject) distinctBy $",
   "explanation": {
-    "approach": "Math and Bio, each once, in the order they first appear — Bo's second Math record does not add a duplicate or move anything.",
+    "approach": "Math and Bio, each once, in the order they first appear. Bo's second Math record does not add a duplicate or move anything.",
     "snippets": [
       {
         "label": "Discovering the columns, in first-seen order",
@@ -29,7 +29,7 @@
         "expect": {
           "output": "[ \"Math\", \"Bio\" ]"
         },
-        "note": "Math and Bio, each once, in the order they first appear — Bo's second Math record does not add a duplicate or move anything."
+        "note": "Math and Bio, each once, in the order they first appear. Bo's second Math record does not add a duplicate or move anything."
       }
     ]
   },

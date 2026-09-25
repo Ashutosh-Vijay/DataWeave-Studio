@@ -7,7 +7,7 @@
   "topics": [
     "sizeOf"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -16,7 +16,7 @@
   "cases": [],
   "solution": "%dw 2.0\noutput application/json\n---\n{direct: [1,2,3][-1], calc: [1,2,3][sizeOf([1,2,3]) - 1]}",
   "explanation": {
-    "approach": "Both return the same value, but negative indexing is clearer — it says 'get the last' without asking you to do arithmetic.",
+    "approach": "Both return the same value, but negative indexing is clearer: it says 'get the last' without asking you to do arithmetic.",
     "snippets": [
       {
         "label": "Why the tempting alternative is wrong",
@@ -24,7 +24,7 @@
         "expect": {
           "output": "{ \"direct\": 3, \"calc\": 3 }"
         },
-        "note": "Both return the same value, but negative indexing is clearer — it says 'get the last' without asking you to do arithmetic."
+        "note": "Both return the same value, but negative indexing is clearer: it says 'get the last' without asking you to do arithmetic."
       }
     ]
   },

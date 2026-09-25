@@ -35,7 +35,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "uses both array index and slice, returning arrays instead of scalars"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\n{first: payload[0], last: payload[-1]}",
@@ -94,7 +94,7 @@
         "expect": {
           "output": "{ \"direct\": 3, \"calc\": 3 }"
         },
-        "note": "Both return the same value, but negative indexing is clearer — it says 'get the last' without asking you to do arithmetic."
+        "note": "Both return the same value, but negative indexing is clearer: it says 'get the last' without asking you to do arithmetic."
       },
       {
         "label": "There is no negative zero",
@@ -102,7 +102,7 @@
         "expect": {
           "output": "{ \"zero\": 1, \"negZero\": 1, \"negOne\": 3 }"
         },
-        "note": "Counting back from the end starts at -1, not -0, because -0 and 0 are the same number. So `[-0]` quietly gives you the FIRST element — the one place where reaching for the end lands you at the start."
+        "note": "Counting back from the end starts at -1, not -0, because -0 and 0 are the same number. So `[-0]` quietly gives you the FIRST element, the one place where reaching for the end lands you at the start."
       }
     ]
   },

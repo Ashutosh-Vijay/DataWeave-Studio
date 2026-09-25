@@ -8,7 +8,7 @@
     "Period",
     "as"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -17,7 +17,7 @@
   "cases": [],
   "solution": "%dw 2.0\nimport * from dw::core::Periods\noutput application/json\n---\n{\n  period: between(|2027-03-15|, |2027-01-31|),\n  days: between(|2027-03-15|, |2027-01-31|).days,\n  correct: (|2027-03-15| - |2027-01-31|).days\n}",
   "explanation": {
-    "approach": "This is the dangerous shape. `between` returns 15 rather than 0, so it looks like a plausible number rather than an obvious bug — and it is off by 28. A test whose only fixture is a mid-month span would pass.",
+    "approach": "This is the dangerous shape. `between` returns 15 rather than 0, so it looks like a plausible number rather than an obvious bug, and it is off by 28. A test whose only fixture is a mid-month span would pass.",
     "snippets": [
       {
         "label": "The same trap with a remainder, which is how it survives review",
@@ -25,7 +25,7 @@
         "expect": {
           "output": "{ \"period\": \"P1M15D\", \"days\": 15, \"correct\": 43 }"
         },
-        "note": "This is the dangerous shape. `between` returns 15 rather than 0, so it looks like a plausible number rather than an obvious bug — and it is off by 28. A test whose only fixture is a mid-month span would pass."
+        "note": "This is the dangerous shape. `between` returns 15 rather than 0, so it looks like a plausible number rather than an obvious bug, and it is off by 28. A test whose only fixture is a mid-month span would pass."
       }
     ]
   },

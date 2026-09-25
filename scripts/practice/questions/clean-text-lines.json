@@ -51,7 +51,7 @@
     }
   ],
   "explanation": {
-    "approach": "Three chained operations: split on the separator, transform each element, join with the output separator. The trap is remembering that splitBy keeps the spaces in each name — each element needs trimming before capitalization.",
+    "approach": "Three chained operations: split on the separator, transform each element, join with the output separator. The trap is remembering that splitBy keeps the spaces in each name. Each element needs trimming before capitalization.",
     "snippets": [
       {
         "label": "The answer",

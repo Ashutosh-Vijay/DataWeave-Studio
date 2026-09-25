@@ -5,7 +5,7 @@
   "title": "Two fields with the same name",
   "compare": "text",
   "topics": ["duplicate keys", "object construction"],
-  "prompt": "You are given an array of tag objects. Each has a `name` field (the category) and a `value` field.\n\nBuild an object where each field name comes from a tag's `name`, and the field value comes from that tag's `value`.\n\nThere is a catch: some names appear more than once. When a name appears twice, **both** entries must appear in the output with the same key.\n\nDataWeave objects are ordered pairs, not a map — duplicate keys survive into the JSON.",
+  "prompt": "You are given an array of tag objects. Each has a `name` field (the category) and a `value` field.\n\nBuild an object where each field name comes from a tag's `name`, and the field value comes from that tag's `value`.\n\nThere is a catch: some names appear more than once. When a name appears twice, **both** entries must appear in the output with the same key.\n\nDataWeave objects are ordered pairs, not a map, so duplicate keys survive into the JSON.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "starter": "%dw 2.0\noutput application/json\n---\n",
@@ -44,7 +44,7 @@
     }
   ],
   "explanation": {
-    "approach": "To build an object from an array, you can use `reduce` to accumulate key-value pairs. The key insight is that DataWeave objects are ordered lists of pairs, not a dictionary — so a repeated key does not overwrite; both keys survive.",
+    "approach": "To build an object from an array, you can use `reduce` to accumulate key-value pairs. The key insight is that DataWeave objects are ordered lists of pairs, not a dictionary, so a repeated key does not overwrite; both keys survive.",
     "snippets": [
       {
         "label": "A computed key",

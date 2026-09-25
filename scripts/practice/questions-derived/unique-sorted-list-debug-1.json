@@ -32,7 +32,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "skips deduping"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\npayload distinctBy $ orderBy $",
@@ -52,7 +52,7 @@
         "expect": {
           "output": "[ 3, 1, 2, 1, 3, 2, 1 ]"
         },
-        "note": "The raw input — note the duplicates and the order."
+        "note": "The raw input. Note the duplicates and the order."
       },
       {
         "label": "After distinctBy",
@@ -79,7 +79,7 @@
         "expect": {
           "output": "[ 3, 2, 1 ]"
         },
-        "note": "To sort descending, reverse the sorted array with `[-1 to 0]`. There is no `desc` parameter — the reversal is how you do it."
+        "note": "To sort descending, reverse the sorted array with `[-1 to 0]`. There is no `desc` parameter; the reversal is how you do it."
       },
       {
         "label": "On an empty array",

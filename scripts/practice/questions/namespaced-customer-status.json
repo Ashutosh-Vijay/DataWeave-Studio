@@ -4,7 +4,7 @@
   "tier": "hard",
   "title": "A customer status field that exists twice",
   "topics": ["ns", "namespace-qualified selectors", "@id"],
-  "prompt": "A legacy SOAP service returns customer records. Each `<cust:Customer>` element carries a business `id` attribute, a `<cust:Name>`, and a `<cust:Status>` (its lifecycle status, e.g. `ACTIVE`). Some records also carry an unrelated `<audit:Status>` from a separate compliance system, sitting as a sibling of `<cust:Status>` — it is a different field that happens to share the same local name.\n\nReturn an array of `{ id, name, status }`, where `status` is always the **customer** status (the `cust` namespace one), never the audit one, regardless of which element comes first in the document.\n\nThe two namespaces are declared on the root `<soap:Envelope>` element; read the sample input to find their URIs.",
+  "prompt": "A legacy SOAP service returns customer records. Each `<cust:Customer>` element carries a business `id` attribute, a `<cust:Name>`, and a `<cust:Status>` (its lifecycle status, e.g. `ACTIVE`). Some records also carry an unrelated `<audit:Status>` from a separate compliance system, sitting as a sibling of `<cust:Status>`. It is a different field that happens to share the same local name.\n\nReturn an array of `{ id, name, status }`, where `status` is always the **customer** status (the `cust` namespace one), never the audit one, regardless of which element comes first in the document.\n\nThe two namespaces are declared on the root `<soap:Envelope>` element; read the sample input to find their URIs.",
   "inputMime": "application/xml",
   "outputMime": "application/json",
   "starter": "%dw 2.0\noutput application/json\n---\n",
@@ -27,7 +27,7 @@
     }
   ],
   "hints": [
-    "A bare selector like `.Status` matches on local name only — it does not care which namespace the element actually belongs to.",
+    "A bare selector like `.Status` matches on local name only; it does not care which namespace the element actually belongs to.",
     "When two different elements in the same document share a local name but live in different namespaces, a bare selector cannot tell them apart. It has to pick one.",
     "Declare `ns cust ...` and `ns audit ...` for both URIs found on the root element, then select with `cust#Status` instead of `Status` so the namespace is part of what you're matching, not just the name."
   ],
@@ -43,7 +43,7 @@
     }
   ],
   "explanation": {
-    "approach": "A namespace-qualified element is identified by its local name AND its namespace URI together — the two form one key. But a selector written without a namespace prefix, like `.Status`, only ever asks about the local name. When a document has exactly one element with that local name, the distinction never comes up and the bare selector looks perfectly fine. It only breaks once a second element with the same local name — in a different namespace — enters the document, and it breaks silently: it just returns whichever one appears first, with no error to flag the ambiguity.",
+    "approach": "A namespace-qualified element is identified by its local name AND its namespace URI together: the two form one key. But a selector written without a namespace prefix, like `.Status`, only ever asks about the local name. When a document has exactly one element with that local name, the distinction never comes up and the bare selector looks perfectly fine. It only breaks once a second element with the same local name (in a different namespace) enters the document, and it breaks silently: it just returns whichever one appears first, with no error to flag the ambiguity.",
     "snippets": [
       {
         "label": "Two elements, same local name, different namespaces",
@@ -51,7 +51,7 @@
         "payload": "<root xmlns:a=\"http://a.com\" xmlns:b=\"http://b.com\"><a:Status>OK</a:Status><b:Status>FAIL</b:Status></root>",
         "payloadMime": "application/xml",
         "expect": { "output": "\"OK\"" },
-        "note": "The bare `.Status` selector matches `a:Status` simply because it is the first sibling in the document — not because it belongs to any particular namespace. `b:Status` is silently skipped."
+        "note": "The bare `.Status` selector matches `a:Status` simply because it is the first sibling in the document, not because it belongs to any particular namespace. `b:Status` is silently skipped."
       },
       {
         "label": "Qualifying both selectors resolves the ambiguity",
@@ -67,7 +67,7 @@
         "payload": "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:cust=\"http://acme.com/customer\" xmlns:audit=\"http://acme.com/audit\">\n  <soap:Body>\n    <cust:GetCustomersResponse>\n      <cust:Customer id=\"C-1\">\n        <cust:Name>Alice Chen</cust:Name>\n        <audit:Status>REVIEWED</audit:Status>\n        <cust:Status>ACTIVE</cust:Status>\n      </cust:Customer>\n      <cust:Customer id=\"C-2\">\n        <cust:Name>Bob Martinez</cust:Name>\n        <audit:Status>FLAGGED</audit:Status>\n        <cust:Status>SUSPENDED</cust:Status>\n      </cust:Customer>\n    </cust:GetCustomersResponse>\n  </soap:Body>\n</soap:Envelope>",
         "payloadMime": "application/xml",
         "expect": { "output": "[ { \"id\": \"C-1\", \"name\": \"Alice Chen\", \"status\": \"REVIEWED\" }, { \"id\": \"C-2\", \"name\": \"Bob Martinez\", \"status\": \"FLAGGED\" } ]" },
-        "note": "Both customers come back with the audit system's status instead of their own, because in this feed `audit:Status` happens to be written before `cust:Status` inside each `Customer`. The output is well-formed JSON with plausible-looking values — nothing about it looks like a bug."
+        "note": "Both customers come back with the audit system's status instead of their own, because in this feed `audit:Status` happens to be written before `cust:Status` inside each `Customer`. The output is well-formed JSON with plausible-looking values, and nothing about it looks like a bug."
       },
       {
         "label": "The same bug is invisible when the audit field is absent",

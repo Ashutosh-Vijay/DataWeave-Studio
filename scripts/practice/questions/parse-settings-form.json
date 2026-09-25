@@ -4,7 +4,7 @@
   "tier": "medium",
   "title": "Convert form input strings to the right types",
   "topics": ["as", "Number", "Boolean"],
-  "prompt": "You receive form data where everything comes in as a string. You need to convert the `count` field to a Number and the `enabled` field to a Boolean.\n\nOnly the strings `\"true\"` and `\"false\"` (case-sensitive) are valid booleans. Anything else — including `\"yes\"`, `\"1\"`, or an empty string — is invalid and should not be accepted.\n\nSimilarly, for numbers, only valid numeric strings are acceptable. An empty string is not zero.",
+  "prompt": "You receive form data where everything comes in as a string. You need to convert the `count` field to a Number and the `enabled` field to a Boolean.\n\nOnly the strings `\"true\"` and `\"false\"` (case-sensitive) are valid booleans. Anything else (including `\"yes\"`, `\"1\"`, or an empty string) is invalid and should not be accepted.\n\nSimilarly, for numbers, only valid numeric strings are acceptable. An empty string is not zero.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "starter": "%dw 2.0\noutput application/json\n---\npayload map ",
@@ -43,7 +43,7 @@
     }
   ],
   "explanation": {
-    "approach": "DataWeave's `as` operator converts strings to other types, but only if the string is in the right format. The trap is that it does NOT guess at close matches — empty strings are not zero, and 'yes' is not true. This is actually helpful because it forces you to be explicit about your data validation.",
+    "approach": "DataWeave's `as` operator converts strings to other types, but only if the string is in the right format. The trap is that it does NOT guess at close matches: empty strings are not zero, and 'yes' is not true. This is actually helpful because it forces you to be explicit about your data validation.",
     "snippets": [
       {
         "label": "Basic string to number conversion",

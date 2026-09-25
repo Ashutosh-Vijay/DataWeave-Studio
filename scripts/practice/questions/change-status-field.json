@@ -29,7 +29,7 @@
   "hints": [
     "You need to iterate over the array. Each element goes through a transformation.",
     "The `update` operator changes one or more fields in an object without rebuilding the whole thing.",
-    "If you try to update a field that does not exist, it silently does nothing — it does not add it. That is the trap of this unit."
+    "If you try to update a field that does not exist, it silently does nothing; it does not add it. That is the trap of this unit."
   ],
   "solution": "%dw 2.0\noutput application/json\n---\npayload map ($ update {\n  case .status -> \"inactive\"\n})",
   "mustFail": [
@@ -43,7 +43,7 @@
     }
   ],
   "explanation": {
-    "approach": "The `update` operator modifies one or more fields in an object while leaving the rest intact. It only works on fields that already exist. If you ask it to update a field that is not there, it silently does nothing — which is the trap.",
+    "approach": "The `update` operator modifies one or more fields in an object while leaving the rest intact. It only works on fields that already exist. If you ask it to update a field that is not there, it silently does nothing, which is the trap.",
     "snippets": [
       {
         "label": "The basic update syntax",

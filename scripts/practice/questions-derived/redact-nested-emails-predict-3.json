@@ -8,7 +8,7 @@
     "dw::util::Tree",
     "mapLeafValues"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {
@@ -17,7 +17,7 @@
   "cases": [],
   "solution": "%dw 2.0\nimport * from dw::util::Tree\noutput application/json\n---\n{name: \"Alice\", email: \"alice@example.com\", age: 30} mapLeafValues ((v, p) -> if (contains(v as String, '@')) 'REDACTED' else (v as String))",
   "explanation": {
-    "approach": "This is the shape of the function reference's own example, applied to data where not every leaf is already a String. `age` is still redacted correctly (30 does not contain `@`), but it comes back as `\"30\"` — a string in the output where the input had a number.",
+    "approach": "This is the shape of the function reference's own example, applied to data where not every leaf is already a String. `age` is still redacted correctly (30 does not contain `@`), but it comes back as `\"30\"`: a string in the output where the input had a number.",
     "snippets": [
       {
         "label": "Skip the type check and coerce instead, and the numbers quietly become strings",
@@ -25,7 +25,7 @@
         "expect": {
           "output": "{ \"name\": \"Alice\", \"email\": \"REDACTED\", \"age\": \"30\" }"
         },
-        "note": "This is the shape of the function reference's own example, applied to data where not every leaf is already a String. `age` is still redacted correctly (30 does not contain `@`), but it comes back as `\"30\"` — a string in the output where the input had a number."
+        "note": "This is the shape of the function reference's own example, applied to data where not every leaf is already a String. `age` is still redacted correctly (30 does not contain `@`), but it comes back as `\"30\"`: a string in the output where the input had a number."
       }
     ]
   },

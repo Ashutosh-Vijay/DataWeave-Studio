@@ -37,7 +37,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "returns leftJoin's raw {l, r} pairs instead of the merged shape the question asks for"
   ],
   "solution": "%dw 2.0\nimport * from dw::core::Arrays\noutput application/json\n---\nleftJoin(payload.orders, payload.customers, (o) -> o.customerId as String, (c) -> c.id as String)\n  map { orderId: $.l.orderId, customerId: $.l.customerId, customerName: $.r.name }",
@@ -48,7 +48,7 @@
     }
   ],
   "explanation": {
-    "approach": "`leftJoin` is not part of core DataWeave — it lives in `dw::core::Arrays` and has to be imported. Its job is narrower than 'give me the merged rows': it walks the left array and, for each item, attaches the right item whose key matches, if one exists. What comes back is a pair, `{l: ..., r: ...}` — one item from each side, never a single merged object — and when nothing on the right matches, the pair simply has no `r` at all rather than `r: null`. Turning that into the shape this question wants, and handling both edges — an order with no customer, and a customer no order points to — is the actual work.",
+    "approach": "`leftJoin` is not part of core DataWeave. It lives in `dw::core::Arrays` and has to be imported. Its job is narrower than 'give me the merged rows': it walks the left array and, for each item, attaches the right item whose key matches, if one exists. What comes back is a pair, `{l: ..., r: ...}` (one item from each side, never a single merged object), and when nothing on the right matches, the pair simply has no `r` at all rather than `r: null`. Turning that into the shape this question wants, and handling both edges (an order with no customer, and a customer no order points to) is the actual work.",
     "snippets": [
       {
         "label": "Without the import, the name does not resolve",
@@ -65,7 +65,7 @@
         "expect": {
           "output": "[{\"l\":{\"orderId\":\"O1\",\"customerId\":1},\"r\":{\"id\":1,\"name\":\"Ann\"}},{\"l\":{\"orderId\":\"O2\",\"customerId\":2},\"r\":{\"id\":2,\"name\":\"Bo\"}}]"
         },
-        "note": "Every element is `{l, r}` — the left order and the matched customer, sitting side by side rather than combined. Building `{ orderId, customerId, customerName }` out of this is a separate step."
+        "note": "Every element is `{l, r}`: the left order and the matched customer, sitting side by side rather than combined. Building `{ orderId, customerId, customerName }` out of this is a separate step."
       },
       {
         "label": "An order with no matching customer has no r key at all",
@@ -73,7 +73,7 @@
         "expect": {
           "output": "[{\"l\":{\"orderId\":\"O3\",\"customerId\":99}}]"
         },
-        "note": "Customer 99 does not exist, so the pair for order O3 has an `l` and nothing else — there is no `r` field to be null, it is simply absent."
+        "note": "Customer 99 does not exist, so the pair for order O3 has an `l` and nothing else. There is no `r` field to be null, it is simply absent."
       },
       {
         "label": "Selecting through the missing key still gives null",
@@ -90,7 +90,7 @@
         "expect": {
           "output": "[{\"orderId\":\"O1\",\"customerId\":1,\"customerName\":\"Ann\"}]"
         },
-        "note": "This looks reasonable and passes on data where everything matches. But the trailing `filter` that was meant to clean up ends up deleting order O3 entirely, because it has no customer and so no way to tell 'unmatched' apart from 'exclude this row'. The question asked for O3 to appear with `customerName: null` — it just vanished instead."
+        "note": "This looks reasonable and passes on data where everything matches. But the trailing `filter` that was meant to clean up ends up deleting order O3 entirely, because it has no customer and so no way to tell 'unmatched' apart from 'exclude this row'. The question asked for O3 to appear with `customerName: null`. It just vanished instead."
       },
       {
         "label": "The full answer",

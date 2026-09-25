@@ -41,7 +41,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "has no `else`, so the first String, Boolean, or null leaf it reaches throws a match error instead of being ignored"
   ],
   "solution": "%dw 2.0\noutput application/json\nfun sumAll(v) = v match {\n  case o is Object -> sum(o pluck ((value) -> sumAll(value)))\n  case a is Array -> sum(a map ((item) -> sumAll(item)))\n  case n is Number -> n\n  else -> 0\n}\n---\nsumAll(payload)",
@@ -52,7 +52,7 @@
     }
   ],
   "explanation": {
-    "approach": "There's no loop construct that walks arbitrarily deep data on its own, so `sumAll` has to test what it was given at each call — is it an Object, an Array, or a leaf — and for the two container cases, call itself again on every value or item found inside, rather than stopping to inspect them directly. A leaf that isn't a Number contributes 0. A version that checks the type of what's directly inside an Object or Array, without calling `sumAll` again on it, behaves identically to the real thing on data that happens to be only one level deep, and silently returns 0 for anything nested any deeper than that — because a nested Object or Array is neither ignored nor a Number, and this version has no third option beyond those two.",
+    "approach": "There's no loop construct that walks arbitrarily deep data on its own, so `sumAll` has to test what it was given at each call (is it an Object, an Array, or a leaf), and for the two container cases, call itself again on every value or item found inside, rather than stopping to inspect them directly. A leaf that isn't a Number contributes 0. A version that checks the type of what's directly inside an Object or Array, without calling `sumAll` again on it, behaves identically to the real thing on data that happens to be only one level deep, and silently returns 0 for anything nested any deeper than that, because a nested Object or Array is neither ignored nor a Number, and this version has no third option beyond those two.",
     "snippets": [
       {
         "label": "No return-type annotation needed, even though it's recursive",
@@ -78,7 +78,7 @@
         "expect": {
           "output": "0"
         },
-        "note": "Nothing is directly a Number inside the top-level Object — `a` is an Object and `d` and `e` are not numbers — so this version reports 0 for a payload whose numbers add up to 15. It never looks inside `a`, `e`, or the objects nested further in."
+        "note": "Nothing is directly a Number inside the top-level Object (`a` is an Object and `d` and `e` are not numbers), so this version reports 0 for a payload whose numbers add up to 15. It never looks inside `a`, `e`, or the objects nested further in."
       },
       {
         "label": "The same wrong version looks correct on flat data",
@@ -86,7 +86,7 @@
         "expect": {
           "output": "6"
         },
-        "note": "This is exactly why the bug survives a quick check — a flat object has nothing nested inside it to expose the missing recursive call."
+        "note": "This is exactly why the bug survives a quick check: a flat object has nothing nested inside it to expose the missing recursive call."
       },
       {
         "label": "Without `else`, an unhandled leaf is a runtime error",
@@ -95,7 +95,7 @@
         "expect": {
           "error": true
         },
-        "note": "`case n is Number` covers numbers, but nothing covers a String, Boolean, or null leaf — `match` throws rather than falling through to some default."
+        "note": "`case n is Number` covers numbers, but nothing covers a String, Boolean, or null leaf, and `match` throws rather than falling through to some default."
       }
     ]
   },
