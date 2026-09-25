@@ -30,11 +30,11 @@ function isBinaryPayloadFormat(mime: string): boolean {
 
 function binaryFormatHint(mime: string): string {
   switch (mime) {
-    case 'application/xlsx':     return 'Excel workbook — pick an .xlsx file. DataWeave reads it via the excel-module.';
-    case 'application/avro':     return 'Avro file — pick an .avro file. The schema is read from the file header.';
-    case 'application/protobuf': return 'Protobuf binary — pick a .proto / .pb file. You\'ll typically pair this with a vars-supplied schema.';
+    case 'application/xlsx':     return 'Excel workbook: pick an .xlsx file. DataWeave reads it via the excel-module.';
+    case 'application/avro':     return 'Avro file: pick an .avro file. The schema is read from the file header.';
+    case 'application/protobuf': return 'Protobuf binary: pick a .proto / .pb file. You\'ll typically pair this with a vars-supplied schema.';
     case 'application/octet-stream':
-    default:                     return 'Binary payload — select a file to pass to the script.';
+    default:                     return 'Binary payload: select a file to pass to the script.';
   }
 }
 
@@ -497,7 +497,7 @@ export const PayloadTabs = memo(function PayloadTabs({
           </div>
 
           {multipartParts.length === 0 && (
-            <div className="text-[10px] text-content-ghost italic py-2">No parts yet — add text or file parts</div>
+            <div className="text-[10px] text-content-ghost italic py-2">No parts yet. Add a text or file part.</div>
           )}
 
           {multipartParts.map((part, i) => (
@@ -610,7 +610,7 @@ export const PayloadTabs = memo(function PayloadTabs({
 
           {multipartParts.length > 0 && (
             <div className="text-[9px] text-content-ghost pt-1">
-              Real multipart body sent to DW CLI — access via <code className="text-content-faint">payload.parts.name.content</code>
+              A real multipart body. Read it with <code className="text-content-faint">payload.parts.name.content</code>
             </div>
           )}
         </div>

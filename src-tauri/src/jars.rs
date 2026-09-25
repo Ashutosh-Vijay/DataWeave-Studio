@@ -106,7 +106,7 @@ pub fn remove_managed_jar(app: AppHandle, path: String) -> Result<(), String> {
         // Windows keeps a handle open on any jar the engine has hot-loaded, so
         // a delete fails until the JVM lets go. Point the user at the fix.
         if e.raw_os_error() == Some(32) {
-            "Can't remove — the engine has this JAR loaded. Restart the engine (Settings → Runtime), then remove it.".to_string()
+            "Can't remove it while the engine has this JAR loaded. Restart the engine (Settings → Runtime), then remove it.".to_string()
         } else {
             format!("Failed to remove JAR: {}", e)
         }

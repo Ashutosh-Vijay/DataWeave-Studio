@@ -148,7 +148,7 @@ export function SavedKeyField({
               color: 'var(--accent)',
             }}
           >
-            Using “{savedName}” — from this computer’s keychain
+            Using “{savedName}” from this computer’s keychain
           </div>
           {confirmForget ? (
             <>
@@ -219,7 +219,7 @@ export function SavedKeyField({
               value={newKey}
               onChange={(e) => setNewKey(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') applyEdit(); if (e.key === 'Escape') setEditing(false); }}
-              placeholder="New key — optional"
+              placeholder="New key (optional)"
               className="flex-1 bg-surface border border-line rounded-md px-3 py-1.5 text-[12.5px] text-content placeholder-content-ghost focus:border-accent focus:outline-none font-mono"
             />
           </div>
@@ -227,7 +227,7 @@ export function SavedKeyField({
             <span className="text-[10.5px] text-content-ghost flex-1">
               {newKey.trim()
                 ? (newName.trim() !== savedName ? 'Renames it and replaces the key behind it.' : 'Replaces the key behind this name.')
-                : (newName.trim() !== savedName ? 'Renames it — the key itself is unchanged.' : 'Nothing to change yet.')}
+                : (newName.trim() !== savedName ? 'Renames it. The key itself is unchanged.' : 'Nothing to change yet.')}
             </span>
             <button
               onClick={applyEdit}
@@ -254,7 +254,7 @@ export function SavedKeyField({
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') saveKey(); if (e.key === 'Escape') setNaming(false); }}
-            placeholder="Name it for the environment — uat, prod, …  (Enter to save)"
+            placeholder="Name it for the environment: uat, prod, …  (Enter to save)"
             className="flex-1 bg-surface-2 border border-line rounded-md px-3 py-1.5 text-[12.5px] text-content placeholder-content-ghost focus:border-accent focus:outline-none"
           />
           <button
@@ -278,7 +278,7 @@ export function SavedKeyField({
         const info = inspectAesKey(value);
         return (
           <span className="text-[10px]" style={{ color: info.aesValid ? 'var(--accent)' : 'var(--warn)' }}>
-            Key is {info.bytes} bytes —{' '}
+            Key is {info.bytes} bytes,{' '}
             {info.aesValid ? `${info.aesVariant} ✓` : 'invalid for AES (need 16, 24, or 32 bytes)'}
           </span>
         );

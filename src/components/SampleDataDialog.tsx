@@ -93,7 +93,7 @@ export function SampleDataDialog({
             </div>
             <div className="text-[12.5px] mt-1 leading-relaxed" style={{ color: 'var(--content-muted)' }}>
               {types.length > 0
-                ? 'Built from a type your script declares. Field names guide the values — an email looks like an email.'
+                ? 'Built from a type your script declares. Field names guide the values, so an email looks like an email.'
                 : 'Your script declares no types, so this is generated from the shape your script outputs.'}
             </div>
           </div>

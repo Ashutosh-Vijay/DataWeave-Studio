@@ -51,10 +51,10 @@ function timeAgo(iso?: string): string {
 }
 
 function shortDate(iso?: string): string {
-  if (!iso) return '—';
+  if (!iso) return '–';
   try {
     return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  } catch { return '—'; }
+  } catch { return '–'; }
 }
 
 /** Node-type dot color — the Flow designer's own palette, so the whole app
@@ -477,7 +477,7 @@ export function OpenWorkspaceDialog({
               <div className="space-y-1 text-[11px] shrink-0">
                 <div className="flex items-center gap-2">
                   <span className="w-14" style={{ color: 'var(--content-ghost)' }}>Updated</span>
-                  <span className="font-mono" style={{ color: 'var(--content-faint)' }}>{timeAgo(sel.updatedAt) || '—'}</span>
+                  <span className="font-mono" style={{ color: 'var(--content-faint)' }}>{timeAgo(sel.updatedAt) || '–'}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-14" style={{ color: 'var(--content-ghost)' }}>Created</span>

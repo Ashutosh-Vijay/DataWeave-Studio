@@ -15,7 +15,7 @@ interface QueryEditorProps {
 
 const HINTS: Record<string, string> = {
   SOQL: "':param' for strings, :param bare for dates/numbers",
-  SQL: ':param only — quoting handled by JDBC driver',
+  SQL: ':param only; the JDBC driver handles quoting',
 };
 
 export function QueryEditor({ query, onChange, language }: QueryEditorProps) {

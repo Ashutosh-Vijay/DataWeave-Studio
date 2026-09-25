@@ -98,7 +98,7 @@ pub fn migrate_dw1_to_2(src: &str) -> MigrationResult {
         }
 
         if re_outbound.is_match(&line) {
-            warnings.push("outboundProperties: no direct DW 2.0 equivalent — remove or pass as named input".to_string());
+            warnings.push("outboundProperties: no direct DW 2.0 equivalent; remove it or pass it as a named input".to_string());
             *tally.entry("warn").or_insert(0) += 1;
         }
         if re_session.is_match(&line) {

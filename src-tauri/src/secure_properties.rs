@@ -155,7 +155,7 @@ pub fn secure_properties_invoke(
         Some(name) => keyring::Entry::new(KEYRING_SERVICE, name)
             .and_then(|e| e.get_password())
             .map_err(|_| format!(
-                "Saved key \"{}\" is no longer in the OS keychain — type it in again.",
+                "Saved key \"{}\" is no longer in the OS keychain. Type it in again.",
                 name
             ))?,
         None => key,
@@ -196,7 +196,7 @@ pub fn secure_properties_invoke(
     {
         const CP1252_EXTRAS: &str = "\u{20ac}\u{201a}\u{192}\u{201e}\u{2026}\u{2020}\u{2021}\u{2c6}\u{2030}\u{160}\u{2039}\u{152}\u{17d}\u{2018}\u{2019}\u{201c}\u{201d}\u{2022}\u{2013}\u{2014}\u{2dc}\u{2122}\u{161}\u{203a}\u{153}\u{17e}\u{178}";
         if value.chars().any(|c| c as u32 > 255 && !CP1252_EXTRAS.contains(c)) {
-            return Err("This value has characters the offline fallback cannot pass to the encryption tool without corrupting them. The DataWeave engine is not running — restart the app and try again.".into());
+            return Err("This value has characters the offline fallback cannot pass to the encryption tool without corrupting them. The DataWeave engine is not running. Restart the app and try again.".into());
         }
     }
 

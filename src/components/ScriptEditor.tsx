@@ -84,7 +84,7 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
     if (!/^\s*%dw\s+1\.0\b/m.test(code)) {
       setMigrateResult({
         kind: 'error',
-        message: 'This script doesn’t look like DataWeave 1.0 — missing `%dw 1.0` header. Nothing to migrate.',
+        message: 'This script doesn’t look like DataWeave 1.0 (there’s no `%dw 1.0` header). Nothing to migrate.',
       });
       return;
     }

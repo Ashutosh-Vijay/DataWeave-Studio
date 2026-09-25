@@ -48,10 +48,10 @@ const RULES: HintRule[] = [
       category: 'reference',
       summary: `DataWeave can't find anything called \`${m[1]}\` in this scope.`,
       fixes: [
-        `Check the spelling of \`${m[1]}\` — variable, function, and module names are case-sensitive.`,
+        `Check the spelling of \`${m[1]}\`. Variable, function and module names are case-sensitive.`,
         `If it's a function from a module (String, Arrays, Objects, etc.), import it: \`import ${m[1]} from dw::core::Strings\` or use the qualified call \`Strings::${m[1]}(...)\`.`,
         `If it's a variable, make sure it's declared with \`var ${m[1]} = ...\` in the header before the \`---\`.`,
-        `If it's a payload field, the payload may be empty or have a different MIME type than expected — check the Payload tab.`,
+        `If it's a payload field, the payload may be empty or have a different MIME type than expected. Check the Payload tab.`,
       ],
       example: {
         caption: 'Importing a module function',
@@ -67,7 +67,7 @@ const RULES: HintRule[] = [
       fixes: [
         `Declare it in the header: \`var ${m[1]} = <expression>\` before the \`---\`.`,
         `If you meant to read it from input, make sure a named input called \`${m[1]}\` exists in the Payload tab (the \`+\` button).`,
-        `If it's a built-in like \`payload\`, \`vars\`, or \`attributes\`, check the case — they're all lowercase.`,
+        `If it's a built-in like \`payload\`, \`vars\`, or \`attributes\`, check the case. They're all lowercase.`,
       ],
     }),
   },
@@ -79,11 +79,11 @@ const RULES: HintRule[] = [
     pattern: /you called the function ['"]?Value Selector['"]?[\s\S]*?(?:String|Null|Binary)/i,
     build: () => ({
       category: 'selector',
-      summary: `You're trying to access a field on something that isn't an object — usually because the payload's MIME type is wrong.`,
+      summary: `You're trying to access a field on something that isn't an object, usually because the payload's MIME type is wrong.`,
       fixes: [
-        `Check the Payload tab — the dropdown next to the editor should match the actual format (JSON, XML, CSV, etc.). If it says "text/plain" or "application/java" but the data is JSON, switch it.`,
+        `Check the Payload tab. The dropdown next to the editor should match the actual format (JSON, XML, CSV, etc.). If it says "text/plain" or "application/java" but the data is JSON, switch it.`,
         `If the payload could be empty or null, guard the access: \`payload.field default ""\` or \`(payload default {}).field\`.`,
-        `If you're reading a nested field, make sure each level in the path exists — the error often points at the first missing or null hop.`,
+        `If you're reading a nested field, make sure each level in the path exists. The error often points at the first missing or null hop.`,
       ],
       example: {
         caption: 'Null-safe field access',
@@ -98,7 +98,7 @@ const RULES: HintRule[] = [
       category: 'function',
       summary: `The arguments you passed to \`${m[1]}\` don't match any of its accepted signatures.`,
       fixes: [
-        `Read the "but it expects" line below — it lists every valid combination of argument types.`,
+        `Read the "but it expects" line below. It lists every valid combination of argument types.`,
         `Common cause: one argument is \`Null\`. Add a \`default\` to fall back: \`someValue default ""\`.`,
         `Another common cause: the value is a String when the function wants a Number / Date / Array. Coerce explicitly: \`"42" as Number\`, \`"2026-01-01" as Date\`.`,
         `Open Function Reference (sidebar) to see the full signature and examples for \`${m[1]}\`.`,
@@ -109,7 +109,7 @@ const RULES: HintRule[] = [
     pattern: /(?:expects?|expected)\s+(\d+)\s+arguments?\s+but\s+got\s+(\d+)/i,
     build: (m) => ({
       category: 'function',
-      summary: `Wrong number of arguments — the function takes ${m[1]} but you passed ${m[2]}.`,
+      summary: `Wrong number of arguments. The function takes ${m[1]} but you passed ${m[2]}.`,
       fixes: [
         `Open Function Reference (sidebar, Cmd+L → Function Reference, or the {ƒ} icon) and copy the correct signature.`,
         `Common typo: \`round()\` (no args) instead of \`round(1.65)\`. The signature error message includes the expected arity.`,
@@ -120,7 +120,7 @@ const RULES: HintRule[] = [
     pattern: /ambiguous (?:call to|reference to) function/i,
     build: () => ({
       category: 'function',
-      summary: `Multiple functions match this call — DataWeave can't pick one.`,
+      summary: `Multiple functions match this call, so DataWeave can't pick one.`,
       fixes: [
         `Qualify the call with the module name: \`Strings::pluralize("box")\` instead of \`pluralize("box")\`.`,
         `Or import only the specific function you want: \`import pluralize from dw::core::Strings\` (instead of \`import * from\`).`,
@@ -151,9 +151,9 @@ const RULES: HintRule[] = [
       category: 'type',
       summary: `The \`${m[1]}\` operator was called with values it doesn't accept.`,
       fixes: [
-        `For \`map\`, \`filter\`, \`reduce\`, \`groupBy\` — the left side must be an Array. If it could be an Object, wrap with \`valuesOf(...)\` or use the right operator (\`mapObject\` for Objects).`,
-        `For arithmetic operators (\`+\`, \`-\`, \`*\`, \`/\`) — both sides must be numbers. Coerce strings first: \`("3" as Number) + 4\`.`,
-        `For \`++\` (concat) — both sides must be the same shape (both Arrays, both Objects, or both Strings).`,
+        `For \`map\`, \`filter\`, \`reduce\`, \`groupBy\`, the left side must be an Array. If it could be an Object, wrap with \`valuesOf(...)\` or use the right operator (\`mapObject\` for Objects).`,
+        `For arithmetic operators (\`+\`, \`-\`, \`*\`, \`/\`), both sides must be numbers. Coerce strings first: \`("3" as Number) + 4\`.`,
+        `For \`++\` (concat), both sides must be the same shape (both Arrays, both Objects, or both Strings).`,
       ],
     }),
   },
@@ -167,7 +167,7 @@ const RULES: HintRule[] = [
       fixes: [
         `In real Mule flows, this happens with GET requests that have no body. Guard with: \`if (isEmpty(${m[1]})) {} else ${m[1]}\`.`,
         `In Studio: open the Payload tab and paste sample data so the script has something to read.`,
-        `If the empty case is intentional, change the MIME type to \`application/octet-stream\` (binary) — won't try to parse it.`,
+        `If the empty case is intentional, change the MIME type to \`application/octet-stream\` (binary) so it isn't parsed.`,
       ],
     }),
   },
@@ -175,9 +175,9 @@ const RULES: HintRule[] = [
     pattern: /Unexpected character ['"](.)['"][\s\S]*?(?:while reading|payload@)/i,
     build: (m) => ({
       category: 'input',
-      summary: `The input data is malformed — found \`${m[1]}\` where DataWeave expected something else.`,
+      summary: `The input data is malformed. Found \`${m[1]}\` where DataWeave expected something else.`,
       fixes: [
-        `Check the Payload tab — the data probably isn't valid JSON/XML/CSV for the selected MIME type.`,
+        `Check the Payload tab. The data probably isn't valid JSON/XML/CSV for the selected MIME type.`,
         `Common gotcha: an HTML error page (\`<html>...\`) was returned by an API instead of JSON. Inspect the raw payload.`,
         `If the payload mixes formats, change the MIME type to match the actual data, or read it as \`text/plain\` and parse manually.`,
       ],
@@ -190,7 +190,7 @@ const RULES: HintRule[] = [
       summary: `The payload is a stream that was already consumed before DataWeave got to it.`,
       fixes: [
         `In Mule: a previous component (often a Logger or File:Write) read the stream without setting \`streaming: false\`. Use repeatable streaming or read the stream into a variable first.`,
-        `In Studio: this rarely happens — if it does, try setting payload MIME type to one that buffers fully (JSON / XML rather than \`application/octet-stream\`).`,
+        `In Studio this rarely happens. If it does, try setting payload MIME type to one that buffers fully (JSON / XML rather than \`application/octet-stream\`).`,
       ],
     }),
   },
@@ -228,8 +228,8 @@ const RULES: HintRule[] = [
       category: 'output',
       summary: `The output MIME type \`${m[1]}\` isn't registered in this DataWeave runtime.`,
       fixes: [
-        `Check the spelling and standard form — e.g. \`application/json\`, \`application/xml\`, \`application/csv\`, \`text/plain\`.`,
-        `For Excel, Avro, or Protocol Buffers — these require dedicated modules. Studio ships them, but the MIME must be exact (\`application/xlsx\`, \`application/avro\`, \`application/x-protobuf\`).`,
+        `Check the spelling and standard form, e.g. \`application/json\`, \`application/xml\`, \`application/csv\`, \`text/plain\`.`,
+        `Excel, Avro and Protocol Buffers need dedicated modules. Studio ships them, but the MIME must be exact (\`application/xlsx\`, \`application/avro\`, \`application/x-protobuf\`).`,
       ],
     }),
   },
@@ -242,7 +242,7 @@ const RULES: HintRule[] = [
       summary: `Couldn't find a DataWeave module called \`${m[1]}\`.`,
       fixes: [
         `Standard modules need the \`dw::core::\` prefix: \`import * from dw::core::Strings\`, \`import * from dw::core::Arrays\`, \`import * from dw::core::Objects\`.`,
-        `Check the module name spelling — they're plural (\`Strings\`, \`Arrays\`, \`Objects\`, \`Numbers\`, \`Periods\`).`,
+        `Check the module name's spelling. They're plural (\`Strings\`, \`Arrays\`, \`Objects\`, \`Numbers\`, \`Periods\`).`,
         `If it's a custom JAR module, add the JAR to the Classpath panel in Settings, then restart the runtime (Settings → Runtime → Restart CLI).`,
       ],
     }),
@@ -253,11 +253,11 @@ const RULES: HintRule[] = [
     pattern: /Stack Overflow.*Max stack is (\d+)/i,
     build: (m) => ({
       category: 'runtime',
-      summary: `A recursive function exceeded the ${m[1]}-frame stack limit — likely infinite recursion.`,
+      summary: `A recursive function exceeded the ${m[1]}-frame stack limit, probably infinite recursion.`,
       fixes: [
         `Check recursive functions for a missing or unreachable base case (\`if (isEmpty(xs)) [] else ...\`).`,
         `For deeply nested data, prefer iterative operators (\`reduce\`, \`map\`) over recursion.`,
-        `If you genuinely need deeper recursion, set the runtime property \`com.mulesoft.dw.stacksize\` (advanced — only in production Mule, not Studio).`,
+        `If you genuinely need deeper recursion, set the runtime property \`com.mulesoft.dw.stacksize\` (advanced, and only in production Mule, not Studio).`,
       ],
     }),
   },
@@ -281,7 +281,7 @@ const RULES: HintRule[] = [
     pattern: /No space left on device/i,
     build: () => ({
       category: 'runtime',
-      summary: `Payload is too large for available memory/disk — DataWeave spills to temp files.`,
+      summary: `The payload is too large for the available memory or disk. DataWeave spills to temp files.`,
       fixes: [
         `In Studio: try a smaller sample of the payload, or split the transform into stages with named inputs.`,
         `For genuinely huge files, use streaming: read the payload as \`application/x-ndjson\` (newline-delimited JSON) instead of one big array.`,
@@ -294,11 +294,11 @@ const RULES: HintRule[] = [
     pattern: /(?:mismatched input|extraneous input|no viable alternative)/i,
     build: () => ({
       category: 'syntax',
-      summary: `Syntax error — DataWeave couldn't parse the script.`,
+      summary: `Syntax error: DataWeave couldn't parse the script.`,
       fixes: [
-        `Look at the line/column in the error — that's where parsing stopped (the actual mistake is usually a few characters earlier).`,
+        `Look at the line and column in the error. That's where parsing stopped (the actual mistake is usually a few characters earlier).`,
         `Common causes: missing comma between object fields, unbalanced \`{\` \`}\` \`[\` \`]\` \`(\` \`)\`, a stray \`,\` before \`}\`, or using \`:\` instead of \`=\` in \`var\` declarations.`,
-        `Format the script (Alt+Shift+F) — broken syntax usually makes the formatter visibly stop at the error point.`,
+        `Format the script (Alt+Shift+F). Broken syntax usually makes the formatter visibly stop at the error point.`,
       ],
     }),
   },
@@ -306,9 +306,9 @@ const RULES: HintRule[] = [
     pattern: /Expects (?:expression|identifier|';'|','|'\)')/i,
     build: () => ({
       category: 'syntax',
-      summary: `The parser expected more — the expression is incomplete at the point of error.`,
+      summary: `The parser expected more. The expression is incomplete at the point of error.`,
       fixes: [
-        `Look at the indicated line and column — something is missing right there.`,
+        `Look at the line and column shown. Something is missing right there.`,
         `If you're mid-edit, this often clears once you finish typing the expression.`,
       ],
     }),

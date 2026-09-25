@@ -262,7 +262,7 @@ function DetailPane({
 
       {doc.overloads.length > 1 && (
         <div className="text-[11px] text-content-faint">
-          {doc.overloads.length} overloads — listed below.
+          {doc.overloads.length} overloads, listed below.
         </div>
       )}
 

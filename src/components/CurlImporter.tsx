@@ -249,7 +249,7 @@ function generateMultipartScript(payload: string, hints: string[], partNames?: s
   }
 
   if (names.length === 0) {
-    return buildScript('application/json', hints, 'payload // multipart — add parts in the payload tab');
+    return buildScript('application/json', hints, 'payload // multipart: add parts in the payload tab');
   }
 
   // Mirror the input format, the way the XML branch already does. Writing
@@ -642,7 +642,7 @@ export function CurlImporter({ onImport, open, onClose, onImportShareLink }: Cur
           border: '1px solid var(--line)',
           color: 'var(--content-secondary)',
         }}
-        title="Import from cURL — auto-fills payload, context, and generates a DW transform"
+        title="Import from cURL: fills in the payload and context and generates a transform"
       >
         <span className="inline-flex items-center gap-1.5">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)' }}>
@@ -702,8 +702,8 @@ export function CurlImporter({ onImport, open, onClose, onImportShareLink }: Cur
             <div className="text-[14.5px] font-semibold" style={{ color: 'var(--content)' }}>Import</div>
             <div className="text-[12px] mt-[3px]" style={{ color: 'var(--content-muted)' }}>
               {mode === 'curl'
-                ? "Paste a curl command — we'll detect method, headers, params, and generate a DW transform from the payload."
-                : 'Paste a share link — it restores the script, payload, vars and headers exactly as they were sent.'}
+                ? "Paste a curl command. The method, headers and params are detected, and a transform is generated from the payload."
+                : 'Paste a share link to restore the script, payload, vars and headers exactly as they were sent.'}
             </div>
           </div>
           <button
@@ -740,7 +740,7 @@ export function CurlImporter({ onImport, open, onClose, onImportShareLink }: Cur
             <textarea
               value={linkText}
               onChange={(e) => { setLinkText(e.target.value); setError(''); }}
-              placeholder="https://ashutosh-vijay.dev/dataweave/s#dws1.…  — or paste the dws1.… code itself"
+              placeholder="https://ashutosh-vijay.dev/dataweave/s#dws1.…  or just the dws1.… code"
               spellCheck={false}
               rows={5}
               className="w-full rounded-md px-3 py-2.5 text-[11.5px] font-mono leading-[1.55] resize-none outline-none"
@@ -756,7 +756,7 @@ export function CurlImporter({ onImport, open, onClose, onImportShareLink }: Cur
               <button
                 onClick={async () => {
                   try { setLinkText(await navigator.clipboard.readText()); setError(''); }
-                  catch { setError('Couldn’t read the clipboard — paste the link manually.'); }
+                  catch { setError('Couldn’t read the clipboard. Paste the link manually.'); }
                 }}
                 className="h-8 px-3 rounded-md text-[12px] cursor-pointer hover:bg-surface-2"
                 style={{ border: '1px solid var(--line)', color: 'var(--content-secondary)' }}
@@ -781,8 +781,7 @@ export function CurlImporter({ onImport, open, onClose, onImportShareLink }: Cur
               </button>
             </div>
             <div className="text-[11px] mt-3 leading-relaxed" style={{ color: 'var(--content-faint)' }}>
-              A share link carries the whole setup inside itself — the data rides in the part of
-              the URL browsers never send to a server, so nothing was uploaded to create it.
+              A share link carries the whole setup inside itself.
               {' '}
               {/* Whoever opens this dialog to paste a link is the same person who'll
                   want to send one back, and creating one was previously undiscoverable. */}
@@ -939,8 +938,8 @@ export function CurlImporter({ onImport, open, onClose, onImportShareLink }: Cur
                         key={v}
                         onClick={() => setXmlValues(v)}
                         title={v === 'literal'
-                          ? 'Bake in the values this cURL used — a fixed call to a downstream API'
-                          : 'Read them off the inbound request (attributes.queryParams.region) — a flow that forwards what it was given, with no transform in between'}
+                          ? 'Use the values this cURL used: a fixed call to a downstream API'
+                          : 'Read them from the inbound request (attributes.queryParams.region): a flow that forwards what it was given, with no transform in between'}
                         className="h-[21px] px-2 rounded text-[11px] font-medium normal-case tracking-normal cursor-pointer"
                         style={xmlValues === v
                           ? { background: 'var(--surface-3)', color: 'var(--content)', border: '1px solid var(--line-secondary)' }

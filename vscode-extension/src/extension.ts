@@ -242,7 +242,7 @@ function writeMcpClientConfig(client: string, extensionRoot: string, workspaceRo
     const raw = fs.readFileSync(cfgPath, 'utf8').trim();
     if (raw) {
       try { obj = JSON.parse(raw); } catch {
-        throw new Error(`${cfgPath} isn't valid JSON — add the server manually (use "Copy config").`);
+        throw new Error(`${cfgPath} isn't valid JSON. Add the server manually (use "Copy config").`);
       }
     }
   }
@@ -272,13 +272,13 @@ async function connectMcpToClient(extensionRoot: string): Promise<void> {
   if (pick.client === 'copy') {
     const snippet = JSON.stringify({ mcpServers: { 'dataweave-studio': mcpStdioEntry(extensionRoot) } }, null, 2);
     await vscode.env.clipboard.writeText(snippet);
-    vscode.window.showInformationMessage('DataWeave Studio MCP config copied — paste it into your client\'s mcpServers.');
+    vscode.window.showInformationMessage('DataWeave Studio MCP config copied. Paste it into your client\'s mcpServers.');
     return;
   }
 
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (pick.client === 'claude-code' && !workspaceRoot) {
-    vscode.window.showErrorMessage('Open a folder/workspace first — Claude Code reads .mcp.json from the workspace root.');
+    vscode.window.showErrorMessage('Open a folder or workspace first. Claude Code reads .mcp.json from the workspace root.');
     return;
   }
   try {
@@ -475,7 +475,7 @@ async function handleInvoke(
       }
       const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
       if (client === 'claude-code' && !workspaceRoot) {
-        throw new Error('Open a folder/workspace first — Claude Code reads .mcp.json from the workspace root.');
+        throw new Error('Open a folder or workspace first. Claude Code reads .mcp.json from the workspace root.');
       }
       const { path: p, existed } = writeMcpClientConfig(client, extensionRoot, workspaceRoot);
       return { path: p, existed };

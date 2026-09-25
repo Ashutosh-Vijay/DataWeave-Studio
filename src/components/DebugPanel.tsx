@@ -87,7 +87,7 @@ export function DebugPanel({ dbg }: { dbg: UseDebuggerReturn }) {
                       border: `1px solid ${i === frameIndex ? 'var(--accent-border)' : 'var(--line)'}`,
                       color: i === frameIndex ? 'var(--accent)' : 'var(--content-faint)',
                     }}
-                    title={`Frame ${f.id}${f.name ? ` — ${f.name}` : ''}, line ${f.line}`}
+                    title={`Frame ${f.id}${f.name ? `: ${f.name}` : ''}, line ${f.line}`}
                   >
                     {f.name || `frame ${f.id}`} <span className="font-mono opacity-70">L{f.line}</span>
                   </button>
@@ -120,7 +120,7 @@ export function DebugPanel({ dbg }: { dbg: UseDebuggerReturn }) {
               <input
                 value={expression}
                 onChange={(e) => setExpression(e.target.value)}
-                placeholder="Evaluate in this frame — e.g. payload.name"
+                placeholder="Evaluate in this frame, e.g. payload.name"
                 spellCheck={false}
                 className="flex-1 h-7 px-2 rounded-md outline-none font-mono text-[11.5px]"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--content)' }}

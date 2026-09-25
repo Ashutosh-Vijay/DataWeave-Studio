@@ -167,7 +167,7 @@ export function useTestRunner(): UseTestRunnerReturn {
 
       if (res.error) {
         const hint = readsUndeclaredPayload(suite)
-          ? '\n\n— a suite has no `payload`. Define the data it needs inside the suite (`var lines = [...]`), the way dw::test\'s own examples do.'
+          ? '\n\nA suite has no `payload`. Define the data it needs inside the suite (`var lines = [...]`), the way dw::test\'s own examples do.'
           : '';
         const out = {
           ...EMPTY_RUN,
@@ -200,7 +200,7 @@ export function useTestRunner(): UseTestRunnerReturn {
       const out: SuiteRun = {
         root, passed, failed, timeMs: res.execution_time_ms, error: null, errorLine: null,
         notice: failed > 0 && readsUndeclaredPayload(suite)
-          ? 'This suite reads `payload`, and a suite has no payload — it is bound to an empty object. Define the data the tests need inside the suite (`var lines = [...]`), the way dw::test\'s own examples do.'
+          ? 'This suite reads `payload`, but a suite has no payload; it is bound to an empty object. Define the data the tests need inside the suite (`var lines = [...]`), the way dw::test\'s own examples do.'
           : undefined,
       };
       setResult(out);

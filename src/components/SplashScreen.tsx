@@ -267,7 +267,7 @@ export function SplashScreen({ isReady, hasError, onDismiss }: SplashScreenProps
           style={{ animation: 'fadeIn 400ms ease-out' }}
         >
           The DataWeave runtime takes a few extra seconds on slow / heavily-monitored
-          machines. Hang tight — this is a one-time per-launch cost.
+          machines. This only happens once per launch.
           <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }`}</style>
         </div>
       )}

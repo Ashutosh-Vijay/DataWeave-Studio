@@ -20,29 +20,29 @@ export interface FeatureIntro {
 export const FEATURE_INTROS: Record<string, FeatureIntro> = {
   autorun: {
     title: 'Auto-run',
-    body: 'Studio now re-executes your script automatically ~1.5s after you stop typing, so the output updates live as you edit — no need to hit Run. Click this button again to turn it off.',
+    body: 'Studio now re-executes your script automatically ~1.5s after you stop typing, so the output updates live as you edit, with no need to press Run. Click this button again to turn it off.',
     tip: '⌘⇧R toggles it from anywhere.',
   },
   curl: {
     title: 'Import from cURL',
-    body: 'Paste a cURL command — copy one straight from your browser’s Network tab or Postman — and Studio scaffolds the transform for you: the body becomes the payload, with headers and query params wired up as inputs.',
+    body: 'Paste a cURL command, straight from your browser’s Network tab or Postman, and Studio scaffolds the transform for you: the body becomes the payload, with headers and query params wired up as inputs.',
     tip: '⌘⇧I opens this anytime.',
   },
   cookbook: {
     title: 'DataWeave cookbook',
-    body: 'A searchable library of ready-to-run recipes — grouping, joins, date math, XML/CSV tricks and more. Click any recipe to load it straight into the editor and tweak it.',
+    body: 'A searchable library of ready-to-run recipes: grouping, joins, date math, XML/CSV tricks and more. Click any recipe to load it straight into the editor and tweak it.',
   },
   flow: {
     title: 'Message Flow designer',
-    body: 'Chain several transforms into a visual pipeline where one step’s output feeds the next — with mock Salesforce and Database connectors so you can model a real integration end-to-end.',
+    body: 'Chain several transforms into a visual pipeline where one step’s output feeds the next, with mock Salesforce and Database connectors so you can model a real integration end-to-end.',
   },
   modules: {
     title: 'Module library',
-    body: 'Save reusable .dwl modules once, then `import` them from any script. Perfect for shared mappers and helper functions you reuse across transforms — they’re sent to the engine on every run.',
+    body: 'Save reusable .dwl modules once, then `import` them from any script. Perfect for shared mappers and helper functions you reuse across transforms. They’re sent to the engine on every run.',
   },
   secure: {
     title: 'Secure properties',
-    body: 'Encrypt and decrypt ${secure::key} values using the same algorithms as Mule’s secure-properties module — entirely on your machine, nothing leaves it.',
+    body: 'Encrypt and decrypt ${secure::key} values using the same algorithms as Mule’s secure-properties module.',
     tip: '⌘⇧E opens this anytime.',
   },
   reference: {
@@ -51,19 +51,19 @@ export const FEATURE_INTROS: Record<string, FeatureIntro> = {
   },
   java: {
     title: 'Java tester',
-    body: 'Compile the Java classes your Mule app calls and exercise them against a payload — and manage the JAR dependencies right here. Use `import java!` in your script to reach them.',
+    body: 'Compile the Java classes your Mule app calls and exercise them against a payload, and manage the JAR dependencies right here. Use `import java!` in your script to reach them.',
   },
   mcp: {
     title: 'MCP Server',
-    body: 'Serve Studio’s engine to AI agents — Claude, Cursor, Copilot. The agent writes a script, runs it here against the real runtime to get the actual error, fixes it, and hands you tested code. Safe mode is on by default, so agents can transform data but can’t touch Java or the filesystem.',
+    body: 'Serve Studio’s engine to AI agents such as Claude, Cursor and Copilot. The agent writes a script, runs it here against the real runtime to get the actual error, fixes it, and hands you tested code. Safe mode is on by default, so agents can transform data but can’t touch Java or the filesystem.',
   },
   compare: {
     title: 'Compare',
-    body: 'A side-by-side diff for two payloads or outputs — paste one on each side to see exactly what changed. Your text sticks around when you switch away and come back.',
+    body: 'A side-by-side diff for two payloads or outputs. Paste one on each side to see exactly what changed. Your text sticks around when you switch away and come back.',
   },
   openapi: {
     title: 'OpenAPI / Swagger reader',
-    body: 'Open or paste an OpenAPI 3.x or Swagger 2.0 spec and browse its operations and types. Pick any request, response, or example and Studio drops a sample payload and a matching DataWeave skeleton into your workspace. Save specs to the sidebar library to reopen them later — all offline.',
+    body: 'Open or paste an OpenAPI 3.x or Swagger 2.0 spec and browse its operations and types. Pick any request, response, or example and Studio drops a sample payload and a matching DataWeave skeleton into your workspace. Save specs to the sidebar library to reopen them later.',
   },
 };
 

@@ -107,7 +107,7 @@ export async function importPlaygroundZip(file: File): Promise<PlaygroundImportR
   // Find the .dwl script. Prefer one under src/main/dw/, fall back to any .dwl.
   const dwlPaths = paths.filter((p) => ext(p) === 'dwl');
   if (dwlPaths.length === 0) {
-    throw new Error('No .dwl file found in the zip — is this a DataWeave Playground export?');
+    throw new Error('No .dwl file found in the zip. Is this a DataWeave Playground export?');
   }
   const scriptPath =
     dwlPaths.find((p) => /(^|\/)src\/main\/dw\//.test(p)) ?? dwlPaths[0];
@@ -165,7 +165,7 @@ export async function importPlaygroundZip(file: File): Promise<PlaygroundImportR
   }
 
   if (!payload && namedInputs.length === 0) {
-    warnings.push('No inputs folder found — only the script was imported.');
+    warnings.push('No inputs folder found, so only the script was imported.');
   }
 
   return {

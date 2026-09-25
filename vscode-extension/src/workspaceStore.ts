@@ -64,7 +64,7 @@ function parseWorkspace(contents: string): any {
       flow: raw.flowNodes ?? undefined,
     };
   }
-  throw new Error('Unrecognized workspace format — missing both `requests` and `singleTransform`.');
+  throw new Error('Unrecognized workspace format: it has neither `requests` nor `singleTransform`.');
 }
 
 /** Sanitize a project name into a filename stem (mirrors workspace.rs). */

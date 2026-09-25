@@ -80,7 +80,7 @@ export function HttpApiDocs({ open, onClose, port }: { open: boolean; onClose: (
           <H>The idea</H>
           <P>
             The engine running in this app is the real DataWeave 2.12 runtime. While the server is on,
-            anything on your machine can POST a script to it and get the output back — a shell script, a
+            anything on your machine can POST a script to it and get the output back: a shell script, a
             Python driver, a CI job. No Mule app, no deployed endpoint.
           </P>
 
@@ -96,7 +96,7 @@ export function HttpApiDocs({ open, onClose, port }: { open: boolean; onClose: (
           />
           <P>Returns <C>{'{ "ok": true, "output": "{ \\"n\\": 3 }", "executionTimeMs": 33 }'}</C></P>
 
-          <H>2 · Variables — <C>vars.*</C></H>
+          <H>2 · Variables: <C>vars.*</C></H>
           <P>
             Anything in <C>vars</C> is available as <C>vars.name</C> in the script. Nested objects work,
             so <C>{'{"vars":{"user":{"id":7}}}'}</C> is <C>vars.user.id</C>.
@@ -111,7 +111,7 @@ export function HttpApiDocs({ open, onClose, port }: { open: boolean; onClose: (
 }`}
           />
 
-          <H>3 · Headers, method, query params — <C>attributes.*</C></H>
+          <H>3 · Headers, method, query params: <C>attributes.*</C></H>
           <P>
             These go in <C>attributes</C>, exactly as a Mule flow would see them. A header with a dash or
             a dot needs quoting in DataWeave: <C>{'attributes.headers."X-Trace-Id"'}</C>.
@@ -145,8 +145,8 @@ export function HttpApiDocs({ open, onClose, port }: { open: boolean; onClose: (
 
           <H>5 · Many rows, one script</H>
           <P>
-            Send <C>rows</C> and each entry runs separately — its own <C>payload</C>, <C>vars</C> and
-            <C> attributes</C> — coming back as <C>results</C> in the same order. This is the one that
+            Send <C>rows</C> and each entry runs separately, with its own <C>payload</C>, <C>vars</C> and
+            <C> attributes</C>, and they come back as <C>results</C> in the same order. This is the one that
             replaces deploying an endpoint to test against real data.
           </P>
           <Snippet
@@ -161,7 +161,7 @@ export function HttpApiDocs({ open, onClose, port }: { open: boolean; onClose: (
           <P>
             The engine compiles the script once and caches it, so the first row costs about a second and
             every row after runs in milliseconds. Twenty thousand rows is a few minutes. A row that fails
-            comes back with <C>ok: false</C> and its error — the rest still run.
+            comes back with <C>ok: false</C> and its error, and the rest still run.
           </P>
 
           <H>6 · Driving it from Python</H>
@@ -195,8 +195,8 @@ for row, r in zip(rows, res):
             <br /><br />
             <b>Loopback is not a trust boundary.</b> Any process on your machine can reach this port, and
             a web page you visit could try to. That&rsquo;s why the endpoint requires
-            <C>Content-Type: application/json</C> and refuses anything sending an <C>Origin</C> header —
-            it makes a browser preflight the request, and the preflight is never answered. Scripts are
+            <C>Content-Type: application/json</C> and refuses anything sending an <C>Origin</C> header,
+            because that makes a browser preflight the request, and the preflight is never answered. Scripts are
             unaffected. Still, stop the server when you&rsquo;re done with it.
           </P>
         </div>

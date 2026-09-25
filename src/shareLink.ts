@@ -155,7 +155,7 @@ export function decodeShare(input: string): ShareSnapshot {
   try {
     snap = JSON.parse(strFromU8(inflateSync(fromBase64Url(code.slice(SHARE_PREFIX.length)))));
   } catch {
-    throw new Error('This share link is damaged or incomplete — ask for it again.');
+    throw new Error('This share link is damaged or incomplete. Ask for it again.');
   }
   if (typeof snap?.script !== 'string') throw new Error('This share link has no script in it.');
   return snap;

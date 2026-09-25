@@ -177,7 +177,7 @@ export const OutputPane = memo(function OutputPane({
         {/* Segmented format switch — highlighting only. It follows the
             script's `output` directive on each run; switching it here does
             NOT convert the output (change the directive for that). */}
-        <div className="flex items-center p-0.5 rounded-md bg-surface-2 border border-line-secondary" title="Syntax highlighting only — to convert the output, change the script's `output` directive">
+        <div className="flex items-center p-0.5 rounded-md bg-surface-2 border border-line-secondary" title="Syntax highlighting only. To convert the output, change the script's `output` directive">
           {(['json', 'xml', 'raw'] as const).map((f) => {
             const active = outputFormat === f;
             return (
@@ -307,9 +307,9 @@ export const OutputPane = memo(function OutputPane({
               {/* Connector behavior note */}
               <div className="px-3 pb-2 pt-1 text-[10px] text-content-ghost border-t border-line-subtle mt-2">
                 {queryLanguage === 'SOQL' ? (
-                  <span>Salesforce connector: literal replace — use <code className="text-content-faint">':param'</code> for strings, bare <code className="text-content-faint">:param</code> for dates/numbers. Arrays join with commas — wrap in <code className="text-content-faint">(...)</code> yourself for <code className="text-content-faint">IN</code> clauses.</span>
+                  <span>Salesforce connector: literal replace. Use <code className="text-content-faint">':param'</code> for strings, bare <code className="text-content-faint">:param</code> for dates/numbers. Arrays join with commas; wrap in <code className="text-content-faint">(...)</code> yourself for <code className="text-content-faint">IN</code> clauses.</span>
                 ) : (
-                  <span>DB connector (JDBC): auto-quotes strings, bare numbers/booleans, NULL for nulls — never quote <code className="text-content-faint">:param</code> in SQL. Arrays auto-expand to <code className="text-content-faint">(v1,v2,...)</code> for <code className="text-content-faint">IN</code> clauses.</span>
+                  <span>DB connector (JDBC): auto-quotes strings, bare numbers/booleans, NULL for nulls. Never quote <code className="text-content-faint">:param</code> in SQL. Arrays auto-expand to <code className="text-content-faint">(v1,v2,...)</code> for <code className="text-content-faint">IN</code> clauses.</span>
                 )}
               </div>
             </div>
@@ -385,7 +385,7 @@ function TracePanel({ trace, onRevealLine }: { trace: TraceRow[]; onRevealLine?:
           {trace.length}
         </span>
         <span className="text-content-ghost normal-case tracking-normal font-normal">
-          {failed > 0 ? 'every expression — red is where it broke' : 'every expression, as it ran'}
+          {failed > 0 ? 'every expression; red is where it broke' : 'every expression, as it ran'}
         </span>
       </button>
       {open && (

@@ -370,13 +370,13 @@ function AppearancePanel({
 
       <Group title="Theme">
         {inVsCode && (
-          <SRow label="Match VS Code theme" desc="Use your active VS Code color theme — surfaces, text, and accent — instead of the app's own.">
+          <SRow label="Match VS Code theme" desc="Use your active VS Code color theme (surfaces, text and accent) instead of the app's own.">
             <Toggle on={matchVsCode} onChange={setMatchVsCode} />
           </SRow>
         )}
         {matchVsCode ? (
           <div className="text-[11.5px] text-content-faint mt-1">
-            The app is following your VS Code color theme — currently {isDark ? 'dark' : 'light'}. Switch your theme in VS Code and it re-skins instantly.
+            The app is following your VS Code color theme, currently {isDark ? 'dark' : 'light'}. Switch your theme in VS Code and it re-skins instantly.
           </div>
         ) : (
           <>
@@ -404,7 +404,7 @@ function AppearancePanel({
             </div>
             {pref === 'system' && (
               <div className="text-[11.5px] text-content-faint mt-2">
-                Following {inVsCode ? 'VS Code' : 'OS'} appearance — currently {isDark ? 'Dusk' : 'Paper'}.
+                Following {inVsCode ? 'VS Code' : 'OS'} appearance, currently {isDark ? 'Dusk' : 'Paper'}.
               </div>
             )}
           </>
@@ -415,7 +415,7 @@ function AppearancePanel({
       <Group
         title="Accent color"
         desc={pinned
-          ? `The ${SEASONS[pinned].name} theme is using its own colour — pick one here to go back to it.`
+          ? `The ${SEASONS[pinned].name} theme is using its own colour. Pick one here to go back to it.`
           : undefined}
       >
         <div className="flex gap-2.5">
@@ -512,7 +512,7 @@ function AppearancePanel({
 
         <SRow
           label="Replay the startup screen"
-          desc="The loader, the greeting and the progress bar — without restarting the app."
+          desc="The loader, the greeting and the progress bar, without restarting the app."
         >
           <OutlineBtn onClick={() => window.dispatchEvent(new CustomEvent('dw:splash-preview'))}>
             Show me
@@ -557,7 +557,7 @@ function GeneralPanel({ onShowTour }: { onShowTour: () => void }) {
           <OutlineBtn onClick={onShowTour}>Show tour</OutlineBtn>
         </SRow>
         <SRow label="Replay feature hints" desc="Show the one-time tips again the next time you open each tool.">
-          <OutlineBtn onClick={() => { resetFeatureIntros(); toast('Feature hints reset — they’ll show again as you use each tool.', 'success'); }}>Reset hints</OutlineBtn>
+          <OutlineBtn onClick={() => { resetFeatureIntros(); toast('Feature hints reset. They’ll show again as you use each tool.', 'success'); }}>Reset hints</OutlineBtn>
         </SRow>
       </Group>
     </SectionWrap>
@@ -601,7 +601,7 @@ function RuntimePanel({
               className="h-7 pl-2.5 pr-7 rounded-md bg-surface-2 border border-line text-[12.5px] text-content-secondary focus:outline-none focus:border-accent cursor-pointer appearance-none"
               style={{ width: 180 }}
             >
-              <option value="">Latest — no check</option>
+              <option value="">Latest (no check)</option>
               {TARGETS.map((t) => (
                 <option key={t.level} value={t.level}>{t.label}</option>
               ))}
@@ -717,7 +717,7 @@ function EditorPanel() {
         <SRow label="Tab size">
           <SelectInput value={tabSize} options={['2 spaces', '4 spaces', 'Tab character']} onChange={(v) => { setTabSize(v); notifyEditorFontChanged(); }} width={140} />
         </SRow>
-        <SRow label="Word wrap" desc="Script editor only — data panes always wrap.">
+        <SRow label="Word wrap" desc="Script editor only. Data panes always wrap.">
           <Toggle on={wordWrap} onChange={(v) => { setWordWrap(v); notifyEditorFontChanged(); }} />
         </SRow>
         <SRow label="Bracket pair colorization"><Toggle on={bracketColor} onChange={(v) => { setBracketColor(v); notifyEditorFontChanged(); }} /></SRow>
@@ -765,7 +765,7 @@ function AdvancedPanel() {
         </div>
       </Group>
 
-      <Group title="Privacy" desc="DataWeave Studio runs fully offline. The only outbound network call is the update check below — turn it off for a 100% no-network app.">
+      <Group title="Privacy" desc="DataWeave Studio works offline. On startup it checks for updates, which you can turn off below. Feedback is only sent when you choose to send it.">
         <SRow label="Check for updates on startup" desc="Contacts the release server once on launch to see if a newer version exists. No other data is sent.">
           <Toggle on={updateCheck} onChange={(v) => { setUpdateCheck(v); try { localStorage.setItem('dw.updateCheck', v ? '1' : '0'); } catch {} }} />
         </SRow>
@@ -837,7 +837,7 @@ function AboutPanel({ appVersion, onOpenAbout }: { appVersion: string; onOpenAbo
       />
       <div className="text-center">
         <div className="text-[20px] font-semibold text-content">DataWeave Studio</div>
-        <div className="text-[12.5px] text-content-muted mt-1 font-mono">Version {appVersion || '—'}</div>
+        <div className="text-[12.5px] text-content-muted mt-1 font-mono">Version {appVersion || '–'}</div>
       </div>
       <span
         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px]"

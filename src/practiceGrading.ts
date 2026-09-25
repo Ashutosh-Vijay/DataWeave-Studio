@@ -269,7 +269,7 @@ export function gradePrediction(
   if (!actual.ok || expectedError) {
     return saidError
       ? { correct: true, because: 'It does error.' }
-      : { correct: false, because: 'This one does not return a value at all — it errors.' };
+      : { correct: false, because: 'This one doesn’t return a value at all. It errors.' };
   }
   if (saidError) {
     return { correct: false, because: 'It runs fine and returns a value.' };

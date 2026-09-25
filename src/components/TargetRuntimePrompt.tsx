@@ -66,7 +66,7 @@ export function TargetRuntimePrompt({
               color: 'var(--content)',
             }}
           >
-            <option value="">Latest — don&rsquo;t check</option>
+            <option value="">Latest (don&rsquo;t check)</option>
             {TARGETS.map((t) => (
               <option key={t.level} value={t.level}>{t.label}</option>
             ))}

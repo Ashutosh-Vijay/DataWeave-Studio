@@ -54,8 +54,8 @@ export function FeedbackDialog({ open, onClose, appVersion }: { open: boolean; o
     (kind === 'bug'
       ? `**What happened?**\n${details}\n\n**Steps to reproduce**\n1. \n2. \n\n**What did you expect?**\n`
       : kind === 'feature'
-        ? `**What would you like?**\n${details}\n\n**Why — what are you trying to do?**\n`
-        : `${details}\n`) + `\n\n---\n*Environment (auto-filled — edit or remove as you like)*\n${env}`;
+        ? `**What would you like?**\n${details}\n\n**Why? What are you trying to do?**\n`
+        : `${details}\n`) + `\n\n---\n*Environment (filled in for you; edit or remove as you like)*\n${env}`;
 
   const issueUrl =
     `https://github.com/${REPO}/issues/new?title=${encodeURIComponent(prefix + title)}` +
@@ -147,7 +147,7 @@ export function FeedbackDialog({ open, onClose, appVersion }: { open: boolean; o
           <div className="flex items-start gap-2 text-[11.5px] leading-relaxed" style={{ color: 'var(--content-muted)' }}>
             <Icons.Secure size={12} style={{ marginTop: 2, color: 'var(--content-faint)', flexShrink: 0 }} />
             <span>
-              Opens a pre-filled issue on GitHub <b>in your browser</b> — the app itself sends nothing. You review and submit it there (a GitHub account is needed). No account? Use <b>Rate</b> — its comment box needs no account — or <b>Copy</b> and email it.
+              Opens a pre-filled issue on GitHub <b>in your browser</b>, where you review and submit it (a GitHub account is needed). No account? Use <b>Rate</b> (its comment box needs no account) or <b>Copy</b> and email it.
             </span>
           </div>
           </>

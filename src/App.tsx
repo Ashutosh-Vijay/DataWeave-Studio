@@ -516,15 +516,15 @@ function App() {
       const what = codeOnly ? 'code' : 'link';
       toast({
         title: whole
-          ? `${codeOnly ? 'Code' : 'Link'} copied — ${workspace.requests.length} entries`
-          : `Share ${what} copied — ${active.kind === 'test' ? 'test suite' : 'script'}`,
+          ? `${codeOnly ? 'Code' : 'Link'} copied: ${workspace.requests.length} entries`
+          : `Share ${what} copied: ${active.kind === 'test' ? 'test suite' : 'script'}`,
         message: missing.length
-          ? `Note: ${[...new Set(missing)].join(', ')} can’t travel in a ${what} — send the file separately.`
+          ? `Note: ${[...new Set(missing)].join(', ')} can’t travel in a ${what}. Send the file separately.`
           : codeOnly
             ? 'Paste it into Import → From share link. No URL, so it survives networks that block the site.'
             : active.kind === 'test'
-              ? 'The suite travels inside the link itself — nothing is uploaded to a server.'
-              : 'Script, payload, vars and headers are all inside the link — the data stays in the link, never on a server.',
+              ? 'The suite travels inside the link.'
+              : 'Script, payload, vars and headers are all in the link.',
         variant: missing.length ? 'warn' : 'success',
       });
     } catch {
@@ -619,7 +619,7 @@ function App() {
             + (suites ? ` and ${suites} test suite${suites === 1 ? '' : 's'}` : '')
             + ' restored.'
             + (snap.languageLevel && !perWorkspaceTarget
-              ? ` Shared targeting ${labelFor(snap.languageLevel)} — turn on per-workspace targets in Settings → Runtime to use it.`
+              ? ` Shared targeting ${labelFor(snap.languageLevel)}. Turn on per-workspace targets in Settings → Runtime to use it.`
               : ''),
           variant: 'success',
         });
@@ -646,7 +646,7 @@ function App() {
     try {
       applyShareLink(await navigator.clipboard.readText());
     } catch {
-      toast('Couldn’t read the clipboard — use Import → From share link and paste it', 'error');
+      toast('Couldn’t read the clipboard. Use Import → From share link and paste it there', 'error');
     }
   }, [applyShareLink]);
 
@@ -670,7 +670,7 @@ function App() {
         workspace.setNamedInputs(result.namedInputs);
         toast(
           result.warnings.length
-            ? `Imported "${result.projectName}" with ${result.warnings.length} warning(s) — see console`
+            ? `Imported "${result.projectName}" with ${result.warnings.length} warning(s). See the console.`
             : `Imported "${result.projectName}" from Playground zip`,
           'success'
         );
@@ -1087,8 +1087,8 @@ function App() {
         });
         return;
       }
-      workspace.addRequest(`Tests — ${funName}`, 'test', suite);
-      toast({ title: 'Test suite generated', message: `${funName} — edit the cases, then Run`, variant: 'success' });
+      workspace.addRequest(`Tests: ${funName}`, 'test', suite);
+      toast({ title: 'Test suite generated', message: `${funName}. Edit the cases, then Run.`, variant: 'success' });
     };
     window.addEventListener('dw:unit-test-generated', onGenerated);
     return () => window.removeEventListener('dw:unit-test-generated', onGenerated);
@@ -1119,7 +1119,7 @@ function App() {
         // Message derives from the WhatsNew data (already runtime-specific),
         // so the toast can never describe a different release than the dialog.
         title: 'DataWeave Studio updated',
-        message: `${getRelease(LATEST_VERSION)?.headline ?? 'See what changed'} — details in What’s new.`,
+        message: `${getRelease(LATEST_VERSION)?.headline ?? 'See what changed'}. Details are in What’s new.`,
         action: { label: 'What’s new', onClick: () => setShowWhatsNew(true) },
       });
     }, 900);
@@ -1451,9 +1451,9 @@ function App() {
     // Creating a share link used to live only in the breadcrumb menu, which is
     // where nobody found it. Sharing is a Share group of its own so ⌘K > "share"
     // surfaces all three actions together.
-    { id: 'share-request', label: viewMode === 'tests' ? 'Copy share link — this test suite' : 'Copy share link — this script', hint: viewMode === 'tests' ? 'The suite, in one URL' : 'Script, payload, vars & headers in one URL', group: 'Share', run: handleCopyShareLink },
-    { id: 'share-workspace', label: 'Copy share link — whole workspace', hint: 'Every script and suite in this workspace', group: 'Share', run: handleCopyWorkspaceShareLink },
-    { id: 'share-code', label: 'Copy share code — no link', hint: 'For networks that block the site', group: 'Share', run: handleCopyShareCode },
+    { id: 'share-request', label: viewMode === 'tests' ? 'Copy share link: this test suite' : 'Copy share link: this script', hint: viewMode === 'tests' ? 'The suite, in one URL' : 'Script, payload, vars & headers in one URL', group: 'Share', run: handleCopyShareLink },
+    { id: 'share-workspace', label: 'Copy share link: whole workspace', hint: 'Every script and suite in this workspace', group: 'Share', run: handleCopyWorkspaceShareLink },
+    { id: 'share-code', label: 'Copy share code (no link)', hint: 'For networks that block the site', group: 'Share', run: handleCopyShareCode },
     { id: 'share-open', label: 'Open from share link…', shortcut: '⌘⇧I', group: 'Share', run: handleOpenShareLink },
     { id: 'import-playground', label: 'Import from Playground zip…', group: 'Workspace', run: handleImportPlayground },
     { id: 'export-playground', label: 'Export as Playground zip…', group: 'Workspace', run: handleExportPlayground },
@@ -1513,7 +1513,7 @@ function App() {
         <div className="flex items-center justify-center w-11 shrink-0">
           <button
             onClick={() => setAboutOpen(true)}
-            title={updateAvailable ? 'Update available — open About' : 'About DataWeave Studio'}
+            title={updateAvailable ? 'Update available. Open About to install it' : 'About DataWeave Studio'}
             className="relative w-[22px] h-[22px] flex items-center justify-center cursor-pointer"
           >
             <img src={logoUrl} alt="DataWeave Studio" width="22" height="22" />
@@ -1579,7 +1579,7 @@ function App() {
           </IconBtn>
           {/* The rating prompt asks once; after that, this is how feedback
               gets sent. Buried in Tools it would go unfound, like sharing did. */}
-          <IconBtn title="Send feedback — rate it, or report a bug" onClick={() => setFeedbackOpen(true)}>
+          <IconBtn title="Send feedback: rate it or report a bug" onClick={() => setFeedbackOpen(true)}>
             <Icons.Smile size={15} />
           </IconBtn>
 
@@ -1697,8 +1697,8 @@ function App() {
             title={dbg.active
               ? 'Stop debugging'
               : breakpoints.length
-                ? `Debug — stops at ${breakpoints.length} breakpoint${breakpoints.length > 1 ? 's' : ''}. Click the gutter to add more.`
-                : 'Debug — click the gutter beside a line number to set a breakpoint first'}
+                ? `Debug: stops at ${breakpoints.length} breakpoint${breakpoints.length > 1 ? 's' : ''}. Click the gutter to add more.`
+                : 'Debug: click the gutter beside a line number to set a breakpoint first'}
           >
             <Icons.Activity size={12} /> Debug
           </button>

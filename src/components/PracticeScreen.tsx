@@ -344,7 +344,7 @@ function ProgressPanel({
             <div className="flex items-baseline justify-between mt-1.5">
               <span className="text-[11.5px] text-content-secondary">
                 {summary.today >= goal
-                  ? `Done for today — ${summary.today} of ${goal}`
+                  ? `Done for today: ${summary.today} of ${goal}`
                   : `${goal - summary.today} more today`}
               </span>
               {streak > 1 && (
@@ -595,7 +595,7 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
     setRunning(true);
     try {
       const r = await runOnce(question.given.payload ?? '{}', question, question.given.script);
-      setRevealed(r.ok ? r.output : `Error — ${(r.error ?? 'it errored').split('\n')[0]}`);
+      setRevealed(r.ok ? r.output : `Error: ${(r.error ?? 'it errored').split('\n')[0]}`);
     } finally {
       setRunning(false);
     }
@@ -760,7 +760,7 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
           <>
             <span
               className="text-[11px] font-mono text-content-faint tabular-nums"
-              title={stopped ? 'Stopped — you solved it' : 'Time on this attempt. Not recorded, not compared.'}
+              title={stopped ? 'Stopped, because you solved it' : 'Time on this attempt. Not recorded, not compared.'}
               style={{ opacity: stopped ? 0.55 : 1 }}
             >
               {String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}
@@ -982,7 +982,7 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
                       {question.solution}
                     </pre>
                     <div className="text-[11px] text-content-ghost mt-1.5">
-                      Solution viewed — submissions are disabled for the rest of this session.
+                      Solution viewed, so submitting is off for the rest of this session.
                     </div>
                   </>
                 )}
@@ -1089,7 +1089,7 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
                     >
                       {picked === question.choice?.answer
                         ? 'Correct'
-                        : `Not quite — the answer is ${String.fromCharCode(65 + (question.choice?.answer ?? 0))}`}
+                        : `Not quite. The answer is ${String.fromCharCode(65 + (question.choice?.answer ?? 0))}`}
                     </div>
                   </div>
                 )}
@@ -1357,7 +1357,7 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
                 >
                   <div className="text-[13px] font-semibold" style={{ color: result.solved ? 'var(--ok)' : 'var(--err)' }}>
                     {result.solved
-                      ? `Solved — ${result.total} of ${result.total} cases, ${result.ms}ms`
+                      ? `Solved: ${result.total} of ${result.total} cases, ${result.ms}ms`
                       : `Failed on ${result.failure?.hidden ? 'a hidden case' : 'the sample'} (${result.passed}/${result.total} passed)`}
                   </div>
 

@@ -87,7 +87,7 @@ interface SidebarProps {
 
 const RAIL_ITEMS: { id: RailTab; title: string; Icon: (typeof Icons)[keyof typeof Icons] }[] = [
   { id: 'workspaces', title: 'Workspaces (⌘O)', Icon: Icons.Workspaces },
-  { id: 'import', title: 'Import (cURL) — ⌘⇧I', Icon: Icons.Import },
+  { id: 'import', title: 'Import (cURL)  ⌘⇧I', Icon: Icons.Import },
   { id: 'snippets', title: 'Snippets library (⌘L)', Icon: Icons.Library },
 ];
 
@@ -261,7 +261,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
         <button
           data-tour="rail-config-crypto"
           onClick={onOpenConfigCrypto}
-          title="Config encryption — encrypt or decrypt every value in a config file at once"
+          title="Config encryption: encrypt or decrypt every value in a config file at once"
           aria-label="Config encryption"
           className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
         >
@@ -305,7 +305,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
         <button
           data-tour="rail-modules"
           onClick={onOpenModules}
-          title="Module library — save reusable .dwl modules, import them in any script"
+          title="Module library: save reusable .dwl modules and import them in any script"
           aria-label="Module library"
           className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
         >
@@ -314,7 +314,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
         <button
           data-tour="rail-mcp"
           onClick={onOpenMcp}
-          title="Local Server — run DataWeave from AI agents or your own scripts"
+          title="Local Server: run DataWeave from AI agents or your own scripts"
           aria-label="Local Server"
           className={`relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors ${mcpRunning ? 'text-accent' : 'text-content-faint hover:text-content-secondary'}`}
         >
@@ -333,7 +333,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
         </button>
         <button
           onClick={onOpenPractice}
-          title="Practice — graded DataWeave problems, offline"
+          title="Practice: graded DataWeave problems"
           aria-label="Practice"
           className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
         >
@@ -344,7 +344,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
         </button>
         <button
           onClick={onOpenOpenApi}
-          title="OpenAPI / Swagger reader — sample payloads + DataWeave from a spec"
+          title="OpenAPI / Swagger reader: sample payloads and DataWeave from a spec"
           aria-label="OpenAPI / Swagger reader"
           className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
         >
@@ -476,7 +476,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                       </div>
                       {rows.length === 0 ? (
                         <div className="text-[11px] py-1 px-1 leading-relaxed" style={{ color: 'var(--content-faint)' }}>
-                          No suites yet — add one to write <span className="font-mono">dw::test</span> assertions.
+                          No suites yet. Add one to write <span className="font-mono">dw::test</span> assertions.
                         </div>
                       ) : (
                         <div className="space-y-0.5">
@@ -519,7 +519,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                       className="text-[11px] py-2 px-1 leading-relaxed"
                       style={{ color: 'var(--content-faint)' }}
                     >
-                      Nothing saved yet — <span className="font-mono">⌘S</span> saves this workspace.
+                      Nothing saved yet. <span className="font-mono">⌘S</span> saves this workspace.
                     </div>
                   ) : (
                     <WorkspaceList
@@ -944,7 +944,7 @@ function WorkspaceNameRow({
           className="flex-1 truncate text-[12.5px]"
           style={{ color: 'var(--content)', fontWeight: 500 }}
           onDoubleClick={() => { setEditing(true); setDraft(name); }}
-          title={`${name || 'Untitled'} — double-click to rename`}
+          title={`${name || 'Untitled'}. Double-click to rename`}
         >
           {name || 'Untitled'}
         </span>

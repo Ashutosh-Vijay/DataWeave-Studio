@@ -1056,7 +1056,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     // the user at the Input fixture instead of leaving them confused.
     if (!flowInput.payload.trim() && !nodes.some((n) => n.type === 'set-payload')) {
       toast({
-        message: 'No Input message set — this flow runs on an empty payload.',
+        message: 'No Input message set, so this flow runs on an empty payload.',
         variant: 'warn',
         action: {
           label: 'Set Input',
@@ -1292,7 +1292,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
           }
           const hasMock = (node.config.mockResponse ?? '') !== '';
           if (!hasMock) {
-            markNode(node.id, { status: 'success', output: refName ? `(flow-ref → ${refName} not imported — payload passed through)` : '(flow-ref — payload passed through)', executionTimeMs: 0 });
+            markNode(node.id, { status: 'success', output: refName ? `(flow-ref → ${refName} not imported, payload passed through)` : '(flow-ref: payload passed through)', executionTimeMs: 0 });
             return true;
           }
           const response = node.config.mockResponse || '';
@@ -1408,7 +1408,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
      *  Sequential — the matched branch shares ctx with the parent. */
     const runChoice = async (node: FlowNode, ctx: ExecCtx): Promise<{ ok: boolean; summary: string }> => {
       if (!node.branches || node.branches.length === 0) {
-        return { ok: true, summary: '(empty choice — nothing to run)' };
+        return { ok: true, summary: '(empty choice: nothing to run)' };
       }
       let matched: Branch | null = null;
       let matchedReason = '';
@@ -1465,7 +1465,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
       const coll = await evalExpression(collectionExpr, ctx);
       if (!coll.ok) return { ok: false, summary: `Collection "${collectionExpr}" failed: ${coll.error}` };
       if (!Array.isArray(coll.value)) {
-        return { ok: false, summary: `Collection didn't evaluate to an Array — got ${typeof coll.value}.` };
+        return { ok: false, summary: `Collection didn't evaluate to an Array. Got ${typeof coll.value}.` };
       }
       const items = coll.value;
       if (items.length === 0) {
@@ -1647,7 +1647,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
      *  suppressed inside async scopes (parent can't await them). */
     const runAsync = async (node: FlowNode, ctx: ExecCtx): Promise<{ ok: boolean; summary: string }> => {
       const body = node.branches?.[0];
-      if (!body || body.nodes.length === 0) return { ok: true, summary: '(empty async — nothing to run)' };
+      if (!body || body.nodes.length === 0) return { ok: true, summary: '(empty async: nothing to run)' };
       const prevSkip = skipUntilNodeRef.current;
       skipUntilNodeRef.current = node.id;
       const asyncCtx = forkCtx(ctx);
@@ -1997,7 +1997,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     while (existing.has(name)) name = `newFlow${++n}`;
     const next = [...base, { name, nodes: [], isSubFlow: false }];
     loadFlows(next, next.length - 1);
-    toast(`Added "${name}" — ${next.length} flows in this document`, 'success');
+    toast(`Added "${name}": ${next.length} flows in this document`, 'success');
   }, [materializeFlows, loadFlows]);
 
   const deleteFlow = useCallback(() => {
@@ -2006,7 +2006,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
     const removed = base[activeFlowIdx]?.name;
     const next = base.filter((_, i) => i !== activeFlowIdx);
     loadFlows(next, Math.min(activeFlowIdx, next.length - 1));
-    toast(`Deleted "${removed}" — ${next.length} flow${next.length === 1 ? '' : 's'} left`, 'success');
+    toast(`Deleted "${removed}": ${next.length} flow${next.length === 1 ? '' : 's'} left`, 'success');
   }, [materializeFlows, activeFlowIdx, loadFlows]);
 
   // Flip the active flow between <flow> and <sub-flow> (affects XML export).
@@ -2021,7 +2021,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
   const handleExportMuleXml = useCallback(() => {
     const all = materializeFlows();
     if (all.every((f) => f.nodes.length === 0)) {
-      toast('Build a flow first — there\'s nothing to export.', 'error');
+      toast('Build a flow first. There\'s nothing to export yet.', 'error');
       return;
     }
     try {
@@ -2082,14 +2082,14 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         attributesJson: JSON.stringify({ uriParams: a.uriParams, queryParams: a.queryParams, headers: a.headers, method: 'GET' }, null, 2),
       }));
       const keyCount = Object.keys(a.uriParams).length + Object.keys(a.queryParams).length + Object.keys(a.headers).length;
-      if (keyCount > 0) attrNote = ` · seeded ${keyCount} input attribute${keyCount === 1 ? '' : 's'} — set values under “Input”`;
+      if (keyCount > 0) attrNote = ` · seeded ${keyCount} input attribute${keyCount === 1 ? '' : 's'}. Set values under “Input”.`;
     }
     setShowMuleXmlImport(false);
     setMuleXmlImportText('');
     setMuleXmlImportResult(null);
     const tail = result.warnings.length > 0 ? ` (${result.warnings.length} unsupported element${result.warnings.length === 1 ? '' : 's'} imported as Logger placeholder)` : '';
     const flowsNote = result.allFlows.length > 1 ? ` · ${result.allFlows.length} flows (switch in the header)` : '';
-    toast(`Imported "${result.flowName}" — ${countAllNodes(result.nodes)} node${countAllNodes(result.nodes) === 1 ? '' : 's'}${flowsNote}${tail}${attrNote}`, 'success');
+    toast(`Imported "${result.flowName}": ${countAllNodes(result.nodes)} node${countAllNodes(result.nodes) === 1 ? '' : 's'}${flowsNote}${tail}${attrNote}`, 'success');
   }, [muleXmlImportText]);
 
   if (!open) return null;
@@ -2209,7 +2209,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, nodeId: inner.id }); }}
         className="flex flex-col items-center gap-1 w-[86px] shrink-0 cursor-pointer"
         style={{ opacity: inner.disabled || inner.status === 'skipped' ? 0.5 : 1 }}
-        title={`${m.label} — ${inner.label}`}
+        title={`${m.label}: ${inner.label}`}
       >
         <div
           className="relative w-12 h-12 rounded-xl border-2 flex items-center justify-center transition-colors"
@@ -2364,7 +2364,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                   <span
                     className="shrink-0 text-[9px] font-mono italic px-1 py-px rounded border border-accent-border text-accent"
                     style={{ background: 'var(--accent-dim)' }}
-                    title="DataWeave boolean expression — evaluated against the message. No #[ ] needed (pasted #[…] is tolerated)."
+                    title="DataWeave boolean expression, evaluated against the message. No #[ ] needed (pasted #[…] is tolerated)."
                   >
                     fx
                   </span>
@@ -2506,7 +2506,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
               value={activeFlowIdx}
               onChange={(e) => selectFlow(Number(e.target.value))}
               className="h-6 px-1.5 rounded-md bg-surface-2 border border-line text-[11px] text-content cursor-pointer outline-none focus:border-accent max-w-[150px]"
-              title="Switch flow — this document has multiple flows / sub-flows"
+              title="Switch flow (this document has several flows or sub-flows)"
             >
               {flows.map((f, i) => <option key={i} value={i}>{f.isSubFlow ? '↳ ' : ''}{f.name}</option>)}
             </select>
@@ -2701,7 +2701,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                   setPaletteDrag({ type, x: e.clientX, y: e.clientY });
                 }}
                 onClick={() => addNodeAtNextSlot(type)}
-                title={`${NODE_META[type].label} — click to add, or drag onto the canvas`}
+                title={`${NODE_META[type].label}: click to add, or drag onto the canvas`}
                 className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-grab active:cursor-grabbing hover:bg-surface-2 transition-colors select-none"
               >
                 <div
@@ -2835,7 +2835,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                           color: node.disabled ? 'var(--content-ghost)' : '#fff',
                           border: '2px solid var(--bg)',
                         }}
-                        title={node.disabled ? 'Disabled — skipped during execution' : `Runs in position ${ord}`}
+                        title={node.disabled ? 'Disabled: skipped when the flow runs' : `Runs in position ${ord}`}
                       >
                         {node.disabled ? '–' : ord}
                       </div>
@@ -3049,7 +3049,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                           >+ Add Part</button>
                         </div>
                         {parts.length === 0 && (
-                          <div className="text-[10px] text-content-ghost italic py-2">No parts yet — add text or file parts</div>
+                          <div className="text-[10px] text-content-ghost italic py-2">No parts yet. Add a text or file part.</div>
                         )}
                         {parts.map((part, i) => (
                           <div key={i} className="bg-surface-section border border-line-secondary rounded-lg p-2 space-y-1.5">
@@ -3118,7 +3118,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                   {/* Binary file picker */}
                   {(selected.config.payloadMime === 'application/octet-stream') && (
                     <div className="flex flex-col items-center gap-3 py-4">
-                      <div className="text-content-faint text-[11px]">Binary payload — select a file</div>
+                      <div className="text-content-faint text-[11px]">Binary payload: select a file</div>
                       {selected.config.payloadFilePath ? (
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] font-mono text-accent">{selected.config.payloadFilePath.split(/[/\\]/).pop()}</span>
@@ -3192,7 +3192,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                           toast('Converted ' + count + ' p() call' + (count === 1 ? '' : 's') + ' to ${…} placeholders', 'success');
                         }}
                         className="text-[10px] font-mono text-accent border border-accent-border rounded px-2 py-0.5 cursor-pointer hover:bg-accent-dim"
-                        title={'Convert Mule p("key") calls to "${key}" placeholders — resolved from the flow\'s Config / Secure Config'}
+                        title={'Convert Mule p("key") calls to "${key}" placeholders, resolved from the flow\'s Config / Secure Config'}
                       >
                         {'p() → ${ }'}
                       </button>
@@ -3228,7 +3228,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                     </div>
                     {selected.config.saveToVariable ? (
                       <div className="mt-1.5 text-[10px] text-content-ghost">
-                        Output stored in <code className="px-1 py-0.5 rounded bg-surface-2 text-[#10b981]">vars.{selected.config.saveToVariable}</code> — payload stays unchanged
+                        Output stored in <code className="px-1 py-0.5 rounded bg-surface-2 text-[#10b981]">vars.{selected.config.saveToVariable}</code>, and the payload stays unchanged
                       </div>
                     ) : (
                       <div className="mt-1.5 text-[10px] text-content-ghost">
@@ -3278,7 +3278,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                         height={180}
                       />
                       <div className="text-[10px] text-content-ghost leading-relaxed">
-                        A full DataWeave script (from an older flow) — its output is stored in <code className="text-content-faint">vars.{selected.config.variableName || 'myVar'}</code>. Most variables don't need this; use <span style={{ color: 'var(--accent)' }}>Simplify to fx</span> for a one-liner.
+                        A full DataWeave script (from an older flow). Its output is stored in <code className="text-content-faint">vars.{selected.config.variableName || 'myVar'}</code>. Most variables don't need this; use <span style={{ color: 'var(--accent)' }}>Simplify to fx</span> for a one-liner.
                       </div>
                     </>
                   ) : (
@@ -3291,8 +3291,8 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                           data-no-drag
                           onClick={() => updateConfig(selected.id, { variableSource: selected.config.variableSource === 'expression' ? 'raw' : 'expression' })}
                           title={selected.config.variableSource === 'expression'
-                            ? 'fx is ON — the value is DataWeave code evaluated against the message. Click to use a literal value.'
-                            : 'fx is OFF — the value is a literal. Click to set it from a DataWeave expression (payload.x, vars.y).'}
+                            ? 'fx is on: the value is DataWeave code evaluated against the message. Click to use a literal value.'
+                            : 'fx is off: the value is a literal. Click to set it from a DataWeave expression (payload.x, vars.y).'}
                           className={`flex items-center gap-1.5 text-[11px] font-medium px-2 h-6 rounded-md cursor-pointer transition-colors border ${
                             selected.config.variableSource === 'expression' ? 'border-accent bg-accent-dim text-accent' : 'border-line text-content-faint hover:text-content'
                           }`}
@@ -3309,9 +3309,9 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                       />
                       <div className="text-[10px] text-content-ghost leading-relaxed">
                         {selected.config.variableSource === 'expression' ? (
-                          <>A DataWeave expression, evaluated against the live message — <code className="text-content-faint">payload</code>, <code className="text-content-faint">vars</code>, <code className="text-content-faint">attributes</code>. e.g. <code className="text-content-faint">payload.vendorName default 'EASEBUZZ'</code>. No <code className="text-content-faint">#[ ]</code> needed. A full multi-line <code className="text-content-faint">%dw 2.0 … ---</code> script works too (e.g. <code className="text-content-faint">output application/java</code> with <code className="text-content-faint">if/else</code>).</>
+                          <>A DataWeave expression, evaluated against the live message (<code className="text-content-faint">payload</code>, <code className="text-content-faint">vars</code>, <code className="text-content-faint">attributes</code>. e.g. <code className="text-content-faint">payload.vendorName default 'EASEBUZZ'</code>. No <code className="text-content-faint">#[ ]</code> needed. A full multi-line <code className="text-content-faint">%dw 2.0 … ---</code> script works too (e.g. <code className="text-content-faint">output application/java</code> with <code className="text-content-faint">if/else</code>).</>
                         ) : (
-                          <>A fixed value — text, number, or JSON. e.g. <code className="text-content-faint">42</code> · <code className="text-content-faint">"hello"</code> · <code className="text-content-faint">{'{ "id": 1 }'}</code>. Turn on <span style={{ color: 'var(--accent)' }}>fx</span> to compute it from the message.</>
+                          <>A fixed value: text, a number or JSON. For example <code className="text-content-faint">42</code> · <code className="text-content-faint">"hello"</code> · <code className="text-content-faint">{'{ "id": 1 }'}</code>. Turn on <span style={{ color: 'var(--accent)' }}>fx</span> to compute it from the message.</>
                         )}
                       </div>
                     </>
@@ -3587,7 +3587,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
               {selected.type === 'flow-ref' && (
                 <div className="p-4 space-y-3">
                   <div className="text-[12px] text-content-muted leading-relaxed">
-                    Calls another flow / sub-flow. Studio can't run the referenced flow, so by default the payload passes through unchanged — set a mock response to simulate its output.
+                    Calls another flow / sub-flow. Studio can't run the referenced flow, so by default the payload passes through unchanged. Set a mock response to simulate its output.
                   </div>
                   <div>
                     <ConfigLabel label="Referenced flow name" />
@@ -3632,7 +3632,7 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
                     Choice routes the flow into the first <span className="font-mono text-content-secondary">when</span> branch whose predicate evaluates to <span className="font-mono text-content-secondary">true</span>. If none match, the <span className="font-mono text-content-secondary">otherwise</span> branch runs (or the scope completes with no effect).
                   </div>
                   <div className="text-[11px] text-content-faint">
-                    Predicates run as standalone DataWeave scripts with the same context as a Transform node — they see <span className="font-mono">payload</span>, <span className="font-mono">vars</span>, and <span className="font-mono">attributes</span>.
+                    Predicates run as standalone DataWeave scripts with the same context as a Transform node. They see <span className="font-mono">payload</span>, <span className="font-mono">vars</span>, and <span className="font-mono">attributes</span>.
                   </div>
                   <div>
                     <ConfigLabel label="Predicate examples" />
@@ -3645,7 +3645,7 @@ attributes.method == "POST"`}
                     </pre>
                   </div>
                   <div className="text-[11px] text-content-ghost leading-relaxed">
-                    Edit predicates and add nodes directly on the canvas — each branch in the node has its own predicate input and <span className="font-mono">+ add</span> button.
+                    Edit predicates and add nodes directly on the canvas. Each branch in the node has its own predicate input and <span className="font-mono">+ add</span> button.
                   </div>
                 </div>
               )}
@@ -3655,7 +3655,7 @@ attributes.method == "POST"`}
                 <div className="p-4 space-y-3">
                   <div className="text-[12px] text-content-muted leading-relaxed">
                     {selected.type === 'parallel-for-each' ? (
-                      <>Iterates over a collection <span className="font-semibold">concurrently</span>. All iterations run via <span className="font-mono">Promise.all</span> — order of side effects is non-deterministic. The aggregated output preserves the original collection's order.</>
+                      <>Iterates over a collection <span className="font-semibold">concurrently</span>. All iterations run via <span className="font-mono">Promise.all</span>, so the order of side effects is not fixed. The aggregated output preserves the original collection's order.</>
                     ) : (
                       <>Iterates over a collection sequentially. The body branch runs once per element with <span className="font-mono">payload</span> set to that element. Outputs are aggregated into a JSON array.</>
                     )}
@@ -3680,7 +3680,7 @@ attributes.method == "POST"`}
                       className="mt-1 w-full h-8 px-2.5 rounded-md bg-surface-2 border border-line text-[12px] font-mono text-content focus:outline-none focus:border-accent"
                       spellCheck={false}
                     />
-                    <div className="text-[10px] text-content-ghost mt-1">Exposed as <span className="font-mono">vars.{selected.config.forEachCounter || 'counter'}</span> inside the body — a 0-based String index.</div>
+                    <div className="text-[10px] text-content-ghost mt-1">Exposed as <span className="font-mono">vars.{selected.config.forEachCounter || 'counter'}</span> inside the body, a 0-based String index.</div>
                   </div>
                   {selected.type === 'parallel-for-each' && (
                     <div>
@@ -3712,7 +3712,7 @@ vars.users`}
               {selected.type === 'scatter-gather' && (
                 <div className="p-4 space-y-3">
                   <div className="text-[12px] text-content-muted leading-relaxed">
-                    Forks the current payload into every route concurrently and aggregates the results. All routes see the same starting <span className="font-mono">payload</span>, <span className="font-mono">vars</span>, and <span className="font-mono">attributes</span> — they do <em>not</em> share state with each other.
+                    Forks the current payload into every route concurrently and aggregates the results. All routes see the same starting <span className="font-mono">payload</span>, <span className="font-mono">vars</span>, and <span className="font-mono">attributes</span>, but they do <em>not</em> share state with each other.
                   </div>
                   <div>
                     <ConfigLabel label="Aggregator strategy" />
@@ -3733,7 +3733,7 @@ vars.users`}
                     </div>
                     <div className="text-[10px] text-content-ghost mt-1">
                       {(selected.config.aggregatorStrategy || 'object') === 'object'
-                        ? 'Merged as an object keyed by route name (recommended — preserves which route produced what).'
+                        ? 'Merged as an object keyed by route name (recommended, since it keeps which route produced what).'
                         : 'Bundled as an array in route order (drop the names).'}
                     </div>
                   </div>
@@ -3765,7 +3765,7 @@ output application/json
                     </pre>
                   </div>
                   <div className="text-[11px] text-content-ghost leading-relaxed">
-                    Studio simplifies Mule's error model — only the error message string is exposed. Real Mule injects a full error object (errorType, cause, etc.) into <span className="font-mono">error</span>.
+                    Studio simplifies Mule's error model: only the error message is exposed. Real Mule injects a full error object (errorType, cause, etc.) into <span className="font-mono">error</span>.
                   </div>
                 </div>
               )}
@@ -3774,7 +3774,7 @@ output application/json
               {selected.type === 'first-successful' && (
                 <div className="p-4 space-y-3">
                   <div className="text-[12px] text-content-muted leading-relaxed">
-                    Tries each route in order until one completes without error. The first route that succeeds wins — remaining routes are skipped. If all routes fail, the scope errors with the last route's failure message.
+                    Tries each route in order until one completes without error. The first route that succeeds wins and the rest are skipped. If all routes fail, the scope errors with the last route's failure message.
                   </div>
                   <div className="text-[11px] text-content-faint">
                     Useful for primary/fallback patterns: try the live API; if that fails, fall back to a cache; if that fails, return a hard-coded default.
@@ -3789,7 +3789,7 @@ output application/json
               {selected.type === 'round-robin' && (
                 <div className="p-4 space-y-3">
                   <div className="text-[12px] text-content-muted leading-relaxed">
-                    In real Mule, Round Robin rotates which route receives each invocation — useful for load-balancing across endpoints. Studio runs one-shot, so this scope always picks <span className="font-mono">route1</span>.
+                    In real Mule, Round Robin rotates which route receives each call, which is useful for load-balancing across endpoints. Studio runs one-shot, so this scope always picks <span className="font-mono">route1</span>.
                   </div>
                   <div
                     className="rounded-md p-2.5 text-[11px] leading-relaxed border"
@@ -3808,7 +3808,7 @@ output application/json
               {selected.type === 'async' && (
                 <div className="p-4 space-y-3">
                   <div className="text-[12px] text-content-muted leading-relaxed">
-                    Spawns the body as a fire-and-forget sub-flow. The parent flow continues immediately — the async scope reports success as soon as the body starts, regardless of whether the inner nodes have finished or not.
+                    Spawns the body as a fire-and-forget sub-flow. The parent flow continues immediately, and the async scope reports success as soon as the body starts, regardless of whether the inner nodes have finished or not.
                   </div>
                   <div className="text-[11px] text-content-faint">
                     Inner-node status updates appear asynchronously as the background work progresses. The aggregated payload of the body does <em>not</em> flow back to the parent.
@@ -3821,7 +3821,7 @@ output application/json
                       color: 'var(--warn)',
                     }}
                   >
-                    Step-through cannot pause inside an Async scope — the parent flow can't wait on it. The Step Over button still works at the scope boundary.
+                    Step-through can't pause inside an Async scope, because the parent flow can't wait on it. The Step Over button still works at the scope boundary.
                   </div>
                 </div>
               )}
@@ -4305,7 +4305,7 @@ output application/json
                   }}
                 >
                   <div className="font-semibold" style={{ color: 'var(--accent)' }}>
-                    Parsed successfully — "{muleXmlImportResult.flowName}" · {muleXmlImportResult.nodeCount} node{muleXmlImportResult.nodeCount === 1 ? '' : 's'}
+                    Parsed successfully: "{muleXmlImportResult.flowName}" · {muleXmlImportResult.nodeCount} node{muleXmlImportResult.nodeCount === 1 ? '' : 's'}
                   </div>
                   {muleXmlImportResult.warnings.length > 0 && (
                     <div className="text-[10.5px] text-content-faint">
@@ -4364,7 +4364,7 @@ output application/json
               <div className="flex-1">
                 <div className="text-[13px] font-semibold text-content">Flow input &amp; config</div>
                 <div className="text-[10.5px] text-content-ghost mt-0.5">
-                  The starting message a <span className="font-mono">Run</span> uses — the payload a listener would hand the flow, plus inbound <span className="font-mono">attributes</span> (<span className="font-mono">uriParams</span>, <span className="font-mono">queryParams</span>, <span className="font-mono">headers</span>). It propagates forward: each node's output becomes the next node's input. Property config (below) feeds <span className="font-mono">{'${…}'}</span> placeholders.
+                  The starting message a <span className="font-mono">Run</span> uses: the payload a listener would hand the flow, plus inbound <span className="font-mono">attributes</span> (<span className="font-mono">uriParams</span>, <span className="font-mono">queryParams</span>, <span className="font-mono">headers</span>). It propagates forward: each node's output becomes the next node's input. Property config (below) feeds <span className="font-mono">{'${…}'}</span> placeholders.
                 </div>
               </div>
               <button onClick={() => setShowInputEditor(false)} className="text-content-faint hover:text-content cursor-pointer p-1" title="Close">
@@ -4394,7 +4394,7 @@ output application/json
               </div>
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <ConfigLabel label="Attributes — HTTP method" />
+                  <ConfigLabel label="Attributes: HTTP method" />
                   <select
                     value={attrRows.method}
                     onChange={(e) => setAttrRows((r) => ({ ...r, method: e.target.value }))}
@@ -4478,7 +4478,7 @@ output application/json
                     type="password"
                     value={flowEncryptionKey}
                     onChange={(e) => setFlowEncryptionKey(e.target.value)}
-                    placeholder="Mule secure-properties key — leave blank for plaintext config"
+                    placeholder="Mule secure-properties key (leave blank for plaintext config)"
                     spellCheck={false}
                     autoComplete="off"
                     className="w-full px-3 py-1.5 text-[11.5px] font-mono bg-surface-2 border border-line rounded-md outline-none text-content placeholder:text-content-ghost focus:border-accent"
@@ -4511,7 +4511,7 @@ output application/json
                     </label>
                   </div>
                   <div className="text-[10px] text-content-ghost mt-1">
-                    Session only — never written to the flow file. Match the algorithm/mode you'd pass to <span className="font-mono">secure-properties-tool.jar</span> (default AES/CBC).
+                    Kept for this session only, not saved in the flow file. Match the algorithm/mode you'd pass to <span className="font-mono">secure-properties-tool.jar</span> (default AES/CBC).
                   </div>
                 </div>
               </div>

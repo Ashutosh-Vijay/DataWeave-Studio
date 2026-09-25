@@ -128,7 +128,7 @@ export function SecurePropertiesTool({ open, onClose }: SecurePropertiesToolProp
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-[14px] font-semibold text-content tracking-tight">Secure Properties Tool</h2>
-            <div className="text-[11.5px] text-content-faint mt-0.5">Offline encrypt/decrypt — your data never leaves this device</div>
+            <div className="text-[11.5px] text-content-faint mt-0.5">Encrypt and decrypt Mule secure property values</div>
           </div>
           <button
             onClick={onClose}

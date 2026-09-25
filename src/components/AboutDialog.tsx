@@ -176,9 +176,9 @@ export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvaila
 
           {/* Three-column meta — 2 rows of 3 stats */}
           <div className="grid grid-cols-3 gap-x-7 gap-y-6">
-            <Stat kicker="version" value={appVersion || '—'} sub="latest stable" valueAccent />
+            <Stat kicker="version" value={appVersion || '–'} sub="latest stable" valueAccent />
             <Stat kicker="license" value="MIT" sub="free forever" />
-            <Stat kicker="dw engine" value={engine || '—'} sub="Apache 2.0 · MuleSoft" />
+            <Stat kicker="dw engine" value={engine || '–'} sub="Apache 2.0 · MuleSoft" />
             {isTauri ? (
               <Stat kicker="size" value="~87 MB" sub="installer · all bundled" />
             ) : (
@@ -246,7 +246,7 @@ export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvaila
                   fontFamily: 'var(--font-mono)',
                 }}
               >
-                — 02:14 IST, on a Tuesday, after one Anypoint restart too many
+                02:14 IST, on a Tuesday, after one Anypoint restart too many
               </div>
             </div>
           </div>

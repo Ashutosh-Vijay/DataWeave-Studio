@@ -65,7 +65,7 @@ export function probeJava(javaBin: string): Promise<JavaProbe> {
         return resolve({
           bin: javaBin,
           major: null,
-          error: code ? `${code}${text ? ` — ${text.split('\n')[0]}` : ''}` : text || String(err),
+          error: code ? `${code}${text ? `: ${text.split('\n')[0]}` : ''}` : text || String(err),
         });
       }
       const m = text.match(/version "(\d+)(?:\.(\d+))?/);
@@ -105,7 +105,7 @@ export function javaFailureMessage(tried: JavaProbe[]): string {
     return `Found Java ${tooOld.major} at ${tooOld.bin}, but DataWeave 2.12 needs Java 11 or newer.`;
   }
   const bundled = tried[0];
-  const lines = tried.map((t) => `  • ${t.bin} — ${t.error ?? 'unusable'}`);
+  const lines = tried.map((t) => `  • ${t.bin}: ${t.error ?? 'unusable'}`);
   const blocked =
     bundled && bundled.error && /EPERM|EACCES|denied|blocked|virus|policy|ENOEXEC/i.test(bundled.error);
   return (
@@ -116,7 +116,7 @@ export function javaFailureMessage(tried: JavaProbe[]): string {
         `(ManageEngine, Ivanti, AppLocker, Carbon Black and similar) commonly blocks an ` +
         `unsigned java.exe running from an extensions folder. Ask IT to allowlist:\n\n` +
         `  ${bundled.bin}\n\n` +
-        `Alternatively, install a Java 17 JDK system-wide and set JAVA_HOME — a JDK ` +
+        `Alternatively, install a Java 17 JDK system-wide and set JAVA_HOME (a JDK ` +
         `installed by IT is usually already permitted, and the extension will use it.`
       : `Install a Java 17 JDK and set JAVA_HOME, or reinstall the extension.`)
   );
@@ -459,7 +459,7 @@ export class DwServer {
     }, 15000).catch(() => null);
     this.encodingOk = !!probe?.output?.includes(probeText);
     if (!this.encodingOk) {
-      console.error('[dwstudio] encoding self-check FAILED — non-ASCII output will be corrupted:', probe?.output);
+      console.error('[dwstudio] encoding self-check FAILED; non-ASCII output will be corrupted:', probe?.output);
     }
 
     fs.rmSync(dir, { recursive: true, force: true });

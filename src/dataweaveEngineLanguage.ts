@@ -422,10 +422,10 @@ export function registerEngineLanguageFeatures(
         return at >= start && at <= end;
       });
       if (!hit) {
-        return { text: '', range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column), rejectReason: 'Only names you declare can be renamed — not text, keys or imported modules.' };
+        return { text: '', range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column), rejectReason: 'Only names you declare can be renamed, not text, keys or imported modules.' };
       }
       if (!isPlainIdentifier(hit.text)) {
-        return { text: '', range: hit.range, rejectReason: `\`${hit.text}\` comes from an import — rename only works on names declared in this script.` };
+        return { text: '', range: hit.range, rejectReason: `\`${hit.text}\` comes from an import. Rename only works on names declared in this script.` };
       }
       return { text: hit.text, range: hit.range };
     },

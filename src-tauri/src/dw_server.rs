@@ -331,7 +331,7 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     let jar = resolve_server_jar(app)?;
     if !jar.exists() {
         return Err(format!(
-            "dwstudio-server.jar not found at {} — bundle is missing.",
+            "dwstudio-server.jar not found at {}. The bundle is incomplete.",
             jar.display()
         ));
     }
@@ -444,7 +444,7 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
             ENCODING_OK.store(ok, Ordering::Relaxed);
             if !ok {
                 log::error!(
-                    "Engine encoding self-check FAILED — non-ASCII output will be corrupted. Response: {}",
+                    "Engine encoding self-check FAILED; non-ASCII output will be corrupted. Response: {}",
                     resp.trim()
                 );
             }

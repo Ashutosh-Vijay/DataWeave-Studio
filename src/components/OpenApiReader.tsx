@@ -173,7 +173,7 @@ export function buildSpec(doc: any): ParsedSpec {
   const isV3 = typeof doc.openapi === 'string' && doc.openapi.startsWith('3');
   const isV2 = typeof doc.swagger === 'string' && doc.swagger.startsWith('2');
   if (!isV3 && !isV2) {
-    throw new Error('Unrecognized spec — expected OpenAPI 3.x (openapi:) or Swagger 2.0 (swagger:)');
+    throw new Error('Unrecognized spec. Expected OpenAPI 3.x (openapi:) or Swagger 2.0 (swagger:)');
   }
 
   const info = doc.info || {};
@@ -787,7 +787,7 @@ export function OpenApiReader({ open: isOpen, onClose, onImport }: OpenApiReader
           <div className="flex-1 overflow-y-auto py-1">
             {library.length === 0 ? (
               <div className="px-3 py-4 text-[11.5px] leading-relaxed text-content-faint">
-                No saved specs yet. Parse a spec and hit <span className="text-content-secondary font-medium">Save to library</span> — it’ll show up here to reopen anytime.
+                No saved specs yet. Parse a spec and hit <span className="text-content-secondary font-medium">Save to library</span> and it’ll show up here to reopen any time.
               </div>
             ) : (
               library.map((item) => (
@@ -933,7 +933,7 @@ export function OpenApiReader({ open: isOpen, onClose, onImport }: OpenApiReader
                         <SectionLabel>Schema</SectionLabel>
                         <div className="flex flex-wrap gap-1.5">
                           {op.schemas.map((s, i) => (
-                            <Chip key={i} active={i === selectedSchema} onClick={() => pickSchema(i, op.schemas)} title={`${s.mime}${s.description ? ` — ${s.description}` : ''}`}>
+                            <Chip key={i} active={i === selectedSchema} onClick={() => pickSchema(i, op.schemas)} title={`${s.mime}${s.description ? `: ${s.description}` : ''}`}>
                               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: schemaColor(s.label) }} />
                               {s.label === 'Request' ? 'Request' : `Response ${s.label}`}
                               {schemaLabelCounts[s.label] > 1 && <span style={{ opacity: 0.7 }}>· {shortMime(s.mime)}</span>}
@@ -944,7 +944,7 @@ export function OpenApiReader({ open: isOpen, onClose, onImport }: OpenApiReader
                         {activeSchema && (
                           <div className="text-[11px] font-mono mt-1.5" style={{ color: 'var(--content-faint)' }}>
                             Content type: <span style={{ color: 'var(--cyan)' }}>{activeSchema.mime}</span>
-                            {activeSchema.mime.includes('multipart') && <span style={{ color: 'var(--content-ghost)' }}> · file upload — sample is the JSON input, the skeleton outputs multipart/form-data</span>}
+                            {activeSchema.mime.includes('multipart') && <span style={{ color: 'var(--content-ghost)' }}> · file upload: the sample is the JSON input, and the skeleton outputs multipart/form-data</span>}
                           </div>
                         )}
                       </div>
@@ -1086,7 +1086,7 @@ function PasteStage({
       {error && <div className="text-[11px]" style={{ color: 'var(--err)' }}>{error}</div>}
       <div className="flex items-center gap-2">
         <span className="text-[11.5px]" style={{ color: 'var(--content-faint)' }}>
-          OpenAPI 3.x or Swagger 2.0 · nothing leaves your machine
+          OpenAPI 3.x or Swagger 2.0, in JSON or YAML
         </span>
         <span className="flex-1" />
         <button

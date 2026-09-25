@@ -157,7 +157,7 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
                   <button
                     onClick={() => toggleExpr(i)}
                     onFocus={() => cancelCollapse()}
-                    title={v.valueType === 'expression' ? 'Expression — evaluated against the message. Click for a literal value.' : 'Treat as a DataWeave expression (payload.x, vars.y)'}
+                    title={v.valueType === 'expression' ? 'Expression, evaluated against the message. Click for a literal value.' : 'Treat as a DataWeave expression (payload.x, vars.y)'}
                     className={`text-[10px] font-mono italic px-1 py-0.5 rounded shrink-0 cursor-pointer transition-colors ${
                       v.valueType === 'expression' ? 'bg-accent-dim text-accent' : 'bg-line-subtle text-content-faint hover:text-content'
                     }`}
@@ -173,7 +173,7 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
                       }`}
                       title={
                         v.valueType === 'json'
-                          ? 'Parsed as JSON — supports null, true/false, numbers, objects, arrays'
+                          ? 'Parsed as JSON: null, true/false, numbers, objects and arrays all work'
                           : 'Passed as plain string'
                       }
                     >
@@ -206,7 +206,7 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
                   }
                   placeholder={
                     v.valueType === 'expression'
-                      ? 'DataWeave expression — e.g.  payload.name  •  payload.items filter ($.active)  •  vars.count + 1'
+                      ? 'DataWeave expression, e.g.  payload.name  •  payload.items filter ($.active)  •  vars.count + 1'
                       : 'e.g.  "hello"  •  42  •  null  •  true  •  {"key": "val"}  •  [1,2,3]'
                   }
                   rows={4}
@@ -218,7 +218,7 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
                     <button
                       onClick={() => toggleExpr(i)}
                       onFocus={() => cancelCollapse()}
-                      title={v.valueType === 'expression' ? 'Expression mode is on — click for a literal value' : 'Treat as a DataWeave expression'}
+                      title={v.valueType === 'expression' ? 'Expression mode is on. Click for a literal value' : 'Treat as a DataWeave expression'}
                       className={`text-[10px] font-mono italic px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
                         v.valueType === 'expression' ? 'bg-accent-dim text-accent' : 'bg-line-subtle text-content-faint hover:text-content'
                       }`}
@@ -227,10 +227,10 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
                     </button>
                     <span className="text-[10px] text-content-faint">
                       {v.valueType === 'expression'
-                        ? 'Expression — evaluated against the message'
+                        ? 'Expression, evaluated against the message'
                         : v.valueType === 'json'
-                          ? 'JSON — parsed as DataWeave value'
-                          : 'String — passed as-is'}
+                          ? 'JSON, parsed into a DataWeave value'
+                          : 'String, passed as-is'}
                     </span>
                   </div>
                   <span className="text-[9px] text-content-ghost">Click elsewhere to collapse</span>

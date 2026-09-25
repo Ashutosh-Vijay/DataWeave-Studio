@@ -11,14 +11,14 @@ import { useEditorFont } from '../hooks/useEditorFont';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
-const CONFIG_PLACEHOLDER = `# config.yaml — referenced as \${key}
+const CONFIG_PLACEHOLDER = `# config.yaml, referenced as \${key}
 # Example:
 # salesforce:
 #   path: /api/v1
 #   timeout: 30000
 `;
 
-const SECURE_PLACEHOLDER = `# secure-config.yaml — referenced as \${secure::key}
+const SECURE_PLACEHOLDER = `# secure-config.yaml, referenced as \${secure::key}
 # Plaintext or encrypted ![...] values:
 # salesforce:
 #   clientId: abc123
@@ -289,7 +289,7 @@ export const ContextPanel = memo(function ContextPanel({ context, onChange, encr
                         className="text-[9px] block"
                         style={{ color: info.aesValid ? 'var(--accent)' : 'var(--warn)' }}
                       >
-                        {info.bytes} bytes — {info.aesValid ? `${info.aesVariant} ✓` : 'invalid AES length'}
+                        {info.bytes} bytes, {info.aesValid ? `${info.aesVariant} ✓` : 'invalid AES length'}
                       </span>
                     );
                   })() : null}

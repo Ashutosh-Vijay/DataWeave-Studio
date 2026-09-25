@@ -833,7 +833,7 @@ function elementToNode(el: Element): FlowNode {
   // the element's verbatim XML so an export round-trips it losslessly instead of
   // silently replacing the real component with a <logger>.
   const unknownLogger = makeNode('logger', `${label} (unsupported: ${name})`, {
-    payload: `#[/* Imported from <${escXml(name)}> — Studio doesn't simulate this element */]`,
+    payload: `#[/* Imported from <${escXml(name)}>: Studio doesn't simulate this element */]`,
     rawXml: new XMLSerializer().serializeToString(el),
   });
   return unknownLogger;
@@ -919,7 +919,7 @@ export interface ImportError {
 /** Parse a Mule 4 XML document (or a bare flow fragment) into Studio flows.
  *  Returns every <flow>/<sub-flow> found; the first is the active one. */
 export function importMuleXml(xml: string): ImportResult | ImportError {
-  if (!xml || !xml.trim()) return { ok: false, error: 'Empty input — paste Mule XML.' };
+  if (!xml || !xml.trim()) return { ok: false, error: 'Empty input. Paste some Mule XML.' };
   // Tolerate flow-only pastes that lack the <mule> root + namespace declarations.
   const doc = parseMuleDoc(xml);
   const parserError = doc.querySelector('parsererror');
@@ -1110,11 +1110,11 @@ export function httpRequestXml(opts: {
 
   const open = `<http:request method="${escXml(opts.method)}" path="${escXml(path)}" config-ref="HTTP_Request_Config" doc:name="${escXml(opts.method)} ${escXml(path)}"`;
   return [
-    '<!-- 1. the connection — one config, reused by every request to this host -->',
+    '<!-- 1. the connection: one config, reused by every request to this host -->',
     '<http:request-config name="HTTP_Request_Config" doc:name="HTTP Request configuration">',
     ...conn,
     '</http:request-config>',
-    ...(opts.auth ? ['<!-- the password is a placeholder — put the real one in a property, or encrypt it -->'] : []),
+    ...(opts.auth ? ['<!-- the password is a placeholder: put the real one in a property, or encrypt it -->'] : []),
     '',
     '<!-- 2. the call -->',
     ...(inner.length ? [`${open}>`, ...inner, '</http:request>'] : [`${open}/>`]),
