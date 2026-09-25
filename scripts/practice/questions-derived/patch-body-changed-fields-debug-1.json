@@ -35,7 +35,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "selects before.k literally instead of the key held in k, so every field looks changed"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var changed = payload.after filterObject ((v, k) -> payload.before[k] != v)\n  var removed = payload.before filterObject ((v, k) -> not (keysOf(payload.after) contains k)) mapObject ((v, k) -> { (k): null })\n  ---\n  changed ++ removed\n}",

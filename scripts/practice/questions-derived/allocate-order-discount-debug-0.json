@@ -35,7 +35,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "rounds each share to the nearest cent, so the shares can add up to more than the discount"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var amounts = payload.lines.amount\n  var total = sum(amounts)\n  var shares = amounts map floor(payload.discount * $ / total)\n  var left = payload.discount - sum(shares)\n  var top = amounts indexOf max(amounts)\n  ---\n  payload.lines map { sku: $.sku, discount: shares[$$] + (if ($$ == top) left else 0) }\n}",

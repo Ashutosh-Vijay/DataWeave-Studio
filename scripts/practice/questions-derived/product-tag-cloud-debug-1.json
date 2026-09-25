@@ -35,7 +35,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "uses flatMap, which turns a product with no tags into a null tag, and a null cannot be sorted with the Strings"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\n(flatten(payload.tags default []) map lower($)) distinctBy $ orderBy $",

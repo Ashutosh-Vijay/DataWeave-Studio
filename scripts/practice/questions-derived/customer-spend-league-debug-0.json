@@ -35,7 +35,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "sums the amounts as they are, which fails on a cancelled order with a null amount"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.customer pluck { customer: $$, total: sum($ map ($.amount default 0)) } orderBy -$.total",

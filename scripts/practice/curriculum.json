@@ -18,7 +18,8 @@
       "trap": "A key that isn't there is `null`, not an error, so a typo ships silently.",
       "verified": [
         "key order is preserved as written: { z: 1, a: 2, m: 3 } stays z,a,m",
-        "payload.missing -> null"
+        "payload.missing -> null",
+        "type is reserved even as a selector: payload.type -> CompilationException; payload.\"type\" -> 'a'"
       ]
     },
     {
@@ -64,7 +65,9 @@
         "'' default 'fallback' -> ''",
         "false default 'fallback' -> false",
         "('x' as Number) default 0 -> 0, ('x' as Number + 1) default 0 -> 0, ('yes' as Boolean) default false -> false, ('2026-13-45' as Date) default 'bad' -> 'bad'",
-        "NOT caught: (1 / 0) default 0 -> DivisionByZeroException; dw::Runtime::fail('boom') default 0 -> UserException"
+        "NOT caught: (1 / 0) default 0 -> DivisionByZeroException; dw::Runtime::fail('boom') default 0 -> UserException",
+        "default binds looser than *: payload.qty default 1 * payload.price with {qty:3, price:5} -> 3 (it is qty default (1 * price))",
+        "NOT caught either: read('{bad', 'application/json') default 'x' -> ReadExecutionException (default catches coercions, not parse errors)"
       ]
     },
     {
@@ -115,7 +118,8 @@
       "verified": [
         "[1,2,3][-1] -> 3",
         "[1,2,3][9] -> null",
-        "sizeOf on a Number counts its digits as a string: sizeOf(5) -> 1, sizeOf(12345) -> 5"
+        "sizeOf on a Number counts its digits as a string: sizeOf(5) -> 1, sizeOf(12345) -> 5",
+        "a range past the end is null, not truncated: [1,2][0 to 2] -> null; [][-1 to 0] -> null"
       ]
     },
     {
@@ -131,7 +135,8 @@
       "verified": [
         "[1] ++ 2 -> CompilationException: Unable to call `++` with (Array<1>, 2)",
         "[1,2,3] -- [2] -> [1,3]",
-        "{a:1,b:2} -- ['a'] -> {b:2}"
+        "{a:1,b:2} -- ['a'] -> {b:2}",
+        "-- on Objects removes a pair only when key AND value match: {a:1,b:2} -- {a:9} -> {a:1,b:2}; {a:1,b:2} -- {a:1} -> {b:2}"
       ]
     },
     {
@@ -222,7 +227,8 @@
       "teaches": "Flattening, and when `flatMap` says it better.",
       "trap": "`flatten` goes exactly one level deep \u2014 a doubly-nested array comes back still nested.",
       "verified": [
-        "flatten([[1,[2,3]],[4]]) -> [1, [2,3], 4]"
+        "flatten([[1,[2,3]],[4]]) -> [1, [2,3], 4]",
+        "with a payload, flatMap accepts a null from the lambda: [1,2] flatMap (x) -> if (x == 1) null else ['green'] -> [null, 'green']"
       ]
     },
     {
@@ -247,7 +253,8 @@
       "trap": "Updating a key that does not exist is a silent no-op \u2014 it does not add it.",
       "verified": [
         "{a:1} update { case .missing -> 99 } -> {a:1}",
-        "{a:1} update { case .a -> 99 } -> {a:99}"
+        "{a:1} update { case .a -> 99 } -> {a:99}",
+        "update on an Array with a field path changes nothing: [{a:1}] update { case .a -> 5 } -> [{a:1}] (no [*] wildcard)"
       ]
     },
     {
@@ -265,7 +272,9 @@
         "'abc' as Number -> InvalidNumberException",
         "'yes' as Boolean -> InvalidBooleanException",
         "'4' + '2' -> 6 (numeric strings are coerced for +), but 'a' + 'b' -> UnexpectedFunctionCallTypesException \u2014 use ++ to concatenate",
-        "1 == '1' -> false, 1 ~= '1' -> true"
+        "1 == '1' -> false, 1 ~= '1' -> true",
+        "as binds tighter than /: 10 / 4 as String {format: '0.00'} -> 2.5 (the 4 is formatted, not the result)",
+        "+ binds tighter than ++: 'L' ++ 0 + 1 -> 'L1'"
       ]
     },
     {
@@ -279,7 +288,8 @@
       "teaches": "Reader/writer properties: header, separator, quoting.",
       "trap": "Every value parsed from CSV is a String, including the ones that look like numbers, so arithmetic on them fails until you coerce.",
       "verified": [
-        "typeOf of a numeric-looking CSV column -> 'String'"
+        "typeOf of a numeric-looking CSV column -> 'String'",
+        "the CSV writer escapes a comma rather than quoting: [{v: 'A, B'}] -> 'v\\nA\\, B'"
       ]
     },
     {
@@ -321,7 +331,8 @@
       "trap": "Subtracting two dates gives a Period, not a Number \u2014 and adding a month to the 31st clamps to the end of the shorter month rather than overflowing.",
       "verified": [
         "|2027-03-01| - |2027-02-01| -> 'PT672H', typeOf 'Period'",
-        "|2027-01-31| + |P1M| -> '2027-02-28'"
+        "|2027-01-31| + |P1M| -> '2027-02-28'",
+        "(|2024-05-02T10:00:00Z| - |2024-05-01T08:00:00Z|) -> 'PT26H', and its .hours -> 2 (the hours field of the period, not the total)"
       ]
     },
     {
@@ -337,7 +348,11 @@
         "5 match { case n is Number -> 'num' case a if (a > 0) -> 'pos' else -> 'other' } -> 'num'",
         "list-destructuring patterns DO NOT PARSE: `case [h] ->` and `case [h, t...] ->` both give CompilationException: Invalid input \"match { case [h,\", expected Function Call",
         "what works: `case x is Type`, `case x if (...)`, `case null`, `else`",
-        "typeOf returns a Type, not a String: typeOf('x') == 'String' -> false, typeOf('x') == String -> true, typeOf('x') as String -> 'String'"
+        "typeOf returns a Type, not a String: typeOf('x') == 'String' -> false, typeOf('x') == String -> true, typeOf('x') as String -> 'String'",
+        "a literal case coerces: [\"1\", 1, \"01\", \"x\"] map ($ match { case 1 -> 'one' else -> 'other' }) -> ['one','one','one','other']",
+        "case d matches /re/ binds d to the match Array: typeOf(d) -> 'Array'",
+        "a guard that selects a field throws on a String: 'abc' match { case x if x.op == '+' -> 1 else -> 2 } -> UnexpectedFunctionCallTypesException",
+        "case n is Number if n > 3 does not parse (CompilationException): type test and guard cannot share a case"
       ]
     },
     {
@@ -377,7 +392,8 @@
       "teaches": "`dw::util::Tree` \u2014 the module that does the generic walk for you.",
       "trap": "It is not in core; without the import the name simply does not resolve.",
       "verified": [
-        "import * from dw::util::Tree; mapLeafValues({a:{b:'x'},c:['y']}, (v,p) -> upper(v as String)) -> {a:{b:'X'},c:['Y']}"
+        "import * from dw::util::Tree; mapLeafValues({a:{b:'x'},c:['y']}, (v,p) -> upper(v as String)) -> {a:{b:'X'},c:['Y']}",
+        "mapLeafValues upper($) turns Numbers into Strings: {age: 30, n: 'a'} -> {age: '30', n: 'A'}"
       ]
     },
     {
@@ -471,7 +487,8 @@
       "trap": "`write` gives you a String, so the result is an escaped blob \u2014 which is the point, and also why it looks broken the first time.",
       "verified": [
         "write([{price:3, sku:'F6', qty:4}], 'application/csv') -> \"price,sku,qty\r\n3,F6,4\r\n\" \u2014 column order follows the OBJECT's field order",
-        "write([], 'application/csv') -> \"\" (not a header-only string)"
+        "write([], 'application/csv') -> \"\" (not a header-only string)",
+        "write({order: {line: []}}, 'application/xml', {indent: false, writeDeclaration: false}) -> '<order><line/></order>'"
       ]
     },
     {

@@ -34,7 +34,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "adds up the prices and forgets the quantities"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var subtotal = sum(payload map ($.price * $.qty))\n  var shipping = if (subtotal >= 50) 0 else 4.99\n  ---\n  { subtotal: subtotal, shipping: shipping, total: subtotal + shipping }\n}",

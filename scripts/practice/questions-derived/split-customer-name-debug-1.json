@@ -34,7 +34,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "takes the last word unconditionally, so a one-word name gets the same word as first and last"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\npayload map (c) -> do {\n  var parts = trim(c.fullName) splitBy /\\s+/\n  ---\n  { first: parts[0], last: if (sizeOf(parts) > 1) parts[-1] else null }\n}",

@@ -34,7 +34,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "rounds to whole units instead of cents"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var net = sum(payload map ($.price * $.qty))\n  var vat = round(net * 0.2 * 100) / 100\n  ---\n  { net: net, vat: vat, gross: net + vat }\n}",

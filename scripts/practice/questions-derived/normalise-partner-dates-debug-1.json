@@ -36,7 +36,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "reads the slashed format as month/day/year, which fails on any day after the 12th"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\npayload map (d) -> d match {\n  case m matches /\\d{4}-\\d{2}-\\d{2}/ -> d\n  case m matches /\\d{2}\\/\\d{2}\\/\\d{4}/ -> d as Date {format: \"dd/MM/yyyy\"} as String {format: \"yyyy-MM-dd\"}\n  else -> d as Date {format: \"yyyyMMdd\"} as String {format: \"yyyy-MM-dd\"}\n}",

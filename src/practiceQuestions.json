@@ -382,7 +382,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "divides without checking, so an event with no amount fails instead of returning null"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n{\n  eventId: payload.id,\n  kind: payload.\"type\",\n  amount: if (payload.data.amount_due == null) null else payload.data.amount_due / 100\n}",
@@ -456,7 +456,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "falls back to 0 for a missing amount, which reports a voided invoice as a zero payment"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n{\n  eventId: payload.id,\n  kind: payload.\"type\",\n  amount: if (payload.data.amount_due == null) null else payload.data.amount_due / 100\n}",
@@ -505,7 +505,7 @@
       "reserved words",
       "null"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -796,7 +796,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "falls back to an empty string, so a missing address prints as blank fields instead of null"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n{\n  orderId: payload.id,\n  name: payload.customer.name,\n  city: payload.customer.address.city,\n  postcode: payload.customer.address.postcode\n}",
@@ -869,7 +869,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "guards against a missing address by leaving the fields out, so the label is missing keys instead of having nulls"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n{\n  orderId: payload.id,\n  name: payload.customer.name,\n  city: payload.customer.address.city,\n  postcode: payload.customer.address.postcode\n}",
@@ -917,7 +917,7 @@
       "selectors",
       "null"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -952,7 +952,7 @@
       "selectors",
       "null"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -987,7 +987,7 @@
       "selectors",
       "null"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -1486,7 +1486,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "pads by concatenating \"00\", so line 10 becomes \"0010\""
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map { line: ($$ + 1) as String {format: \"000\"}, sku: $ }",
@@ -1550,7 +1550,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "numbers from 0, because the index starts at 0"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map { line: ($$ + 1) as String {format: \"000\"}, sku: $ }",
@@ -1589,7 +1589,7 @@
       "as",
       "format"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -1624,7 +1624,7 @@
       "as",
       "format"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -2342,7 +2342,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "checks only for null, so an order whose tracking is an empty String gets shipped"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n(payload filter ($.status == \"packed\" and not isEmpty($.tracking))).id default []",
@@ -2418,7 +2418,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "uses or instead of and, so any packed order ships whether or not it has tracking"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n(payload filter ($.status == \"packed\" and not isEmpty($.tracking))).id default []",
@@ -2465,7 +2465,7 @@
       "isEmpty",
       "and"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -2499,7 +2499,7 @@
       "isEmpty",
       "and"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -2964,7 +2964,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "no parentheses: default binds looser than *, so a line with a quantity returns the bare quantity instead of quantity times price"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map { sku: $.sku, total: ($.qty default 1) * $.price }",
@@ -3038,7 +3038,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "puts the fallback after the product, so a missing quantity makes the whole total fall back to 1"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map { sku: $.sku, total: ($.qty default 1) * $.price }",
@@ -3087,7 +3087,7 @@
       "map",
       "precedence"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -3123,7 +3123,7 @@
       "map",
       "precedence"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -3159,7 +3159,7 @@
       "map",
       "precedence"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -3194,7 +3194,7 @@
       "default",
       "if"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -3227,7 +3227,7 @@
       "default",
       "if"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -4091,7 +4091,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "filters before trimming, so an entry of only spaces is not empty yet and survives as \"\""
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map lower(trim($)) filter not isEmpty($)",
@@ -4160,7 +4160,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "lower-cases but never trims, so addresses keep their stray spaces"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map lower(trim($)) filter not isEmpty($)",
@@ -4200,7 +4200,7 @@
       "filter",
       "isEmpty"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -4235,7 +4235,7 @@
       "filter",
       "isEmpty"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -4270,7 +4270,7 @@
       "replace",
       "regex"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -4329,7 +4329,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "splits on a single space, so extra spaces produce empty pieces and the first or last word comes out as \"\""
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map (c) -> do {\n  var parts = trim(c.fullName) splitBy /\\s+/\n  ---\n  { first: parts[0], last: if (sizeOf(parts) > 1) parts[-1] else null }\n}",
@@ -4400,7 +4400,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "takes the last word unconditionally, so a one-word name gets the same word as first and last"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map (c) -> do {\n  var parts = trim(c.fullName) splitBy /\\s+/\n  ---\n  { first: parts[0], last: if (sizeOf(parts) > 1) parts[-1] else null }\n}",
@@ -4446,7 +4446,7 @@
       "trim",
       "regex"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -4480,7 +4480,7 @@
       "trim",
       "regex"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -4750,7 +4750,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "rounds to whole units instead of cents"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var net = sum(payload map ($.price * $.qty))\n  var vat = round(net * 0.2 * 100) / 100\n  ---\n  { net: net, vat: vat, gross: net + vat }\n}",
@@ -4821,7 +4821,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "formats the VAT as text, so it is a String \"2.47\" instead of the Number 2.47"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var net = sum(payload map ($.price * $.qty))\n  var vat = round(net * 0.2 * 100) / 100\n  ---\n  { net: net, vat: vat, gross: net + vat }\n}",
@@ -4867,7 +4867,7 @@
       "sum",
       "map"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -4901,7 +4901,7 @@
       "sum",
       "map"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -4935,7 +4935,7 @@
       "sum",
       "map"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -4969,7 +4969,7 @@
       "mod",
       "map"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -5003,7 +5003,7 @@
       "mod",
       "map"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -5037,7 +5037,7 @@
       "mod",
       "map"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -5980,7 +5980,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "a range that runs past the end of the array returns null, not the elements that exist"
     ],
     "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\ntake(payload, 3)",
@@ -6043,7 +6043,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "guards against the empty array but not against one or two results"
     ],
     "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\ntake(payload, 3)",
@@ -6081,7 +6081,7 @@
       "take",
       "dw::core::Arrays"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -6115,7 +6115,7 @@
       "take",
       "dw::core::Arrays"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -6675,7 +6675,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "removes the unsubscribed only from the CRM list, so the same person still arrives from the shop list"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n(payload.crm ++ payload.shop) -- payload.unsubscribed",
@@ -6738,7 +6738,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "removes only the first unsubscribed address with -, so a second unsubscribed address stays"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n(payload.crm ++ payload.shop) -- payload.unsubscribed",
@@ -6776,7 +6776,7 @@
       "--",
       "-"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -6810,7 +6810,7 @@
       "--",
       "-"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -6910,7 +6910,7 @@
       "sum",
       "orderBy"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -7079,7 +7079,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "groups by the code as typed, so ldn and LDN become two warehouses"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy upper($.wh) mapObject ((rows, wh) -> { (wh): rows.sku })",
@@ -7144,7 +7144,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "stops after groupBy, so each warehouse holds whole rows instead of SKUs"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy upper($.wh) mapObject ((rows, wh) -> { (wh): rows.sku })",
@@ -7184,7 +7184,7 @@
       "mapObject",
       "upper"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -7220,7 +7220,7 @@
       "mapObject",
       "upper"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -7255,7 +7255,7 @@
       "reduce",
       "seed"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -7288,7 +7288,7 @@
       "reduce",
       "seed"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -7321,7 +7321,7 @@
       "reduce",
       "seed"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -7680,7 +7680,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "treats anything that is not false as on, so an undecided null flag is listed"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload filterObject ($ == true) pluck $$",
@@ -7753,7 +7753,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "uses the flag value itself as the condition, which fails on an undecided null flag"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload filterObject ($ == true) pluck $$",
@@ -7801,7 +7801,7 @@
       "pluck",
       "keysOf"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -7835,7 +7835,7 @@
       "pluck",
       "keysOf"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -8012,7 +8012,7 @@
       "--",
       "keysOf"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -8328,7 +8328,7 @@
       "duplicate keys",
       "default"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -8364,7 +8364,7 @@
       "duplicate keys",
       "default"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -8401,7 +8401,7 @@
       "default",
       "duplicate keys"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json indent=false",
     "given": {
@@ -8525,7 +8525,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "sorts the ids, which matches first-seen order only when the ids happen to arrive sorted"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload.customerId distinctBy $ default []",
@@ -8589,7 +8589,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "removes repeated orders rather than repeated customers, so a returning customer is listed twice"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload.customerId distinctBy $ default []",
@@ -8628,7 +8628,7 @@
       "distinctBy",
       "orderBy"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -8663,7 +8663,7 @@
       "distinctBy",
       "orderBy"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -8699,7 +8699,7 @@
       "distinctBy",
       "range"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -8735,7 +8735,7 @@
       "distinctBy",
       "range"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -8769,7 +8769,7 @@
       "distinctBy",
       "range"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -8946,7 +8946,7 @@
       "distinctBy",
       "orderBy"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -8983,7 +8983,7 @@
       "distinctBy",
       "orderBy"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -9163,7 +9163,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "writes the key with a null value instead of leaving it out"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map { id: $.id, status: $.status, (deliveredAt: $.ts) if ($.status == \"delivered\") }",
@@ -9229,7 +9229,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "conditions on the timestamp being present, but every scan has a timestamp, not just deliveries"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map { id: $.id, status: $.status, (deliveredAt: $.ts) if ($.status == \"delivered\") }",
@@ -9266,7 +9266,7 @@
       "conditional fields",
       "if"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -9299,7 +9299,7 @@
       "conditional fields",
       "if"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -9563,7 +9563,7 @@
       "!",
       "default"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -9789,7 +9789,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "takes characters 12 to 15, which is the last four only for a 16-digit number"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload update { case n at .card.number -> \"**** \" ++ n[-4 to -1] }",
@@ -9861,7 +9861,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "builds a new card object, which drops the expiry date"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload update { case n at .card.number -> \"**** \" ++ n[-4 to -1] }",
@@ -9908,7 +9908,7 @@
       "range",
       "String"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -9942,7 +9942,7 @@
       "range",
       "String"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -10283,7 +10283,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "coerces the page and size but not inStock, so \"true\" stays a String"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n{\n  page: (payload.page default \"1\") as Number,\n  size: (payload.size default \"20\") as Number,\n  inStock: (payload.inStock default \"false\") as Boolean,\n  q: payload.q\n}",
@@ -10362,7 +10362,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "forgets that a missing size needs its own fallback, so size is null"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n{\n  page: (payload.page default \"1\") as Number,\n  size: (payload.size default \"20\") as Number,\n  inStock: (payload.inStock default \"false\") as Boolean,\n  q: payload.q\n}",
@@ -10412,7 +10412,7 @@
       "Number",
       "Boolean"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -10449,7 +10449,7 @@
       "Number",
       "Boolean"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -10749,7 +10749,7 @@
       "as",
       "format"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/csv",
     "given": {
@@ -10785,7 +10785,7 @@
       "as",
       "format"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/csv",
     "given": {
@@ -10845,7 +10845,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "coerces the empty stock value directly, and an empty String cannot become a Number"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map {\n  sku: $.sku,\n  price: $.price as Number,\n  inStock: (($.stock as Number) default 0) > 0\n}",
@@ -10918,7 +10918,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "tests the text against \"0\", so an empty stock value counts as in stock"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map {\n  sku: $.sku,\n  price: $.price as Number,\n  inStock: (($.stock as Number) default 0) > 0\n}",
@@ -10966,7 +10966,7 @@
       "as",
       "default"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/csv",
     "outputMime": "application/json",
     "given": {
@@ -11003,7 +11003,7 @@
       "as",
       "default"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/csv",
     "outputMime": "application/json",
     "given": {
@@ -11171,7 +11171,7 @@
       ".*",
       "as"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/xml",
     "outputMime": "application/json",
     "given": {
@@ -11209,7 +11209,7 @@
       ".*",
       "as"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/xml",
     "outputMime": "application/json",
     "given": {
@@ -11272,7 +11272,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "handles exactly one line, which is all the sample shows"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n{\n  orderId: payload.order.@id,\n  lines: (payload.order.*line default []) map { sku: $.@sku, qty: $.@qty as Number }\n}",
@@ -11340,7 +11340,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "reads all lines but has no fallback, so an order without lines gives null instead of []"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n{\n  orderId: payload.order.@id,\n  lines: (payload.order.*line default []) map { sku: $.@sku, qty: $.@qty as Number }\n}",
@@ -11383,7 +11383,7 @@
       "@",
       "default"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/xml",
     "outputMime": "application/json",
     "given": {
@@ -11421,7 +11421,7 @@
       "@",
       "default"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/xml",
     "outputMime": "application/json",
     "given": {
@@ -11877,7 +11877,7 @@
       "Date",
       "format"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -11913,7 +11913,7 @@
       "Date",
       "format"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -11949,7 +11949,7 @@
       "Date",
       "format"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -12012,7 +12012,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "uses YYYY, the week-based year, which prints 2025 for the last days of December 2024"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map { id: $.id, date: $.date as Date as String {format: \"dd/MM/yyyy\"} }",
@@ -12079,7 +12079,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "uses DD, the day of the year, instead of dd, the day of the month"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map { id: $.id, date: $.date as Date as String {format: \"dd/MM/yyyy\"} }",
@@ -12117,7 +12117,7 @@
       "Date",
       "format"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -12151,7 +12151,7 @@
       "Date",
       "format"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -12186,7 +12186,7 @@
       "Date",
       "filter"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -12221,7 +12221,7 @@
       "Date",
       "filter"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -12256,7 +12256,7 @@
       "Date",
       "filter"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -12380,7 +12380,7 @@
       "as",
       "default"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -12415,7 +12415,7 @@
       "as",
       "default"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -12552,7 +12552,7 @@
       "var",
       "sum"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -12839,7 +12839,7 @@
       "dw::core::Arrays",
       "contains"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -12873,7 +12873,7 @@
       "dw::core::Arrays",
       "contains"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -13103,7 +13103,7 @@
       "map",
       "lower"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -13139,7 +13139,7 @@
       "map",
       "lower"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -13624,7 +13624,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "uses # for the decimals, so trailing zeros and a zero value lose their digits"
     ],
     "solution": "%dw 2.0\noutput application/json\nfun money(n) = n as String {format: \"#,##0.00\"}\n---\n{ subtotal: money(payload.subtotal), tax: money(payload.tax), total: money(payload.total) }",
@@ -13691,7 +13691,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "has no grouping comma, so thousands are not separated"
     ],
     "solution": "%dw 2.0\noutput application/json\nfun money(n) = n as String {format: \"#,##0.00\"}\n---\n{ subtotal: money(payload.subtotal), tax: money(payload.tax), total: money(payload.total) }",
@@ -13729,7 +13729,7 @@
       "as",
       "format"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -13763,7 +13763,7 @@
       "as",
       "format"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -15127,7 +15127,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "tests the sale price with > 0, so a free promotional item gets its list price"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map { sku: $.sku, price: $.salePrice default $.listPrice default 0 }",
@@ -15190,7 +15190,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "chains the fallbacks in the wrong order, so the list price wins whenever both exist"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map { sku: $.sku, price: $.salePrice default $.listPrice default 0 }",
@@ -15710,7 +15710,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "removes only spaces, so dashes, dots and brackets stay in"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map ($ replace /[^0-9+]/ with \"\")",
@@ -15772,7 +15772,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "keeps digits only, which also strips the + of the country code"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map ($ replace /[^0-9+]/ with \"\")",
@@ -16052,7 +16052,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "rounds each share, so the parts do not add up to the total"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var share = floor(payload.total / payload.people)\n  var extra = payload.total mod payload.people\n  ---\n  (0 to payload.people - 1) map (share + (if ($ < extra) 1 else 0))\n}",
@@ -16123,7 +16123,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "gives the leftover cents to the last diners instead of the first"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var share = floor(payload.total / payload.people)\n  var extra = payload.total mod payload.people\n  ---\n  (0 to payload.people - 1) map (share + (if ($ < extra) 1 else 0))\n}",
@@ -16697,7 +16697,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "sums the amounts as they are, which fails on a cancelled order with a null amount"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.customer pluck { customer: $$, total: sum($ map ($.amount default 0)) } orderBy -$.total",
@@ -16763,7 +16763,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "stops at mapObject, which gives one Object keyed by customer instead of ranked rows"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.customer pluck { customer: $$, total: sum($ map ($.amount default 0)) } orderBy -$.total",
@@ -17179,7 +17179,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "starts every statement from 0 instead of the opening balance"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload.transactions reduce ((t, rows = []) ->\n  rows + { id: t.id, balance: (rows[-1].balance default payload.opening) + t.amount }\n)",
@@ -17250,7 +17250,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "maps each transaction on its own, so every balance is just opening plus that one amount"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload.transactions reduce ((t, rows = []) ->\n  rows + { id: t.id, balance: (rows[-1].balance default payload.opening) + t.amount }\n)",
@@ -17764,7 +17764,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "compares only the fields of after, so a field that was deleted never reaches the PATCH body"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var changed = payload.after filterObject ((v, k) -> payload.before[k] != v)\n  var removed = payload.before filterObject ((v, k) -> not (keysOf(payload.after) contains k)) mapObject ((v, k) -> { (k): null })\n  ---\n  changed ++ removed\n}",
@@ -17830,7 +17830,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "selects before.k literally instead of the key held in k, so every field looks changed"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var changed = payload.after filterObject ((v, k) -> payload.before[k] != v)\n  var removed = payload.before filterObject ((v, k) -> not (keysOf(payload.after) contains k)) mapObject ((v, k) -> { (k): null })\n  ---\n  changed ++ removed\n}",
@@ -18366,7 +18366,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "has no fallback, so a request without any tag gives null instead of []"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n{ tags: payload.*tag default [], page: payload.page as Number }",
@@ -18431,7 +18431,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "reads the first tag only and wraps it, which is right only for requests with exactly one tag"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n{ tags: payload.*tag default [], page: payload.page as Number }",
@@ -18498,7 +18498,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "concatenates the objects, so an overridden setting appears twice"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload.defaults mapObject ((v, k) -> { (k): payload.overrides[k] default v })",
@@ -18565,7 +18565,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "tests the override for truthiness, so an override of false is ignored"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload.defaults mapObject ((v, k) -> { (k): payload.overrides[k] default v })",
@@ -18957,7 +18957,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "deduplicates in arrival order, so it keeps whichever scan arrived first, not the latest"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n((payload orderBy $.at)[-1 to 0] distinctBy $.shipment orderBy $.shipment) map { shipment: $.shipment, status: $.status } default []",
@@ -19030,7 +19030,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "sorts oldest first before deduplicating, so it keeps the earliest scan"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n((payload orderBy $.at)[-1 to 0] distinctBy $.shipment orderBy $.shipment) map { shipment: $.shipment, status: $.status } default []",
@@ -19103,7 +19103,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "is right whenever there are scans, but reversing an empty array gives null, so a quiet day returns null instead of []"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n((payload orderBy $.at)[-1 to 0] distinctBy $.shipment orderBy $.shipment) map { shipment: $.shipment, status: $.status } default []",
@@ -19723,7 +19723,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "removes duplicates before lower-casing, so Sale and sale both survive as sale"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n(flatten(payload.tags default []) map lower($)) distinctBy $ orderBy $",
@@ -19789,7 +19789,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "uses flatMap, which turns a product with no tags into a null tag, and a null cannot be sorted with the Strings"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n(flatten(payload.tags default []) map lower($)) distinctBy $ orderBy $",
@@ -20502,7 +20502,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "updates only an existing version, so a config without one is left unversioned"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload update { case v at .app.version! -> (v default 0) + 1 }",
@@ -20567,7 +20567,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "replaces the whole app object, which drops every other field in it"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload update { case v at .app.version! -> (v default 0) + 1 }",
@@ -21091,7 +21091,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "compares case-sensitively, so a lower-case y is read as no"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map ([\"Y\", \"1\", \"TRUE\"] contains upper($ as String))",
@@ -21155,7 +21155,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "does not convert the value to text first, so the Number 1 is not found in a list of Strings"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map ([\"Y\", \"1\", \"TRUE\"] contains upper($ as String))",
@@ -21855,7 +21855,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "writes the total as a Number, so 9.5 comes out as 9.5 instead of 9.50"
     ],
     "solution": "%dw 2.0\noutput application/csv\n---\npayload map { id: $.id, customer: $.customer.name, total: $.total as String {format: \"0.00\"} }",
@@ -21921,7 +21921,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "copies each order and only flattens the customer, so the columns follow the input's key order"
     ],
     "solution": "%dw 2.0\noutput application/csv\n---\npayload map { id: $.id, customer: $.customer.name, total: $.total as String {format: \"0.00\"} }",
@@ -22259,7 +22259,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "coerces the price unconditionally, which fails on a product that has no price yet"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload.catalog.*product map {\n  id: $.@id as Number,\n  name: $.name,\n  price: if ($.price == null) null else $.price as Number,\n  currency: $.price.@currency\n}",
@@ -22327,7 +22327,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "reads the currency from the product element, which has no such attribute"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload.catalog.*product map {\n  id: $.@id as Number,\n  name: $.name,\n  price: if ($.price == null) null else $.price as Number,\n  currency: $.price.@currency\n}",
@@ -22989,7 +22989,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "parses each format but does not re-format, so a Date parsed from day/month/year still prints as day/month/year"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map (d) -> d match {\n  case m matches /\\d{4}-\\d{2}-\\d{2}/ -> d\n  case m matches /\\d{2}\\/\\d{2}\\/\\d{4}/ -> d as Date {format: \"dd/MM/yyyy\"} as String {format: \"yyyy-MM-dd\"}\n  else -> d as Date {format: \"yyyyMMdd\"} as String {format: \"yyyy-MM-dd\"}\n}",
@@ -23070,7 +23070,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "reads the slashed format as month/day/year, which fails on any day after the 12th"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map (d) -> d match {\n  case m matches /\\d{4}-\\d{2}-\\d{2}/ -> d\n  case m matches /\\d{2}\\/\\d{2}\\/\\d{4}/ -> d as Date {format: \"dd/MM/yyyy\"} as String {format: \"yyyy-MM-dd\"}\n  else -> d as Date {format: \"yyyyMMdd\"} as String {format: \"yyyy-MM-dd\"}\n}",
@@ -23151,7 +23151,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "returns the name bound by matches, which is the Array of the match, not the text"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map (d) -> d match {\n  case m matches /\\d{4}-\\d{2}-\\d{2}/ -> d\n  case m matches /\\d{2}\\/\\d{2}\\/\\d{4}/ -> d as Date {format: \"dd/MM/yyyy\"} as String {format: \"yyyy-MM-dd\"}\n  else -> d as Date {format: \"yyyyMMdd\"} as String {format: \"yyyy-MM-dd\"}\n}",
@@ -23391,7 +23391,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "uses > 30, so an invoice exactly 30 days overdue is not chased"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n(payload.invoices filter (!$.paid and daysBetween($.due as Date, payload.today as Date) >= 30)).id default []",
@@ -23463,7 +23463,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "ignores the paid flag, so settled invoices get chaser letters"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n(payload.invoices filter (!$.paid and daysBetween($.due as Date, payload.today as Date) >= 30)).id default []",
@@ -23709,7 +23709,7 @@
       "as",
       "Period"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -23743,7 +23743,7 @@
       "as",
       "Period"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -24026,7 +24026,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "coerces everything with a single fallback of 0, so unreadable text is booked as zero instead of flagged"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map ($ match {\n  case n is Number -> n\n  case null -> 0\n  case s is String -> (s as Number) default null\n  else -> null\n})",
@@ -24090,7 +24090,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "has no case for null, so a zero-value transaction falls through to else and becomes null"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map ($ match {\n  case n is Number -> n\n  case null -> 0\n  case s is String -> (s as Number) default null\n  else -> null\n})",
@@ -24548,7 +24548,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "uses > 50, so an order of exactly 50 is charged shipping"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var subtotal = sum(payload map ($.price * $.qty))\n  var shipping = if (subtotal >= 50) 0 else 4.99\n  ---\n  { subtotal: subtotal, shipping: shipping, total: subtotal + shipping }\n}",
@@ -24603,7 +24603,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "adds up the prices and forgets the quantities"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var subtotal = sum(payload map ($.price * $.qty))\n  var shipping = if (subtotal >= 50) 0 else 4.99\n  ---\n  { subtotal: subtotal, shipping: shipping, total: subtotal + shipping }\n}",
@@ -24826,7 +24826,7 @@
       "sum",
       "default"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -24861,7 +24861,7 @@
       "sum",
       "default"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -25338,7 +25338,7 @@
       "mapLeafValues",
       "Path"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -25756,7 +25756,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "checks the payment ids with contains, which compares types, so a payment that quotes the id as text settles nothing"
     ],
     "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\n(leftJoin(payload.invoices, payload.payments, (i) -> i.id, (p) -> p.invoiceId) filter ($.r == null)).l.id default []",
@@ -25827,7 +25827,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "uses an inner join, which returns the paid invoices instead of the unpaid ones"
     ],
     "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\n(leftJoin(payload.invoices, payload.payments, (i) -> i.id, (p) -> p.invoiceId) filter ($.r == null)).l.id default []",
@@ -26015,7 +26015,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "builds one object per header instead of merging them into one"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n{ (payload map { (lower($.name)): $.value }) }",
@@ -26080,7 +26080,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "keeps the name as sent, so Content-Type and content-type are different keys"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n{ (payload map { (lower($.name)): $.value }) }",
@@ -27151,7 +27151,7 @@
       "mapObject",
       "sum"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -27185,7 +27185,7 @@
       "mapObject",
       "sum"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -28001,7 +28001,7 @@
       "read",
       "default"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -28412,7 +28412,7 @@
       "distinctBy",
       "dynamic keys"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -28449,7 +28449,7 @@
       "distinctBy",
       "dynamic keys"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -30279,7 +30279,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "reads .hours from the Period, which is the hours field of the duration, so 26 hours comes out as 2"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map (t) -> do {\n  var hours = ((t.resolved as DateTime as Number) - (t.opened as DateTime as Number)) / 3600\n  ---\n  { id: t.id, hours: hours, breached: hours > 24 }\n}",
@@ -30342,7 +30342,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "drops the offsets by reading the local clock time, so tickets handled across time zones get the wrong duration"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload map (t) -> do {\n  var hours = ((t.resolved as DateTime as Number) - (t.opened as DateTime as Number)) / 3600\n  ---\n  { id: t.id, hours: hours, breached: hours > 24 }\n}",
@@ -31235,7 +31235,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "counts only the first comment and its direct replies, which misses replies to replies"
     ],
     "solution": "%dw 2.0\noutput application/json\nfun count(c) = 1 + sum((c.replies default []) map count($))\n---\ncount(payload)",
@@ -31300,7 +31300,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "recurses but forgets to count each comment itself, so it returns 0"
     ],
     "solution": "%dw 2.0\noutput application/json\nfun count(c) = 1 + sum((c.replies default []) map count($))\n---\ncount(payload)",
@@ -31819,7 +31819,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "redacts only top-level fields, so a password inside a nested object is logged"
     ],
     "solution": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\npayload mapLeafValues ((v, p) -> if ([\"password\", \"apiKey\"] contains p[-1].selector) \"***\" else v)",
@@ -31884,7 +31884,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "looks at the first step of the path instead of the last, which is the field name only at the top level"
     ],
     "solution": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\npayload mapLeafValues ((v, p) -> if ([\"password\", \"apiKey\"] contains p[-1].selector) \"***\" else v)",
@@ -33061,7 +33061,7 @@
       "reduce",
       "map"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -33096,7 +33096,7 @@
       "reduce",
       "map"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -33674,7 +33674,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "takes the first sale of each month instead of adding them up"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region mapObject ((rows, region) -> {\n  (region): rows groupBy $.date[0 to 6] mapObject ((m, month) -> { (month): sum(m.amount) })\n})",
@@ -33742,7 +33742,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "sums the whole region's rows inside each month, so every month shows the region total"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.region mapObject ((rows, region) -> {\n  (region): rows groupBy $.date[0 to 6] mapObject ((m, month) -> { (month): sum(m.amount) })\n})",
@@ -33886,7 +33886,7 @@
       "xml",
       "writer properties"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -33920,7 +33920,7 @@
       "xml",
       "writer properties"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -33954,7 +33954,7 @@
       "xml",
       "writer properties"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -33988,7 +33988,7 @@
       "xml",
       "writer properties"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -34964,7 +34964,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "relies on default to catch a failed parse, but default does not catch a read error, so the whole batch fails"
     ],
     "solution": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ndo {\n  var results = payload map (d) -> { id: d.id, t: try(() -> read(d.body, \"application/json\")) }\n  ---\n  {\n    parsed: (results filter $.t.success) map { id: $.id, data: $.t.result },\n    rejected: (results filter not $.t.success).id default []\n  }\n}",
@@ -35036,7 +35036,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "forgets the fallback on the rejected list, so a batch with nothing rejected gives null"
     ],
     "solution": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ndo {\n  var results = payload map (d) -> { id: d.id, t: try(() -> read(d.body, \"application/json\")) }\n  ---\n  {\n    parsed: (results filter $.t.success) map { id: $.id, data: $.t.result },\n    rejected: (results filter not $.t.success).id default []\n  }\n}",
@@ -35236,7 +35236,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "spreads only the questions each respondent answered, so a skipped question is a missing key instead of null"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var questions = payload.question distinctBy $\n  ---\n  payload groupBy $.respondent pluck ((answers, who) -> {\n    respondent: who,\n    (questions map (q) -> { (q): (answers filter ($.question == q))[0].answer })\n  })\n}",
@@ -35302,7 +35302,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "pivots the wrong way round, one row per question"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var questions = payload.question distinctBy $\n  ---\n  payload groupBy $.respondent pluck ((answers, who) -> {\n    respondent: who,\n    (questions map (q) -> { (q): (answers filter ($.question == q))[0].answer })\n  })\n}",
@@ -35487,7 +35487,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "rounds each share to the nearest cent, so the shares can add up to more than the discount"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var amounts = payload.lines.amount\n  var total = sum(amounts)\n  var shares = amounts map floor(payload.discount * $ / total)\n  var left = payload.discount - sum(shares)\n  var top = amounts indexOf max(amounts)\n  ---\n  payload.lines map { sku: $.sku, discount: shares[$$] + (if ($$ == top) left else 0) }\n}",
@@ -35551,7 +35551,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "gives the leftover to the first line rather than the largest one"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var amounts = payload.lines.amount\n  var total = sum(amounts)\n  var shares = amounts map floor(payload.discount * $ / total)\n  var left = payload.discount - sum(shares)\n  var top = amounts indexOf max(amounts)\n  ---\n  payload.lines map { sku: $.sku, discount: shares[$$] + (if ($$ == top) left else 0) }\n}",
@@ -36099,7 +36099,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "writes the lines unconditionally, and an empty Array still produces one empty line element"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n{\n  ref: payload.id,\n  xml: write({ order: { id: payload.id, (line: payload.lines) if (!isEmpty(payload.lines)) } }, \"application/xml\", { indent: false, writeDeclaration: false })\n}",
@@ -36186,7 +36186,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "leaves the writer defaults, so the String carries an XML declaration and line breaks"
     ],
     "solution": "%dw 2.0\noutput application/json\n---\n{\n  ref: payload.id,\n  xml: write({ order: { id: payload.id, (line: payload.lines) if (!isEmpty(payload.lines)) } }, \"application/xml\", { indent: false, writeDeclaration: false })\n}",
@@ -36796,7 +36796,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "leaves out the fallback, so a record that breaks no rule has errors: null instead of []"
     ],
     "solution": "%dw 2.0\noutput application/json\nvar rules = [\n  { name: \"id-required\", test: (r) -> r.id != null },\n  { name: \"qty-positive\", test: (r) -> (r.qty default 0) > 0 },\n  { name: \"email-has-at\", test: (r) -> (r.email default \"\") contains \"@\" }\n]\n---\npayload map (r) -> { id: r.id, errors: (rules filter (not $.test(r))).name default [] }",
@@ -36861,7 +36861,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "compares a missing qty directly with 0, and comparing null with a Number throws"
     ],
     "solution": "%dw 2.0\noutput application/json\nvar rules = [\n  { name: \"id-required\", test: (r) -> r.id != null },\n  { name: \"qty-positive\", test: (r) -> (r.qty default 0) > 0 },\n  { name: \"email-has-at\", test: (r) -> (r.email default \"\") contains \"@\" }\n]\n---\npayload map (r) -> { id: r.id, errors: (rules filter (not $.test(r))).name default [] }",
@@ -37615,7 +37615,7 @@
       "filterObject",
       "mapObject"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json skipNullOn=\"objects\"",
     "given": {
@@ -37652,7 +37652,7 @@
       "filterObject",
       "mapObject"
     ],
-    "prompt": "What does this return? Read it — do not run it.",
+    "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
     "inputMime": "application/json",
     "outputMime": "application/json",
     "given": {
@@ -39176,7 +39176,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "filters the top level only, so nested empty fields are sent"
     ],
     "solution": "%dw 2.0\noutput application/json\nfun strip(v) = v match {\n  case o is Object -> o filterObject ((x) -> x != null and x != \"\") mapObject ((x, k) -> { (k): strip(x) })\n  case a is Array -> a map strip($)\n  else -> v\n}\n---\nstrip(payload)",
@@ -39242,7 +39242,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "uses the writer's skipNullOn, which removes nulls but not empty Strings"
     ],
     "solution": "%dw 2.0\noutput application/json\nfun strip(v) = v match {\n  case o is Object -> o filterObject ((x) -> x != null and x != \"\") mapObject ((x, k) -> { (k): strip(x) })\n  case a is Array -> a map strip($)\n  else -> v\n}\n---\nstrip(payload)",
@@ -39308,7 +39308,7 @@
     ],
     "hints": [
       "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-      "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+      "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
       "recurses into Objects but not into Arrays, so objects inside a list keep their empty fields"
     ],
     "solution": "%dw 2.0\noutput application/json\nfun strip(v) = v match {\n  case o is Object -> o filterObject ((x) -> x != null and x != \"\") mapObject ((x, k) -> { (k): strip(x) })\n  case a is Array -> a map strip($)\n  else -> v\n}\n---\nstrip(payload)",

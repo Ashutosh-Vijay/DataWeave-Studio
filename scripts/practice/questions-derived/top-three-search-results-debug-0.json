@@ -34,7 +34,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "a range that runs past the end of the array returns null, not the elements that exist"
   ],
   "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\ntake(payload, 3)",

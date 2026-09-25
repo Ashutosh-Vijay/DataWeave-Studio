@@ -9,7 +9,7 @@
     "as",
     "Period"
   ],
-  "prompt": "What does this return? Read it — do not run it.",
+  "prompt": "What does this return? Work it out by reading it, then reveal the answer.",
   "inputMime": "application/json",
   "outputMime": "application/json",
   "given": {

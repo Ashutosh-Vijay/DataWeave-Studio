@@ -39,7 +39,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "coerces the page and size but not inStock, so \"true\" stays a String"
   ],
   "solution": "%dw 2.0\noutput application/json\n---\n{\n  page: (payload.page default \"1\") as Number,\n  size: (payload.size default \"20\") as Number,\n  inStock: (payload.inStock default \"false\") as Boolean,\n  q: payload.q\n}",

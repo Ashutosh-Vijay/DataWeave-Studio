@@ -35,7 +35,7 @@
   ],
   "hints": [
     "Run it on the sample first. If the sample looks right, the bug only shows on data the sample does not contain.",
-    "Ask what kind of input would break this — an empty list, a missing field, a value ordered differently.",
+    "Ask what kind of input would break this: an empty list, a missing field, a value in a different order.",
     "leaves out the fallback, so a record that breaks no rule has errors: null instead of []"
   ],
   "solution": "%dw 2.0\noutput application/json\nvar rules = [\n  { name: \"id-required\", test: (r) -> r.id != null },\n  { name: \"qty-positive\", test: (r) -> (r.qty default 0) > 0 },\n  { name: \"email-has-at\", test: (r) -> (r.email default \"\") contains \"@\" }\n]\n---\npayload map (r) -> { id: r.id, errors: (rules filter (not $.test(r))).name default [] }",
