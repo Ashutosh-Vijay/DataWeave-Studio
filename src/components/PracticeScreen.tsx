@@ -80,7 +80,7 @@ const KINDS: { id: string; label: string; match: (q: PracticeQuestion) => boolea
   { id: 'all',     label: 'All',             match: () => true },
   { id: 'choice',  label: 'Multiple choice', match: (q) => q.mode === 'choice' },
   { id: 'code',    label: 'Write code',      match: (q) => !q.mode || q.mode === 'build' || q.mode === 'debug' },
-  { id: 'predict', label: 'Type the output', match: (q) => q.mode === 'predict' },
+  { id: 'predict', label: 'Predict the output', match: (q) => q.mode === 'predict' },
 ];
 const KIND_KEY = 'dw-practice-kind-v1';
 
@@ -400,6 +400,15 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
   const [result, setResult] = useState<GradeResult | null>(null);
   /** `predict` mode: what you typed, and how it compared to the engine. */
   const [guess, setGuess] = useState('');
+  /**
+   * `predict` mode as a flashcard: think of the answer, reveal what the engine
+   * returns, say whether you had it. Typing stays available behind `typing` —
+   * almost nobody wants to type JSON into a box with no completion, and that
+   * made the largest group of questions the one people skipped.
+   */
+  const [revealed, setRevealed] = useState<string | null>(null);
+  const [selfMark, setSelfMark] = useState<boolean | null>(null);
+  const [typing, setTyping] = useState(false);
   /** `choice` mode: which option was clicked, or null while unanswered. */
   const [picked, setPicked] = useState<number | null>(null);
   const [verdict, setVerdict] = useState<{ correct: boolean; because: string; actual: string } | null>(null);
@@ -442,6 +451,9 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
     setResult(null);
     setGuess('');
     setVerdict(null);
+    setRevealed(null);
+    setSelfMark(null);
+    setTyping(false);
     setPicked(null);
     setHintsShown(0);
     setShowSolution(false);
@@ -571,30 +583,51 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
       const r = await runOnce(question.given.payload ?? '{}', question, question.given.script);
       const v = gradePrediction(guess, r);
       setVerdict({ ...v, actual: r.ok ? r.output : (r.error ?? 'it errored') });
-
-      const prev = progress[question.id] ?? { solved: false, viewedSolution: false, attempts: 0 };
-      const next: Progress = {
-        solved: prev.solved || v.correct,
-        viewedSolution: prev.viewedSolution,
-        attempts: prev.attempts + 1,
-      };
-      const updated = { ...progress, [question.id]: next };
-      setProgress(updated);
-      saveProgress(updated);
-
-      const log = trimLog([...events, { t: Date.now(), id: question.id, solved: v.correct }]);
-      setEvents(log);
-      try {
-        localStorage.setItem(ACTIVITY_KEY, JSON.stringify(log));
-      } catch {
-        /* blocked storage */
-      }
-      if (v.correct) {
-        setStopped(true);
-        setShowExplanation(true);
-      }
+      recordPrediction(v.correct);
     } finally {
       setRunning(false);
+    }
+  };
+
+  /** Flashcard: run the script now and show what it really returns. */
+  const handleReveal = async () => {
+    if (!question?.given) return;
+    setRunning(true);
+    try {
+      const r = await runOnce(question.given.payload ?? '{}', question, question.given.script);
+      setRevealed(r.ok ? r.output : `Error — ${(r.error ?? 'it errored').split('\n')[0]}`);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  /**
+   * A prediction marked either way — by comparison when typed, by your own
+   * word on a flashcard. Offline with the answer on screen, your word is all
+   * a check could ever be, so it counts the same.
+   */
+  const recordPrediction = (correct: boolean) => {
+    if (!question) return;
+    const prev = progress[question.id] ?? { solved: false, viewedSolution: false, attempts: 0 };
+    const next: Progress = {
+      solved: prev.solved || correct,
+      viewedSolution: prev.viewedSolution,
+      attempts: prev.attempts + 1,
+    };
+    const updated = { ...progress, [question.id]: next };
+    setProgress(updated);
+    saveProgress(updated);
+
+    const log = trimLog([...events, { t: Date.now(), id: question.id, solved: correct }]);
+    setEvents(log);
+    try {
+      localStorage.setItem(ACTIVITY_KEY, JSON.stringify(log));
+    } catch {
+      /* blocked storage */
+    }
+    if (correct) {
+      setStopped(true);
+      setShowExplanation(true);
     }
   };
 
@@ -1090,9 +1123,78 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
                   </>
                 )}
 
+                {!typing ? (
+                  <div className="mt-4">
+                    {revealed === null ? (
+                      <>
+                        <p className="text-[12px] text-content-secondary mb-2.5">
+                          Work out what it returns in your head, then reveal it.
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={handleReveal}
+                            disabled={running}
+                            className="h-8 px-3.5 rounded-md text-[12px] font-medium cursor-pointer disabled:opacity-40"
+                            style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+                          >
+                            {running ? 'Running…' : 'Reveal the answer'}
+                          </button>
+                          <button
+                            onClick={() => setTyping(true)}
+                            className="text-[12px] text-content-faint hover:text-content underline underline-offset-2 cursor-pointer"
+                          >
+                            or type it and have it checked
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="rounded-lg border px-3.5 py-3" style={{ borderColor: 'var(--line)', background: 'var(--surface-2)' }}>
+                        <div className="text-[11px] text-content-faint mb-1">The engine returns</div>
+                        <pre className="text-[12px] font-mono whitespace-pre-wrap break-words" style={{ color: 'var(--content)' }}>
+                          {revealed}
+                        </pre>
+                        {selfMark === null ? (
+                          <div className="flex items-center gap-2 mt-3">
+                            <span className="text-[12px] text-content-secondary mr-1">Did you have it?</span>
+                            {[true, false].map((got) => (
+                              <button
+                                key={String(got)}
+                                onClick={() => {
+                                  setSelfMark(got);
+                                  recordPrediction(got);
+                                  // A miss is exactly when the why is worth reading.
+                                  setShowExplanation(true);
+                                }}
+                                className="h-7 px-3 rounded-md text-[12px] font-medium border cursor-pointer"
+                                style={{
+                                  color: got ? 'var(--ok)' : 'var(--err)',
+                                  borderColor: `color-mix(in oklch, var(--${got ? 'ok' : 'err'}) 35%, transparent)`,
+                                  background: `color-mix(in oklch, var(--${got ? 'ok' : 'err'}) 7%, transparent)`,
+                                }}
+                              >
+                                {got ? 'Got it' : 'Missed it'}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-[12px] mt-3" style={{ color: selfMark ? 'var(--ok)' : 'var(--content-secondary)' }}>
+                            {selfMark ? 'Marked as solved.' : 'Marked as missed. The explanation is on the left.'}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                <>
                 <div className="mt-4">
                   <label className="text-[12px] text-content-secondary block mb-1.5">
-                    What does it return? Type the value, or <code className="font-mono text-[11.5px]">error</code>.
+                    What does it return? Type the value, or <code className="font-mono text-[11.5px]">error</code>.{' '}
+                    <button
+                      onClick={() => setTyping(false)}
+                      className="text-content-faint hover:text-content underline underline-offset-2 cursor-pointer"
+                    >
+                      Just reveal it instead
+                    </button>
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -1137,6 +1239,8 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
                       {verdict.actual}
                     </pre>
                   </div>
+                )}
+                </>
                 )}
               </div>
             </div>
