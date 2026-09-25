@@ -46,7 +46,8 @@
       "trap": "Every array function returns null for a null input instead of failing, so a wrong selector produces an empty-looking result rather than a stack trace.",
       "verified": [
         "filter on null -> null",
-        "sizeOf(null) -> null"
+        "sizeOf(null) -> null",
+        "not binds looser than or: not true or true -> false (it is not (true or true)); !true or true -> true; (not true) or true -> true"
       ]
     },
     {
@@ -57,11 +58,13 @@
         "default"
       ],
       "teaches": "`default` and what actually counts as missing.",
-      "trap": "`default` only fires on null. An empty string and `false` are values, and both pass straight through.",
+      "trap": "`default` fires on null and on a failed `as` coercion \u2014 but an empty string and `false` are values and pass straight through, and it does not catch other errors.",
       "verified": [
         "null default 'fallback' -> 'fallback'",
         "'' default 'fallback' -> ''",
-        "false default 'fallback' -> false"
+        "false default 'fallback' -> false",
+        "('x' as Number) default 0 -> 0, ('x' as Number + 1) default 0 -> 0, ('yes' as Boolean) default false -> false, ('2026-13-45' as Date) default 'bad' -> 'bad'",
+        "NOT caught: (1 / 0) default 0 -> DivisionByZeroException; dw::Runtime::fail('boom') default 0 -> UserException"
       ]
     },
     {
@@ -96,7 +99,8 @@
       "trap": "`/` is never integer division \u2014 `7 / 2` is `3.5`, and formatting it with `#` does not round it either.",
       "verified": [
         "7 / 2 -> 3.5",
-        "(7 / 2) as Number {format: '#'} -> 3.5"
+        "(7 / 2) as Number {format: '#'} -> 3.5",
+        "round is half away from zero, not banker's: [round(2.5), round(-2.5), round(-1.5), round(0.5), round(-0.5)] -> [3, -3, -2, 1, -1]"
       ]
     },
     {
@@ -110,7 +114,8 @@
       "trap": "A negative index counts from the end rather than erroring, and an index past the end is null \u2014 so `[1,2,3][-1]` is 3 and `[1,2,3][9]` is null.",
       "verified": [
         "[1,2,3][-1] -> 3",
-        "[1,2,3][9] -> null"
+        "[1,2,3][9] -> null",
+        "sizeOf on a Number counts its digits as a string: sizeOf(5) -> 1, sizeOf(12345) -> 5"
       ]
     },
     {
@@ -169,7 +174,9 @@
       "trap": "`pluck` produces an array and `mapObject` produces an object; both hand you `(value, key, index)` \u2014 value FIRST, which is the opposite of how the pair reads out loud.",
       "verified": [
         "{a:'A'} mapObject ((v,k,i) -> {(k): [v,i]}) -> {a: ['A', 0]}",
-        "pluck returns an Array"
+        "pluck returns an Array",
+        "the key is type Key, not String: typeOf(k) -> 'Key', so {a:1,b:2} mapObject (v,k) -> {(k): k == 'a'} -> {a:false, b:false}",
+        "what works: k ~= 'a' -> true, (k as String) == 'a' -> true"
       ]
     },
     {
@@ -256,7 +263,9 @@
         "'007' as Number -> 7",
         "'' as Number -> InvalidNumberException",
         "'abc' as Number -> InvalidNumberException",
-        "'yes' as Boolean -> InvalidBooleanException"
+        "'yes' as Boolean -> InvalidBooleanException",
+        "'4' + '2' -> 6 (numeric strings are coerced for +), but 'a' + 'b' -> UnexpectedFunctionCallTypesException \u2014 use ++ to concatenate",
+        "1 == '1' -> false, 1 ~= '1' -> true"
       ]
     },
     {
@@ -327,7 +336,8 @@
       "verified": [
         "5 match { case n is Number -> 'num' case a if (a > 0) -> 'pos' else -> 'other' } -> 'num'",
         "list-destructuring patterns DO NOT PARSE: `case [h] ->` and `case [h, t...] ->` both give CompilationException: Invalid input \"match { case [h,\", expected Function Call",
-        "what works: `case x is Type`, `case x if (...)`, `case null`, `else`"
+        "what works: `case x is Type`, `case x if (...)`, `case null`, `else`",
+        "typeOf returns a Type, not a String: typeOf('x') == 'String' -> false, typeOf('x') == String -> true, typeOf('x') as String -> 'String'"
       ]
     },
     {
@@ -385,7 +395,8 @@
         "bare leftJoin -> CompilationException: Unable to resolve reference",
         "with `import * from dw::core::Arrays` -> [{l:{id:1}, r:{id:1,n:'x'}}, {l:{id:2}}]",
         "dw_functions.json has join / leftJoin / outerJoin in module `arrays` \u2014 innerJoin does not exist",
-        "the signature declares the key lambdas return String, but Number keys match anyway at runtime \u2014 do NOT claim String is required"
+        "the signature declares the key lambdas return String, but Number keys match anyway at runtime \u2014 do NOT claim String is required",
+        "join matches a Number key against a String key: join([{id:1}], [{id:'1'}], (l) -> l.id, (r) -> r.id) -> one pair \u2014 even though 1 == '1' is false"
       ]
     },
     {
