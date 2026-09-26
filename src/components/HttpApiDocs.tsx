@@ -64,7 +64,7 @@ export function HttpApiDocs({ open, onClose, port }: { open: boolean; onClose: (
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ width: 'min(760px, 96vw)', maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, boxShadow: '0 32px 90px rgba(0,0,0,.6)' }}
+        style={{ width: 'min(760px, 96vw)', maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 32px 90px rgba(0,0,0,.6)' }}
       >
         <div className="flex items-center" style={{ height: 52, gap: 12, padding: '0 18px', borderBottom: '1px solid var(--line)', background: 'linear-gradient(180deg, var(--surface-2), var(--surface))' }}>
           <div style={{ flex: 1 }}>
@@ -76,7 +76,7 @@ export function HttpApiDocs({ open, onClose, port }: { open: boolean; onClose: (
           </button>
         </div>
 
-        <div style={{ padding: '4px 22px 24px', overflowY: 'auto' }}>
+        <div style={{ padding: '4px 22px 24px', overflowY: 'auto', minHeight: 0 }}>
           <H>The idea</H>
           <P>
             The engine running in this app is the real DataWeave 2.12 runtime. While the server is on,
