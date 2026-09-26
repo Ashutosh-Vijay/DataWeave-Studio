@@ -214,16 +214,21 @@ describe('nextUnsolved', () => {
     expect(nextUnsolved(set, 'd', solved)?.id).toBe('c');
   });
 
-  it('still moves on when everything is solved, instead of getting stuck', () => {
-    // Otherwise the button vanishes for anyone who has finished the set, which
-    // is the one person most likely to be browsing back through it.
-    expect(nextUnsolved(set, 'b', () => true)?.id).toBe('c');
-    expect(nextUnsolved(set, 'd', () => true)?.id).toBe('a');
+  it('never lands on a solved question, even when everything else is solved', () => {
+    expect(nextUnsolved(set, 'b', () => true)).toBeNull();
+    expect(nextUnsolved(set, 'd', (id) => id !== 'd')).toBeNull();
   });
 
-  it('returns null when there is nowhere to go', () => {
+  it('prefers questions not yet tried over ones tried and missed', () => {
+    const tried = (id: string) => id === 'b';
+    expect(nextUnsolved(set, 'a', () => false, tried)?.id).toBe('c');
+    // Only the missed one is left, so it comes back round.
+    expect(nextUnsolved(set, 'a', (id) => id !== 'b', tried)?.id).toBe('b');
+  });
+
+  it('starts from the top when the current question is outside the set', () => {
+    expect(nextUnsolved(set, 'missing', (id) => id === 'a')?.id).toBe('b');
     expect(nextUnsolved(set.slice(0, 1), 'a', () => false)).toBeNull();
-    expect(nextUnsolved(set, 'missing', () => false)).toBeNull();
   });
 });
 

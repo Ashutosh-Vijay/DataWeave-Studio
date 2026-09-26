@@ -83,6 +83,7 @@ const KINDS: { id: string; label: string; match: (q: PracticeQuestion) => boolea
   { id: 'predict', label: 'Predict the output', match: (q) => q.mode === 'predict' },
 ];
 const KIND_KEY = 'dw-practice-kind-v1';
+const HIDE_SOLVED_KEY = 'dw-practice-hide-solved-v1';
 
 /**
  * What is remembered about a question.
@@ -372,6 +373,13 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
       return localStorage.getItem(KIND_KEY) ?? 'all';
     } catch {
       return 'all';
+    }
+  });
+  const [hideSolved, setHideSolved] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(HIDE_SOLVED_KEY) === '1';
+    } catch {
+      return false;
     }
   });
   const [script, setScript] = useState('');
@@ -704,15 +712,19 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
   const solvedCount = QUESTIONS.filter((q) => progress[q.id]?.solved).length;
 
   const shown = QUESTIONS.filter((KINDS.find((k) => k.id === kind) ?? KINDS[0]).match);
+  const allSolved = solvedCount === QUESTIONS.length;
+  const shownSolved = shown.every((q) => progress[q.id]?.solved);
 
   /**
-   * Where "Next" goes: the next thing you have not done, wrapping around —
-   * within the filter, so choosing "Multiple choice" means Next stays on
-   * multiple choice.
+   * Where "Next" goes: the next thing you have not done, wrapping around,
+   * within the filter first, so choosing "Multiple choice" means Next stays on
+   * multiple choice. Solved questions are never picked here; you reopen those
+   * from the list. Null means there is nothing left to do.
    */
+  const isSolved = (id: string) => !!progress[id]?.solved;
+  const isTried = (id: string) => !!progress[id]?.attempts;
   const upNext = question
-    ? nextUnsolved(shown, question.id, (id) => !!progress[id]?.solved) ??
-      nextUnsolved(QUESTIONS, question.id, (id) => !!progress[id]?.solved)
+    ? nextUnsolved(shown, question.id, isSolved, isTried) ?? nextUnsolved(QUESTIONS, question.id, isSolved, isTried)
     : null;
 
   if (!open) return null;
@@ -765,6 +777,16 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
             >
               {String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}
             </span>
+            {!upNext && progress[question.id]?.solved && (
+              <button
+                onClick={() => setOpenId(null)}
+                title="You've solved every question"
+                className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] cursor-pointer transition-colors"
+                style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+              >
+                All done
+              </button>
+            )}
             {upNext && (
               <button
                 onClick={() => setOpenId(upNext.id)}
@@ -817,7 +839,27 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
               }}
             />
 
-            <div className="flex flex-wrap gap-1 mb-5 p-1 rounded-lg border border-line w-fit">
+            {(allSolved || shownSolved) && (
+              <div
+                className="mb-5 px-4 py-3.5 rounded-lg border"
+                style={{
+                  background: 'color-mix(in oklch, var(--ok) 6%, transparent)',
+                  borderColor: 'color-mix(in oklch, var(--ok) 25%, transparent)',
+                }}
+              >
+                <div className="text-[13px] font-semibold" style={{ color: 'var(--ok)' }}>
+                  {allSolved ? `You've solved all ${QUESTIONS.length} questions.` : `You've solved every question in ${(KINDS.find((k) => k.id === kind) ?? KINDS[0]).label}.`}
+                </div>
+                <div className="text-[12px] text-content-muted mt-1 leading-relaxed">
+                  {allSolved
+                    ? 'New questions come with app updates. Until then, you can reopen any of them from the list.'
+                    : 'Switch to another set above to keep going.'}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-3 mb-5">
+            <div className="flex flex-wrap gap-1 p-1 rounded-lg border border-line w-fit">
               {KINDS.map((k) => {
                 const all = QUESTIONS.filter(k.match);
                 const active = k.id === kind;
@@ -844,10 +886,28 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
                 );
               })}
             </div>
+            <label className="inline-flex items-center gap-2 text-[12px] text-content-faint hover:text-content cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={hideSolved}
+                onChange={(e) => {
+                  setHideSolved(e.target.checked);
+                  try {
+                    localStorage.setItem(HIDE_SOLVED_KEY, e.target.checked ? '1' : '0');
+                  } catch {
+                    /* blocked storage */
+                  }
+                }}
+                className="accent-[var(--accent)] cursor-pointer"
+              />
+              Hide solved
+            </label>
+            </div>
 
             {TIERS.map((tier) => {
               const inTier = shown.filter((q) => q.tier === tier);
-              if (!inTier.length) return null;
+              const listed = hideSolved ? inTier.filter((q) => !progress[q.id]?.solved) : inTier;
+              if (!listed.length) return null;
               return (
                 <div key={tier} className="mb-7">
                   <div className="flex items-baseline gap-2 mb-2">
@@ -859,7 +919,7 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
                     </span>
                   </div>
                   <div className="rounded-lg border border-line overflow-hidden">
-                    {inTier.map((q, i) => {
+                    {listed.map((q, i) => {
                       const p = progress[q.id];
                       return (
                         <button

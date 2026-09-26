@@ -160,23 +160,20 @@ export interface PracticeQuestion {
 /**
  * The next question worth opening after this one.
  *
- * Prefers the next unsolved question in course order, wrapping to the start, so
- * finishing one hands you the next thing you have not done rather than the next
- * thing alphabetically. Falls back to the plain next question when everything
- * else is solved, and returns null when there is only one.
+ * Walks forward in course order, wrapping to the start, and never lands on a
+ * solved question: those only open when you pick them from the list. Questions
+ * you have not tried come first, then ones you tried and missed. Returns null
+ * when nothing is left, which the screen shows as finished.
  */
 export function nextUnsolved(
   questions: PracticeQuestion[],
   currentId: string,
   solved: (id: string) => boolean,
+  tried: (id: string) => boolean = () => false,
 ): PracticeQuestion | null {
   const here = questions.findIndex((q) => q.id === currentId);
-  if (here < 0 || questions.length < 2) return null;
-  for (let step = 1; step < questions.length; step++) {
-    const q = questions[(here + step) % questions.length];
-    if (!solved(q.id)) return q;
-  }
-  return questions[(here + 1) % questions.length];
+  const order = [...questions.slice(here + 1), ...questions.slice(0, Math.max(here, 0))];
+  return order.find((q) => !solved(q.id) && !tried(q.id)) ?? order.find((q) => !solved(q.id)) ?? null;
 }
 
 /**
