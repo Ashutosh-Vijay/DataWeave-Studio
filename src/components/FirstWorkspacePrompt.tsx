@@ -73,7 +73,7 @@ export function FirstWorkspacePrompt({ open, targetRuntime, onCreate }: FirstWor
                 Create your first workspace
               </div>
               <div className="text-[12.5px] mt-1.5 leading-relaxed" style={{ color: 'var(--content-muted)' }}>
-                A workspace holds your DataWeave scripts &mdash; each script
+                A workspace holds your DataWeave scripts, and each script
                 is called a <span style={{ color: 'var(--accent)', fontWeight: 500 }}>request</span>.
                 Save many under one workspace, like a Postman collection.
               </div>

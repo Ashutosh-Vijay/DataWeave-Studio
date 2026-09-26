@@ -160,10 +160,7 @@ export function RatingForm({ appVersion, onDone, onSent }: { appVersion?: string
         placeholder="Anything you'd like changed or added? (optional)"
         className="mt-3 w-full px-3 py-2 rounded-md text-[12.5px] leading-relaxed bg-surface-2 border border-line text-content focus:outline-none focus:border-accent resize-none"
       />
-      <div className="flex items-start gap-1.5 mt-1.5 text-[11px] leading-relaxed text-content-faint">
-        <Icons.Secure size={11} style={{ marginTop: 2, flexShrink: 0 }} />
-        <span>Anonymous. Please don&rsquo;t paste payloads or company data &mdash; comments may be published.</span>
-      </div>
+      <div className="mt-1.5 text-[11px] leading-relaxed text-content-faint">Your comment may be published.</div>
 
       {error && <div className="mt-2 text-[12px]" style={{ color: 'var(--err)' }}>{error}</div>}
 
