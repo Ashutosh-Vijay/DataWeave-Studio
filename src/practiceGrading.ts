@@ -101,6 +101,8 @@ export interface PracticeQuestion {
   unit: string;
   /** Defaults to `build` — the forty original questions predate modes. */
   mode?: PracticeMode;
+  /** Set on `debug` and `predict` questions: the id of the question they were made from. */
+  derivedFrom?: string;
   /**
    * `predict` only: the script and payload being read. The expected answer is
    * NOT stored — it is whatever this engine returns when the script is run,
@@ -162,8 +164,10 @@ export interface PracticeQuestion {
  *
  * Walks forward in course order, wrapping to the start, and never lands on a
  * solved question: those only open when you pick them from the list. Questions
- * you have not tried come first, then ones you tried and missed. Returns null
- * when nothing is left, which the screen shows as finished.
+ * you have not tried come first, then ones you tried and missed, and within
+ * each, anything outside the current question's family (the original and the
+ * questions derived from it) beats more of the same scenario. Returns null when
+ * nothing is left, which the screen shows as finished.
  */
 export function nextUnsolved(
   questions: PracticeQuestion[],
@@ -173,7 +177,16 @@ export function nextUnsolved(
 ): PracticeQuestion | null {
   const here = questions.findIndex((q) => q.id === currentId);
   const order = [...questions.slice(here + 1), ...questions.slice(0, Math.max(here, 0))];
-  return order.find((q) => !solved(q.id) && !tried(q.id)) ?? order.find((q) => !solved(q.id)) ?? null;
+  const current = questions[here];
+  const family = current ? (current.derivedFrom ?? current.id) : null;
+  const other = (q: PracticeQuestion) => (q.derivedFrom ?? q.id) !== family;
+  return (
+    order.find((q) => !solved(q.id) && !tried(q.id) && other(q)) ??
+    order.find((q) => !solved(q.id) && !tried(q.id)) ??
+    order.find((q) => !solved(q.id) && other(q)) ??
+    order.find((q) => !solved(q.id)) ??
+    null
+  );
 }
 
 /**

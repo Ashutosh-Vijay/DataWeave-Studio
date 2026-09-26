@@ -74,12 +74,57 @@ for (const file of allFiles) {
   questions.push(shipped);
 }
 
+// Every question gets a title of its own. Two "Fix it" versions of the same
+// task are numbered (naming the bug would give away the last hint), and the
+// multiple choice questions, which share three stock titles, name their topics.
+const debugFamilies = new Map();
+for (const q of questions) {
+  if (q.mode === 'debug') debugFamilies.set(q.derivedFrom, [...(debugFamilies.get(q.derivedFrom) ?? []), q]);
+}
+for (const fam of debugFamilies.values()) {
+  if (fam.length > 1) fam.forEach((q, i) => (q.title = `${q.title} (bug ${i + 1} of ${fam.length})`));
+}
+const STOCK = {
+  'What does this return?': 'What does it return',
+  'Which script produces this output?': 'Which script matches',
+  'Which one fails?': 'Which one fails',
+};
+for (const q of questions) {
+  if (q.mode !== 'choice' || !STOCK[q.title]) continue;
+  const topics = q.topics ?? [];
+  const words = topics.filter((t) => /[a-z]/i.test(t));
+  q.title = `${STOCK[q.title]}: ${(words.length ? words : topics).join(', ')}`;
+}
+
 // Ship them in teaching order: tier first, then the order the curriculum puts
 // the units in, so the list reads as a course rather than an alphabetical dump.
+// Within a tier the originals come first and the questions derived from them
+// after, dealt out in rounds (every family's first variant, then every
+// family's second), so the same scenario doesn't come up several times in a row.
 const unitOrder = [...units.keys()];
+const round = new Map();
+const families = new Map();
+for (const q of questions) {
+  if (!q.derivedFrom) continue;
+  const key = `${q.derivedFrom}|${q.tier}`;
+  const n = families.get(key) ?? 0;
+  families.set(key, n + 1);
+  round.set(q.id, n);
+}
 questions.sort(
-  (a, b) => TIERS.indexOf(a.tier) - TIERS.indexOf(b.tier) || unitOrder.indexOf(a.unit) - unitOrder.indexOf(b.unit),
+  (a, b) =>
+    TIERS.indexOf(a.tier) - TIERS.indexOf(b.tier) ||
+    Number(!!a.derivedFrom) - Number(!!b.derivedFrom) ||
+    (round.get(a.id) ?? 0) - (round.get(b.id) ?? 0) ||
+    unitOrder.indexOf(a.unit) - unitOrder.indexOf(b.unit),
 );
+// Numbered after sorting, so (2) comes before (3) in the list.
+const seen = new Map();
+for (const q of questions) {
+  const n = (seen.get(q.title) ?? 0) + 1;
+  seen.set(q.title, n);
+  if (n > 1) q.title = `${q.title} (${n})`;
+}
 
 if (problems.length) {
   for (const p of problems) console.error(`✗ ${p}`);

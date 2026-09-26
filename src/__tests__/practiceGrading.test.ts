@@ -226,6 +226,17 @@ describe('nextUnsolved', () => {
     expect(nextUnsolved(set, 'a', (id) => id !== 'b', tried)?.id).toBe('b');
   });
 
+  it('moves to a different scenario before more of the same one', () => {
+    const fam = [
+      { ...QUESTION, id: 'x', unit: 'x' },
+      { ...QUESTION, id: 'x-debug-0', unit: 'x', derivedFrom: 'x' },
+      { ...QUESTION, id: 'y', unit: 'y' },
+    ] as PracticeQuestion[];
+    expect(nextUnsolved(fam, 'x', () => false)?.id).toBe('y');
+    // Only its own variant is left, so that is where it goes.
+    expect(nextUnsolved(fam, 'x', (id) => id === 'y')?.id).toBe('x-debug-0');
+  });
+
   it('starts from the top when the current question is outside the set', () => {
     expect(nextUnsolved(set, 'missing', (id) => id === 'a')?.id).toBe('b');
     expect(nextUnsolved(set.slice(0, 1), 'a', () => false)).toBeNull();
