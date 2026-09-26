@@ -8,6 +8,7 @@ All notable changes to DataWeave Studio for VS Code.
 
 - **Practice.** 739 problems across 40 topics, from picking fields out of a payload to recursive tree walks. Write a script, fix a broken one, predict what a snippet returns, or pick the right answer. Your solution runs on the real engine against test cases you can't see. Open it from the rail or from Tools.
 - **Errors that name the problem.** When a run fails, the error panel shows the type checker's diagnosis, naming the expression that went wrong.
+- **One set of workspaces on each computer.** The extension and the desktop app now save to the same folder, so a workspace saved in one opens in the other. Workspaces already in the extension are copied over the first time; if both had one with the same name, the extension's copy is marked "(VS Code)".
 - **Fixes.** The payload toolbar no longer cuts off Load file on a narrow pane, and the Open button in the Side Bar no longer disappears once you have saved a workspace.
 
 ## 3.1.0 (2026-09-20)

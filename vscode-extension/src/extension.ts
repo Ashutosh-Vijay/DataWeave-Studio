@@ -29,6 +29,9 @@ import { registerSidebar, secureKeyNames, secureKeySave, secureKeyDelete, secure
 let server: DwServer | null = null;
 let warmupError: string | null = null;
 let storageDir = '';
+/** Parent of the workspaces folder. The desktop app's data folder, so both apps
+ *  on one machine list and open the same workspaces; see sharedWorkspaceRoot. */
+let workspaceRoot = '';
 let logDir = '';
 /** The one playground panel. A second "Open" reveals it instead of stacking a
  *  duplicate — which matters now that the Side Bar opens it on every row click. */
@@ -59,12 +62,70 @@ async function getServer(extensionRoot: string): Promise<DwServer> {
   return server;
 }
 
+/**
+ * Where workspaces live: the standalone desktop app's data folder (Tauri's
+ * app_local_data_dir for com.dwstudio.desktop), so the extension and the desktop
+ * app on the same machine share one set of workspaces. Both write the same
+ * .dwstudio format, and neither autosaves to the file (unsaved edits are a
+ * per-app draft), so a file only changes when you press Save in one of them.
+ *
+ * Remote windows (SSH, WSL, containers) keep the extension's own storage: the
+ * desktop app is not on that machine. The Store build of the desktop app has its
+ * AppData redirected into its package, so it does not see this folder.
+ *
+ * The first time, workspaces saved in the extension's old folder are copied
+ * across. The old folder is left alone as a backup.
+ */
+function sharedWorkspaceRoot(context: vscode.ExtensionContext): string {
+  if (vscode.env.remoteName) return storageDir;
+  const base =
+    process.platform === 'win32' ? process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local')
+    : process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Application Support')
+    : process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+  const root = path.join(base, 'com.dwstudio.desktop');
+  try {
+    fs.mkdirSync(path.join(root, 'workspaces'), { recursive: true });
+  } catch {
+    return storageDir;
+  }
+
+  if (!context.globalState.get('dw.workspacesShared')) {
+    const oldDir = path.join(storageDir, 'workspaces');
+    const newDir = path.join(root, 'workspaces');
+    const files = fs.existsSync(oldDir) ? fs.readdirSync(oldDir).filter((f) => f.endsWith('.dwstudio')) : [];
+    for (const f of files) {
+      const text = fs.readFileSync(path.join(oldDir, f), 'utf8');
+      const target = path.join(newDir, f);
+      if (!fs.existsSync(target)) {
+        fs.writeFileSync(target, text);
+      } else if (fs.readFileSync(target, 'utf8') !== text) {
+        // Same name, different work: keep both, and say which one came from here.
+        const stem = f.slice(0, -'.dwstudio'.length);
+        let copy = path.join(newDir, `${stem}-vscode.dwstudio`);
+        for (let n = 2; fs.existsSync(copy); n++) copy = path.join(newDir, `${stem}-vscode-${n}.dwstudio`);
+        let out = text;
+        try {
+          const w = JSON.parse(text);
+          w.projectName = `${w.projectName || stem} (VS Code)`;
+          out = JSON.stringify(w, null, 2);
+        } catch {
+          /* not JSON: copy it as it is */
+        }
+        fs.writeFileSync(copy, out);
+      }
+    }
+    void context.globalState.update('dw.workspacesShared', true);
+  }
+  return root;
+}
+
 export function activate(context: vscode.ExtensionContext) {
   // Per-extension persistent dirs (VS Code-managed, survive restarts).
   extCtx = context;
   storageDir = context.globalStorageUri.fsPath;
   logDir = path.join(storageDir, 'logs');
   fs.mkdirSync(logDir, { recursive: true });
+  workspaceRoot = sharedWorkspaceRoot(context);
 
   // No-op target for the keybindings that swallow VS Code's defaults while our
   // webview is focused (see contributes.keybindings) — the app's own in-webview
@@ -78,7 +139,7 @@ export function activate(context: vscode.ExtensionContext) {
   // "Open Playground" link.
   registerSidebar(
     context,
-    storageDir,
+    workspaceRoot,
     context.extensionPath,
     (filename) => vscode.commands.executeCommand('dataweaveStudio.open', filename),
     (a) => securePropertiesInvoke(context.extensionPath, a),
@@ -417,7 +478,7 @@ async function handleInvoke(
 
     // --- Workspaces (port of workspace.rs) ----------------------------------
     case 'save_workspace': {
-      const saved = ws.saveWorkspace(storageDir, args.workspace);
+      const saved = ws.saveWorkspace(workspaceRoot, args.workspace);
       // Keep the Side Bar list honest without the user hitting refresh.
       void vscode.commands.executeCommand('dataweaveStudio.refreshWorkspaces');
       return saved;
@@ -430,27 +491,27 @@ async function handleInvoke(
       return f;
     }
     case 'load_workspace':
-      return ws.loadWorkspace(storageDir, args.filename as string);
+      return ws.loadWorkspace(workspaceRoot, args.filename as string);
     case 'list_workspaces':
-      return ws.listWorkspaces(storageDir);
+      return ws.listWorkspaces(workspaceRoot);
     case 'list_workspaces_meta':
-      return ws.listWorkspacesMeta(storageDir);
+      return ws.listWorkspacesMeta(workspaceRoot);
     case 'delete_workspace':
-      ws.deleteWorkspace(storageDir, args.filename as string);
+      ws.deleteWorkspace(workspaceRoot, args.filename as string);
       void vscode.commands.executeCommand('dataweaveStudio.refreshWorkspaces');
       return null;
     case 'rename_workspace': {
-      const renamed = ws.renameWorkspace(storageDir, args.filename as string, args.newName as string);
+      const renamed = ws.renameWorkspace(workspaceRoot, args.filename as string, args.newName as string);
       void vscode.commands.executeCommand('dataweaveStudio.refreshWorkspaces');
       return renamed;
     }
     case 'duplicate_workspace_file': {
-      const dup = ws.duplicateWorkspaceFile(storageDir, args.filename as string);
+      const dup = ws.duplicateWorkspaceFile(workspaceRoot, args.filename as string);
       void vscode.commands.executeCommand('dataweaveStudio.refreshWorkspaces');
       return dup;
     }
     case 'get_workspaces_dir':
-      return ws.getWorkspacesDir(storageDir);
+      return ws.getWorkspacesDir(workspaceRoot);
 
     // --- Module library (port of module_lib.rs) -----------------------------
     case 'load_modules':
