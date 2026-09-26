@@ -1,0 +1,52 @@
+{
+  "id": "mcq-overload-coerces",
+  "unit": "custom-types",
+  "mode": "choice",
+  "tier": "max",
+  "title": "What does this return?",
+  "topics": [
+    "fun",
+    "overloading",
+    "type"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun describe(x: String) = \"text\"\nfun describe(x: Number) = \"number\"\n---\n[ describe(\"1\"), describe(1), describe(true) ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "It fails: no describe accepts a Boolean",
+      "[ \"text\", \"text\", \"text\" ]",
+      "[ \"text\", \"number\", null ]",
+      "[ \"text\", \"number\", \"text\" ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun describe(x: String) = \"text\"\nfun describe(x: Number) = \"number\"\n---\n[ describe(\"1\"), describe(1), describe(true) ]",
+  "explanation": {
+    "approach": "Functions can be overloaded by parameter type, and the engine picks the one that fits the argument. When none fits exactly, it tries coercing the argument, and a Boolean coerces to String, so the String version runs.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nfun describe(x: String) = \"text\"\nfun describe(x: Number) = \"number\"\n---\n[ describe(\"1\"), describe(1), describe(true) ]",
+        "expect": {
+          "output": "[ \"text\", \"number\", \"text\" ]"
+        },
+        "note": "The Boolean call did not fail."
+      },
+      {
+        "label": "The coercion that made it work",
+        "script": "%dw 2.0\noutput application/json\n---\ntrue as String",
+        "expect": {
+          "output": "\"true\""
+        },
+        "note": "A Boolean has a String form."
+      }
+    ]
+  }
+}

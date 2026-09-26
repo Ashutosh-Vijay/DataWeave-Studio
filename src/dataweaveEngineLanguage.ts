@@ -150,6 +150,29 @@ interface EngineMessage {
  */
 const lastDiagnostics = new Map<string, { script: string; messages: EngineMessage[] }>();
 
+/**
+ * The engine's own diagnosis of a script, if it has one for exactly this text.
+ *
+ * The failed-run card used to explain every failure by pattern-matching the
+ * runtime message, which produces generic advice — and occasionally advice that
+ * is wrong for the error in front of you. `payload.number mod 2 == 0` fails
+ * because `mod` binds looser than `==`, and the pattern matcher's suggestions
+ * (add a `default`, coerce with `as Number`) fix neither half of that. The type
+ * checker, meanwhile, says "Comparing `2` with `0` always returns false".
+ *
+ * Matching on the exact script text is the point: these messages were computed
+ * for one version of the document, and stale advice about code the user has
+ * since changed is worse than none.
+ */
+export function engineDiagnosisFor(script: string): { severity: string; message: string; code?: string }[] {
+  for (const entry of lastDiagnostics.values()) {
+    if (entry.script === script) {
+      return entry.messages.filter((m) => m.severity === 'error' || m.severity === 'warning');
+    }
+  }
+  return [];
+}
+
 /** A source range as the engine reports it. Offsets, not line/column — see the
  *  note on locJson in DwServer.scala for why. */
 interface EngineLoc {
@@ -399,10 +422,10 @@ export function registerEngineLanguageFeatures(
         return at >= start && at <= end;
       });
       if (!hit) {
-        return { text: '', range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column), rejectReason: 'Only names you declare can be renamed — not text, keys or imported modules.' };
+        return { text: '', range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column), rejectReason: 'Only names you declare can be renamed, not text, keys or imported modules.' };
       }
       if (!isPlainIdentifier(hit.text)) {
-        return { text: '', range: hit.range, rejectReason: `\`${hit.text}\` comes from an import — rename only works on names declared in this script.` };
+        return { text: '', range: hit.range, rejectReason: `\`${hit.text}\` comes from an import. Rename only works on names declared in this script.` };
       }
       return { text: hit.text, range: hit.range };
     },

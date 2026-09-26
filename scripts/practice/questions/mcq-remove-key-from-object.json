@@ -1,0 +1,71 @@
+{
+  "id": "mcq-remove-key-from-object",
+  "unit": "concat-and-remove",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "Which script produces this output?",
+  "topics": [
+    "-",
+    "--",
+    "mapObject"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n{ \"id\": 1, \"name\": \"Ann\" }\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"id\":1,\"ssn\":\"123\",\"name\":\"Ann\"}",
+    "target": "{ \"id\": 1, \"name\": \"Ann\" }",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload - \"123\"",
+      "%dw 2.0\noutput application/json\n---\npayload - \"ssn\"",
+      "%dw 2.0\noutput application/json\n---\npayload filter ($$ != \"ssn\")",
+      "%dw 2.0\noutput application/json\n---\npayload -- [\"id\", \"ssn\"]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload - \"ssn\"",
+  "explanation": {
+    "approach": "On an Object, `-` removes a key by name. The wrong options remove too much, use an Array function on an Object, or name a value instead of a key.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload - \"ssn\"",
+        "payload": "{\"id\":1,\"ssn\":\"123\",\"name\":\"Ann\"}",
+        "expect": {
+          "output": "{ \"id\": 1, \"name\": \"Ann\" }"
+        },
+        "note": "The field goes, the rest keep their order."
+      },
+      {
+        "label": "Removing by value does nothing",
+        "script": "%dw 2.0\noutput application/json\n---\npayload - \"123\"",
+        "payload": "{\"id\":1,\"ssn\":\"123\",\"name\":\"Ann\"}",
+        "expect": {
+          "output": "{ \"id\": 1, \"ssn\": \"123\", \"name\": \"Ann\" }"
+        },
+        "note": "There is no key called \"123\"."
+      },
+      {
+        "label": "filter is for arrays",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filter ($$ != \"ssn\")",
+        "payload": "{\"id\":1,\"ssn\":\"123\",\"name\":\"Ann\"}",
+        "expect": {
+          "error": true
+        },
+        "note": "The Object version is `filterObject`."
+      },
+      {
+        "label": "The filterObject version",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filterObject ((v, k) -> not (k ~= \"ssn\"))",
+        "payload": "{\"id\":1,\"ssn\":\"123\",\"name\":\"Ann\"}",
+        "expect": {
+          "output": "{ \"id\": 1, \"name\": \"Ann\" }"
+        },
+        "note": "This works too, but the key has to be compared with `~=`: a key is not a String."
+      }
+    ]
+  }
+}

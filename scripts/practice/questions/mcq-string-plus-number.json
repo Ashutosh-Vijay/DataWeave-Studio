@@ -1,0 +1,52 @@
+{
+  "id": "mcq-string-plus-number",
+  "unit": "type-coercion",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "+",
+    "typeOf",
+    "coercion"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ \"10\" + 5, typeOf(\"10\" + 5) ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ \"105\", \"String\" ]",
+      "[ \"15\", \"String\" ]",
+      "[ 15, \"String\" ]",
+      "[ 15, \"Number\" ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ \"10\" + 5, typeOf(\"10\" + 5) ]",
+  "explanation": {
+    "approach": "Arithmetic operators coerce a numeric String to Number. The result is a real Number, and `typeOf` says so.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ \"10\" + 5, typeOf(\"10\" + 5) ]",
+        "expect": {
+          "output": "[ 15, \"Number\" ]"
+        },
+        "note": "Both halves agree: the value is 15 and its type is Number."
+      },
+      {
+        "label": "Getting \"105\" needs ++",
+        "script": "%dw 2.0\noutput application/json\n---\n10 as String ++ 5 as String",
+        "expect": {
+          "output": "\"105\""
+        },
+        "note": "Concatenation is a different operator. If you want text, say so with `++`."
+      }
+    ]
+  }
+}

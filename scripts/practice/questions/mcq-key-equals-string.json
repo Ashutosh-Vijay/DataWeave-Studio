@@ -1,0 +1,64 @@
+{
+  "id": "mcq-key-equals-string",
+  "unit": "pluck-and-mapobject",
+  "mode": "choice",
+  "tier": "max",
+  "title": "What does this return?",
+  "topics": [
+    "mapObject",
+    "Key",
+    "==",
+    "~="
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload mapObject ((v, k) -> { (k): if (k == \"a\") 0 else v })",
+    "payload": "{\"a\":1,\"b\":2}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "{ \"a\": 0, \"b\": 2 }",
+      "{ \"a\": 1, \"b\": 2 }",
+      "{ \"a\": 0, \"b\": 0 }",
+      "{ \"b\": 2 }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload mapObject ((v, k) -> { (k): if (k == \"a\") 0 else v })",
+  "explanation": {
+    "approach": "The key passed to `mapObject` has the type Key, not String. `==` compares type as well as value, so `k == \"a\"` is false for every key and nothing changes. Compare with `~=`, or coerce with `as String`.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload mapObject ((v, k) -> { (k): if (k == \"a\") 0 else v })",
+        "payload": "{\"a\":1,\"b\":2}",
+        "expect": {
+          "output": "{ \"a\": 1, \"b\": 2 }"
+        },
+        "note": "The condition never holds."
+      },
+      {
+        "label": "The key is a Key",
+        "script": "%dw 2.0\noutput application/json\n---\ntypeOf(keysOf({ a: 1 })[0])",
+        "expect": {
+          "output": "\"Key\""
+        },
+        "note": "That is the whole reason."
+      },
+      {
+        "label": "With ~=",
+        "script": "%dw 2.0\noutput application/json\n---\npayload mapObject ((v, k) -> { (k): if (k ~= \"a\") 0 else v })",
+        "payload": "{\"a\":1,\"b\":2}",
+        "expect": {
+          "output": "{ \"a\": 0, \"b\": 2 }"
+        },
+        "note": "The intended result."
+      }
+    ]
+  }
+}

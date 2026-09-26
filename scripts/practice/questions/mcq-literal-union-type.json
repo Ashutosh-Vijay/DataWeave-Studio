@@ -1,0 +1,49 @@
+{
+  "id": "mcq-literal-union-type",
+  "unit": "custom-types",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "Which one fails?",
+  "topics": [
+    "type",
+    "is",
+    "var"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\ntype Status = String\nvar s: Status = \"pending\"\n---\ns",
+      "%dw 2.0\noutput application/json\ntype Status = \"open\" | \"closed\"\n---\n[\"OPEN\" is Status, \"open\" is Status]",
+      "%dw 2.0\noutput application/json\ntype Status = \"open\" | \"closed\"\nvar s: Status = \"pending\"\n---\ns",
+      "%dw 2.0\noutput application/json\ntype Status = \"open\" | \"closed\"\nvar s: Status = \"open\"\n---\ns"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\ntype Status = \"open\" | \"closed\"\nvar s: Status = \"open\"\n---\ns",
+  "explanation": {
+    "approach": "A type can be a union of literal values. A variable declared with that type must be given one of them, and the check happens at compile time. `is` performs the same check at run time and returns a Boolean instead of failing.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\ntype Status = \"open\" | \"closed\"\nvar s: Status = \"pending\"\n---\ns",
+        "expect": {
+          "error": true
+        },
+        "note": "Expecting Type: Status."
+      },
+      {
+        "label": "is does not fail",
+        "script": "%dw 2.0\noutput application/json\ntype Status = \"open\" | \"closed\"\n---\n[\"OPEN\" is Status, \"open\" is Status]",
+        "expect": {
+          "output": "[ false, true ]"
+        },
+        "note": "Case-sensitive, and a Boolean result."
+      }
+    ]
+  }
+}

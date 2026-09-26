@@ -1,0 +1,79 @@
+{
+  "id": "mailing-list-cleanup",
+  "unit": "string-basics",
+  "tier": "easy",
+  "title": "Clean up a mailing list typed in by hand",
+  "topics": [
+    "trim",
+    "lower",
+    "filter",
+    "isEmpty"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "`trim(s)` removes spaces from both ends of a String, and `lower(s)` turns it to lower case. They are ordinary functions, so they nest: `lower(trim(s))`. Cleaning text usually means applying a few of these in the right order.",
+  "mode": "build",
+  "prompt": "Sign-ups from a paper form were typed into a spreadsheet and arrive as an array of Strings. Before loading them into the mail platform:\n\n- remove leading and trailing spaces,\n- make every address lower case,\n- drop any entry that is blank.\n\nA blank entry may be an empty String or may be nothing but spaces. Keep the order of the rest.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[\n  \"Ann@Example.com\",\n  \"bo@example.com\",\n  \"\"\n]",
+      "output": "[\"ann@example.com\",\"bo@example.com\"]"
+    },
+    {
+      "input": "[\n  \" Ann@Example.com\",\n  \"bo@example.com \"\n]",
+      "output": "[\"ann@example.com\",\"bo@example.com\"]"
+    },
+    {
+      "input": "[\n  \"   \",\n  \"CY@EXAMPLE.COM\"\n]",
+      "output": "[\"cy@example.com\"]"
+    },
+    {
+      "input": "[\n  \"dee@example.com\"\n]",
+      "output": "[\"dee@example.com\"]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Two jobs: change each entry, then drop some. Decide which has to happen first.",
+    "Is `\"   \"` empty? Ask the engine with `isEmpty(\"   \")`.",
+    "Trim first, then filter on the trimmed value. An entry of spaces only becomes \"\" after trimming."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map lower(trim($)) filter not isEmpty($)",
+  "mustFail": [
+    {
+      "why": "filters before trimming, so an entry of only spaces is not empty yet and survives as \"\"",
+      "script": "%dw 2.0\noutput application/json\n---\npayload filter not isEmpty($) map lower(trim($))"
+    },
+    {
+      "why": "lower-cases but never trims, so addresses keep their stray spaces",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map lower($) filter not isEmpty(trim($))"
+    }
+  ],
+  "explanation": {
+    "approach": "Order matters. A String of spaces is not empty, so it passes an `isEmpty` check until it has been trimmed. Clean every entry first, then filter on the cleaned values.",
+    "snippets": [
+      {
+        "label": "Spaces are not empty",
+        "script": "%dw 2.0\noutput application/json\n---\n[isEmpty(\"   \"), isEmpty(trim(\"   \"))]",
+        "expect": {
+          "output": "[false,true]"
+        },
+        "note": "Only after trimming does it count as blank."
+      },
+      {
+        "label": "Filtering first",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filter not isEmpty($) map lower(trim($))",
+        "payload": "[\"   \",\"CY@EXAMPLE.COM\"]",
+        "expect": {
+          "output": "[\"\",\"cy@example.com\"]"
+        },
+        "note": "The spaces-only entry slipped through and came out as an empty String."
+      }
+    ]
+  }
+}

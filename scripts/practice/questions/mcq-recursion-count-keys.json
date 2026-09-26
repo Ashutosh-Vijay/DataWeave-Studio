@@ -1,0 +1,54 @@
+{
+  "id": "mcq-recursion-count-keys",
+  "unit": "recursion",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "fun",
+    "recursion",
+    "match",
+    "sizeOf"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "basics": "A recursive function over JSON typically has three cases: for an Object, do something with its pairs and recurse into its values; for an Array, recurse into each element; for anything else, return a starting value.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun countKeys(v) = v match {\n  case o is Object -> sizeOf(o) + sum(valuesOf(o) map countKeys($))\n  case a is Array -> sum(a map countKeys($))\n  else -> 0\n}\n---\ncountKeys({ a: 1, b: { c: 2, d: [{ e: 3 }, 4] } })"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "4",
+      "6",
+      "5",
+      "2"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun countKeys(v) = v match {\n  case o is Object -> sizeOf(o) + sum(valuesOf(o) map countKeys($))\n  case a is Array -> sum(a map countKeys($))\n  else -> 0\n}\n---\ncountKeys({ a: 1, b: { c: 2, d: [{ e: 3 }, 4] } })",
+  "explanation": {
+    "approach": "The top Object has 2 keys, `b` holds an Object with 2 more, and inside the Array under `d` there is one Object with 1 key. The number 4 in that Array contributes nothing.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nfun countKeys(v) = v match {\n  case o is Object -> sizeOf(o) + sum(valuesOf(o) map countKeys($))\n  case a is Array -> sum(a map countKeys($))\n  else -> 0\n}\n---\ncountKeys({ a: 1, b: { c: 2, d: [{ e: 3 }, 4] } })",
+        "expect": {
+          "output": "5"
+        },
+        "note": "2 + 2 + 1."
+      },
+      {
+        "label": "Only the top level",
+        "script": "%dw 2.0\noutput application/json\n---\nsizeOf({ a: 1, b: { c: 2, d: [{ e: 3 }, 4] } })",
+        "expect": {
+          "output": "2"
+        },
+        "note": "`sizeOf` does not look inside."
+      }
+    ]
+  }
+}

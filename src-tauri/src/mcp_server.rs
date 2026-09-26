@@ -488,7 +488,7 @@ impl DwTools {
     }
 
     #[tool(
-        description = "Run and validate a DataWeave 2.0 script against a sample payload on the local, real DataWeave 2.12 engine; returns the rendered output, or the exact compile/runtime error with line & column. MANDATORY: call this on EVERY DataWeave script you write BEFORE showing it to the user — never present unverified DataWeave. On error, fix the script using the reported line/column and re-run until it succeeds (don't web-search syntax — this tool's result is the ground truth). A bare body runs as `%dw 2.0` / `output application/json`; include your own `output <mime>` + `---` for any other output format."
+        description = "Run and validate a DataWeave 2.0 script against a sample payload on the local, real DataWeave 2.12 engine; returns the rendered output, or the exact compile/runtime error with line & column. MANDATORY: call this on EVERY DataWeave script you write BEFORE showing it to the user. Never present unverified DataWeave. On error, fix the script using the reported line/column and re-run until it succeeds (don't web-search syntax; this tool's result is the ground truth). A bare body runs as `%dw 2.0` / `output application/json`; include your own `output <mime>` + `---` for any other output format."
     )]
     async fn validate_and_run_dataweave(
         &self,
@@ -796,7 +796,7 @@ impl DwTools {
         if !self.advanced.load(Ordering::Relaxed) {
             if let Some(reason) = safe_mode_block_reason(&suite) {
                 return Ok(CallToolResult::error(vec![Content::text(format!(
-                    "Safe mode rejected this suite: {} is not allowed here — it was NOT run.",
+                    "Safe mode rejected this suite: {} is not allowed here. It was NOT run.",
                     reason
                 ))]));
             }
@@ -833,7 +833,7 @@ impl DwTools {
             Ok(v) => v,
             Err(_) => {
                 return Ok(CallToolResult::error(vec![Content::text(format!(
-                    "The suite ran but did not return a test report — its body must be a `describedBy` block. It returned:\n{}",
+                    "The suite ran but did not return a test report. Its body must be a `describedBy` block. It returned:\n{}",
                     result.output
                 ))]))
             }
@@ -855,7 +855,7 @@ impl DwTools {
     }
 
     #[tool(
-        description = "Check a DataWeave script WITHOUT running it — the engine's own type checker and linter. Reports undefined references, wrong argument counts, syntax errors, type mismatches, insecure hash algorithms (MD5/SHA-1), leftover log() calls and unused imports, each with a line/column and a rule id. Use this when you have no sample payload to run against, when reviewing a script someone else wrote, or as a fast first pass before validate_and_run_dataweave. A clean script returns nothing. This does NOT replace running: it cannot tell you the output is wrong, only that the code is."
+        description = "Check a DataWeave script WITHOUT running it, using the engine's own type checker and linter. Reports undefined references, wrong argument counts, syntax errors, type mismatches, insecure hash algorithms (MD5/SHA-1), leftover log() calls and unused imports, each with a line/column and a rule id. Use this when you have no sample payload to run against, when reviewing a script someone else wrote, or as a fast first pass before validate_and_run_dataweave. A clean script returns nothing. This does NOT replace running: it cannot tell you the output is wrong, only that the code is."
     )]
     async fn lint_dataweave(
         &self,
@@ -866,7 +866,7 @@ impl DwTools {
         if !self.advanced.load(Ordering::Relaxed) {
             if let Some(reason) = safe_mode_block_reason(&input.script) {
                 return Ok(CallToolResult::error(vec![Content::text(format!(
-                    "Safe mode rejected this script: {} is not allowed here — it was NOT compiled.",
+                    "Safe mode rejected this script: {} is not allowed here. It was NOT compiled.",
                     reason
                 ))]));
             }
@@ -905,7 +905,7 @@ impl DwTools {
                 (Some(l), None) => format!("line {}", l),
                 _ => "somewhere".to_string(),
             };
-            out.push_str(&format!("[{}] {} — {} ({})\n", sev, at, text, code));
+            out.push_str(&format!("[{}] {}: {} ({})\n", sev, at, text, code));
             let fixes: Vec<String> = m
                 .get("quickFixes")
                 .and_then(|v| v.as_array())
@@ -924,7 +924,7 @@ impl DwTools {
     }
 
     #[tool(
-        description = "Encrypt or decrypt MuleSoft secure-properties values, byte-compatible with the Mule runtime (uses the official secure-properties-tool). `operation:\"encrypt\"` turns a plaintext secret into the `![base64]` form you put in a secure config; `operation:\"decrypt\"` reads one (accepts the inner base64 OR the full `![...]`). Pass `value` for one, or `values` (a JSON array) for a whole config file at once — for a file, read it yourself, pass the values you judge to be secrets, and write the results back in place; already-encrypted values passed to encrypt (and plaintext passed to decrypt) come back untouched, so re-running is safe. Default cipher is AES/CBC. Pure local crypto — allowed in Safe mode."
+        description = "Encrypt or decrypt MuleSoft secure-properties values, byte-compatible with the Mule runtime (uses the official secure-properties-tool). `operation:\"encrypt\"` turns a plaintext secret into the `![base64]` form you put in a secure config; `operation:\"decrypt\"` reads one (accepts the inner base64 OR the full `![...]`). Pass `value` for one, or `values` (a JSON array) for a whole config file at once. For a file, read it yourself, pass the values you judge to be secrets, and write the results back in place; already-encrypted values passed to encrypt (and plaintext passed to decrypt) come back untouched, so re-running is safe. Default cipher is AES/CBC. Pure local crypto, so it is allowed in Safe mode."
     )]
     async fn secure_properties(
         &self,
@@ -1006,7 +1006,7 @@ impl DwTools {
     }
 
     #[tool(
-        description = "Ask the engine what is IN SCOPE at one point in a script — every visible variable with its INFERRED type, plus the functions the script itself declares, one line per overload. Inside a `map`/`filter` lambda this is the only way to learn what the lambda parameter actually is (e.g. `item` is `{ price: Number, name: String }`), which is exactly what you need before writing the body. Pass `line` (1-based, as reported by lint/run errors) and optionally `column`; with no position it answers at the end of the script. Supply `payload` so `payload` resolves to its real shape. This lists the SCRIPT's own names only — for standard-library functions use dw_function_reference."
+        description = "Ask the engine what is IN SCOPE at one point in a script: every visible variable with its INFERRED type, plus the functions the script itself declares, one line per overload. Inside a `map`/`filter` lambda this is the only way to learn what the lambda parameter actually is (e.g. `item` is `{ price: Number, name: String }`), which is exactly what you need before writing the body. Pass `line` (1-based, as reported by lint/run errors) and optionally `column`; with no position it answers at the end of the script. Supply `payload` so `payload` resolves to its real shape. This lists the SCRIPT's own names only. For standard-library functions, use dw_function_reference."
     )]
     async fn dw_scope_at(
         &self,
@@ -1017,7 +1017,7 @@ impl DwTools {
         if !self.advanced.load(Ordering::Relaxed) {
             if let Some(reason) = safe_mode_block_reason(&input.script) {
                 return Ok(CallToolResult::error(vec![Content::text(format!(
-                    "Safe mode rejected this script: {} is not allowed here — it was NOT compiled.",
+                    "Safe mode rejected this script: {} is not allowed here. It was NOT compiled.",
                     reason
                 ))]));
             }
@@ -1120,12 +1120,12 @@ impl DwTools {
             }
         }
 
-        out.push_str("\nStandard-library functions are not listed here — see dw_function_reference.");
+        out.push_str("\nStandard-library functions are not listed here; see dw_function_reference.");
         Ok(CallToolResult::success(vec![Content::text(out)]))
     }
 
     #[tool(
-        description = "Best-effort migrate a DataWeave 1.0 script to 2.0 syntax (header, %output/%var/%function/%input directives, flowVars→vars, inboundProperties→attributes, :string→String, etc.). Returns the migrated script with `// ⚠` comments flagging constructs that need manual work (%namespace, outboundProperties, lookup, p()). This is HEURISTIC — ALWAYS run the result through validate_and_run_dataweave before presenting it."
+        description = "Best-effort migrate a DataWeave 1.0 script to 2.0 syntax (header, %output/%var/%function/%input directives, flowVars→vars, inboundProperties→attributes, :string→String, etc.). Returns the migrated script with `// ⚠` comments flagging constructs that need manual work (%namespace, outboundProperties, lookup, p()). This is HEURISTIC: ALWAYS run the result through validate_and_run_dataweave before presenting it."
     )]
     async fn migrate_dw_1_to_2(
         &self,
@@ -1137,7 +1137,7 @@ impl DwTools {
     }
 
     #[tool(
-        description = "Pretty-print / reformat a DataWeave script using the engine's own IDE formatter (canonical indentation & spacing — the same one DataWeave editors use). Returns the formatted script."
+        description = "Pretty-print / reformat a DataWeave script using the engine's own IDE formatter (canonical indentation & spacing, the same one DataWeave editors use). Returns the formatted script."
     )]
     async fn format_dataweave(
         &self,
@@ -1151,7 +1151,7 @@ impl DwTools {
     }
 
     #[tool(
-        description = "OFFLINE DataWeave 2.12 standard-library reference — every function the bundled engine has, with exact signatures, descriptions, and runnable examples. Pass `name` for one function's full doc, `search` for a keyword match list, or no args to list every function name. Use THIS instead of recalling/ web-searching DW syntax — it's the authoritative signature source."
+        description = "OFFLINE DataWeave 2.12 standard-library reference: every function the bundled engine has, with exact signatures, descriptions, and runnable examples. Pass `name` for one function's full doc, `search` for a keyword match list, or no args to list every function name. Use THIS instead of recalling/ web-searching DW syntax; it's the authoritative signature source."
     )]
     async fn dw_function_reference(
         &self,
@@ -1186,7 +1186,7 @@ impl DwTools {
                 if format!("{} {}", k, v).to_lowercase().contains(&ql) {
                     let sig = v.get("overloads").and_then(|o| o.as_array()).and_then(|a| a.first())
                         .and_then(|o| o.get("signature")).and_then(|s| s.as_str()).unwrap_or("");
-                    lines.push(format!("{} — {}", k, sig));
+                    lines.push(format!("{}: {}", k, sig));
                 }
             }
             lines.sort();
@@ -1207,7 +1207,7 @@ impl DwTools {
     }
 
     #[tool(
-        description = "OFFLINE DataWeave cookbook — validated recipes (each runs cleanly on this engine) for common MuleSoft tasks: array/object/string transforms, XML/CSV, dates, error handling. Pass `id` for a full recipe (input + script + output), `search`/`category` to filter, or no args to list all. Great for grabbing a verified starting pattern before writing a complex transform."
+        description = "OFFLINE DataWeave cookbook: validated recipes (each runs cleanly on this engine) for common MuleSoft tasks: array/object/string transforms, XML/CSV, dates, error handling. Pass `id` for a full recipe (input + script + output), `search`/`category` to filter, or no args to list all. Great for grabbing a verified starting pattern before writing a complex transform."
     )]
     async fn dw_cookbook(
         &self,
@@ -1242,7 +1242,7 @@ impl DwTools {
                 let hay = format!("{} {} {}", g(r, "name"), g(r, "description"), g(r, "script")).to_lowercase();
                 if !hay.contains(q) { continue; }
             }
-            lines.push(format!("{} — {} [{} · {}]", g(r, "id"), g(r, "name"), g(r, "category"), g(r, "difficulty")));
+            lines.push(format!("{}: {} [{} · {}]", g(r, "id"), g(r, "name"), g(r, "category"), g(r, "difficulty")));
         }
         let body = if lines.is_empty() {
             "No recipes match. Omit args to list all.".to_string()
@@ -1449,7 +1449,7 @@ pub async fn mcp_start(
     let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
     let listener = tokio::net::TcpListener::bind(addr)
         .await
-        .map_err(|e| format!("Couldn't bind 127.0.0.1:{} — {}", port, e))?;
+        .map_err(|e| format!("Couldn't bind 127.0.0.1:{}: {}", port, e))?;
 
     let (tx, rx) = tokio::sync::oneshot::channel::<()>();
     tauri::async_runtime::spawn(async move {

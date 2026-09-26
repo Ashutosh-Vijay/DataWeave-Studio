@@ -1,0 +1,52 @@
+{
+  "id": "mcq-timezone-shift-date",
+  "unit": "date-arithmetic",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    ">>",
+    "as",
+    "DateTime"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ |2024-01-15T23:30:00-05:00| as Date, (|2024-01-15T23:30:00-05:00| >> \"UTC\") as Date ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "[ \"2024-01-16\", \"2024-01-15\" ]",
+      "[ \"2024-01-15\", \"2024-01-16\" ]",
+      "[ \"2024-01-15\", \"2024-01-15\" ]",
+      "[ \"2024-01-16\", \"2024-01-16\" ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ |2024-01-15T23:30:00-05:00| as Date, (|2024-01-15T23:30:00-05:00| >> \"UTC\") as Date ]",
+  "explanation": {
+    "approach": "`as Date` keeps the calendar date in the DateTime's own offset. `>>` moves the same instant into another time zone first, and 23:30 at -05:00 is already the next day in UTC.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ |2024-01-15T23:30:00-05:00| as Date, (|2024-01-15T23:30:00-05:00| >> \"UTC\") as Date ]",
+        "expect": {
+          "output": "[ \"2024-01-15\", \"2024-01-16\" ]"
+        },
+        "note": "Same instant, two different dates."
+      },
+      {
+        "label": "The shifted instant",
+        "script": "%dw 2.0\noutput application/json\n---\n|2024-01-15T23:30:00-05:00| >> \"UTC\"",
+        "expect": {
+          "output": "\"2024-01-16T04:30:00Z\""
+        },
+        "note": "Five hours later on the clock, same moment in time."
+      }
+    ]
+  }
+}

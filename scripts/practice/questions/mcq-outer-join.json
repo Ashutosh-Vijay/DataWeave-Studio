@@ -1,0 +1,44 @@
+{
+  "id": "mcq-outer-join",
+  "unit": "joins",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "dw::core::Arrays",
+    "outerJoin",
+    "default"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\nvar orders = [{id: 1, c: \"x\"}, {id: 2, c: \"y\"}, {id: 3, c: \"z\"}]\nvar custs = [{c: \"x\", name: \"Xa\"}, {c: \"y\", name: \"Yb\"}, {c: \"q\", name: \"Qc\"}]\n---\nouterJoin(orders, custs, (o) -> o.c, (c) -> c.c) map (($.l.id default \"-\") ++ \":\" ++ ($.r.name default \"-\"))"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "[ \"1:Xa\", \"2:Yb\", \"-:Qc\" ]",
+      "[ \"1:Xa\", \"2:Yb\" ]",
+      "[ \"1:Xa\", \"2:Yb\", \"3:-\", \"-:Qc\" ]",
+      "[ \"1:Xa\", \"2:Yb\", \"3:-\" ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\nvar orders = [{id: 1, c: \"x\"}, {id: 2, c: \"y\"}, {id: 3, c: \"z\"}]\nvar custs = [{c: \"x\", name: \"Xa\"}, {c: \"y\", name: \"Yb\"}, {c: \"q\", name: \"Qc\"}]\n---\nouterJoin(orders, custs, (o) -> o.c, (c) -> c.c) map (($.l.id default \"-\") ++ \":\" ++ ($.r.name default \"-\"))",
+  "explanation": {
+    "approach": "`outerJoin` keeps unmatched rows from both sides. The missing side is absent, so `default` supplies a placeholder.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\nvar orders = [{id: 1, c: \"x\"}, {id: 2, c: \"y\"}, {id: 3, c: \"z\"}]\nvar custs = [{c: \"x\", name: \"Xa\"}, {c: \"y\", name: \"Yb\"}, {c: \"q\", name: \"Qc\"}]\n---\nouterJoin(orders, custs, (o) -> o.c, (c) -> c.c) map (($.l.id default \"-\") ++ \":\" ++ ($.r.name default \"-\"))",
+        "expect": {
+          "output": "[ \"1:Xa\", \"2:Yb\", \"3:-\", \"-:Qc\" ]"
+        },
+        "note": "The unmatched order, then the unmatched customer."
+      }
+    ]
+  }
+}

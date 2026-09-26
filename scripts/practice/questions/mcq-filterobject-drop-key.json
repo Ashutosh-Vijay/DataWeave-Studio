@@ -1,0 +1,62 @@
+{
+  "id": "mcq-filterobject-drop-key",
+  "unit": "pluck-and-mapobject",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "Which script produces this output?",
+  "topics": [
+    "filterObject",
+    "Key",
+    "~="
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n{ \"id\": 7, \"name\": \"Ann\" }\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"id\":7,\"secret\":\"x\",\"name\":\"Ann\"}",
+    "target": "{ \"id\": 7, \"name\": \"Ann\" }",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload filterObject ((v, k) -> k != \"secret\")",
+      "%dw 2.0\noutput application/json\n---\npayload filterObject ((v, k) -> not (k ~= \"secret\"))",
+      "%dw 2.0\noutput application/json\n---\npayload filterObject ((v, k) -> v != \"secret\")",
+      "%dw 2.0\noutput application/json\n---\npayload filterObject ((v, k) -> k ~= \"secret\")"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload filterObject ((v, k) -> not (k ~= \"secret\"))",
+  "explanation": {
+    "approach": "In `filterObject`, the key is a Key, so `!=` against a String is always true and nothing is removed. Compare the key with `~=`. The last option tests the value, which is \"x\", not \"secret\".",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filterObject ((v, k) -> not (k ~= \"secret\"))",
+        "payload": "{\"id\":7,\"secret\":\"x\",\"name\":\"Ann\"}",
+        "expect": {
+          "output": "{ \"id\": 7, \"name\": \"Ann\" }"
+        },
+        "note": "Keep every key that is not \"secret\"."
+      },
+      {
+        "label": "!= keeps everything",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filterObject ((v, k) -> k != \"secret\")",
+        "payload": "{\"id\":7,\"secret\":\"x\",\"name\":\"Ann\"}",
+        "expect": {
+          "output": "{ \"id\": 7, \"secret\": \"x\", \"name\": \"Ann\" }"
+        },
+        "note": "A Key is never equal to a String under `==`, so it is always \"not equal\"."
+      },
+      {
+        "label": "~= alone keeps only that key",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filterObject ((v, k) -> k ~= \"secret\")",
+        "payload": "{\"id\":7,\"secret\":\"x\",\"name\":\"Ann\"}",
+        "expect": {
+          "output": "{ \"secret\": \"x\" }"
+        },
+        "note": "The opposite of what was wanted."
+      }
+    ]
+  }
+}

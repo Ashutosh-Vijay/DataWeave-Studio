@@ -420,7 +420,7 @@ fn parse_workspace(contents: &str) -> Result<WorkspaceFile, String> {
         return Ok(migrate_legacy(legacy));
     }
 
-    Err("Unrecognized workspace format — file missing both `requests` and `singleTransform`.".into())
+    Err("Unrecognized workspace format: the file has neither `requests` nor `singleTransform`.".into())
 }
 
 #[tauri::command]

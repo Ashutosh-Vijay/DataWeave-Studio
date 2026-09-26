@@ -29,7 +29,7 @@ export interface DwModule {
 // binds to the next thing after it, so one placed under the header documents
 // `greet` instead of the module, and the library shows no description.
 const SAMPLE_MODULE = `/**
- * Reusable helpers — import these from any script.
+ * Reusable helpers. Import these from any script.
  */
 %dw 2.0
 
@@ -133,7 +133,7 @@ export function ModulesPanel({
         <div className="w-px h-4 bg-line" />
         <Icons.Package size={15} />
         <span className="text-[13px] font-semibold text-content">Module library</span>
-        <span className="text-[11px] text-content-ghost">— save reusable modules once, import them from any script</span>
+        <span className="text-[11px] text-content-ghost">Save reusable modules once and import them from any script</span>
         <span className="flex-1" />
         <WindowControls />
       </header>
@@ -143,7 +143,7 @@ export function ModulesPanel({
         <div className="w-64 shrink-0 border-r border-line flex flex-col min-h-0 bg-surface">
           <div className="px-3.5 py-2 border-b border-line-subtle">
             <div className="text-[11.5px] font-semibold text-content">Saved modules</div>
-            <div className="text-[10px] text-content-ghost mt-0.5">Global — available to every run.</div>
+            <div className="text-[10px] text-content-ghost mt-0.5">Global: available to every run.</div>
           </div>
           <div className="flex-1 overflow-auto">
             {modules.length === 0 ? (
@@ -211,9 +211,9 @@ export function ModulesPanel({
                 <MiniEditor value={active.content} onChange={(v) => updateActive({ content: v })} language="dataweave" height="100%" />
               </div>
               <div className="shrink-0 px-3.5 py-2 border-t border-line-subtle text-[10px] text-content-ghost leading-relaxed">
-                The name is the import path — <span className="font-mono text-content-faint">import fn from {active.name || 'MyModule'}</span>.
+                The name is the import path: <span className="font-mono text-content-faint">import fn from {active.name || 'MyModule'}</span>.
                 {!active.name.includes('::') && <> A bare name also resolves the MuleSoft way as <span className="font-mono text-content-faint">modules::{active.name || 'MyModule'}</span>, so standard imports work too.</>}
-                {' '}A module is a <span className="font-mono text-content-faint">%dw 2.0</span> header plus <span className="font-mono text-content-faint">fun</span>/<span className="font-mono text-content-faint">var</span> definitions — no <span className="font-mono text-content-faint">---</span> body. Edits apply on the next run.
+                {' '}A module is a <span className="font-mono text-content-faint">%dw 2.0</span> header plus <span className="font-mono text-content-faint">fun</span>/<span className="font-mono text-content-faint">var</span> definitions, no <span className="font-mono text-content-faint">---</span> body. Edits apply on the next run.
               </div>
             </>
           ) : (

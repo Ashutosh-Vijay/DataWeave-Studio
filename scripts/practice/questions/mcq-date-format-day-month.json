@@ -1,0 +1,62 @@
+{
+  "id": "mcq-date-format-day-month",
+  "unit": "dates-formatting",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "Which script produces this output?",
+  "topics": [
+    "as",
+    "Date",
+    "format"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "The partner wants day/month/year. Given the payload below,\n\n**which script produces exactly this output?**\n\n```\n\"05/03/2024\"\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"d\":\"2024-03-05\"}",
+    "target": "\"05/03/2024\"",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload.d as Date as String {format: \"dd/MM/yyyy\"}",
+      "%dw 2.0\noutput application/json\n---\npayload.d as String {format: \"dd/MM/yyyy\"}",
+      "%dw 2.0\noutput application/json\n---\npayload.d as Date as String {format: \"dd/mm/yyyy\"}",
+      "%dw 2.0\noutput application/json\n---\npayload.d as Date as String {format: \"MM/dd/yyyy\"}"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.d as Date as String {format: \"dd/MM/yyyy\"}",
+  "explanation": {
+    "approach": "The value is a String, so it has to become a Date before a date pattern means anything. In the pattern, `MM` is month and `mm` is minutes.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.d as Date as String {format: \"dd/MM/yyyy\"}",
+        "payload": "{\"d\":\"2024-03-05\"}",
+        "expect": {
+          "output": "\"05/03/2024\""
+        },
+        "note": "Parse to Date, then format."
+      },
+      {
+        "label": "A format on a String is ignored",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.d as String {format: \"dd/MM/yyyy\"}",
+        "payload": "{\"d\":\"2024-03-05\"}",
+        "expect": {
+          "output": "\"2024-03-05\""
+        },
+        "note": "String to String is no conversion at all, so nothing is reformatted."
+      },
+      {
+        "label": "mm is minutes",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.d as Date as String {format: \"dd/mm/yyyy\"}",
+        "payload": "{\"d\":\"2024-03-05\"}",
+        "expect": {
+          "error": true
+        },
+        "note": "A Date has no time, so there are no minutes to print."
+      }
+    ]
+  }
+}

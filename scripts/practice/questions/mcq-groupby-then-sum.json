@@ -1,0 +1,63 @@
+{
+  "id": "mcq-groupby-then-sum",
+  "unit": "nested-aggregation",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "Which script produces this output?",
+  "topics": [
+    "groupBy",
+    "mapObject",
+    "sum",
+    "pluck"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n[ { \"region\": \"EU\", \"total\": 17 }, { \"region\": \"US\", \"total\": 5 } ]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[{\"r\":\"EU\",\"amt\":10},{\"r\":\"US\",\"amt\":5},{\"r\":\"EU\",\"amt\":7}]",
+    "target": "[ { \"region\": \"EU\", \"total\": 17 }, { \"region\": \"US\", \"total\": 5 } ]",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.r mapObject { ($$): sum($.amt) }",
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.r pluck { region: $$, total: sizeOf($) }",
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.r pluck { region: $$, total: sum($.amt) }",
+      "%dw 2.0\noutput application/json\n---\npayload map { region: $.r, total: $.amt }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.r pluck { region: $$, total: sum($.amt) }",
+  "explanation": {
+    "approach": "Group first, then `pluck` to turn each group into a row. Inside the lambda, `$$` is the group key and `$` is the Array of rows in that group.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.r pluck { region: $$, total: sum($.amt) }",
+        "payload": "[{\"r\":\"EU\",\"amt\":10},{\"r\":\"US\",\"amt\":5},{\"r\":\"EU\",\"amt\":7}]",
+        "expect": {
+          "output": "[ { \"region\": \"EU\", \"total\": 17 }, { \"region\": \"US\", \"total\": 5 } ]"
+        },
+        "note": "One row per region."
+      },
+      {
+        "label": "Totals, but as an Object",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.r mapObject { ($$): sum($.amt) }",
+        "payload": "[{\"r\":\"EU\",\"amt\":10},{\"r\":\"US\",\"amt\":5},{\"r\":\"EU\",\"amt\":7}]",
+        "expect": {
+          "output": "{ \"EU\": 17, \"US\": 5 }"
+        },
+        "note": "Right numbers, wrong shape."
+      },
+      {
+        "label": "Counting instead of summing",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.r pluck { region: $$, total: sizeOf($) }",
+        "payload": "[{\"r\":\"EU\",\"amt\":10},{\"r\":\"US\",\"amt\":5},{\"r\":\"EU\",\"amt\":7}]",
+        "expect": {
+          "output": "[ { \"region\": \"EU\", \"total\": 2 }, { \"region\": \"US\", \"total\": 1 } ]"
+        },
+        "note": "Right shape, wrong numbers."
+      }
+    ]
+  }
+}

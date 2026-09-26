@@ -186,16 +186,16 @@ export function registerTools(
       description:
         'Run and validate a DataWeave 2.0 script against a sample payload on the local, real DataWeave 2.12 ' +
         'engine; returns the rendered output, or the exact compile/runtime error with line & column. MANDATORY: ' +
-        'call this on EVERY DataWeave script you write BEFORE showing it to the user — never present unverified ' +
+        'call this on EVERY DataWeave script you write BEFORE showing it to the user. Never present unverified ' +
         "DataWeave. On error, fix the script using the reported line/column and re-run until it succeeds (don't " +
-        "web-search syntax — this tool's result is the ground truth). A bare body runs as `%dw 2.0` / `output " +
+        "web-search syntax; this tool's result is the ground truth). A bare body runs as `%dw 2.0` / `output " +
         'application/json`; include your own `output <mime>` + `---` for any other output format.',
       inputSchema: {
         script: z.string().describe('The complete DataWeave 2.0 script. A bare body works; for non-JSON output include your own %dw/output/--- header.'),
         payload: z.string().default('{}').describe('Sample input payload as a string matching input_mime_type. Pass {} if unused.'),
         inputMimeType: z.string().default('application/json').describe('MIME type of payload: application/json (default), application/xml, application/csv, application/yaml, etc.'),
-        attributes: z.string().optional().describe('Optional inbound attributes as a JSON object — read as attributes.* (method/headers/queryParams/uriParams).'),
-        vars: z.string().optional().describe('Optional flow variables as a JSON object {"name": value} — read as vars.*.'),
+        attributes: z.string().optional().describe('Optional inbound attributes as a JSON object, read as attributes.* (method/headers/queryParams/uriParams).'),
+        vars: z.string().optional().describe('Optional flow variables as a JSON object {"name": value}, read as vars.*.'),
         config: z.string().optional().describe('Optional Config YAML. ${key} placeholders in script/payload are replaced before running.'),
         secureConfig: z.string().optional().describe('Optional Secure Config YAML. Replaces ${secure::key}/${key}. Encrypted ![…] values are decrypted first if a key is available.'),
         secureKey: z.string().optional().describe('Decryption key for ![…] values (overrides env DWSTUDIO_SECURE_KEY). If a ![…] appears with no key, the run is REJECTED (never runs ciphertext).'),
@@ -250,7 +250,7 @@ export function registerTools(
         const reason = safeModeBlockReason(script);
         if (reason) {
           return err(
-            `Safe mode rejected this script: ${reason} is not allowed here — this is a pure-transform sandbox ` +
+            `Safe mode rejected this script: ${reason} is not allowed here. This is a pure-transform sandbox ` +
             `with no file or network access, so it was NOT run. Rewrite it without that, or restart the MCP ` +
             `server with DWSTUDIO_MCP_ADVANCED=1.`,
           );
@@ -321,7 +321,7 @@ export function registerTools(
           for (const m of mods) {
             const reason = safeModeBlockReason(String(m.content ?? ''));
             if (reason) {
-              return err(`Safe mode rejected module '${m.name}': ${reason} is not allowed here — modules run in the same pure-transform sandbox as the script, so nothing was run. Rewrite the module without that, or enable Advanced mode.`);
+              return err(`Safe mode rejected module '${m.name}': ${reason} is not allowed here. Modules run in the same pure-transform sandbox as the script, so nothing was run. Rewrite the module without that, or enable Advanced mode.`);
             }
           }
         }
@@ -381,14 +381,14 @@ export function registerTools(
         'Encrypt or decrypt MuleSoft secure-properties values, byte-compatible with the Mule runtime (uses the ' +
         'official secure-properties-tool). operation:"encrypt" turns plaintext into the `![base64]` form for a ' +
         'secure config; operation:"decrypt" reads one (accepts the inner base64 OR the full `![...]`). Default ' +
-        'cipher AES/CBC. Pass `value` for one, or `values` (a JSON array) for a whole config file at once — read ' +
+        'cipher AES/CBC. Pass `value` for one, or `values` (a JSON array) for a whole config file at once. Read ' +
         'the file yourself, pass the values you judge to be secrets, and write the results back in place; ' +
         'already-encrypted values passed to encrypt (and plaintext passed to decrypt) come back untouched, so ' +
-        're-running is safe. Pure local crypto — allowed in Safe mode.',
+        're-running is safe. Pure local crypto, so it is allowed in Safe mode.',
       inputSchema: {
         operation: z.string().describe('"encrypt" or "decrypt".'),
         value: z.string().optional().describe('Plaintext to encrypt, or ciphertext (inner base64 or full ![...]) to decrypt. Omit when using `values`.'),
-        values: z.string().optional().describe('A batch, as a JSON array of strings: ["hunter2","s3cret"]. Results come back in the same order, one per line — one call for a whole config file.'),
+        values: z.string().optional().describe('A batch, as a JSON array of strings: ["hunter2","s3cret"]. Results come back in the same order, one per line, so one call covers a whole config file.'),
         key: z.string().describe('The secure-properties key (e.g. a 16/24/32-char AES key).'),
         algorithm: z.string().optional().describe('AES (default) | Blowfish | DES | DESede | RC2.'),
         mode: z.string().optional().describe('CBC (default) | CFB | ECB | OFB.'),
@@ -441,7 +441,7 @@ export function registerTools(
       description:
         'Best-effort migrate a DataWeave 1.0 script to 2.0 syntax (header, %output/%var/%function/%input ' +
         'directives, flowVars→vars, inboundProperties→attributes, :string→String, etc.). Returns the migrated ' +
-        'script with `// ⚠` comments flagging constructs that need manual work. HEURISTIC — ALWAYS run the result ' +
+        'script with `// ⚠` comments flagging constructs that need manual work. HEURISTIC: ALWAYS run the result ' +
         'through validate_and_run_dataweave before presenting it.',
       inputSchema: { script: z.string().describe('A DataWeave 1.0 script to migrate to 2.0 syntax.') },
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
@@ -456,7 +456,7 @@ export function registerTools(
       title: 'Format DataWeave',
       description:
         "Pretty-print / reformat a DataWeave script using the engine's own IDE formatter (canonical indentation " +
-        '& spacing — the same one DataWeave editors use). Returns the formatted script.',
+        '& spacing, the same one DataWeave editors use). Returns the formatted script.',
       inputSchema: { script: z.string().describe('A DataWeave script to pretty-print / reformat.') },
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
@@ -472,7 +472,7 @@ export function registerTools(
     {
       title: 'DataWeave function reference (offline)',
       description:
-        'OFFLINE DataWeave 2.12 standard-library reference — every function the bundled engine has, with signatures, descriptions, ' +
+        'OFFLINE DataWeave 2.12 standard-library reference: every function the bundled engine has, with signatures, descriptions, ' +
         "and runnable examples. Pass `name` for one function's full doc, `search` for a keyword match list, or no " +
         'args to list every function name. Use THIS instead of recalling/web-searching DW syntax.',
       inputSchema: {
@@ -503,7 +503,7 @@ export function registerTools(
         for (const [k, v] of Object.entries(obj)) {
           if (`${k} ${JSON.stringify(v)}`.toLowerCase().includes(ql)) {
             const sig = v?.overloads?.[0]?.signature ?? '';
-            lines.push(`${k} — ${sig}`);
+            lines.push(`${k}: ${sig}`);
           }
         }
         lines.sort();
@@ -520,7 +520,7 @@ export function registerTools(
     {
       title: 'DataWeave cookbook (offline)',
       description:
-        'OFFLINE DataWeave cookbook — validated recipes (each runs cleanly on this engine) for common MuleSoft ' +
+        'OFFLINE DataWeave cookbook: validated recipes (each runs cleanly on this engine) for common MuleSoft ' +
         'tasks: array/object/string transforms, XML/CSV, dates, error handling. Pass `id` for a full recipe, ' +
         '`search`/`category` to filter, or no args to list all. Grab a verified starting pattern before writing a ' +
         'complex transform.',
@@ -548,7 +548,7 @@ export function registerTools(
       for (const r of arr) {
         if (category && !g(r, 'category').toLowerCase().includes(category)) continue;
         if (search && !`${g(r, 'name')} ${g(r, 'description')} ${g(r, 'script')}`.toLowerCase().includes(search)) continue;
-        lines.push(`${g(r, 'id')} — ${g(r, 'name')} [${g(r, 'category')} · ${g(r, 'difficulty')}]`);
+        lines.push(`${g(r, 'id')}: ${g(r, 'name')} [${g(r, 'category')} · ${g(r, 'difficulty')}]`);
       }
       return ok(lines.length ? `${lines.length} recipe(s) (pass \`id\` for the full recipe):\n${lines.join('\n')}` : 'No recipes match. Omit args to list all.');
     },
@@ -579,7 +579,7 @@ export function registerTools(
       // goes through the same runner — and therefore the same Safe-mode gate.
       if (!advanced) {
         const reason = safeModeBlockReason(suite);
-        if (reason) return err(`Safe mode rejected this suite: ${reason} is not allowed here — it was NOT run.`);
+        if (reason) return err(`Safe mode rejected this suite: ${reason} is not allowed here. It was NOT run.`);
       }
       const result = await runDataweave(dw, {
         script: suite,
@@ -596,7 +596,7 @@ export function registerTools(
       let report: any;
       try { report = JSON.parse(result.output); }
       catch {
-        return err('The suite ran but did not return a test report — its body must be a `describedBy` block. It returned:\n' + result.output);
+        return err('The suite ran but did not return a test report. Its body must be a `describedBy` block. It returned:\n' + result.output);
       }
       // Only leaves are tests. A `describedBy` block reports its own status as OK
       // even when the tests inside it failed, so pass/fail is counted from leaves.
@@ -630,7 +630,7 @@ export function registerTools(
     {
       title: 'Type-check and lint DataWeave',
       description:
-        "Check a DataWeave script WITHOUT running it — the engine's own type checker and linter. Reports " +
+        "Check a DataWeave script WITHOUT running it, using the engine's own type checker and linter. Reports " +
         'undefined references, wrong argument counts, syntax errors, type mismatches, insecure hash algorithms ' +
         '(MD5/SHA-1), leftover log() calls and unused imports, each with a line/column and a rule id. Use this when ' +
         'you have no sample payload to run against, when reviewing a script someone else wrote, or as a fast first ' +
@@ -648,7 +648,7 @@ export function registerTools(
       // so it goes through the same Safe-mode gate as a run.
       if (!advanced) {
         const reason = safeModeBlockReason(a.script);
-        if (reason) return err(`Safe mode rejected this script: ${reason} is not allowed here — it was NOT compiled.`);
+        if (reason) return err(`Safe mode rejected this script: ${reason} is not allowed here. It was NOT compiled.`);
       }
       let res: any;
       try {
@@ -662,7 +662,7 @@ export function registerTools(
       for (const m of messages) {
         const line = m?.location?.startLine, col = m?.location?.startColumn;
         const at = line != null ? (col != null ? `line ${line}, col ${col}` : `line ${line}`) : 'somewhere';
-        lines.push(`[${m?.severity ?? 'error'}] ${at} — ${m?.message ?? ''} (${m?.code ?? ''})`);
+        lines.push(`[${m?.severity ?? 'error'}] ${at}: ${m?.message ?? ''} (${m?.code ?? ''})`);
         const fixes = (Array.isArray(m?.quickFixes) ? m.quickFixes : []).map((f: any) => f?.name).filter(Boolean);
         if (fixes.length) lines.push(`    available fixes: ${fixes.join(', ')}`);
       }
@@ -677,13 +677,13 @@ export function registerTools(
     {
       title: 'What is in scope here',
       description:
-        'Ask the engine what is IN SCOPE at one point in a script — every visible variable with its INFERRED ' +
+        'Ask the engine what is IN SCOPE at one point in a script: every visible variable with its INFERRED ' +
         'type, plus the functions the script itself declares, one line per overload. Inside a `map`/`filter` ' +
         'lambda this is the only way to learn what the lambda parameter actually is (e.g. `item` is ' +
         '`{ price: Number, name: String }`), which is exactly what you need before writing the body. Pass ' +
         '`line` (1-based, as reported by lint/run errors) and optionally `column`; with no position it answers ' +
         "at the end of the script. Supply `payload` so `payload` resolves to its real shape. This lists the " +
-        "SCRIPT's own names only — for standard-library functions use dw_function_reference.",
+        "SCRIPT's own names only. For standard-library functions, use dw_function_reference.",
       inputSchema: {
         script: z.string().describe('The DataWeave script to inspect.'),
         line: z.number().optional().describe('1-based line to ask about. Omitted, answers at the end of the script.'),
@@ -696,7 +696,7 @@ export function registerTools(
     async (a) => {
       if (!advanced) {
         const reason = safeModeBlockReason(a.script);
-        if (reason) return err(`Safe mode rejected this script: ${reason} is not allowed here — it was NOT compiled.`);
+        if (reason) return err(`Safe mode rejected this script: ${reason} is not allowed here. It was NOT compiled.`);
       }
       // Line/column -> character offset. A column past the end of the line just
       // lands at the end of it.
@@ -741,7 +741,7 @@ export function registerTools(
           out.push(`  ${name}(${params})${f?.returns ? ` -> ${flat(f.returns)}` : ''}`);
         }
       }
-      out.push('', 'Standard-library functions are not listed here — see dw_function_reference.');
+      out.push('', 'Standard-library functions are not listed here; see dw_function_reference.');
       return ok(out.join('\n'));
     },
   );

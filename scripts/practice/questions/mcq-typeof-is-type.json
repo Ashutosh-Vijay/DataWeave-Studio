@@ -1,0 +1,61 @@
+{
+  "id": "mcq-typeof-is-type",
+  "unit": "schema-validator",
+  "mode": "choice",
+  "tier": "max",
+  "title": "What does this return?",
+  "topics": [
+    "typeOf",
+    "==",
+    "~=",
+    "mapObject"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nvar schema = { id: \"Number\", name: \"String\" }\nvar rec = { id: \"7\", name: \"Ann\" }\n---\nschema mapObject ((t, k) -> { (k): typeOf(rec[k]) == t })"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "{ \"id\": null, \"name\": null }",
+      "{ \"id\": true, \"name\": true }",
+      "{ \"id\": false, \"name\": true }",
+      "{ \"id\": false, \"name\": false }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nvar schema = { id: \"Number\", name: \"String\" }\nvar rec = { id: \"7\", name: \"Ann\" }\n---\nschema mapObject ((t, k) -> { (k): typeOf(rec[k]) == t })",
+  "explanation": {
+    "approach": "`typeOf` returns a Type, not a String, and `==` compares types as well as values. So it is never equal to the text \"String\", even when the value really is a String. Compare with `~=`, or against the type itself.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nvar schema = { id: \"Number\", name: \"String\" }\nvar rec = { id: \"7\", name: \"Ann\" }\n---\nschema mapObject ((t, k) -> { (k): typeOf(rec[k]) == t })",
+        "expect": {
+          "output": "{ \"id\": false, \"name\": false }"
+        },
+        "note": "`name` fails too, although it is a String."
+      },
+      {
+        "label": "Why",
+        "script": "%dw 2.0\noutput application/json\n---\n[ typeOf(\"a\") == \"String\", typeOf(\"a\") ~= \"String\", typeOf(\"a\") == String, typeOf(typeOf(\"a\")) ]",
+        "expect": {
+          "output": "[ false, true, true, \"Type\" ]"
+        },
+        "note": "Only the direct comparison with text is false."
+      },
+      {
+        "label": "With ~=",
+        "script": "%dw 2.0\noutput application/json\nvar schema = { id: \"Number\", name: \"String\" }\nvar rec = { id: \"7\", name: \"Ann\" }\n---\nschema mapObject ((t, k) -> { (k): typeOf(rec[k]) ~= t })",
+        "expect": {
+          "output": "{ \"id\": false, \"name\": true }"
+        },
+        "note": "Now only the real mismatch is reported."
+      }
+    ]
+  }
+}

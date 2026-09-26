@@ -1,0 +1,52 @@
+{
+  "id": "mcq-dollar-outside-lambda",
+  "unit": "higher-order",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "fun",
+    "lambda",
+    "$"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "payload": "[1,2,3]",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\nvar double = (n) -> n * 2\n---\npayload map (double($))",
+      "%dw 2.0\noutput application/json\nfun double(n) = n * 2\n---\npayload map double($)",
+      "%dw 2.0\noutput application/json\nfun double() = $ * 2\n---\npayload map double()",
+      "%dw 2.0\noutput application/json\n---\npayload map ((n) -> n * 2)"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun double(n) = n * 2\n---\npayload map double($)",
+  "explanation": {
+    "approach": "`$` is the implicit parameter of an anonymous lambda written in place, such as the one after `map`. A named function has no implicit parameter, so inside `fun` there is nothing called `$`. Declare a parameter and pass `$` to it.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\nfun double() = $ * 2\n---\npayload map double()",
+        "payload": "[1,2,3]",
+        "expect": {
+          "error": true
+        },
+        "note": "Unable to resolve reference of: $."
+      },
+      {
+        "label": "Pass it in",
+        "script": "%dw 2.0\noutput application/json\nfun double(n) = n * 2\n---\npayload map double($)",
+        "payload": "[1,2,3]",
+        "expect": {
+          "output": "[ 2, 4, 6 ]"
+        },
+        "note": "Here `$` belongs to the `map` lambda."
+      }
+    ]
+  }
+}

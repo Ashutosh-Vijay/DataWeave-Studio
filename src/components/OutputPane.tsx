@@ -8,6 +8,7 @@ import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';
 import { Icons } from './Icons';
 import { matchErrorHint, categoryLabel } from '../dataweaveErrorHints';
+import { engineDiagnosisFor } from '../dataweaveEngineLanguage';
 import type { TraceRow } from '../hooks/useDWRunner';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
@@ -176,7 +177,7 @@ export const OutputPane = memo(function OutputPane({
         {/* Segmented format switch — highlighting only. It follows the
             script's `output` directive on each run; switching it here does
             NOT convert the output (change the directive for that). */}
-        <div className="flex items-center p-0.5 rounded-md bg-surface-2 border border-line-secondary" title="Syntax highlighting only — to convert the output, change the script's `output` directive">
+        <div className="flex items-center p-0.5 rounded-md bg-surface-2 border border-line-secondary" title="Syntax highlighting only. To convert the output, change the script's `output` directive">
           {(['json', 'xml', 'raw'] as const).map((f) => {
             const active = outputFormat === f;
             return (
@@ -306,9 +307,9 @@ export const OutputPane = memo(function OutputPane({
               {/* Connector behavior note */}
               <div className="px-3 pb-2 pt-1 text-[10px] text-content-ghost border-t border-line-subtle mt-2">
                 {queryLanguage === 'SOQL' ? (
-                  <span>Salesforce connector: literal replace — use <code className="text-content-faint">':param'</code> for strings, bare <code className="text-content-faint">:param</code> for dates/numbers. Arrays join with commas — wrap in <code className="text-content-faint">(...)</code> yourself for <code className="text-content-faint">IN</code> clauses.</span>
+                  <span>Salesforce connector: literal replace. Use <code className="text-content-faint">':param'</code> for strings, bare <code className="text-content-faint">:param</code> for dates/numbers. Arrays join with commas; wrap in <code className="text-content-faint">(...)</code> yourself for <code className="text-content-faint">IN</code> clauses.</span>
                 ) : (
-                  <span>DB connector (JDBC): auto-quotes strings, bare numbers/booleans, NULL for nulls — never quote <code className="text-content-faint">:param</code> in SQL. Arrays auto-expand to <code className="text-content-faint">(v1,v2,...)</code> for <code className="text-content-faint">IN</code> clauses.</span>
+                  <span>DB connector (JDBC): auto-quotes strings, bare numbers/booleans, NULL for nulls. Never quote <code className="text-content-faint">:param</code> in SQL. Arrays auto-expand to <code className="text-content-faint">(v1,v2,...)</code> for <code className="text-content-faint">IN</code> clauses.</span>
                 )}
               </div>
             </div>
@@ -384,7 +385,7 @@ function TracePanel({ trace, onRevealLine }: { trace: TraceRow[]; onRevealLine?:
           {trace.length}
         </span>
         <span className="text-content-ghost normal-case tracking-normal font-normal">
-          {failed > 0 ? 'every expression — red is where it broke' : 'every expression, as it ran'}
+          {failed > 0 ? 'every expression; red is where it broke' : 'every expression, as it ran'}
         </span>
       </button>
       {open && (
@@ -545,7 +546,13 @@ function OutputErrorCard({ error, errorLine, executionTimeMs, scriptSource, stac
   const headline = extractFirstLine(error);
   const details = extractDetails(error);
   const stack = extractStackTrace(error);
-  const hint = matchErrorHint(error);
+  // The engine's own type check, when it has an opinion about exactly this
+  // script, beats anything we can infer from the runtime message — it names the
+  // expression rather than the exception. The pattern-matched hint stays for the
+  // failures typeCheck cannot see, which is most runtime ones: a bad coercion
+  // or a null argument type-checks clean and only blows up on real data.
+  const diagnosis = scriptSource ? engineDiagnosisFor(scriptSource) : [];
+  const hint = diagnosis.length ? null : matchErrorHint(error);
 
   const sourceContext = (() => {
     if (!scriptSource || !errorLine) return null;
@@ -624,6 +631,57 @@ function OutputErrorCard({ error, errorLine, executionTimeMs, scriptSource, stac
           </div>
         </div>
       </div>
+
+      {/* What the engine's type checker said about this exact script. It points
+          at the expression that is wrong, which a message keyed off the
+          exception name cannot do — so when it has something, it goes here and
+          the pattern-matched hint stands down. Same text the editor shows on
+          hover; people who never hover were not seeing it. */}
+      {diagnosis.length > 0 && (
+        <div
+          className="rounded-lg border overflow-hidden"
+          style={{
+            background: 'color-mix(in oklch, var(--cyan) 5%, var(--surface))',
+            borderColor: 'color-mix(in oklch, var(--cyan) 28%, transparent)',
+          }}
+        >
+          <div
+            className="flex items-center gap-2 px-3 py-1.5 border-b"
+            style={{
+              borderColor: 'color-mix(in oklch, var(--cyan) 18%, transparent)',
+              background: 'color-mix(in oklch, var(--cyan) 8%, transparent)',
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--cyan)' }}>
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4M12 8h.01" />
+            </svg>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--cyan)' }}>
+              What the type checker says
+            </span>
+          </div>
+          <div className="px-3.5 py-3 space-y-2.5">
+            {diagnosis.map((m, i) => (
+              <div key={i} className="space-y-1">
+                <div className="flex items-baseline gap-2">
+                  <span
+                    className="shrink-0 font-mono text-[10px] font-bold uppercase tracking-[0.4px]"
+                    style={{ color: m.severity === 'error' ? 'var(--err)' : 'var(--warn)' }}
+                  >
+                    {m.severity}
+                  </span>
+                  {m.code && (
+                    <span className="font-mono text-[10px] text-content-faint">{m.code}</span>
+                  )}
+                </div>
+                <pre className="text-[12px] text-content leading-relaxed font-mono whitespace-pre-wrap break-words">
+                  {m.message}
+                </pre>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Hint card — pattern-matched explanation + fix suggestions.
           Rendered above the raw details so users see the actionable advice first. */}

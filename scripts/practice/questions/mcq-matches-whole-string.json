@@ -1,0 +1,44 @@
+{
+  "id": "mcq-matches-whole-string",
+  "unit": "string-basics",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "matches",
+    "contains",
+    "regex"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ \"abc-123\" matches /[a-z]+/, \"abc-123\" contains /[a-z]+/, \"abc-123\" matches /[a-z]+-\\d+/ ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "[ false, false, true ]",
+      "[ true, true, true ]",
+      "[ false, true, true ]",
+      "[ true, false, true ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ \"abc-123\" matches /[a-z]+/, \"abc-123\" contains /[a-z]+/, \"abc-123\" matches /[a-z]+-\\d+/ ]",
+  "explanation": {
+    "approach": "`matches` asks whether the regex describes the whole String. `contains` with a regex asks whether it occurs anywhere in it.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ \"abc-123\" matches /[a-z]+/, \"abc-123\" contains /[a-z]+/, \"abc-123\" matches /[a-z]+-\\d+/ ]",
+        "expect": {
+          "output": "[ false, true, true ]"
+        },
+        "note": "The first regex only covers \"abc\", so it is not a full match."
+      }
+    ]
+  }
+}

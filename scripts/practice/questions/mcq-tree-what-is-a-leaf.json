@@ -1,0 +1,44 @@
+{
+  "id": "mcq-tree-what-is-a-leaf",
+  "unit": "tree-module",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "dw::util::Tree",
+    "mapLeafValues"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "A leaf is a value with nothing inside it: a String, a Number, a Boolean, a date. `mapLeafValues` calls your function once for every leaf and rebuilds the Objects and Arrays around the results.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\n{ a: null, b: [], c: {}, d: \"x\" } mapLeafValues ((v, p) -> \"LEAF\")"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "{ \"a\": \"LEAF\", \"b\": [ ], \"c\": { }, \"d\": \"LEAF\" }",
+      "{ \"a\": \"LEAF\", \"b\": \"LEAF\", \"c\": \"LEAF\", \"d\": \"LEAF\" }",
+      "{ \"a\": \"LEAF\", \"b\": [ \"LEAF\" ], \"c\": { }, \"d\": \"LEAF\" }",
+      "{ \"a\": null, \"b\": [ ], \"c\": { }, \"d\": \"LEAF\" }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\n{ a: null, b: [], c: {}, d: \"x\" } mapLeafValues ((v, p) -> \"LEAF\")",
+  "explanation": {
+    "approach": "null counts as a leaf, so the function is called for it. An empty Array and an empty Object are containers with nothing inside, so there is no leaf for the function to be called on, and they come back unchanged.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\n{ a: null, b: [], c: {}, d: \"x\" } mapLeafValues ((v, p) -> \"LEAF\")",
+        "expect": {
+          "output": "{\"a\":\"LEAF\",\"b\":[],\"c\":{},\"d\":\"LEAF\"}"
+        },
+        "note": "A function that replaces nulls will reach them; one that fills empty lists will not."
+      }
+    ]
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "id": "mcq-dynamic-key-parens",
+  "unit": "dynamic-keys",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "Which one fails?",
+  "topics": [
+    "dynamic keys"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "payload": "{\"field\":\"id\",\"value\":42}",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n{ (payload.field): payload.value }",
+      "%dw 2.0\noutput application/json\n---\n{ \"$(payload.field)\": payload.value }",
+      "%dw 2.0\noutput application/json\n---\n{ \"$(payload.field)_x\": payload.value }",
+      "%dw 2.0\noutput application/json\n---\n{ payload.field: payload.value }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ (payload.field): payload.value }",
+  "explanation": {
+    "approach": "A key is a name, not an expression. To compute it, wrap the expression in parentheses, or interpolate it into a quoted key.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\n{ payload.field: payload.value }",
+        "payload": "{\"field\":\"id\",\"value\":42}",
+        "expect": {
+          "error": true
+        },
+        "note": "The parser does not expect a dot in a key."
+      },
+      {
+        "label": "Parentheses",
+        "script": "%dw 2.0\noutput application/json\n---\n{ (payload.field): payload.value }",
+        "payload": "{\"field\":\"id\",\"value\":42}",
+        "expect": {
+          "output": "{ \"id\": 42 }"
+        },
+        "note": "The key is computed."
+      },
+      {
+        "label": "Interpolation in a key",
+        "script": "%dw 2.0\noutput application/json\n---\n{ \"$(payload.field)_x\": payload.value }",
+        "payload": "{\"field\":\"id\",\"value\":42}",
+        "expect": {
+          "output": "{ \"id_x\": 42 }"
+        },
+        "note": "Handy when the key is part computed, part fixed."
+      }
+    ]
+  }
+}

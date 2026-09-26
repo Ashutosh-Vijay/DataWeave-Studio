@@ -1,0 +1,43 @@
+{
+  "id": "mcq-open-object-type",
+  "unit": "custom-types",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "type",
+    "is"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\ntype Order = { id: Number, sku: String }\n---\n[ {id: 1, sku: \"a\"} is Order, {id: \"1\", sku: \"a\"} is Order, {id: 1} is Order, {id: 1, sku: \"a\", x: 2} is Order ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ true, false, false, true ]",
+      "[ true, true, false, true ]",
+      "[ true, false, true, true ]",
+      "[ true, false, false, false ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\ntype Order = { id: Number, sku: String }\n---\n[ {id: 1, sku: \"a\"} is Order, {id: \"1\", sku: \"a\"} is Order, {id: 1} is Order, {id: 1, sku: \"a\", x: 2} is Order ]",
+  "explanation": {
+    "approach": "An Object type lists fields that must be present with the right types. It is open by default, so extra fields are allowed. A String \"1\" is not a Number, and a missing field fails the check.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\ntype Order = { id: Number, sku: String }\n---\n[ {id: 1, sku: \"a\"} is Order, {id: \"1\", sku: \"a\"} is Order, {id: 1} is Order, {id: 1, sku: \"a\", x: 2} is Order ]",
+        "expect": {
+          "output": "[ true, false, false, true ]"
+        },
+        "note": "The extra field `x` does not matter."
+      }
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "id": "mcq-date-difference",
+  "unit": "date-arithmetic",
+  "mode": "choice",
+  "tier": "max",
+  "title": "What does this return?",
+  "topics": [
+    "-",
+    "daysBetween",
+    "Date"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ diff: |2024-03-01| - |2024-02-01|, days: daysBetween(|2024-02-01|, |2024-03-01|) }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "{ \"diff\": \"P29D\", \"days\": 29 }",
+      "{ \"diff\": 29, \"days\": 29 }",
+      "{ \"diff\": \"PT696H\", \"days\": 29 }",
+      "{ \"diff\": \"P1M\", \"days\": 29 }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ diff: |2024-03-01| - |2024-02-01|, days: daysBetween(|2024-02-01|, |2024-03-01|) }",
+  "explanation": {
+    "approach": "Subtracting two Dates gives a Period, and this engine prints it in hours: 29 days is 696 hours. `daysBetween` returns a plain Number of days, which is usually what you want.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ diff: |2024-03-01| - |2024-02-01|, days: daysBetween(|2024-02-01|, |2024-03-01|) }",
+        "expect": {
+          "output": "{ \"diff\": \"PT696H\", \"days\": 29 }"
+        },
+        "note": "29 * 24 = 696."
+      }
+    ]
+  }
+}

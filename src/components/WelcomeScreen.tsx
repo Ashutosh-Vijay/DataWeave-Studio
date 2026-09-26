@@ -52,18 +52,18 @@ const ICONS = {
 };
 
 const BENTO = [
-  { key: 'target', tag: 'NEW', title: 'Target your Mule', desc: 'Check scripts against the runtime you deploy to — a function your Mule lacks fails here, not on the server.', icon: ICONS.target },
+  { key: 'target', tag: 'NEW', title: 'Target your Mule', desc: 'Check scripts against the runtime you deploy to, so a function your Mule lacks fails here, not on the server.', icon: ICONS.target },
   { key: 'tests', tag: 'NEW', title: 'Unit tests', desc: 'Real dw::test suites, run by the bundled engine, with the engine’s own failure messages and line numbers.', icon: ICONS.tests },
   { key: 'lsp', tag: 'NEW', title: 'Real IDE editing', desc: 'MuleSoft’s own language service: type-aware completion, go-to-definition, rename, outline and quick fixes.', icon: ICONS.lsp },
-  { key: 'share', title: 'Share as a link', desc: 'Script, payload, context and target compressed into a URL — nothing is uploaded, the data rides in the link.', icon: ICONS.share },
+  { key: 'share', title: 'Share as a link', desc: 'Script, payload, context and target runtime in one link.', icon: ICONS.share },
   { key: 'mcp', title: 'Local server', desc: 'Expose the engine to Claude, Cursor & Copilot so an agent can run and self-correct scripts.', icon: ICONS.mcp },
   { key: 'flow', title: 'Message flows', desc: 'Chain transforms into a pipeline with the visual Message Flow designer.', icon: ICONS.flow },
   { key: 'ref', title: '361 functions', desc: 'The full DataWeave standard library, searchable, with signatures and runnable examples.', icon: ICONS.ref },
   { key: 'modules', title: 'Module library', desc: 'Save reusable .dwl modules once, then import them from any script.', icon: ICONS.modules },
-  { key: 'cookbook', title: 'Cookbook', desc: 'A searchable library of ready-to-run recipes — load one and tweak it.', icon: ICONS.cookbook },
+  { key: 'cookbook', title: 'Cookbook', desc: 'A searchable library of ready-to-run recipes. Load one and tweak it.', icon: ICONS.cookbook },
   { key: 'java', title: 'Java tester', desc: 'Compile the Java classes your Mule app calls and run them against a payload.', icon: ICONS.java },
   { key: 'secure', title: 'Secure properties', desc: 'Encrypt & decrypt ${secure::key} values with the built-in crypto tool.', icon: ICONS.secure },
-  { key: 'offline', title: '100% offline', desc: 'No telemetry, no account, no network. Your payloads never leave the machine.', icon: ICONS.offline },
+  { key: 'offline', title: 'Works offline', desc: 'Runs on the bundled engine, with no account to create and nothing to configure.', icon: ICONS.offline },
 ];
 
 const CHIPS = ['DataWeave 2.12 runtime', 'Bundled JVM', 'JSON · XML · CSV · YAML', 'cURL import', 'OpenAPI import', 'Share links', 'Cross-platform'];
@@ -148,7 +148,7 @@ export function WelcomeScreen({ appVersion, onOpenPlayground, onTakeTour }: {
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2.4, color: 'var(--content-faint)' }}>DATAWEAVE&nbsp;STUDIO</div>
               </div>
               <h1 style={{ margin: 0, fontSize: 44, lineHeight: 1.04, fontWeight: 800, letterSpacing: -1.4, maxWidth: '13ch' }}>Transform data, <span style={{ color: 'var(--accent)' }}>locally.</span></h1>
-              <p style={{ margin: '16px 0 0', fontSize: 15, lineHeight: 1.6, color: 'var(--content-secondary)', maxWidth: '50ch' }}>A fast workbench for DataWeave 2.0 — write a transform, run it against real JSON, XML, CSV or YAML, and see the output instantly. The full DataWeave&nbsp;2.12 runtime, bundled. No Anypoint, no cloud, no waiting.</p>
+              <p style={{ margin: '16px 0 0', fontSize: 15, lineHeight: 1.6, color: 'var(--content-secondary)', maxWidth: '50ch' }}>A fast workbench for DataWeave 2.0. Write a transform, run it against real JSON, XML, CSV or YAML, and see the output straight away, on the full DataWeave&nbsp;2.12 runtime.</p>
               <div className="flex flex-wrap" style={{ gap: 12, marginTop: 26 }}>
                 <button onClick={onOpenPlayground} className="cursor-pointer hover:brightness-110 inline-flex items-center" style={{ gap: 9, height: 46, padding: '0 22px', borderRadius: 11, border: '1px solid var(--accent)', background: 'var(--accent)', color: 'var(--accent-ink)', fontSize: 14, fontWeight: 600, boxShadow: '0 10px 30px color-mix(in oklch, var(--accent) 34%, transparent)' }}>
                   Open the playground

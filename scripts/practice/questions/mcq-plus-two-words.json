@@ -1,0 +1,48 @@
+{
+  "id": "mcq-plus-two-words",
+  "unit": "string-basics",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "+",
+    "++"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n\"id-\" ++ 42",
+      "%dw 2.0\noutput application/json\n---\n\"4\" + \"2\"",
+      "%dw 2.0\noutput application/json\n---\n\"first\" ++ \"last\"",
+      "%dw 2.0\noutput application/json\n---\n\"first\" + \"last\""
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"first\" ++ \"last\"",
+  "explanation": {
+    "approach": "Text is joined with `++`, which also accepts a Number on either side. `+` is arithmetic: two numeric Strings are coerced and added, but \"first\" cannot be coerced, so that is the one that fails.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\n\"first\" + \"last\"",
+        "expect": {
+          "error": true
+        },
+        "note": "There is no String addition."
+      },
+      {
+        "label": "Two that look wrong but run",
+        "script": "%dw 2.0\noutput application/json\n---\n[ \"4\" + \"2\", \"id-\" ++ 42 ]",
+        "expect": {
+          "output": "[ 6, \"id-42\" ]"
+        },
+        "note": "The first adds, the second concatenates a Number into text."
+      }
+    ]
+  }
+}

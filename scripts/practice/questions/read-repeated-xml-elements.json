@@ -1,0 +1,94 @@
+{
+  "id": "read-repeated-xml-elements",
+  "unit": "xml-selectors",
+  "tier": "medium",
+  "title": "Get all items from repeated XML elements",
+  "topics": ["XML", "selectors", ".*", "@"],
+  "prompt": "An XML order has multiple `<line>` elements inside. Extract an array of the text content of each line.\n\nYou must return **all** lines, not just the first one.\n\nBonus: also extract the order's `id` attribute and the `currency` of the first line.\n\nOutput a JSON object with keys `lines`, `orderId`, and `firstCurrency`.",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "<order id=\"ORD-001\">\n  <line currency=\"USD\">Widget</line>\n  <line currency=\"USD\">Gadget</line>\n  <line currency=\"USD\">Doohickey</line>\n</order>",
+      "output": "{\n  \"lines\": [\"Widget\", \"Gadget\", \"Doohickey\"],\n  \"orderId\": \"ORD-001\",\n  \"firstCurrency\": \"USD\"\n}"
+    },
+    {
+      "input": "<order id=\"ORD-002\">\n  <line currency=\"EUR\">Item1</line>\n  <line currency=\"GBP\">Item2</line>\n</order>",
+      "output": "{\n  \"lines\": [\"Item1\", \"Item2\"],\n  \"orderId\": \"ORD-002\",\n  \"firstCurrency\": \"EUR\"\n}"
+    },
+    {
+      "input": "<order id=\"ORD-003\">\n  <line currency=\"JPY\">Single</line>\n</order>",
+      "output": "{\n  \"lines\": [\"Single\"],\n  \"orderId\": \"ORD-003\",\n  \"firstCurrency\": \"JPY\"\n}"
+    },
+    {
+      "input": "<order id=\"ORD-004\">\n  <line currency=\"CAD\">First</line>\n  <line currency=\"CAD\">Second</line>\n  <line currency=\"CAD\">Third</line>\n  <line currency=\"CAD\">Fourth</line>\n  <line currency=\"CAD\">Fifth</line>\n</order>",
+      "output": "{\n  \"lines\": [\"First\", \"Second\", \"Third\", \"Fourth\", \"Fifth\"],\n  \"orderId\": \"ORD-004\",\n  \"firstCurrency\": \"CAD\"\n}"
+    },
+    {
+      "input": "<order id=\"ORD-005\">\n  <line currency=\"USD\">A</line>\n  <line currency=\"USD\">B</line>\n  <line currency=\"USD\">C</line>\n</order>",
+      "output": "{\n  \"lines\": [\"A\", \"B\", \"C\"],\n  \"orderId\": \"ORD-005\",\n  \"firstCurrency\": \"USD\"\n}"
+    }
+  ],
+  "hints": [
+    "The `.` selector on a repeated element gives you only the **first** match. Use `.*` to get all of them.",
+    "On XML, `@name` reads an attribute. `payload.order.@id` pulls the `id` attribute from the `order` element.",
+    "Combine selectors: `payload.order.*line` returns an **array**, so you can use `map` or index it with `[0]`."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n{\n  lines: payload.order.*line,\n  orderId: payload.order.@id,\n  firstCurrency: payload.order.*line[0].@currency\n}",
+  "mustFail": [
+    {
+      "why": "hardcodes the sample answer",
+      "script": "%dw 2.0\noutput application/json\n---\n{\n  \"lines\": [\"Widget\", \"Gadget\", \"Doohickey\"],\n  \"orderId\": \"ORD-001\",\n  \"firstCurrency\": \"USD\"\n}"
+    },
+    {
+      "why": "uses . instead of .* so only gets the first line",
+      "script": "%dw 2.0\noutput application/json\n---\n{\n  lines: payload.order.line,\n  orderId: payload.order.@id,\n  firstCurrency: payload.order.line.@currency\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "On XML with repeated elements, `.` silently returns only the first match. `.*` breaks that silence and returns all of them as an array. The `@` symbol reads attributes instead of child elements.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{\n  lines: payload.order.*line,\n  orderId: payload.order.@id,\n  firstCurrency: payload.order.*line[0].@currency\n}",
+        "payload": "<order id=\"ORD-001\"><line currency=\"USD\">Widget</line><line currency=\"USD\">Gadget</line><line currency=\"USD\">Doohickey</line></order>",
+        "payloadMime": "application/xml",
+        "expect": { "output": "{\"lines\":[\"Widget\",\"Gadget\",\"Doohickey\"],\"orderId\":\"ORD-001\",\"firstCurrency\":\"USD\"}" },
+        "note": "`.*line` is what makes the difference. Without the `*`, you get only the first."
+      },
+      {
+        "label": "Why . loses lines",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.order.line",
+        "payload": "<order id=\"X\"><line>A</line><line>B</line><line>C</line></order>",
+        "payloadMime": "application/xml",
+        "expect": { "output": "\"A\"" },
+        "note": "Only the first line. The selector stops at the first match and returns its value, not an array. Perfect for single child, catastrophic for repeated ones."
+      },
+      {
+        "label": "Getting all lines with .*",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.order.*line",
+        "payload": "<order id=\"X\"><line>A</line><line>B</line><line>C</line></order>",
+        "payloadMime": "application/xml",
+        "expect": { "output": "[\"A\", \"B\", \"C\"]" },
+        "note": "The `*` makes it an array. Now you have all of them and can index or transform them as needed."
+      },
+      {
+        "label": "Reading attributes",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.order.@id",
+        "payload": "<order id=\"ORD-123\"><item>x</item></order>",
+        "payloadMime": "application/xml",
+        "expect": { "output": "\"ORD-123\"" },
+        "note": "`@` is the attribute syntax. `payload.order.@id` reads the `id` attribute of the `order` element."
+      },
+      {
+        "label": "Attribute on an array element",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.order.*line map $.@currency",
+        "payload": "<order id=\"X\"><line currency=\"USD\">A</line><line currency=\"EUR\">B</line></order>",
+        "payloadMime": "application/xml",
+        "expect": { "output": "[\"USD\", \"EUR\"]" },
+        "note": "First get the array with `.*line`, then `map` over it and read `@currency` from each element."
+      }
+    ]
+  }
+}

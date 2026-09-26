@@ -1,0 +1,62 @@
+{
+  "id": "mcq-filter-and-or",
+  "unit": "filter-and-null",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "filter",
+    "and",
+    "or"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Keep the open orders of 100 or more. Given the payload below,\n\n**which script produces exactly this output?**\n\n```\n[ 2, 4 ]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[{\"id\":1,\"st\":\"open\",\"amt\":50},{\"id\":2,\"st\":\"open\",\"amt\":500},{\"id\":3,\"st\":\"held\",\"amt\":900},{\"id\":4,\"st\":\"open\",\"amt\":100}]",
+    "target": "[ 2, 4 ]",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n(payload filter ($.st == \"open\" and $.amt > 100)).id",
+      "%dw 2.0\noutput application/json\n---\n(payload filter ($.st == \"OPEN\" and $.amt >= 100)).id",
+      "%dw 2.0\noutput application/json\n---\n(payload filter ($.st == \"open\" and $.amt >= 100)).id",
+      "%dw 2.0\noutput application/json\n---\n(payload filter ($.st == \"open\" or $.amt >= 100)).id"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload filter ($.st == \"open\" and $.amt >= 100)).id",
+  "explanation": {
+    "approach": "Both conditions have to hold, so the operator is `and`. The row with exactly 100 is there to separate `>=` from `>`, and String comparison is case-sensitive.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.st == \"open\" and $.amt >= 100)).id",
+        "payload": "[{\"id\":1,\"st\":\"open\",\"amt\":50},{\"id\":2,\"st\":\"open\",\"amt\":500},{\"id\":3,\"st\":\"held\",\"amt\":900},{\"id\":4,\"st\":\"open\",\"amt\":100}]",
+        "expect": {
+          "output": "[ 2, 4 ]"
+        },
+        "note": "Order 4 is exactly on the boundary."
+      },
+      {
+        "label": "or",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.st == \"open\" or $.amt >= 100)).id",
+        "payload": "[{\"id\":1,\"st\":\"open\",\"amt\":50},{\"id\":2,\"st\":\"open\",\"amt\":500},{\"id\":3,\"st\":\"held\",\"amt\":900},{\"id\":4,\"st\":\"open\",\"amt\":100}]",
+        "expect": {
+          "output": "[ 1, 2, 3, 4 ]"
+        },
+        "note": "Every row passes one condition or the other."
+      },
+      {
+        "label": "Strict boundary",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload filter ($.st == \"open\" and $.amt > 100)).id",
+        "payload": "[{\"id\":1,\"st\":\"open\",\"amt\":50},{\"id\":2,\"st\":\"open\",\"amt\":500},{\"id\":3,\"st\":\"held\",\"amt\":900},{\"id\":4,\"st\":\"open\",\"amt\":100}]",
+        "expect": {
+          "output": "[ 2 ]"
+        },
+        "note": "Order 4 drops out."
+      }
+    ]
+  }
+}

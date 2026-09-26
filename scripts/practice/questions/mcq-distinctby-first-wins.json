@@ -1,0 +1,44 @@
+{
+  "id": "mcq-distinctby-first-wins",
+  "unit": "distinct-and-order",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "distinctBy"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n(payload distinctBy $.sku).at",
+    "payload": "[{\"sku\":\"X\",\"at\":\"09:00\"},{\"sku\":\"Y\",\"at\":\"09:05\"},{\"sku\":\"X\",\"at\":\"09:10\"}]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ \"09:00\", \"09:05\" ]",
+      "[ \"09:10\", \"09:05\" ]",
+      "[ \"09:00\", \"09:05\", \"09:10\" ]",
+      "[ \"09:05\", \"09:10\" ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload distinctBy $.sku).at",
+  "explanation": {
+    "approach": "`distinctBy` keeps the first element for each key and drops later ones. The output order is the order of those first appearances.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload distinctBy $.sku).at",
+        "payload": "[{\"sku\":\"X\",\"at\":\"09:00\"},{\"sku\":\"Y\",\"at\":\"09:05\"},{\"sku\":\"X\",\"at\":\"09:10\"}]",
+        "expect": {
+          "output": "[ \"09:00\", \"09:05\" ]"
+        },
+        "note": "The later X is dropped. To keep the latest, reverse or sort before deduplicating."
+      }
+    ]
+  }
+}

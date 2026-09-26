@@ -1,0 +1,52 @@
+{
+  "id": "mcq-error-kind-field",
+  "unit": "error-handling",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "dw::Runtime",
+    "try"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "When the function given to `try` fails, the result is `{ success: false, error: {...} }`. The error Object tells you what went wrong: `message` is the text and `kind` names the type of failure.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ntry(() -> \"12a\" as Number).error.kind"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "\"UserException\"",
+      "\"InvalidNumberException\"",
+      "null",
+      "\"DivisionByZeroException\""
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ntry(() -> \"12a\" as Number).error.kind",
+  "explanation": {
+    "approach": "A failed coercion to Number has its own kind. Branching on `kind` lets a mapping treat bad data differently from a bug or a deliberate `fail`.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ntry(() -> \"12a\" as Number).error.kind",
+        "expect": {
+          "output": "\"InvalidNumberException\""
+        },
+        "note": "The kind of a failed number coercion."
+      },
+      {
+        "label": "A deliberate failure",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::Runtime\n---\ntry(() -> fail(\"bad row\")).error.kind",
+        "expect": {
+          "output": "\"UserException\""
+        },
+        "note": "What `fail` produces."
+      }
+    ]
+  }
+}

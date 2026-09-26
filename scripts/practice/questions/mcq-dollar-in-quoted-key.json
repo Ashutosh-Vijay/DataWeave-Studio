@@ -1,0 +1,55 @@
+{
+  "id": "mcq-dollar-in-quoted-key",
+  "unit": "dynamic-keys",
+  "mode": "choice",
+  "tier": "max",
+  "title": "What does this return?",
+  "topics": [
+    "dynamic keys",
+    "map",
+    "interpolation"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload map { \"$\": $$ }",
+    "payload": "[\"red\",\"green\"]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "[ { \"$\": 0 }, { \"$\": 1 } ]",
+      "It fails: $ is not a valid key",
+      "[ { \"red\": 0 }, { \"green\": 1 } ]",
+      "[ { \"0\": \"red\" }, { \"1\": \"green\" } ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map { \"$\": $$ }",
+  "explanation": {
+    "approach": "A quoted key is a String, and Strings support interpolation. `\"$\"` interpolates the current element, so the key is computed after all. To write a literal dollar sign, escape it.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map { \"$\": $$ }",
+        "payload": "[\"red\",\"green\"]",
+        "expect": {
+          "output": "[ { \"red\": 0 }, { \"green\": 1 } ]"
+        },
+        "note": "The same result as `{ ($): $$ }`."
+      },
+      {
+        "label": "An escaped dollar is literal",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map { \"\\$\": $$ }",
+        "payload": "[\"red\",\"green\"]",
+        "expect": {
+          "output": "[ { \"$\": 0 }, { \"$\": 1 } ]"
+        },
+        "note": "Escape it when you mean the character."
+      }
+    ]
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "id": "supplier-price-list-csv",
+  "unit": "csv-round-trip",
+  "tier": "easy",
+  "title": "Load a supplier price list where discontinued items have no stock value",
+  "topics": [
+    "csv",
+    "as",
+    "default"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "basics": "When DataWeave reads CSV, each row becomes an Object keyed by the header names, and every value is a String, even one that looks like a number. `\"9.90\" as Number` turns such a value into the Number 9.9.",
+  "mode": "build",
+  "prompt": "A supplier sends a CSV price list with the columns `sku,price,stock`. Return a JSON array of `{ sku, price, inStock }` where `price` is a Number and `inStock` is `true` when `stock` is greater than zero.\n\nFor discontinued items the supplier leaves `stock` empty. Those are not in stock.",
+  "inputMime": "application/csv",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "sku,price,stock\nA1,9.90,4\nB2,15,0",
+      "output": "[{\"sku\":\"A1\",\"price\":9.9,\"inStock\":true},{\"sku\":\"B2\",\"price\":15,\"inStock\":false}]"
+    },
+    {
+      "input": "sku,price,stock\nC3,2.50,\nD4,1,12",
+      "output": "[{\"sku\":\"C3\",\"price\":2.5,\"inStock\":false},{\"sku\":\"D4\",\"price\":1,\"inStock\":true}]"
+    },
+    {
+      "input": "sku,price,stock\nE5,3,",
+      "output": "[{\"sku\":\"E5\",\"price\":3,\"inStock\":false}]"
+    },
+    {
+      "input": "sku,price,stock\nF6,0.99,1",
+      "output": "[{\"sku\":\"F6\",\"price\":0.99,\"inStock\":true}]"
+    }
+  ],
+  "hints": [
+    "Map each row to the new shape. `price` needs a coercion. So does `stock`, before it can be compared with zero.",
+    "What does `\"\" as Number` do? Try it.",
+    "A failed coercion inside `default` falls back: `($.stock as Number) default 0`."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map {\n  sku: $.sku,\n  price: $.price as Number,\n  inStock: (($.stock as Number) default 0) > 0\n}",
+  "mustFail": [
+    {
+      "why": "coerces the empty stock value directly, and an empty String cannot become a Number",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map {\n  sku: $.sku,\n  price: $.price as Number,\n  inStock: ($.stock as Number) > 0\n}"
+    },
+    {
+      "why": "tests the text against \"0\", so an empty stock value counts as in stock",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map {\n  sku: $.sku,\n  price: $.price as Number,\n  inStock: $.stock != \"0\"\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "An empty CSV field is the empty String, not null and not zero. `as Number` refuses it. A `default` around the coercion catches that failure and supplies 0, which then compares as not in stock.",
+    "snippets": [
+      {
+        "label": "An empty field",
+        "script": "%dw 2.0\noutput application/json\n---\npayload[0].stock",
+        "payload": "sku,price,stock\nC3,2.50,",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "\"\""
+        },
+        "note": "It is \"\", an empty String."
+      },
+      {
+        "label": "Coercing it",
+        "script": "%dw 2.0\noutput application/json\n---\n\"\" as Number",
+        "expect": {
+          "error": true
+        },
+        "note": "Cannot coerce String to Number."
+      },
+      {
+        "label": "default catches the failed coercion",
+        "script": "%dw 2.0\noutput application/json\n---\n(\"\" as Number) default 0",
+        "expect": {
+          "output": "0"
+        },
+        "note": "The fallback is used instead of the error."
+      }
+    ]
+  }
+}

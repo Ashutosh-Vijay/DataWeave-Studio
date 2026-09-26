@@ -1,0 +1,44 @@
+{
+  "id": "mcq-write-returns-string",
+  "unit": "multi-format-embed",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "write",
+    "read",
+    "typeOf"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ t: typeOf(write([1, 2], \"application/json\")), back: read(\"[1, 2]\", \"application/json\")[1] }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "{ \"t\": \"Array\", \"back\": \"2\" }",
+      "{ \"t\": \"String\", \"back\": 2 }",
+      "{ \"t\": \"Array\", \"back\": 2 }",
+      "{ \"t\": \"String\", \"back\": \"2\" }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ t: typeOf(write([1, 2], \"application/json\")), back: read(\"[1, 2]\", \"application/json\")[1] }",
+  "explanation": {
+    "approach": "`write` serialises a value into a String in the given format. `read` goes the other way and parses a String into a value, so indexing it returns a Number.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ t: typeOf(write([1, 2], \"application/json\")), back: read(\"[1, 2]\", \"application/json\")[1] }",
+        "expect": {
+          "output": "{ \"t\": \"String\", \"back\": 2 }"
+        },
+        "note": "Serialise, then parse."
+      }
+    ]
+  }
+}

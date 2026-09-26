@@ -1,0 +1,81 @@
+{
+  "id": "basket-vat-to-the-cent",
+  "unit": "numbers-and-rounding",
+  "tier": "easy",
+  "title": "VAT on a basket, rounded to the cent",
+  "topics": [
+    "round",
+    "sum",
+    "map"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "`sum` adds up an Array of Numbers. `round(x)` rounds to the nearest whole number, so to round to two decimal places you scale up, round, and scale back: `round(x * 100) / 100`.",
+  "mode": "build",
+  "prompt": "A checkout sends a basket as an array of `{ price, qty }`. Return `{ net, vat, gross }`:\n\n- `net` is the sum of price times quantity,\n- `vat` is 20% of `net`, rounded to the nearest cent,\n- `gross` is `net + vat`.\n\nAll three are Numbers, not formatted text.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"price\": 20,\n    \"qty\": 2\n  },\n  {\n    \"price\": 10,\n    \"qty\": 1\n  }\n]",
+      "output": "{\"net\":50,\"vat\":10,\"gross\":60}"
+    },
+    {
+      "input": "[\n  {\n    \"price\": 12.34,\n    \"qty\": 1\n  }\n]",
+      "output": "{\"net\":12.34,\"vat\":2.47,\"gross\":14.81}"
+    },
+    {
+      "input": "[\n  {\n    \"price\": 0.99,\n    \"qty\": 3\n  },\n  {\n    \"price\": 1.5,\n    \"qty\": 2\n  }\n]",
+      "output": "{\"net\":5.97,\"vat\":1.19,\"gross\":7.16}"
+    },
+    {
+      "input": "[]",
+      "output": "{\"net\":0,\"vat\":0,\"gross\":0}"
+    }
+  ],
+  "hints": [
+    "Work out `net` first and keep it in a variable, so `vat` and `gross` can reuse it.",
+    "`round` on its own rounds to a whole number. Check your answer on a net of 12.34.",
+    "Multiply by 100, round, divide by 100. Keep the result a Number: formatting it as a String changes the type."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\ndo {\n  var net = sum(payload map ($.price * $.qty))\n  var vat = round(net * 0.2 * 100) / 100\n  ---\n  { net: net, vat: vat, gross: net + vat }\n}",
+  "mustFail": [
+    {
+      "why": "rounds to whole units instead of cents",
+      "script": "%dw 2.0\noutput application/json\n---\ndo {\n  var net = sum(payload map ($.price * $.qty))\n  var vat = round(net * 0.2)\n  ---\n  { net: net, vat: vat, gross: net + vat }\n}"
+    },
+    {
+      "why": "formats the VAT as text, so it is a String \"2.47\" instead of the Number 2.47",
+      "script": "%dw 2.0\noutput application/json\n---\ndo {\n  var net = sum(payload map ($.price * $.qty))\n  var vat = round(net * 0.2 * 100) / 100\n  ---\n  { net: net, vat: vat as String {format: \"0.00\"}, gross: net + vat }\n}"
+    }
+  ],
+  "explanation": {
+    "approach": "The sample happens to have a VAT that is a whole number, so rounding to whole units looks right. Scaling by 100 before rounding keeps two decimal places. The result stays a Number, which is what the next system expects to add up.",
+    "snippets": [
+      {
+        "label": "Rounding to cents",
+        "script": "%dw 2.0\noutput application/json\n---\nround(12.34 * 0.2 * 100) / 100",
+        "expect": {
+          "output": "2.47"
+        },
+        "note": "2.468 becomes 2.47."
+      },
+      {
+        "label": "Rounding to whole units",
+        "script": "%dw 2.0\noutput application/json\n---\nround(12.34 * 0.2)",
+        "expect": {
+          "output": "2"
+        },
+        "note": "The cents are gone."
+      },
+      {
+        "label": "sum of nothing",
+        "script": "%dw 2.0\noutput application/json\n---\nsum([])",
+        "expect": {
+          "output": "0"
+        },
+        "note": "An empty basket totals 0, not null."
+      }
+    ]
+  }
+}

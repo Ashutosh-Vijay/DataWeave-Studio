@@ -1,0 +1,51 @@
+{
+  "id": "mcq-default-param-first",
+  "unit": "higher-order",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "fun",
+    "default parameters"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nfun greet(greeting = \"Hi\", name) = greeting ++ \" \" ++ name\n---\n[ greet(\"Ann\"), greet(\"Yo\", \"Ann\") ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ \"Hi Ann\", \"Yo Ann\" ]",
+      "[ \"Ann \", \"Yo Ann\" ]",
+      "[ \"Ann Hi\", \"Yo Ann\" ]",
+      "It fails: a default parameter must come last"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun greet(greeting = \"Hi\", name) = greeting ++ \" \" ++ name\n---\n[ greet(\"Ann\"), greet(\"Yo\", \"Ann\") ]",
+  "explanation": {
+    "approach": "A default can sit in front of a required parameter. With one argument, DataWeave fills the required parameter and uses the default for the other. With two, they are assigned in order.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nfun greet(greeting = \"Hi\", name) = greeting ++ \" \" ++ name\n---\n[ greet(\"Ann\"), greet(\"Yo\", \"Ann\") ]",
+        "expect": {
+          "output": "[ \"Hi Ann\", \"Yo Ann\" ]"
+        },
+        "note": "Many languages refuse this declaration. DataWeave accepts it."
+      },
+      {
+        "label": "The more common order",
+        "script": "%dw 2.0\noutput application/json\nfun greet(name, greeting = \"Hi\") = greeting ++ \" \" ++ name\n---\n[ greet(\"Ann\"), greet(\"Ann\", \"Yo\") ]",
+        "expect": {
+          "output": "[ \"Hi Ann\", \"Yo Ann\" ]"
+        },
+        "note": "Default last reads more clearly."
+      }
+    ]
+  }
+}

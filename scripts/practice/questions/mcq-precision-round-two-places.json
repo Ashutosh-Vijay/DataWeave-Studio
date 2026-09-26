@@ -1,0 +1,53 @@
+{
+  "id": "mcq-precision-round-two-places",
+  "unit": "precision",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "round",
+    "*",
+    "/"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "To round to two decimal places, multiply by 100, round to a whole number, and divide by 100 again. In binary floating point this recipe has well-known failures on values like 2.675; the question is whether DataWeave has them too.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ round(2.675 * 100) / 100, round(1.005 * 100) / 100 ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ 2.68, 1 ]",
+      "[ 2.67, 1 ]",
+      "[ 2.67, 1.01 ]",
+      "[ 2.68, 1.01 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ round(2.675 * 100) / 100, round(1.005 * 100) / 100 ]",
+  "explanation": {
+    "approach": "In JavaScript, 2.675 * 100 is 267.49999999999997 and 1.005 * 100 is 100.49999999999999, so both round down. DataWeave multiplies exactly, gets 267.5 and 100.5, and `round` sends a half upwards.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ round(2.675 * 100) / 100, round(1.005 * 100) / 100 ]",
+        "expect": {
+          "output": "[2.68,1.01]"
+        },
+        "note": "Exact multiplication, half rounded up."
+      },
+      {
+        "label": "The products",
+        "script": "%dw 2.0\noutput application/json\n---\n[ 2.675 * 100, 1.005 * 100 ]",
+        "expect": {
+          "output": "[267.5,100.5]"
+        },
+        "note": "Exactly on the half."
+      }
+    ]
+  }
+}

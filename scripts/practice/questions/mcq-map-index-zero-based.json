@@ -1,0 +1,51 @@
+{
+  "id": "mcq-map-index-zero-based",
+  "unit": "map-basics",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "map",
+    "index"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[1, 2, 3] map (v, i) -> v * i"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ 0, 2, 6 ]",
+      "[ 2, 6, 12 ]",
+      "[ 1, 4, 9 ]",
+      "[ 0, 1, 2 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[1, 2, 3] map (v, i) -> v * i",
+  "explanation": {
+    "approach": "The second lambda parameter of `map` is the index, and indexes start at 0. The wrong options assume 1-based indexes, return the index alone, or shift the index by one.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2, 3] map (v, i) -> v * i",
+        "expect": {
+          "output": "[ 0, 2, 6 ]"
+        },
+        "note": "1*0, 2*1, 3*2."
+      },
+      {
+        "label": "The same with $ and $$",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2, 3] map $ * $$",
+        "expect": {
+          "output": "[ 0, 2, 6 ]"
+        },
+        "note": "`$` is the value and `$$` is the index."
+      }
+    ]
+  }
+}

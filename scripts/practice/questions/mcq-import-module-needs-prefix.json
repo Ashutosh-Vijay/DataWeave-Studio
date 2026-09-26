@@ -1,0 +1,49 @@
+{
+  "id": "mcq-import-module-needs-prefix",
+  "unit": "string-basics",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "import",
+    "modules",
+    "dw::core::Strings"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\ncapitalize(\"hello\")",
+      "%dw 2.0\noutput application/json\nimport dw::core::Strings\n---\ncapitalize(\"hello\")",
+      "%dw 2.0\noutput application/json\nimport capitalize from dw::core::Strings\n---\ncapitalize(\"hello\")",
+      "%dw 2.0\noutput application/json\nimport dw::core::Strings\n---\nStrings::capitalize(\"hello\")"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport dw::core::Strings\n---\nStrings::capitalize(\"hello\")",
+  "explanation": {
+    "approach": "`import dw::core::Strings` brings in the module, not its functions. Its functions are then called through the module name, as `Strings::capitalize`. The `from` forms import the functions themselves, so they can be called bare.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\nimport dw::core::Strings\n---\ncapitalize(\"hello\")",
+        "expect": {
+          "error": true
+        },
+        "note": "Unable to resolve reference of: capitalize."
+      },
+      {
+        "label": "Through the module name",
+        "script": "%dw 2.0\noutput application/json\nimport dw::core::Strings\n---\nStrings::capitalize(\"hello\")",
+        "expect": {
+          "output": "\"Hello\""
+        },
+        "note": "The module is in scope, so its members are reached with `::`."
+      }
+    ]
+  }
+}

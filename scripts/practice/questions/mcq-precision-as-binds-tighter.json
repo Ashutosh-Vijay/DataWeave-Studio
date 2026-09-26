@@ -1,0 +1,54 @@
+{
+  "id": "mcq-precision-as-binds-tighter",
+  "unit": "precision",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "as",
+    "format",
+    "/",
+    "precedence"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "`as String {format: \"0.00\"}` turns a Number into text with two decimals. `as` is an operator, and like any operator it has a precedence: it applies to the value right before it unless parentheses say otherwise.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n10 / 4 as String {format: \"0.00\"}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "It fails: a Number cannot be divided by a String",
+      "2.5",
+      "\"2.5\"",
+      "\"2.50\""
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n10 / 4 as String {format: \"0.00\"}",
+  "explanation": {
+    "approach": "`as` binds more tightly than `/`, so the format is applied to the 4, giving the String \"4.00\". Division then coerces that back to a Number, and the result is 2.5, a Number with no formatting. Parentheses around `10 / 4` give \"2.50\".",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n10 / 4 as String {format: \"0.00\"}",
+        "expect": {
+          "output": "2.5"
+        },
+        "note": "A Number, not formatted text."
+      },
+      {
+        "label": "With parentheses",
+        "script": "%dw 2.0\noutput application/json\n---\n(10 / 4) as String {format: \"0.00\"}",
+        "expect": {
+          "output": "\"2.50\""
+        },
+        "note": "The format applies to the quotient."
+      }
+    ]
+  }
+}

@@ -265,7 +265,7 @@ export async function secureKeyGet(
   const stored = await context.secrets.get(SECRET_PREFIX + name);
   if (stored === undefined) {
     await context.globalState.update(KEY_NAMES, secureKeyNames(context).filter((n) => n !== name));
-    throw new Error(`Saved key "${name}" is no longer in the keychain — type it in again.`);
+    throw new Error(`Saved key "${name}" is no longer in the keychain. Type it in again.`);
   }
   return stored;
 }
@@ -350,19 +350,24 @@ export function registerSidebar(
           workspacesView = view;
           view.webview.options = { enableScripts: true };
           view.webview.html = shell(
-            '<div id="list"></div>',
+            // The way in is always here, not only when the list is empty. It
+            // used to live inside the empty state, so the moment you saved a
+            // single workspace the primary action vanished and the only way
+            // left was a 16px rocket in the title bar.
+            '<div class="pad"><button class="primary" id="openTop">Open DataWeave Studio</button></div>' +
+              '<div id="list"></div>',
             `${ESC}
 const vs = acquireVsCodeApi();
 const list = document.getElementById('list');
 let active = null;
 
+document.getElementById('openTop').onclick = function () { vs.postMessage({ kind: 'open', filename: null }); };
+
 function render(rows) {
   if (!rows.length) {
     list.innerHTML = '<div class="empty">${MARK_SVG.replace(/'/g, "\\'")}' +
       '<h4>No workspace yet</h4>' +
-      '<p>Open the playground to write a transform — it shows up here once you save.</p>' +
-      '<button class="primary" id="new">Open Playground</button></div>';
-    document.getElementById('new').onclick = function () { vs.postMessage({ kind: 'open', filename: null }); };
+      '<p>Open it to write a transform. It shows up here once you save.</p></div>';
     return;
   }
   list.innerHTML = rows.map(function (r) {
@@ -529,7 +534,7 @@ vs.postMessage({ kind: 'search', q: '' });`,
               } else {
                 const ed = vscode.window.activeTextEditor;
                 if (!ed) {
-                  vscode.window.showInformationMessage('Open a file first — Insert drops the function name at your cursor.');
+                  vscode.window.showInformationMessage('Open a file first. Insert drops the function name at your cursor.');
                   return;
                 }
                 // appendText escapes snippet syntax — no DW function name contains
@@ -712,13 +717,13 @@ vs.postMessage({ kind: 'keys' });`,
               const existing = keyNames();
               const name = (await vscode.window.showInputBox({
                 title: 'Save encryption key',
-                prompt: 'Name it for the environment it belongs to — uat, prod, …',
+                prompt: 'Name it for the environment it belongs to: uat, prod, …',
                 placeHolder: 'uat',
                 validateInput: (v) => {
                   const t = v.trim();
                   if (!t) return 'Give the key a name.';
                   if (t === '__manage') return 'Pick a different name.';
-                  if (existing.includes(t)) return `"${t}" already exists — saving will replace it.`;
+                  if (existing.includes(t)) return `"${t}" already exists. Saving will replace it.`;
                   return null;
                 },
               }))?.trim();
@@ -739,7 +744,7 @@ vs.postMessage({ kind: 'keys' });`,
               const action = await vscode.window.showQuickPick(
                 [
                   { label: '$(edit) Rename', detail: `Keep the key, change what it is called`, id: 'rename' },
-                  { label: '$(key) Replace the key', detail: 'Same name, new value — for a rotated key', id: 'replace' },
+                  { label: '$(key) Replace the key', detail: 'Same name, new value, for a rotated key', id: 'replace' },
                   { label: '$(trash) Forget', detail: 'Remove it from the OS keychain', id: 'forget' },
                 ],
                 { title: `"${pick.label}"`, placeHolder: 'What do you want to do?' },

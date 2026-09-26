@@ -1,0 +1,74 @@
+{
+  "id": "edi-line-numbers",
+  "unit": "map-basics",
+  "tier": "easy",
+  "title": "Number the lines of an EDI order the way the retailer expects",
+  "topics": [
+    "map",
+    "index",
+    "as",
+    "format"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "Inside `map`, `$` is the current element and `$$` is its index, counting from 0. A Number can be written as text with a fixed number of digits using a format pattern: `7 as String {format: \"000\"}` gives `\"007\"`.",
+  "mode": "build",
+  "prompt": "A retailer's EDI system wants every order line numbered, starting at 1, as a three-digit String: `\"001\"`, `\"002\"`, and so on.\n\nGiven an array of SKUs, return an array of `{ line, sku }`. Orders can have more than nine lines.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[\n  \"A\",\n  \"B\"\n]",
+      "output": "[{\"line\":\"001\",\"sku\":\"A\"},{\"line\":\"002\",\"sku\":\"B\"}]"
+    },
+    {
+      "input": "[\n  \"A\",\n  \"B\",\n  \"C\",\n  \"D\",\n  \"E\",\n  \"F\",\n  \"G\",\n  \"H\",\n  \"I\",\n  \"J\"\n]",
+      "output": "[{\"line\":\"001\",\"sku\":\"A\"},{\"line\":\"002\",\"sku\":\"B\"},{\"line\":\"003\",\"sku\":\"C\"},{\"line\":\"004\",\"sku\":\"D\"},{\"line\":\"005\",\"sku\":\"E\"},{\"line\":\"006\",\"sku\":\"F\"},{\"line\":\"007\",\"sku\":\"G\"},{\"line\":\"008\",\"sku\":\"H\"},{\"line\":\"009\",\"sku\":\"I\"},{\"line\":\"010\",\"sku\":\"J\"}]"
+    },
+    {
+      "input": "[\n  \"X\"\n]",
+      "output": "[{\"line\":\"001\",\"sku\":\"X\"}]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "`$$` gives you the position, but it starts at 0.",
+    "Padding by gluing zeros on the front works until the number has two digits. Look at line 10.",
+    "Format the number: `($$ + 1) as String {format: \"000\"}`."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map { line: ($$ + 1) as String {format: \"000\"}, sku: $ }",
+  "mustFail": [
+    {
+      "why": "pads by concatenating \"00\", so line 10 becomes \"0010\"",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map { line: \"00\" ++ ($$ + 1), sku: $ }"
+    },
+    {
+      "why": "numbers from 0, because the index starts at 0",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map { line: $$ as String {format: \"000\"}, sku: $ }"
+    }
+  ],
+  "explanation": {
+    "approach": "The index starts at 0, so line numbers are `$$ + 1`. A format pattern of zeros pads to a fixed width whatever the number, whereas gluing a fixed prefix on only works while every number has one digit.",
+    "snippets": [
+      {
+        "label": "Gluing zeros on",
+        "script": "%dw 2.0\noutput application/json\n---\n\"00\" ++ 10",
+        "expect": {
+          "output": "\"0010\""
+        },
+        "note": "Four digits."
+      },
+      {
+        "label": "A zero-padded format",
+        "script": "%dw 2.0\noutput application/json\n---\n[1 as String {format: \"000\"}, 10 as String {format: \"000\"}]",
+        "expect": {
+          "output": "[\"001\",\"010\"]"
+        },
+        "note": "Always three digits."
+      }
+    ]
+  }
+}

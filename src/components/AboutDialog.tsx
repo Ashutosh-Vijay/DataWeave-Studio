@@ -4,6 +4,7 @@ import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { Icons } from './Icons';
 import { isTauri } from '../bridge';
+import { logoUrl } from '../assets';
 
 interface AboutDialogProps {
   open: boolean;
@@ -80,11 +81,6 @@ export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvaila
 
   if (!open) return null;
 
-  // Issue number = floor(months since launch / 3) + 1, but keep it editorial — Issue 4 for v1.4.x
-  const issue = appVersion ? Math.max(1, parseInt(appVersion.split('.')[1] || '0', 10) + 1) : 1;
-  const issueLabel = `Vol. 1 · Issue ${issue}`;
-  const releaseMonth = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
-
   const updateDotColor =
     updateStatus === 'update-available' ? 'var(--warn)' :
     updateStatus === 'error' ? 'var(--err)' :
@@ -124,25 +120,9 @@ export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvaila
           <Icons.X size={13} />
         </button>
 
-        {/* Header strip — issue / volume style */}
-        <div
-          className="px-7 py-3 flex items-center gap-3 text-[10.5px] uppercase tracking-[0.4px]"
-          style={{
-            borderBottom: '1px solid var(--line-subtle)',
-            fontFamily: 'var(--font-mono)',
-            color: 'var(--content-faint)',
-          }}
-        >
-          <span>{issueLabel}</span>
-          <span>·</span>
-          <span>MIT</span>
-          <span>·</span>
-          <span>{releaseMonth}</span>
-          <span className="flex-1" />
-          <span style={{ color: 'var(--accent)' }}>read time 90s</span>
-        </div>
-
         <div className="px-8 pt-7 pb-6">
+          <div className="flex items-center gap-8">
+          <div className="flex-1 min-w-0">
           {/* Eyebrow */}
           <div
             className="text-[11px] font-semibold uppercase tracking-[1px] mb-3"
@@ -162,6 +142,16 @@ export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvaila
             <br />
             <span style={{ color: 'var(--accent)' }}>Local. Offline. Yours.</span>
           </h1>
+          </div>
+          <img
+            src={logoUrl}
+            alt=""
+            width={112}
+            height={112}
+            className="shrink-0 mr-4"
+            style={{ filter: 'drop-shadow(0 10px 28px color-mix(in oklch, var(--cyan) 28%, transparent))' }}
+          />
+          </div>
 
           {/* Dek */}
           <p
@@ -174,22 +164,11 @@ export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvaila
 
           <Divider />
 
-          {/* Three-column meta — 2 rows of 3 stats */}
+          {/* Three-column meta */}
           <div className="grid grid-cols-3 gap-x-7 gap-y-6">
-            <Stat kicker="version" value={appVersion || '—'} sub="latest stable" valueAccent />
+            <Stat kicker="version" value={appVersion || '–'} sub="installed" valueAccent />
             <Stat kicker="license" value="MIT" sub="free forever" />
-            <Stat kicker="dw engine" value={engine || '—'} sub="Apache 2.0 · MuleSoft" />
-            {isTauri ? (
-              <Stat kicker="size" value="~87 MB" sub="installer · all bundled" />
-            ) : (
-              <Stat kicker="java" value="17" sub="bundled · zero setup" />
-            )}
-            <Stat kicker="platforms" value="3" sub="Windows · macOS · Linux" />
-            {isTauri ? (
-              <Stat kicker="dependencies" value="0" sub="no cloud · no signup" />
-            ) : (
-              <Stat kicker="telemetry" value="0" sub="no cloud · no signup" />
-            )}
+            <Stat kicker="dw engine" value={engine || '–'} sub="Apache 2.0 · MuleSoft" />
           </div>
 
           <Divider />
@@ -235,25 +214,17 @@ export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvaila
                 className="text-[16px] leading-[1.55] font-normal"
                 style={{ color: 'var(--content)', letterSpacing: '-0.1px' }}
               >
-                &ldquo;I built this because opening Anypoint Studio just to test a four-line
-                transform was making me lose my mind. It&rsquo;s free. It&rsquo;s offline.
-                It will always be free and offline.&rdquo;
-              </div>
-              <div
-                className="mt-3 text-[11px]"
-                style={{
-                  color: 'var(--content-faint)',
-                  fontFamily: 'var(--font-mono)',
-                }}
-              >
-                — 02:14 IST, on a Tuesday, after one Anypoint restart too many
+                &ldquo;Most people don&rsquo;t open Anypoint Studio to check a four-line
+                transform. They open the online playground, until they need vars, attributes,
+                a bigger payload or a secure property. DataWeave Studio is the playground
+                without those limits.&rdquo;
               </div>
             </div>
           </div>
 
           <Divider tight />
 
-          {/* Footer row — status + tech stack + actions */}
+          {/* Footer row: update status and links */}
           <div className="flex items-center gap-[14px] text-[11.5px] flex-wrap" style={{ color: 'var(--content-muted)' }}>
             {isTauri && import.meta.env.VITE_STORE_BUILD !== '1' ? (
               <button
@@ -273,8 +244,6 @@ export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvaila
                 <span>{isTauri ? 'Installed via Microsoft Store · Store handles updates' : 'Installed via VS Code · Marketplace handles updates'}</span>
               </span>
             )}
-            <span style={{ color: 'var(--content-faint)' }}>·</span>
-            <span>{isTauri ? 'Tauri 2 · React · Monaco · Rust' : 'VS Code · React · Monaco · Node'}</span>
             <span className="flex-1" />
             <button
               onClick={() => openUrl('https://github.com/Ashutosh-Vijay/dataweave-studio/releases')}

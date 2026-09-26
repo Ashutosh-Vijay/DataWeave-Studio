@@ -50,7 +50,7 @@ export function migrateDW1to2(src: string): { output: string; warnings: string[]
 
     // outboundProperties → (no direct equivalent)
     if (/\boutboundProperties\b/.test(line)) {
-      warnings.push('outboundProperties: no direct DW 2.0 equivalent — remove or pass as named input');
+      warnings.push('outboundProperties: no direct DW 2.0 equivalent; remove it or pass it as a named input');
       bump('warn');
     }
 

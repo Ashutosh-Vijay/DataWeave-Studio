@@ -1,0 +1,63 @@
+{
+  "id": "mcq-arrays-take-drop",
+  "unit": "sizeof-and-slicing",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "dw::core::Arrays",
+    "take",
+    "drop",
+    "range"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n[ \"a\", \"b\" ]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[\"a\",\"b\",\"c\",\"d\",\"e\"]",
+    "target": "[ \"a\", \"b\" ]",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload[0 to 2]",
+      "%dw 2.0\noutput application/json\n---\npayload[1 to 2]",
+      "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\ndrop(payload, 2)",
+      "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\ntake(payload, 2)"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\ntake(payload, 2)",
+  "explanation": {
+    "approach": "`take(arr, n)` returns the first n elements and `drop(arr, n)` returns what is left after them. A range selector includes both of its ends, so `[0 to 2]` is three elements.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\ntake(payload, 2)",
+        "payload": "[\"a\",\"b\",\"c\",\"d\",\"e\"]",
+        "expect": {
+          "output": "[ \"a\", \"b\" ]"
+        },
+        "note": "The first two."
+      },
+      {
+        "label": "drop is the complement",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\ndrop(payload, 2)",
+        "payload": "[\"a\",\"b\",\"c\",\"d\",\"e\"]",
+        "expect": {
+          "output": "[ \"c\", \"d\", \"e\" ]"
+        },
+        "note": "Everything after the first two."
+      },
+      {
+        "label": "Ranges are inclusive",
+        "script": "%dw 2.0\noutput application/json\n---\npayload[0 to 2]",
+        "payload": "[\"a\",\"b\",\"c\",\"d\",\"e\"]",
+        "expect": {
+          "output": "[ \"a\", \"b\", \"c\" ]"
+        },
+        "note": "Positions 0, 1 and 2."
+      }
+    ]
+  }
+}

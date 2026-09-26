@@ -39,7 +39,7 @@ function ensureVsCode(): VsCodeApi {
   }).acquireVsCodeApi;
   if (!acquire) {
     throw new Error(
-      'Not running in Tauri or a VS Code webview — no backend transport available.'
+      'Not running in Tauri or a VS Code webview, so there is no backend to talk to.'
     );
   }
   vscode = acquire();

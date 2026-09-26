@@ -208,6 +208,40 @@ export const Icons = {
       <path d="M14 18a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1 1 1 0 0 1-1-1v-1a1 1 0 0 0-1-1" />
     </>,
   ),
+  Sparkle: mk(
+    <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3Z" />,
+  ),
+  AlignLeft: mk(
+    <>
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="8" y1="12" x2="20" y2="12" />
+      <line x1="8" y1="18" x2="16" y2="18" />
+    </>,
+  ),
+  FileUp: mk(
+    <>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
+      <polyline points="14 3 14 8 19 8" />
+      <line x1="12" y1="18" x2="12" y2="12" />
+      <polyline points="9.5 14.5 12 12 14.5 14.5" />
+    </>,
+  ),
+  More: mk(
+    <>
+      <circle cx="5" cy="12" r="1" />
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="19" cy="12" r="1" />
+    </>,
+    { stroke: 2 },
+  ),
+  Smile: mk(
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8.5 14a4.5 4.5 0 0 0 7 0" />
+      <line x1="9" y1="9.5" x2="9.01" y2="9.5" />
+      <line x1="15" y1="9.5" x2="15.01" y2="9.5" />
+    </>,
+  ),
 };
 
 export type IconName = keyof typeof Icons;

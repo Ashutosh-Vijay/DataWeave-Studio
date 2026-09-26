@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
 import { parseSpecText, buildSpec, sampleFromSchema, buildDwScript } from '../components/OpenApiReader';
 
 const OPENAPI_3 = `
@@ -199,58 +198,114 @@ describe('OpenApiReader spec parsing', () => {
   });
 });
 
-// Real-world spec: the Orchestrator(FIU TSP) 3.1 file the user pointed at.
-// Skipped automatically if the example isn't present (it's a local sample).
-const REAL_SPEC = 'example/Orch-TSP - 3.1.1.yaml';
-describe.runIf(existsSync(REAL_SPEC))('real Orchestrator spec', () => {
-  const spec = buildSpec(parseSpecText(readFileSync(REAL_SPEC, 'utf8')));
+// Three shapes the Pet Store spec doesn't exercise: a component carrying its own
+// `example:`, a multipart upload, and a webhook body that has named examples but
+// no schema at all.
+const OPENAPI_EXTRAS = `
+openapi: 3.0.0
+info:
+  title: Parcel Tracker
+  version: 2.0.0
+servers:
+  - url: https://parcels.example.com/api
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Shipment:
+      type: object
+      properties:
+        trackingId: { type: string }
+        service: { type: string }
+      example:
+        trackingId: PKG-0001
+        service: EXPRESS
+    Address:
+      type: object
+      properties:
+        city: { type: string }
+paths:
+  /shipments:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Shipment'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shipment'
+  /labels/upload:
+    post:
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                trackingId: { type: string }
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: OK
+  /events:
+    post:
+      requestBody:
+        content:
+          application/json:
+            examples:
+              PICKED_UP:
+                value: { event: PICKED_UP, trackingId: PKG-0001 }
+              IN_TRANSIT:
+                value: { event: IN_TRANSIT, hops: [HUB-1, HUB-2] }
+              DELIVERED:
+                value: { event: DELIVERED, signedBy: A. Recipient }
+      responses:
+        '200':
+          description: OK
+`;
 
-  it('parses every operation and the full schema catalog', () => {
-    expect(spec.title).toContain('Orchestrator');
+describe('OpenApiReader edge shapes', () => {
+  const doc = parseSpecText(OPENAPI_EXTRAS);
+  const spec = buildSpec(doc);
+
+  it('parses the catalog and resolves security on every operation', () => {
     expect(spec.specKind).toBe('OpenAPI 3.0.0');
-    expect(spec.servers).toEqual(['https://flex-uat.crif.com/orchestrator']);
-    expect(spec.ops.length).toBeGreaterThan(20);
-    // 4 reusable component schemas; the rest are inline per-operation.
-    expect(spec.schemas.map((s) => s.name)).toEqual(['BureauRequest', 'InquiryDataValue', 'RequestIdValue', 'InquiryResponseValue']);
-    // every op should carry a resolved security label (global bearer or override)
+    expect(spec.servers).toEqual(['https://parcels.example.com/api']);
+    expect(spec.schemas.map((s) => s.name)).toEqual(['Shipment', 'Address']);
     expect(spec.ops.every((o) => Array.isArray(o.security))).toBe(true);
   });
 
-  it('uses the rich `example:` block on BureauRequest instead of a synthesized one', () => {
-    const doc = parseSpecText(readFileSync(REAL_SPEC, 'utf8'));
-    const sample = sampleFromSchema({ $ref: '#/components/schemas/BureauRequest' }, doc, 0, new Set());
-    expect(sample.trackingId).toBe('external_bureau_inquiry_data_01');
-    expect(sample.serviceType).toBe('INQUIRY_DATA');
+  it('uses a schema\'s own `example:` block instead of a synthesized one', () => {
+    const sample = sampleFromSchema({ $ref: '#/components/schemas/Shipment' }, doc, 0, new Set());
+    expect(sample).toEqual({ trackingId: 'PKG-0001', service: 'EXPRESS' });
   });
 
   it('generates a sample for every reusable type without throwing', () => {
-    const doc = parseSpecText(readFileSync(REAL_SPEC, 'utf8'));
     for (const s of spec.schemas) {
       expect(() => JSON.stringify(sampleFromSchema(s.schema, doc, 0, new Set()))).not.toThrow();
     }
   });
 
   it('keeps a multipart/form-data request body as multipart (not forced to JSON)', () => {
-    const pdf = spec.ops.find((o) => o.path === '/fiu-ws/pdf-analytics/initiate')!;
-    expect(pdf).toBeTruthy();
-    const req = pdf.schemas.find((s) => s.label === 'Request')!;
-    expect(req.mime).toBe('multipart/form-data');
+    const upload = spec.ops.find((o) => o.path === '/labels/upload')!;
+    expect(upload.schemas.find((s) => s.label === 'Request')!.mime).toBe('multipart/form-data');
   });
 
-  it('surfaces ALL named webhook examples (no schema), not just the first', () => {
-    const notify = spec.ops.find((o) => o.path === '/notification')!;
-    expect(notify).toBeTruthy();
-    const req = notify.schemas.find((s) => s.label === 'Request')!;
-    // examples-only body: no schema, but every named scenario is captured.
+  it('surfaces ALL named examples on a body with no schema, not just the first', () => {
+    const events = spec.ops.find((o) => o.path === '/events')!;
+    const req = events.schemas.find((s) => s.label === 'Request')!;
     expect(req.schema).toBeUndefined();
-    expect(req.examples.length).toBeGreaterThanOrEqual(6);
-    const names = req.examples.map((e) => e.name);
-    expect(names).toEqual(expect.arrayContaining(['CONSENT', 'DATA', 'ANALYTICS', 'REDIRECTION']));
-    // each carries its own distinct value
-    const consent = req.examples.find((e) => e.name === 'CONSENT')!;
-    expect(consent.value.notificationType).toBe('CONSENT');
-    const data = req.examples.find((e) => e.name === 'DATA')!;
-    expect(data.value.notificationType).toBe('DATA');
-    expect(Array.isArray(data.value.accounts)).toBe(true);
+    expect(req.examples.map((e) => e.name)).toEqual(['PICKED_UP', 'IN_TRANSIT', 'DELIVERED']);
+    expect(req.examples.find((e) => e.name === 'IN_TRANSIT')!.value.hops).toEqual(['HUB-1', 'HUB-2']);
   });
 });

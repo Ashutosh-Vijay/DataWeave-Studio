@@ -1,0 +1,76 @@
+{
+  "id": "product-tag-cloud",
+  "unit": "flatten-vs-flatmap",
+  "tier": "medium",
+  "title": "Build the tag list for a shop's filter menu",
+  "topics": [
+    "flatten",
+    "lower",
+    "distinctBy",
+    "orderBy"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "`flatten` turns an Array of Arrays into one Array: `flatten([[1], [2, 3]])` is `[1, 2, 3]`. Selecting a field from an Array of objects, `payload.tags`, collects that field from every element.",
+  "mode": "build",
+  "prompt": "Products arrive as `{ sku, tags }`. The filter menu needs every tag used by any product, **once each**, in lower case, sorted alphabetically.\n\nMerchandisers typed the tags, so the same tag can appear as `Sale` and `sale`. Some products have no `tags` field at all.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[\n  {\n    \"sku\": \"A\",\n    \"tags\": [\n      \"red\",\n      \"sale\"\n    ]\n  },\n  {\n    \"sku\": \"B\",\n    \"tags\": [\n      \"blue\",\n      \"sale\"\n    ]\n  }\n]",
+      "output": "[\"blue\",\"red\",\"sale\"]"
+    },
+    {
+      "input": "[\n  {\n    \"sku\": \"C\",\n    \"tags\": [\n      \"Sale\"\n    ]\n  },\n  {\n    \"sku\": \"D\",\n    \"tags\": [\n      \"sale\",\n      \"New\"\n    ]\n  }\n]",
+      "output": "[\"new\",\"sale\"]"
+    },
+    {
+      "input": "[\n  {\n    \"sku\": \"E\"\n  },\n  {\n    \"sku\": \"F\",\n    \"tags\": [\n      \"green\"\n    ]\n  }\n]",
+      "output": "[\"green\"]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Collect all the tags into one flat list first.",
+    "What does `flatMap $.tags` do on a product with no tags? Try it on the third hidden case.",
+    "Lower-case before removing duplicates, or \"Sale\" and \"sale\" both survive."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n(flatten(payload.tags default []) map lower($)) distinctBy $ orderBy $",
+  "mustFail": [
+    {
+      "why": "removes duplicates before lower-casing, so Sale and sale both survive as sale",
+      "script": "%dw 2.0\noutput application/json\n---\n(flatten(payload.tags default []) distinctBy $ map lower($)) orderBy $"
+    },
+    {
+      "why": "uses flatMap, which turns a product with no tags into a null tag, and a null cannot be sorted with the Strings",
+      "script": "%dw 2.0\noutput application/json\n---\n(payload flatMap $.tags map lower($)) distinctBy $ orderBy $"
+    }
+  ],
+  "explanation": {
+    "approach": "Selecting `.tags` across the products gives an Array of Arrays and simply skips products with no tags. `flatten` makes it one list. Normalising the case has to happen before deduplication, because `distinctBy` compares exactly.",
+    "snippets": [
+      {
+        "label": "Selecting across products",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.tags",
+        "payload": "[{\"sku\":\"E\"},{\"sku\":\"F\",\"tags\":[\"green\"]}]",
+        "expect": {
+          "output": "[[\"green\"]]"
+        },
+        "note": "The product with no tags contributes nothing."
+      },
+      {
+        "label": "flatMap on a missing field",
+        "script": "%dw 2.0\noutput application/json\n---\npayload flatMap $.tags",
+        "payload": "[{\"sku\":\"E\"},{\"sku\":\"F\",\"tags\":[\"green\"]}]",
+        "expect": {
+          "output": "[null,\"green\"]"
+        },
+        "note": "The product with no tags contributes a null element instead of nothing, and `lower` then passes it on as null."
+      }
+    ]
+  }
+}

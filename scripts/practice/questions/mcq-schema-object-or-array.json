@@ -1,0 +1,52 @@
+{
+  "id": "mcq-schema-object-or-array",
+  "unit": "schema-validator",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "is",
+    "type"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "A validator often has to check the kind of a value before looking inside it: `is Object` and `is Array` answer that. They look at the value itself, not at what its text looks like.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ {} is Object, [] is Array, \"[]\" is Array, {} is Array ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ true, true, false, false ]",
+      "[ true, true, true, false ]",
+      "[ true, false, false, false ]",
+      "[ false, true, false, false ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ {} is Object, [] is Array, \"[]\" is Array, {} is Array ]",
+  "explanation": {
+    "approach": "Empty containers still have their type. The String \"[]\" looks like an Array but is text; a JSON document inside a String has to be `read` before it has a structure.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ {} is Object, [] is Array, \"[]\" is Array, {} is Array ]",
+        "expect": {
+          "output": "[true,true,false,false]"
+        },
+        "note": "Types, not appearances."
+      },
+      {
+        "label": "Reading the text first",
+        "script": "%dw 2.0\noutput application/json\n---\nread(\"[]\", \"application/json\") is Array",
+        "expect": {
+          "output": "true"
+        },
+        "note": "Parsed, it is an Array."
+      }
+    ]
+  }
+}

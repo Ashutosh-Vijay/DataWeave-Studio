@@ -1,0 +1,57 @@
+{
+  "id": "mcq-sum-with-null",
+  "unit": "precision",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "Which one fails?",
+  "topics": [
+    "sum",
+    "filter",
+    "default"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n[1, null, 3] reduce ((n, acc = 0) -> acc + (n default 0))",
+      "%dw 2.0\noutput application/json\n---\nsum([1, null, 3])",
+      "%dw 2.0\noutput application/json\n---\nsum([1, 3])",
+      "%dw 2.0\noutput application/json\n---\nsum([1, null, 3] map ($ default 0))"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\nsum([1, null, 3] map ($ default 0))",
+  "explanation": {
+    "approach": "`sum` needs every element to be a Number, and null is not one. Replace nulls first, or fold with a `reduce` that handles them.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\nsum([1, null, 3])",
+        "expect": {
+          "error": true
+        },
+        "note": "Expecting Number, got Null."
+      },
+      {
+        "label": "Replace nulls first",
+        "script": "%dw 2.0\noutput application/json\n---\nsum([1, null, 3] map ($ default 0))",
+        "expect": {
+          "output": "4"
+        },
+        "note": "null counts as 0."
+      },
+      {
+        "label": "Or fold with reduce",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, null, 3] reduce ((n, acc = 0) -> acc + (n default 0))",
+        "expect": {
+          "output": "4"
+        },
+        "note": "The fallback is inside the fold."
+      }
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "id": "mcq-schema-missing-required-fields",
+  "unit": "schema-validator",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "filter",
+    "?",
+    "selectors"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "`payload[name]` selects a field whose name is held in a variable. Adding `?` turns the selection into a question, \"does this field exist?\", and returns a Boolean.",
+  "mode": "choice",
+  "prompt": "A field counts as missing only when its key is absent; a key that is present with a null value is not missing. Given the payload below,\n\n**which script produces exactly this output?**\n\n```\n[\"email\"]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"id\":1,\"name\":null}",
+    "target": "[\"email\"]",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n[\"id\", \"name\", \"email\"] filter (isEmpty(payload[$]))",
+      "%dw 2.0\noutput application/json\n---\n[\"id\", \"name\", \"email\"] filter (payload.$ == null)",
+      "%dw 2.0\noutput application/json\n---\n[\"id\", \"name\", \"email\"] filter (payload[$] == null)",
+      "%dw 2.0\noutput application/json\n---\n[\"id\", \"name\", \"email\"] filter (not (payload[$]?))"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[\"id\", \"name\", \"email\"] filter (not (payload[$]?))",
+  "explanation": {
+    "approach": "`?` asks about the key, not the value, so `name` exists even though it is null. Tests on the value treat a null field the same as an absent one. `payload.$` looks for a field literally named \"$\".",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"id\", \"name\", \"email\"] filter (not (payload[$]?))",
+        "payload": "{\"id\":1,\"name\":null}",
+        "expect": {
+          "output": "[\"email\"]"
+        },
+        "note": "Only the absent key."
+      },
+      {
+        "label": "Testing the value",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"id\", \"name\", \"email\"] filter (payload[$] == null)",
+        "payload": "{\"id\":1,\"name\":null}",
+        "expect": {
+          "output": "[\"name\",\"email\"]"
+        },
+        "note": "A null value and a missing key look the same."
+      }
+    ]
+  }
+}

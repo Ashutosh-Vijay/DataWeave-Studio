@@ -1,0 +1,62 @@
+{
+  "id": "mcq-filter-selector",
+  "unit": "select-and-shape",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "[?()]",
+    "filter",
+    "selectors"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n[ \"B\", \"C\" ]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"items\":[{\"sku\":\"A\",\"p\":5},{\"sku\":\"B\",\"p\":15},{\"sku\":\"C\",\"p\":25}]}",
+    "target": "[ \"B\", \"C\" ]",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n(payload.items filter $.p > 20).sku",
+      "%dw 2.0\noutput application/json\n---\npayload.items.sku[?($ > 10)]",
+      "%dw 2.0\noutput application/json\n---\npayload.items[?($.p > 10)].sku",
+      "%dw 2.0\noutput application/json\n---\npayload.items[?($.p > 10)]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.items[?($.p > 10)].sku",
+  "explanation": {
+    "approach": "`[?( )]` is a filter written as a selector. It keeps the elements for which the condition holds, and a selector after it is then applied to each survivor.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.items[?($.p > 10)].sku",
+        "payload": "{\"items\":[{\"sku\":\"A\",\"p\":5},{\"sku\":\"B\",\"p\":15},{\"sku\":\"C\",\"p\":25}]}",
+        "expect": {
+          "output": "[ \"B\", \"C\" ]"
+        },
+        "note": "Filter, then select `sku`."
+      },
+      {
+        "label": "Stopping before the last step",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.items[?($.p > 10)]",
+        "payload": "{\"items\":[{\"sku\":\"A\",\"p\":5},{\"sku\":\"B\",\"p\":15},{\"sku\":\"C\",\"p\":25}]}",
+        "expect": {
+          "output": "[ { \"sku\": \"B\", \"p\": 15 }, { \"sku\": \"C\", \"p\": 25 } ]"
+        },
+        "note": "The right rows, but whole objects."
+      },
+      {
+        "label": "Filtering the wrong thing",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.items.sku[?($ > 10)]",
+        "payload": "{\"items\":[{\"sku\":\"A\",\"p\":5},{\"sku\":\"B\",\"p\":15},{\"sku\":\"C\",\"p\":25}]}",
+        "expect": {
+          "error": true
+        },
+        "note": "The condition is now comparing the Strings \"A\", \"B\", \"C\" with 10, and a letter cannot be coerced to a Number."
+      }
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "DataWeave Studio",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "identifier": "com.dwstudio.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -32,8 +32,8 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBRjhERDY0QzdBNDRERjAKUldUd1RhVEhaTjM0K3JuWGV4NytOYnRUMXNwcFRFVTNEVkJSelFoamlTSSsrZGlQdU9iazJEQkQK",
       "endpoints": [
-        "https://ashutosh-vijay.dev/dataweave/update.json",
-        "https://dataweave-studio.pages.dev/update.json"
+        "https://ashutosh-vijay.dev/dataweave/update.json?v={{current_version}}&t={{target}}-{{arch}}",
+        "https://dataweave-studio.pages.dev/update.json?v={{current_version}}&t={{target}}-{{arch}}"
       ]
     }
   },

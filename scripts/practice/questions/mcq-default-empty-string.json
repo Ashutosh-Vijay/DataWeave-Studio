@@ -1,0 +1,53 @@
+{
+  "id": "mcq-default-empty-string",
+  "unit": "default-and-missing",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "default"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ payload.a default \"X\", payload.b default \"X\", payload.c default \"X\", payload.d default \"X\" ]",
+    "payload": "{\"a\":\"\",\"b\":null,\"c\":false}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "[ \"\", \"X\", \"X\", \"X\" ]",
+      "[ \"\", \"X\", false, \"X\" ]",
+      "[ \"X\", \"X\", false, \"X\" ]",
+      "[ \"X\", \"X\", \"X\", \"X\" ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ payload.a default \"X\", payload.b default \"X\", payload.c default \"X\", payload.d default \"X\" ]",
+  "explanation": {
+    "approach": "`default` replaces null, and a missing field reads as null. An empty String and `false` are real values, so they pass through unchanged.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ payload.a default \"X\", payload.b default \"X\", payload.c default \"X\", payload.d default \"X\" ]",
+        "payload": "{\"a\":\"\",\"b\":null,\"c\":false}",
+        "expect": {
+          "output": "[ \"\", \"X\", false, \"X\" ]"
+        },
+        "note": "Only the null and the missing field fall back."
+      },
+      {
+        "label": "Treating empty as missing",
+        "script": "%dw 2.0\noutput application/json\n---\nif (isEmpty(payload.a)) \"X\" else payload.a",
+        "payload": "{\"a\":\"\",\"b\":null,\"c\":false}",
+        "expect": {
+          "output": "\"X\""
+        },
+        "note": "Test for it explicitly."
+      }
+    ]
+  }
+}

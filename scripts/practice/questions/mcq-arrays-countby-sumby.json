@@ -1,0 +1,55 @@
+{
+  "id": "mcq-arrays-countby-sumby",
+  "unit": "nested-aggregation",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "dw::core::Arrays",
+    "countBy",
+    "sumBy"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\n{ big: payload countBy ($.q > 5), units: payload sumBy $.q }",
+    "payload": "[{\"sku\":\"A\",\"q\":3},{\"sku\":\"B\",\"q\":8},{\"sku\":\"C\",\"q\":12}]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "{ \"big\": 2, \"units\": 3 }",
+      "{ \"big\": 2, \"units\": 23 }",
+      "{ \"big\": { \"true\": 2, \"false\": 1 }, \"units\": 23 }",
+      "{ \"big\": [ \"B\", \"C\" ], \"units\": 23 }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\n{ big: payload countBy ($.q > 5), units: payload sumBy $.q }",
+  "explanation": {
+    "approach": "`countBy` counts the elements for which the condition holds and returns a Number. `sumBy` adds up the value the lambda picks out of each element.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\n{ big: payload countBy ($.q > 5), units: payload sumBy $.q }",
+        "payload": "[{\"sku\":\"A\",\"q\":3},{\"sku\":\"B\",\"q\":8},{\"sku\":\"C\",\"q\":12}]",
+        "expect": {
+          "output": "{ \"big\": 2, \"units\": 23 }"
+        },
+        "note": "Two rows over 5, and 3 + 8 + 12."
+      },
+      {
+        "label": "With core functions only",
+        "script": "%dw 2.0\noutput application/json\n---\n{ big: sizeOf(payload filter ($.q > 5)), units: sum(payload.q) }",
+        "payload": "[{\"sku\":\"A\",\"q\":3},{\"sku\":\"B\",\"q\":8},{\"sku\":\"C\",\"q\":12}]",
+        "expect": {
+          "output": "{ \"big\": 2, \"units\": 23 }"
+        },
+        "note": "The same result, spelled out."
+      }
+    ]
+  }
+}

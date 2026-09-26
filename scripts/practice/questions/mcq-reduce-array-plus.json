@@ -1,0 +1,51 @@
+{
+  "id": "mcq-reduce-array-plus",
+  "unit": "reduce-seed",
+  "mode": "choice",
+  "tier": "max",
+  "title": "What does this return?",
+  "topics": [
+    "reduce",
+    "+"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[1, 2, 3] reduce ((n, acc = []) -> acc + n * 2)"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ 2, 4, 6 ]",
+      "[ [ 2 ], [ 4 ], [ 6 ] ]",
+      "It fails: + is not defined for an Array",
+      "12"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[1, 2, 3] reduce ((n, acc = []) -> acc + n * 2)",
+  "explanation": {
+    "approach": "`+` with an Array on the left appends the value on the right. With an empty-array seed, each doubled number is appended in turn.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2, 3] reduce ((n, acc = []) -> acc + n * 2)",
+        "expect": {
+          "output": "[ 2, 4, 6 ]"
+        },
+        "note": "Equivalent to `[1, 2, 3] map $ * 2`."
+      },
+      {
+        "label": "The map version",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 2, 3] map $ * 2",
+        "expect": {
+          "output": "[ 2, 4, 6 ]"
+        },
+        "note": "Clearer, and what to write in practice."
+      }
+    ]
+  }
+}

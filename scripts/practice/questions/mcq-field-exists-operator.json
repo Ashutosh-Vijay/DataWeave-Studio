@@ -1,0 +1,45 @@
+{
+  "id": "mcq-field-exists-operator",
+  "unit": "default-and-missing",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "?",
+    "selectors"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ payload.a.b?, payload.a.z?, payload.x.y? ]",
+    "payload": "{\"a\":{\"b\":null},\"c\":1}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "[ false, false, false ]",
+      "[ true, false, false ]",
+      "[ true, false, null ]",
+      "[ null, null, null ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ payload.a.b?, payload.a.z?, payload.x.y? ]",
+  "explanation": {
+    "approach": "A selector followed by `?` asks whether the key exists. A key that is present with a null value exists. A path through a missing parent is simply false.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ payload.a.b?, payload.a.z?, payload.x.y? ]",
+        "payload": "{\"a\":{\"b\":null},\"c\":1}",
+        "expect": {
+          "output": "[ true, false, false ]"
+        },
+        "note": "Present-but-null is still present."
+      }
+    ]
+  }
+}

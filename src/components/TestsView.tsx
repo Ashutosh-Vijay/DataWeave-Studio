@@ -111,7 +111,7 @@ function EmptyState({ onInsert }: { onInsert: () => void }) {
           No test suite yet
         </div>
         <div style={{ fontSize: 12, lineHeight: 1.65, color: 'var(--content-muted)' }}>
-          Tests here are real <b>dw::test</b> suites, run by the bundled engine — the same
+          Tests here are real <b>dw::test</b> suites, run by the bundled engine with the same
           framework MuleSoft ships. You get named assertions, proper failure messages, and a
           line number for whatever failed.
           <br /><br />

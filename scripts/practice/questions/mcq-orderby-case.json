@@ -1,0 +1,51 @@
+{
+  "id": "mcq-orderby-case",
+  "unit": "distinct-and-order",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "orderBy",
+    "lower"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[\"banana\", \"apple\", \"Cherry\"] orderBy $"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "[ \"banana\", \"apple\", \"Cherry\" ]",
+      "[ \"Cherry\", \"banana\", \"apple\" ]",
+      "[ \"Cherry\", \"apple\", \"banana\" ]",
+      "[ \"apple\", \"banana\", \"Cherry\" ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[\"banana\", \"apple\", \"Cherry\"] orderBy $",
+  "explanation": {
+    "approach": "Strings are ordered by character code, and every upper-case letter comes before every lower-case one. For a dictionary order, sort on `lower($)`.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"banana\", \"apple\", \"Cherry\"] orderBy $",
+        "expect": {
+          "output": "[ \"Cherry\", \"apple\", \"banana\" ]"
+        },
+        "note": "C (67) sorts before a (97)."
+      },
+      {
+        "label": "Case-insensitive",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"banana\", \"apple\", \"Cherry\"] orderBy lower($)",
+        "expect": {
+          "output": "[ \"apple\", \"banana\", \"Cherry\" ]"
+        },
+        "note": "The values keep their case; only the sort key is lowered."
+      }
+    ]
+  }
+}

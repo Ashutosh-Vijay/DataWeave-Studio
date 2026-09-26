@@ -1,0 +1,42 @@
+{
+  "id": "mcq-var-forward-reference",
+  "unit": "do-and-scope",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "var"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nvar total = price * qty\nvar price = 4\nvar qty = 3\n---\ntotal"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "12",
+      "It fails: price is used before it is declared",
+      "null",
+      "0"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nvar total = price * qty\nvar price = 4\nvar qty = 3\n---\ntotal",
+  "explanation": {
+    "approach": "Header declarations are not run top to bottom like statements. A variable can refer to one declared below it, as long as there is no cycle.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nvar total = price * qty\nvar price = 4\nvar qty = 3\n---\ntotal",
+        "expect": {
+          "output": "12"
+        },
+        "note": "Order in the header does not matter here."
+      }
+    ]
+  }
+}

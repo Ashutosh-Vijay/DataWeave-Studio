@@ -122,12 +122,12 @@ export function EngineDownScreen({
 
         <div style={{ fontSize: 11.5, lineHeight: 1.7, color: 'var(--content-faint)', marginTop: 18 }}>
           The Java runtime ships inside the app, so this is rarely a missing Java. On a
-          managed machine the usual cause is application allowlisting &mdash; ManageEngine,
-          Ivanti, AppLocker, Carbon Black &mdash; refusing to run an unsigned{' '}
+          managed machine the usual cause is application allowlisting (ManageEngine,
+          Ivanti, AppLocker, Carbon Black) refusing to run an unsigned{' '}
           <span style={{ fontFamily: MONO }}>java.exe</span> from a user-writable folder.
           Copying the text above into a mail to your IT desk, asking them to allowlist the
           path it names, is the fastest route. Installing a Java 17 JDK system-wide and
-          setting <span style={{ fontFamily: MONO }}>JAVA_HOME</span> also works &mdash; the
+          setting <span style={{ fontFamily: MONO }}>JAVA_HOME</span> also works, since the
           app tries that before giving up.
         </div>
       </div>

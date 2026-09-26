@@ -1,0 +1,49 @@
+{
+  "id": "mcq-recursion-without-base-case",
+  "unit": "recursion",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "fun",
+    "recursion"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "basics": "A recursive function needs a base case: an input for which it returns without calling itself. Without one it keeps calling itself until the engine stops it.",
+  "mode": "choice",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\nfun fact(n) = if (n <= 1) 1 else n * fact(n - 1)\n---\nfact(4)",
+      "%dw 2.0\noutput application/json\nfun isEven(n) = if (n == 0) true else isOdd(n - 1)\nfun isOdd(n) = if (n == 0) false else isEven(n - 1)\n---\n[isEven(4), isOdd(3)]",
+      "%dw 2.0\noutput application/json\nfun countdown(n) = if (n <= 0) [] else [n] ++ countdown(n - 1)\n---\ncountdown(3)",
+      "%dw 2.0\noutput application/json\nfun countdown(n) = [n] ++ countdown(n - 1)\n---\ncountdown(3)"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun countdown(n) = if (n <= 0) [] else [n] ++ countdown(n - 1)\n---\ncountdown(3)",
+  "explanation": {
+    "approach": "The failing `countdown` never stops: every call makes another call. The engine limits how deep calls can go and fails with a stack overflow. The other three all reach an input for which they return a value directly.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\nfun countdown(n) = [n] ++ countdown(n - 1)\n---\ncountdown(3)",
+        "expect": {
+          "error": true
+        },
+        "note": "Stack Overflow."
+      },
+      {
+        "label": "With a base case",
+        "script": "%dw 2.0\noutput application/json\nfun countdown(n) = if (n <= 0) [] else [n] ++ countdown(n - 1)\n---\ncountdown(3)",
+        "expect": {
+          "output": "[3,2,1]"
+        },
+        "note": "It stops at 0."
+      }
+    ]
+  }
+}

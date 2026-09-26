@@ -171,7 +171,7 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
   const compileAndRun = async () => {
     if (compiling || running) return;
     const dir = await doCompile();
-    if (!dir) { toast('Compile failed — see errors', 'error'); return; }
+    if (!dir) { toast('Compile failed. See the errors below', 'error'); return; }
     const sig = sourceSig();
     if (loadedRef.current && loadedRef.current !== sig) {
       try { await invoke('restart_engine'); } catch (e) { toast(String(e), 'error'); }
@@ -183,7 +183,7 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
   // Quick compile-only check (⌘B) — doesn't run.
   const compileOnly = async () => {
     const dir = await doCompile();
-    toast(dir ? 'Compiled ✓' : 'Compile failed — see errors', dir ? 'success' : 'error');
+    toast(dir ? 'Compiled ✓' : 'Compile failed. See the errors below', dir ? 'success' : 'error');
   };
 
   const restartEngine = async () => {
@@ -278,21 +278,21 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
         <div className="w-px h-4 bg-line" />
         <Icons.Coffee size={15} />
         <span className="text-[13px] font-semibold text-content">Java tester</span>
-        <span className="text-[11px] text-content-ghost">— compile your Java, run it on a payload</span>
+        <span className="text-[11px] text-content-ghost">Compile your Java and run it on a payload</span>
         <span className="flex-1" />
         <button
           onClick={compileAndRun}
           disabled={compiling || running}
           className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] font-semibold cursor-pointer transition-colors disabled:opacity-50"
           style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
-          title="Compile and run (⌘↵) — restarts the engine automatically when your code changed. ⌘B compiles only."
+          title="Compile and run (⌘↵). Restarts the engine when your code has changed. ⌘B only compiles."
         >
           {compiling ? 'Compiling…' : running ? 'Running…' : <>▶ Compile &amp; Run <kbd className="text-[9.5px] font-mono opacity-80">⌘↵</kbd></>}
         </button>
         <button
           onClick={restartEngine}
           className="text-[11px] text-content-faint hover:text-content border border-line rounded-md h-7 px-2.5 cursor-pointer hover:bg-surface-2"
-          title="Force-restart the engine — rarely needed; Compile & Run does this for you when your code changes"
+          title="Restart the engine. Rarely needed, since Compile & Run does this when your code changes"
         >
           Restart engine
         </button>

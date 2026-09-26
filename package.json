@@ -1,7 +1,7 @@
 {
   "name": "dataweave-studio",
   "private": true,
-  "version": "3.1.0",
+  "version": "3.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,10 @@
     "tauri": "tauri",
     "test": "vitest run",
     "test:encoding": "node scripts/check-encoding.mjs",
-    "docs:refresh": "node scripts/refresh-dw-docs.mjs"
+    "docs:refresh": "node scripts/refresh-dw-docs.mjs",
+    "practice:verify": "vite-node scripts/practice/verify-questions.mjs",
+    "practice:bundle": "node scripts/practice/bundle.mjs",
+    "practice:selftest": "node scripts/practice/selftest.mjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

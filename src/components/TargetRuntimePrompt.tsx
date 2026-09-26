@@ -48,7 +48,7 @@ export function TargetRuntimePrompt({
               </div>
               <div className="text-[12.5px] mt-1.5 leading-relaxed" style={{ color: 'var(--content-muted)' }}>
                 The engine here is the newest DataWeave. Tell it which runtime you
-                actually ship to and it will flag anything too new &mdash; a function
+                actually ship to and it will flag anything too new: a function
                 or syntax your Mule doesn&rsquo;t have fails here, instead of on the server.
               </div>
             </div>
@@ -66,7 +66,7 @@ export function TargetRuntimePrompt({
               color: 'var(--content)',
             }}
           >
-            <option value="">Latest — don&rsquo;t check</option>
+            <option value="">Latest (don&rsquo;t check)</option>
             {TARGETS.map((t) => (
               <option key={t.level} value={t.level}>{t.label}</option>
             ))}

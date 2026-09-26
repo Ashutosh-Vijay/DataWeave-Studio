@@ -1,0 +1,44 @@
+{
+  "id": "mcq-left-join-keeps-all",
+  "unit": "joins",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "dw::core::Arrays",
+    "leftJoin",
+    "join"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\nvar orders = [{id: 1, c: \"x\"}, {id: 2, c: \"y\"}, {id: 3, c: \"z\"}]\nvar custs = [{c: \"x\", name: \"Xa\"}, {c: \"y\", name: \"Yb\"}, {c: \"q\", name: \"Qc\"}]\n---\n{ inner: join(orders, custs, (o) -> o.c, (c) -> c.c) map $.l.id, left: leftJoin(orders, custs, (o) -> o.c, (c) -> c.c) map $.l.id }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "{ \"inner\": [ 1, 2 ], \"left\": [ 1, 2, 3 ] }",
+      "{ \"inner\": [ 1, 2 ], \"left\": [ 1, 2, null ] }",
+      "{ \"inner\": [ 1, 2, 3 ], \"left\": [ 1, 2, 3 ] }",
+      "{ \"inner\": [ 1, 2 ], \"left\": [ 1, 2 ] }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\nvar orders = [{id: 1, c: \"x\"}, {id: 2, c: \"y\"}, {id: 3, c: \"z\"}]\nvar custs = [{c: \"x\", name: \"Xa\"}, {c: \"y\", name: \"Yb\"}, {c: \"q\", name: \"Qc\"}]\n---\n{ inner: join(orders, custs, (o) -> o.c, (c) -> c.c) map $.l.id, left: leftJoin(orders, custs, (o) -> o.c, (c) -> c.c) map $.l.id }",
+  "explanation": {
+    "approach": "`join` keeps only pairs with a match on both sides. `leftJoin` keeps every element on the left, matched or not. Each result is an Object with `l` and `r`, and for an unmatched left row `r` is missing.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\nvar orders = [{id: 1, c: \"x\"}, {id: 2, c: \"y\"}, {id: 3, c: \"z\"}]\nvar custs = [{c: \"x\", name: \"Xa\"}, {c: \"y\", name: \"Yb\"}, {c: \"q\", name: \"Qc\"}]\n---\n{ inner: join(orders, custs, (o) -> o.c, (c) -> c.c) map $.l.id, left: leftJoin(orders, custs, (o) -> o.c, (c) -> c.c) map $.l.id }",
+        "expect": {
+          "output": "{ \"inner\": [ 1, 2 ], \"left\": [ 1, 2, 3 ] }"
+        },
+        "note": "Order 3 has customer \"z\", which is not in the list."
+      }
+    ]
+  }
+}

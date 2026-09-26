@@ -1,0 +1,59 @@
+{
+  "id": "mcq-xml-two-roots",
+  "unit": "xml-namespaces",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "xml",
+    "output"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "Every script writes `application/xml`. Three produce a document. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ order: { id: 1, name: \"A\" } }",
+      "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ order: { item: [1, 2] } }",
+      "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ id: 1, name: \"A\" }",
+      "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ order: null }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ order: { id: 1, name: \"A\" } }",
+  "explanation": {
+    "approach": "An XML document has exactly one root element. An Object with two top-level keys would need two roots, so the writer refuses. Wrap the fields in one element.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ id: 1, name: \"A\" }",
+        "outputMime": "application/xml indent=false, writeDeclaration=false",
+        "expect": {
+          "error": true
+        },
+        "note": "Trying to output second root."
+      },
+      {
+        "label": "One root",
+        "script": "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ order: { id: 1, name: \"A\" } }",
+        "outputMime": "application/xml indent=false, writeDeclaration=false",
+        "expect": {
+          "output": "<order><id>1</id><name>A</name></order>"
+        },
+        "note": "The same fields, wrapped."
+      },
+      {
+        "label": "An Array becomes repeated elements",
+        "script": "%dw 2.0\noutput application/xml indent=false, writeDeclaration=false\n---\n{ order: { item: [1, 2] } }",
+        "outputMime": "application/xml indent=false, writeDeclaration=false",
+        "expect": {
+          "output": "<order><item>1</item><item>2</item></order>"
+        },
+        "note": "Each element repeats the key."
+      }
+    ]
+  }
+}

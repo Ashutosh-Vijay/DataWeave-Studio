@@ -66,8 +66,8 @@ export function EmptyState({
         />
         <h2 className="text-[22px] font-semibold text-content tracking-tight">Start transforming</h2>
         <p className="text-[13.5px] text-content-muted mt-2.5 mb-6 leading-relaxed">
-          DataWeave Studio runs the real MuleSoft DW engine locally. Write a script,
-          feed it a payload, and see the result — no cloud, no signup.
+          DataWeave Studio runs the real MuleSoft DataWeave engine. Write a script,
+          give it a payload, and see the result.
         </p>
 
         {showResume && (

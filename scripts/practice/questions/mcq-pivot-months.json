@@ -1,0 +1,62 @@
+{
+  "id": "mcq-pivot-months",
+  "unit": "pivot",
+  "mode": "choice",
+  "tier": "extra",
+  "title": "Which script produces this output?",
+  "topics": [
+    "groupBy",
+    "pluck",
+    "dynamic keys"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n[ { \"month\": \"Jan\", \"EU\": 1, \"US\": 2 }, { \"month\": \"Feb\", \"EU\": 3 } ]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[{\"m\":\"Jan\",\"r\":\"EU\",\"v\":1},{\"m\":\"Jan\",\"r\":\"US\",\"v\":2},{\"m\":\"Feb\",\"r\":\"EU\",\"v\":3}]",
+    "target": "[ { \"month\": \"Jan\", \"EU\": 1, \"US\": 2 }, { \"month\": \"Feb\", \"EU\": 3 } ]",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.m pluck ((rows, m) -> { month: m, (rows map { ($.r): $.v }) })",
+      "%dw 2.0\noutput application/json\n---\npayload map { month: $.m, ($.r): $.v }",
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.m mapObject ((rows, m) -> { (m): { (rows map { ($.r): $.v }) } })",
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.m pluck ((rows, m) -> { month: m, cols: rows map { ($.r): $.v } })"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.m pluck ((rows, m) -> { month: m, (rows map { ($.r): $.v }) })",
+  "explanation": {
+    "approach": "Group by the row key, then build one Object per group. The region columns come from the data, so they are generated with a dynamic key and spread into the row with `{( )}`-style parentheses.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.m pluck ((rows, m) -> { month: m, (rows map { ($.r): $.v }) })",
+        "payload": "[{\"m\":\"Jan\",\"r\":\"EU\",\"v\":1},{\"m\":\"Jan\",\"r\":\"US\",\"v\":2},{\"m\":\"Feb\",\"r\":\"EU\",\"v\":3}]",
+        "expect": {
+          "output": "[ { \"month\": \"Jan\", \"EU\": 1, \"US\": 2 }, { \"month\": \"Feb\", \"EU\": 3 } ]"
+        },
+        "note": "One row per month, one column per region."
+      },
+      {
+        "label": "Nested instead of spread",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.m pluck ((rows, m) -> { month: m, cols: rows map { ($.r): $.v } })",
+        "payload": "[{\"m\":\"Jan\",\"r\":\"EU\",\"v\":1},{\"m\":\"Jan\",\"r\":\"US\",\"v\":2},{\"m\":\"Feb\",\"r\":\"EU\",\"v\":3}]",
+        "expect": {
+          "output": "[ { \"month\": \"Jan\", \"cols\": [ { \"EU\": 1 }, { \"US\": 2 } ] }, { \"month\": \"Feb\", \"cols\": [ { \"EU\": 3 } ] } ]"
+        },
+        "note": "The columns are still an Array."
+      },
+      {
+        "label": "An Object keyed by month",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.m mapObject ((rows, m) -> { (m): { (rows map { ($.r): $.v }) } })",
+        "payload": "[{\"m\":\"Jan\",\"r\":\"EU\",\"v\":1},{\"m\":\"Jan\",\"r\":\"US\",\"v\":2},{\"m\":\"Feb\",\"r\":\"EU\",\"v\":3}]",
+        "expect": {
+          "output": "{ \"Jan\": { \"EU\": 1, \"US\": 2 }, \"Feb\": { \"EU\": 3 } }"
+        },
+        "note": "The same pivot, but not rows."
+      }
+    ]
+  }
+}

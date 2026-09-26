@@ -1,0 +1,55 @@
+{
+  "id": "mcq-map-default-precedence",
+  "unit": "default-and-missing",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "default",
+    "map",
+    "precedence"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload map $ default 0",
+    "payload": "[1,null,2]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "0",
+      "[ 1, null, 2 ]",
+      "[ 1, 0, 2 ]",
+      "[ 1, 2 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map $ default 0",
+  "explanation": {
+    "approach": "Without parentheses, `default` applies to the whole `payload map $` expression, not to `$`. The mapped array is not null, so the fallback is never used.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map $ default 0",
+        "payload": "[1,null,2]",
+        "expect": {
+          "output": "[ 1, null, 2 ]"
+        },
+        "note": "Read it as `(payload map $) default 0`."
+      },
+      {
+        "label": "What was meant",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map ($ default 0)",
+        "payload": "[1,null,2]",
+        "expect": {
+          "output": "[ 1, 0, 2 ]"
+        },
+        "note": "Parentheses put the fallback inside the lambda."
+      }
+    ]
+  }
+}

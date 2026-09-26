@@ -1,0 +1,53 @@
+{
+  "id": "mcq-tree-array-path-selector",
+  "unit": "tree-module",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "dw::util::Tree",
+    "mapLeafValues",
+    "Path"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "The second argument of the `mapLeafValues` lambda is the path to the leaf: an Array with one entry per step from the root. Each entry has a `kind` and a `selector`. For a field the selector is the field name; for an array element it is the element's position.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\n{ tags: [\"x\", \"y\"], name: \"n\" } mapLeafValues ((v, p) -> p[-1].selector)"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "{ \"tags\": [ \"x\", \"y\" ], \"name\": \"name\" }",
+      "{ \"tags\": [ 0, 1 ], \"name\": \"name\" }",
+      "{ \"tags\": [ \"tags\", \"tags\" ], \"name\": \"name\" }",
+      "{ \"tags\": [ 1, 2 ], \"name\": \"name\" }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\n{ tags: [\"x\", \"y\"], name: \"n\" } mapLeafValues ((v, p) -> p[-1].selector)",
+  "explanation": {
+    "approach": "The last step of the path is the one closest to the leaf. For the elements of `tags`, that step is an array index, counting from 0. For `name` it is the field name. This is why a key-based rule written with `p[-1].selector` does not fire inside arrays of plain values.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\n{ tags: [\"x\", \"y\"], name: \"n\" } mapLeafValues ((v, p) -> p[-1].selector)",
+        "expect": {
+          "output": "{\"tags\":[0,1],\"name\":\"name\"}"
+        },
+        "note": "Indexes for array elements, names for fields."
+      },
+      {
+        "label": "The whole path of an array element",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\n{ tags: [\"x\"] } mapLeafValues ((v, p) -> p.selector)",
+        "expect": {
+          "output": "{\"tags\":[[\"tags\",0]]}"
+        },
+        "note": "The field, then the position."
+      }
+    ]
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "id": "mcq-conditional-field-syntax",
+  "unit": "conditional-fields",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "if",
+    "conditional fields"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "payload": "{\"vip\":true}",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n{ (tier: \"gold\") if (payload.vip == true) }",
+      "%dw 2.0\noutput application/json\n---\n{ (tier: \"gold\") if payload.vip }",
+      "%dw 2.0\noutput application/json\n---\n{ tier: if (payload.vip) \"gold\" else \"std\" }",
+      "%dw 2.0\noutput application/json\n---\n{ tier: \"gold\" if payload.vip }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ (tier: \"gold\") if payload.vip }",
+  "explanation": {
+    "approach": "A conditional field needs parentheses around the whole key-value pair. Without them, the `if` is parsed as part of the value, and an `if` expression needs parentheses around its condition and an `else`.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\n{ tier: \"gold\" if payload.vip }",
+        "payload": "{\"vip\":true}",
+        "expect": {
+          "error": true
+        },
+        "note": "A parse error."
+      },
+      {
+        "label": "The fix",
+        "script": "%dw 2.0\noutput application/json\n---\n{ (tier: \"gold\") if payload.vip }",
+        "payload": "{\"vip\":true}",
+        "expect": {
+          "output": "{ \"tier\": \"gold\" }"
+        },
+        "note": "Parentheses around the pair."
+      }
+    ]
+  }
+}

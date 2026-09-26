@@ -1,0 +1,55 @@
+{
+  "id": "mcq-denormalize-to-csv-rows",
+  "unit": "denormalize",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "flatMap",
+    "csv",
+    "output"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "basics": "The CSV writer needs flat rows: an Array of Objects whose values are all simple. A nested order has to be flattened into one row per line before it can be written as CSV.",
+  "mode": "choice",
+  "prompt": "Every script writes `application/csv` from the payload `[{\"id\":\"o1\",\"lines\":[{\"sku\":\"x\",\"q\":2}]}]`. Three produce a CSV. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "payload": "[{\"id\":\"o1\",\"lines\":[{\"sku\":\"x\",\"q\":2}]}]",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/csv header=false\n---\npayload flatMap ((o) -> o.lines map { order: o.id, sku: $.sku })",
+      "%dw 2.0\noutput application/csv\n---\npayload",
+      "%dw 2.0\noutput application/csv\n---\npayload map { order: $.id, lines: sizeOf($.lines) }",
+      "%dw 2.0\noutput application/csv\n---\npayload flatMap ((o) -> o.lines map { order: o.id, sku: $.sku, q: $.q })"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((o) -> o.lines map { order: o.id, sku: $.sku, q: $.q })",
+  "explanation": {
+    "approach": "Writing the payload as it is gives the CSV writer a cell whose value is an Array of Objects, which it cannot put in a cell. Flattening the lines, or summarising them into a single value, gives it rows it can write.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/csv\n---\npayload",
+        "payload": "[{\"id\":\"o1\",\"lines\":[{\"sku\":\"x\",\"q\":2}]}]",
+        "outputMime": "application/csv",
+        "expect": {
+          "error": true
+        },
+        "note": "A nested value has no cell to go in."
+      },
+      {
+        "label": "Flattened",
+        "script": "%dw 2.0\noutput application/csv\n---\npayload flatMap ((o) -> o.lines map { order: o.id, sku: $.sku, q: $.q })",
+        "payload": "[{\"id\":\"o1\",\"lines\":[{\"sku\":\"x\",\"q\":2}]}]",
+        "outputMime": "application/csv",
+        "expect": {
+          "output": "order,sku,q\no1,x,2\n"
+        },
+        "note": "One row per line."
+      }
+    ]
+  }
+}

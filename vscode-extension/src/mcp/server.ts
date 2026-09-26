@@ -53,29 +53,29 @@ const ADVANCED = process.env.DWSTUDIO_MCP_ADVANCED === '1' || process.env.DWSTUD
 
 const SAFE_LINE =
   '- Safe mode (the default) is a PURE-TRANSFORM SANDBOX: `import java!…`, `readUrl`, and `dw::io` are rejected ' +
-  'before running — no file or network access. A script sees only the payload/inputs you pass.';
+  'before running, with no file or network access. A script sees only the payload/inputs you pass.';
 const ADVANCED_LINE =
-  '- Advanced mode is ON: scripts have FULL local access — `import java!…` works, and `readUrl` / `dw::io` can read ' +
+  '- Advanced mode is ON: scripts have FULL local access: `import java!…` works, and `readUrl` / `dw::io` can read ' +
   'local files (file://) and reach the network. Treat results like code you ran locally.';
 
 const INSTRUCTIONS = [
-  '# DataWeave Studio — local DataWeave 2.0 engine\n',
+  '# DataWeave Studio: local DataWeave 2.0 engine\n',
   "You can run REAL DataWeave 2.0 against a payload on the user's machine via `validate_and_run_dataweave`. ",
   'This is the genuine DataWeave 2.12 runtime, so its output and errors are authoritative.\n\n',
   '## Rules (always follow)\n',
-  '1. VALIDATE BEFORE PRESENTING — never show the user a DataWeave script you have not run successfully with ',
+  '1. VALIDATE BEFORE PRESENTING. Never show the user a DataWeave script you have not run successfully with ',
   "`validate_and_run_dataweave`. Don't reason about whether it compiles; run it.\n",
-  '2. FIX-AND-RETRY — on error, read the line/column + message, correct the script, and call the tool again until ',
-  "it succeeds. Do NOT web-search DataWeave syntax — the tool's error is the ground truth.\n",
+  '2. FIX-AND-RETRY. On error, read the line/column + message, correct the script, and call the tool again until ',
+  "it succeeds. Do NOT web-search DataWeave syntax; the tool's error is the ground truth.\n",
   '3. Present only verified scripts; ideally show the sample input and the confirmed output.\n',
-  '4. RUN ≠ CORRECT — success means it COMPILED and produced output, not that every field was captured. ',
+  '4. RUN ≠ CORRECT. Success means it COMPILED and produced output, not that every field was captured. ',
   'DataWeave plain selectors return only the FIRST match for a repeated name, so a script can silently drop data. ',
   'For repeated element/key names (common in XML/SOAP), compare `payload…*name` (all) against `payload…name` (first).\n',
-  '5. INSPECT INTERMEDIATE VALUES — when a transform compiles but the output looks wrong, set `trace:true` and wrap ',
+  '5. INSPECT INTERMEDIATE VALUES. When a transform compiles but the output looks wrong, set `trace:true` and wrap ',
   'any sub-expression in `log("label", expr)` (it returns `expr` unchanged, so insert it anywhere). The logged ',
-  'values come back in a trace block below the result — debug a pipeline stage without restructuring the output.\n\n',
+  'values come back in a trace block below the result, so you can debug a pipeline stage without restructuring the output.\n\n',
   '## Other tools\n',
-  '- `dw_function_reference` (309 stdlib fns) and `dw_cookbook` (83 verified recipes) — consult these instead of ',
+  '- `dw_function_reference` (361 stdlib functions) and `dw_cookbook` (172 tested recipes). Consult these instead of ',
   'recalling syntax. `format_dataweave` pretty-prints. `migrate_dw_1_to_2` ports DW 1.0 → 2.0 (then validate it). ',
   '`secure_properties` encrypts/decrypts MuleSoft `![…]` values.\n\n',
   '## Optional run inputs (pass only when used)\n',
@@ -85,7 +85,7 @@ const INSTRUCTIONS = [
   '## Limits\n',
   ADVANCED ? ADVANCED_LINE : SAFE_LINE,
   '\n- `payload` is TEXT (json/xml/csv/yaml/x-www-form-urlencoded via input_mime_type). For binary multipart, pass ',
-  'bytes as `contentBase64` — never as raw text in `payload`, which corrupts bytes.',
+  'bytes as `contentBase64`, never as raw text in `payload`, which corrupts bytes.',
 ].join('');
 
 async function main(): Promise<void> {

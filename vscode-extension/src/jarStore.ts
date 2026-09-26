@@ -54,7 +54,7 @@ export function removeManagedJar(storageDir: string, p: string): void {
     fs.unlinkSync(p);
   } catch (e: any) {
     if (e && (e.code === 'EBUSY' || e.code === 'EPERM')) {
-      throw new Error("Can't remove — the engine has this JAR loaded. Restart the engine, then remove it.");
+      throw new Error("Can't remove it while the engine has this JAR loaded. Restart the engine, then remove it.");
     }
     throw new Error(`Failed to remove JAR: ${e?.message ?? e}`);
   }

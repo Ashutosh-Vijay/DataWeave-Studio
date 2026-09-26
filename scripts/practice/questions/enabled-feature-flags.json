@@ -1,0 +1,83 @@
+{
+  "id": "enabled-feature-flags",
+  "unit": "pluck-and-mapobject",
+  "tier": "easy",
+  "title": "List the feature flags that are switched on",
+  "topics": [
+    "filterObject",
+    "pluck",
+    "keysOf"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "An Object is a set of key-value pairs. `filterObject` keeps the pairs whose value passes a test, and still returns an Object. `pluck` turns an Object into an Array; inside it, `$` is the value and `$$` is the key.",
+  "mode": "build",
+  "prompt": "The config service returns flags as an object, for example `{ \"darkMode\": true, \"beta\": false }`. Return an array of the names of the flags that are switched on, in their original order.\n\nA flag that has not been decided yet is `null`. It is not on.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "{\n  \"darkMode\": true,\n  \"beta\": false,\n  \"newCheckout\": true\n}",
+      "output": "[\"darkMode\",\"newCheckout\"]"
+    },
+    {
+      "input": "{\n  \"darkMode\": null,\n  \"beta\": true\n}",
+      "output": "[\"beta\"]"
+    },
+    {
+      "input": "{\n  \"a\": false,\n  \"b\": null\n}",
+      "output": "[]"
+    },
+    {
+      "input": "{}",
+      "output": "[]"
+    }
+  ],
+  "hints": [
+    "Keep the pairs whose value is on, then take their keys.",
+    "The hidden data has a `null` flag. Does a test like `$ != false` treat it as on?",
+    "Test for exactly `true`: `filterObject ($ == true) pluck $$`."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload filterObject ($ == true) pluck $$",
+  "mustFail": [
+    {
+      "why": "treats anything that is not false as on, so an undecided null flag is listed",
+      "script": "%dw 2.0\noutput application/json\n---\npayload filterObject ($ != false) pluck $$"
+    },
+    {
+      "why": "uses the flag value itself as the condition, which fails on an undecided null flag",
+      "script": "%dw 2.0\noutput application/json\n---\npayload filterObject $ pluck $$"
+    }
+  ],
+  "explanation": {
+    "approach": "Filter on the value, then take the keys. A null flag is neither true nor false, so the test has to ask for `true` itself; asking for \"not false\" lets null through.",
+    "snippets": [
+      {
+        "label": "Not false is not the same as true",
+        "script": "%dw 2.0\noutput application/json\n---\n[null != false, null == true]",
+        "expect": {
+          "output": "[true,false]"
+        },
+        "note": "null passes the first test and fails the second."
+      },
+      {
+        "label": "A null value as the condition",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filterObject $ pluck $$",
+        "payload": "{\"darkMode\":null,\"beta\":true}",
+        "expect": {
+          "error": true
+        },
+        "note": "A filter condition has to be a Boolean, and null is not one."
+      },
+      {
+        "label": "Keys of the filtered object",
+        "script": "%dw 2.0\noutput application/json\n---\npayload filterObject ($ == true) pluck $$",
+        "payload": "{\"darkMode\":null,\"beta\":true}",
+        "expect": {
+          "output": "[\"beta\"]"
+        },
+        "note": "`pluck $$` gives the keys, in order."
+      }
+    ]
+  }
+}

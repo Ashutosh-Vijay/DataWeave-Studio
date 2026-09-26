@@ -10,6 +10,14 @@ import { ScriptEditor, ScriptEditorHandle } from './components/ScriptEditor';
 import { WindowControls } from './components/WindowControls';
 import { WorkspaceMenu } from './components/WorkspaceMenu';
 import { ToastHost, toast } from './components/Toast';
+import {
+  shouldNudge,
+  activitySummary,
+  readActivity,
+  readGoal,
+  dayKey,
+  NUDGED_KEY,
+} from './practiceStats';
 import { buildAttributesJson, buildVarsJson } from './runInput';
 import { resolveVarsJson } from './resolveVars';
 import { substituteQueryParams } from './queryRender';
@@ -52,11 +60,13 @@ import { QueryEditor } from './components/QueryEditor';
 // Lazy-loaded modals — each is only mounted when the user opens it. Cuts
 // ~150-200KB off the initial bundle.
 const AboutDialog = lazy(() => import('./components/AboutDialog').then((m) => ({ default: m.AboutDialog })));
+import { RatingPrompt } from './components/RatingForm';
 const FeedbackDialog = lazy(() => import('./components/FeedbackDialog').then((m) => ({ default: m.FeedbackDialog })));
 const SecurePropertiesTool = lazy(() => import('./components/SecurePropertiesTool').then((m) => ({ default: m.SecurePropertiesTool })));
 const ConfigCryptoPanel = lazy(() => import('./components/ConfigCryptoPanel').then((m) => ({ default: m.ConfigCryptoPanel })));
 const CompareTool = lazy(() => import('./components/CompareTool').then((m) => ({ default: m.CompareTool })));
 const MuleLogTool = lazy(() => import('./components/MuleLogTool').then((m) => ({ default: m.MuleLogTool })));
+const PracticeScreen = lazy(() => import('./components/PracticeScreen').then((m) => ({ default: m.PracticeScreen })));
 const WelcomeTour = lazy(() => import('./components/WelcomeTour').then((m) => ({ default: m.WelcomeTour })));
 const ShortcutsDialog = lazy(() => import('./components/ShortcutsDialog').then((m) => ({ default: m.ShortcutsDialog })));
 const SettingsScreen = lazy(() => import('./components/SettingsScreen').then((m) => ({ default: m.SettingsScreen })));
@@ -273,6 +283,44 @@ function App() {
   const [configCryptoOpen, setConfigCryptoOpen] = useState(false);
   const [compareToolOpen, setCompareToolOpen] = useState(false);
   const [muleLogOpen, setMuleLogOpen] = useState(false);
+  const [practiceOpen, setPracticeOpen] = useState(false);
+
+  /**
+   * The daily nudge, Duolingo-owl duty.
+   *
+   * Only when a goal has been set, only when the day is short of it, and at
+   * most once a day — a reminder that reappears on every window focus is how a
+   * helpful nudge becomes the thing people turn off. The off switch is the
+   * goal's own "Off", which sits right beside the goal it disables.
+   *
+   * Delayed a few seconds so it does not land on top of the splash.
+   */
+  useEffect(() => {
+    let last: string | null = null;
+    try {
+      last = localStorage.getItem(NUDGED_KEY);
+    } catch {
+      return;
+    }
+    const events = readActivity();
+    const goal = readGoal();
+    if (!shouldNudge(events, goal, last)) return;
+    const short = goal - activitySummary(events).today;
+    const timer = setTimeout(() => {
+      toast({
+        title: 'Practice',
+        message: `${short} more DataWeave ${short === 1 ? 'question' : 'questions'} to hit today's goal.`,
+        variant: 'info',
+        action: { label: 'Open', onClick: () => setPracticeOpen(true) },
+      });
+      try {
+        localStorage.setItem(NUDGED_KEY, dayKey(Date.now()));
+      } catch {
+        /* blocked storage — it will simply ask again next launch */
+      }
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, []);
   const [showTour, setShowTour] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -468,15 +516,15 @@ function App() {
       const what = codeOnly ? 'code' : 'link';
       toast({
         title: whole
-          ? `${codeOnly ? 'Code' : 'Link'} copied — ${workspace.requests.length} entries`
-          : `Share ${what} copied — ${active.kind === 'test' ? 'test suite' : 'script'}`,
+          ? `${codeOnly ? 'Code' : 'Link'} copied: ${workspace.requests.length} entries`
+          : `Share ${what} copied: ${active.kind === 'test' ? 'test suite' : 'script'}`,
         message: missing.length
-          ? `Note: ${[...new Set(missing)].join(', ')} can’t travel in a ${what} — send the file separately.`
+          ? `Note: ${[...new Set(missing)].join(', ')} can’t travel in a ${what}. Send the file separately.`
           : codeOnly
             ? 'Paste it into Import → From share link. No URL, so it survives networks that block the site.'
             : active.kind === 'test'
-              ? 'The suite travels inside the link itself — nothing is uploaded to a server.'
-              : 'Script, payload, vars and headers are all inside the link — the data stays in the link, never on a server.',
+              ? 'The suite travels inside the link.'
+              : 'Script, payload, vars and headers are all in the link.',
         variant: missing.length ? 'warn' : 'success',
       });
     } catch {
@@ -571,7 +619,7 @@ function App() {
             + (suites ? ` and ${suites} test suite${suites === 1 ? '' : 's'}` : '')
             + ' restored.'
             + (snap.languageLevel && !perWorkspaceTarget
-              ? ` Shared targeting ${labelFor(snap.languageLevel)} — turn on per-workspace targets in Settings → Runtime to use it.`
+              ? ` Shared targeting ${labelFor(snap.languageLevel)}. Turn on per-workspace targets in Settings → Runtime to use it.`
               : ''),
           variant: 'success',
         });
@@ -598,7 +646,7 @@ function App() {
     try {
       applyShareLink(await navigator.clipboard.readText());
     } catch {
-      toast('Couldn’t read the clipboard — use Import → From share link and paste it', 'error');
+      toast('Couldn’t read the clipboard. Use Import → From share link and paste it there', 'error');
     }
   }, [applyShareLink]);
 
@@ -622,7 +670,7 @@ function App() {
         workspace.setNamedInputs(result.namedInputs);
         toast(
           result.warnings.length
-            ? `Imported "${result.projectName}" with ${result.warnings.length} warning(s) — see console`
+            ? `Imported "${result.projectName}" with ${result.warnings.length} warning(s). See the console.`
             : `Imported "${result.projectName}" from Playground zip`,
           'success'
         );
@@ -1039,8 +1087,8 @@ function App() {
         });
         return;
       }
-      workspace.addRequest(`Tests — ${funName}`, 'test', suite);
-      toast({ title: 'Test suite generated', message: `${funName} — edit the cases, then Run`, variant: 'success' });
+      workspace.addRequest(`Tests: ${funName}`, 'test', suite);
+      toast({ title: 'Test suite generated', message: `${funName}. Edit the cases, then Run.`, variant: 'success' });
     };
     window.addEventListener('dw:unit-test-generated', onGenerated);
     return () => window.removeEventListener('dw:unit-test-generated', onGenerated);
@@ -1071,7 +1119,7 @@ function App() {
         // Message derives from the WhatsNew data (already runtime-specific),
         // so the toast can never describe a different release than the dialog.
         title: 'DataWeave Studio updated',
-        message: `${getRelease(LATEST_VERSION)?.headline ?? 'See what changed'} — details in What’s new.`,
+        message: `${getRelease(LATEST_VERSION)?.headline ?? 'See what changed'}. Details are in What’s new.`,
         action: { label: 'What’s new', onClick: () => setShowWhatsNew(true) },
       });
     }, 900);
@@ -1403,9 +1451,9 @@ function App() {
     // Creating a share link used to live only in the breadcrumb menu, which is
     // where nobody found it. Sharing is a Share group of its own so ⌘K > "share"
     // surfaces all three actions together.
-    { id: 'share-request', label: viewMode === 'tests' ? 'Copy share link — this test suite' : 'Copy share link — this script', hint: viewMode === 'tests' ? 'The suite, in one URL' : 'Script, payload, vars & headers in one URL', group: 'Share', run: handleCopyShareLink },
-    { id: 'share-workspace', label: 'Copy share link — whole workspace', hint: 'Every script and suite in this workspace', group: 'Share', run: handleCopyWorkspaceShareLink },
-    { id: 'share-code', label: 'Copy share code — no link', hint: 'For networks that block the site', group: 'Share', run: handleCopyShareCode },
+    { id: 'share-request', label: viewMode === 'tests' ? 'Copy share link: this test suite' : 'Copy share link: this script', hint: viewMode === 'tests' ? 'The suite, in one URL' : 'Script, payload, vars & headers in one URL', group: 'Share', run: handleCopyShareLink },
+    { id: 'share-workspace', label: 'Copy share link: whole workspace', hint: 'Every script and suite in this workspace', group: 'Share', run: handleCopyWorkspaceShareLink },
+    { id: 'share-code', label: 'Copy share code (no link)', hint: 'For networks that block the site', group: 'Share', run: handleCopyShareCode },
     { id: 'share-open', label: 'Open from share link…', shortcut: '⌘⇧I', group: 'Share', run: handleOpenShareLink },
     { id: 'import-playground', label: 'Import from Playground zip…', group: 'Workspace', run: handleImportPlayground },
     { id: 'export-playground', label: 'Export as Playground zip…', group: 'Workspace', run: handleExportPlayground },
@@ -1438,6 +1486,7 @@ function App() {
     { id: 'secure', label: 'Open Secure Properties tool', shortcut: '⌘⇧E', group: 'Secrets', run: () => setSecureToolOpen(true) },
     { id: 'config-crypto', label: 'Encrypt or decrypt a config file', group: 'Secrets', run: () => setConfigCryptoOpen(true) },
     { id: 'flow', label: 'Open Message Flow designer', group: 'Tools', run: () => setFlowDesignerOpen(true) },
+    { id: 'practice', label: 'Open Practice', hint: 'Graded DataWeave problems, offline', group: 'Tools', run: () => setPracticeOpen(true) },
     { id: 'compare', label: 'Open Compare tool', group: 'Tools', run: () => setCompareToolOpen(true) },
     { id: 'java', label: 'Open Java tester', group: 'Tools', run: () => setJavaTesterOpen(true) },
     { id: 'mcp', label: 'Open Local Server', hint: 'MCP for AI agents · HTTP for scripts', group: 'Tools', run: () => setMcpOpen(true) },
@@ -1464,7 +1513,7 @@ function App() {
         <div className="flex items-center justify-center w-11 shrink-0">
           <button
             onClick={() => setAboutOpen(true)}
-            title={updateAvailable ? 'Update available — open About' : 'About DataWeave Studio'}
+            title={updateAvailable ? 'Update available. Open About to install it' : 'About DataWeave Studio'}
             className="relative w-[22px] h-[22px] flex items-center justify-center cursor-pointer"
           >
             <img src={logoUrl} alt="DataWeave Studio" width="22" height="22" />
@@ -1528,6 +1577,11 @@ function App() {
           <IconBtn title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggle}>
             {isDark ? <Icons.Sun size={15} /> : <Icons.Moon size={15} />}
           </IconBtn>
+          {/* The rating prompt asks once; after that, this is how feedback
+              gets sent. Buried in Tools it would go unfound, like sharing did. */}
+          <IconBtn title="Send feedback: rate it or report a bug" onClick={() => setFeedbackOpen(true)}>
+            <Icons.Smile size={15} />
+          </IconBtn>
 
           <div className="w-px h-4 bg-line mx-1" />
 
@@ -1582,6 +1636,7 @@ function App() {
                     ['Local Server', () => setMcpOpen(true)],
                     ['Secure Properties tool', () => setSecureToolOpen(true)],
                     ['Config encryption', () => setConfigCryptoOpen(true)],
+                    ['Practice', () => setPracticeOpen(true)],
                     ['Compare tool', () => setCompareToolOpen(true)],
                     ['Mule log → cURL', () => setMuleLogOpen(true)],
                     ['Import cURL', handleOpenImport],
@@ -1642,8 +1697,8 @@ function App() {
             title={dbg.active
               ? 'Stop debugging'
               : breakpoints.length
-                ? `Debug — stops at ${breakpoints.length} breakpoint${breakpoints.length > 1 ? 's' : ''}. Click the gutter to add more.`
-                : 'Debug — click the gutter beside a line number to set a breakpoint first'}
+                ? `Debug: stops at ${breakpoints.length} breakpoint${breakpoints.length > 1 ? 's' : ''}. Click the gutter to add more.`
+                : 'Debug: click the gutter beside a line number to set a breakpoint first'}
           >
             <Icons.Activity size={12} /> Debug
           </button>
@@ -1834,6 +1889,7 @@ function App() {
           onOpenSecure={() => { introFeature('secure'); setSecureToolOpen(true); }}
           onOpenConfigCrypto={() => setConfigCryptoOpen(true)}
           onOpenCompare={() => { introFeature('compare'); setCompareToolOpen(true); }}
+          onOpenPractice={() => setPracticeOpen(true)}
           onOpenFlowDesigner={() => { introFeature('flow'); setFlowDesignerOpen(true); }}
           onOpenJavaTester={() => { introFeature('java'); setJavaTesterOpen(true); }}
           onOpenOpenApi={() => { introFeature('openapi'); setOpenApiOpen(true); }}
@@ -2162,6 +2218,9 @@ function App() {
         </Suspense>
       )}
 
+      {/* Asks for a rating from the 3rd session on, 90s in. Skippable for good. */}
+      <RatingPrompt appVersion={appVersion} />
+
       {/* Secure Properties Tool dialog */}
       {secureToolOpen && (
         <Suspense fallback={null}>
@@ -2184,6 +2243,12 @@ function App() {
       )}
 
       {/* Mule log → cURL — replay a request that only exists in a log. */}
+      {practiceOpen && (
+        <Suspense fallback={null}>
+          <PracticeScreen open={practiceOpen} onClose={() => setPracticeOpen(false)} />
+        </Suspense>
+      )}
+
       {muleLogOpen && (
         <Suspense fallback={null}>
           {/* beginTransforming here rather than on open: looking at a log

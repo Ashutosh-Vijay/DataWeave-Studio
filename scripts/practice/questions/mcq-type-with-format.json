@@ -1,0 +1,62 @@
+{
+  "id": "mcq-type-with-format",
+  "unit": "custom-types",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "type",
+    "as",
+    "format"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n[ \"1,234.50\", \"0.25\" ]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[1234.5,0.25]",
+    "target": "[ \"1,234.50\", \"0.25\" ]",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\ntype Money = Number {format: \"#,##0.00\"}\n---\npayload map ($ as Money)",
+      "%dw 2.0\noutput application/json\ntype Money = String {format: \"#,##0.00\"}\n---\npayload map ($ as String)",
+      "%dw 2.0\noutput application/json\ntype Money = String {format: \"#,###.##\"}\n---\npayload map ($ as Money)",
+      "%dw 2.0\noutput application/json\ntype Money = String {format: \"#,##0.00\"}\n---\npayload map ($ as Money)"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\ntype Money = String {format: \"#,##0.00\"}\n---\npayload map ($ as Money)",
+  "explanation": {
+    "approach": "A type can carry a format, so one declaration can be reused wherever the same conversion is needed. The format only applies when the value is coerced to that type, and the target has to be String for the formatted text to come out.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\ntype Money = String {format: \"#,##0.00\"}\n---\npayload map ($ as Money)",
+        "payload": "[1234.5,0.25]",
+        "expect": {
+          "output": "[ \"1,234.50\", \"0.25\" ]"
+        },
+        "note": "Declare once, reuse everywhere."
+      },
+      {
+        "label": "Optional decimals",
+        "script": "%dw 2.0\noutput application/json\ntype Money = String {format: \"#,###.##\"}\n---\npayload map ($ as Money)",
+        "payload": "[1234.5,0.25]",
+        "expect": {
+          "output": "[ \"1,234.5\", \"0.25\" ]"
+        },
+        "note": "`#` drops a trailing zero."
+      },
+      {
+        "label": "Declared but not used",
+        "script": "%dw 2.0\noutput application/json\ntype Money = String {format: \"#,##0.00\"}\n---\npayload map ($ as String)",
+        "payload": "[1234.5,0.25]",
+        "expect": {
+          "output": "[ \"1234.5\", \"0.25\" ]"
+        },
+        "note": "Declaring the type does nothing until you coerce to it."
+      }
+    ]
+  }
+}

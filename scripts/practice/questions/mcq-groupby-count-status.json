@@ -1,0 +1,62 @@
+{
+  "id": "mcq-groupby-count-status",
+  "unit": "groupby-shape",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "groupBy",
+    "mapObject",
+    "sizeOf"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n{ \"open\": 2, \"closed\": 1 }\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[{\"id\":1,\"s\":\"open\"},{\"id\":2,\"s\":\"closed\"},{\"id\":3,\"s\":\"open\"}]",
+    "target": "{ \"open\": 2, \"closed\": 1 }",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.s",
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.s pluck { ($$): sizeOf($) }",
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.s mapObject { ($$): sizeOf($) }",
+      "%dw 2.0\noutput application/json\n---\npayload groupBy $.s mapObject { ($$): $.id }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload groupBy $.s mapObject { ($$): sizeOf($) }",
+  "explanation": {
+    "approach": "`groupBy` returns an Object of arrays. `mapObject` keeps it an Object while replacing each array with its size. `pluck` turns it into an Array instead.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.s mapObject { ($$): sizeOf($) }",
+        "payload": "[{\"id\":1,\"s\":\"open\"},{\"id\":2,\"s\":\"closed\"},{\"id\":3,\"s\":\"open\"}]",
+        "expect": {
+          "output": "{ \"open\": 2, \"closed\": 1 }"
+        },
+        "note": "Group, then count each group."
+      },
+      {
+        "label": "pluck gives an Array",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.s pluck { ($$): sizeOf($) }",
+        "payload": "[{\"id\":1,\"s\":\"open\"},{\"id\":2,\"s\":\"closed\"},{\"id\":3,\"s\":\"open\"}]",
+        "expect": {
+          "output": "[ { \"open\": 2 }, { \"closed\": 1 } ]"
+        },
+        "note": "The same counts, in the wrong shape."
+      },
+      {
+        "label": "Selecting a field from each group",
+        "script": "%dw 2.0\noutput application/json\n---\npayload groupBy $.s mapObject { ($$): $.id }",
+        "payload": "[{\"id\":1,\"s\":\"open\"},{\"id\":2,\"s\":\"closed\"},{\"id\":3,\"s\":\"open\"}]",
+        "expect": {
+          "output": "{ \"open\": [ 1, 3 ], \"closed\": [ 2 ] }"
+        },
+        "note": "Each group is an Array, so `$.id` gives the ids, not a count."
+      }
+    ]
+  }
+}

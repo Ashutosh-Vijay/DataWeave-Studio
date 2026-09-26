@@ -1,0 +1,45 @@
+{
+  "id": "mcq-default-empty-array",
+  "unit": "default-and-missing",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "default",
+    "selectors"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ list: payload.items default [\"none\"], first: payload.items[0].sku default \"none\" }",
+    "payload": "{\"items\":[]}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "It fails: index 0 does not exist",
+      "{ \"list\": [ \"none\" ], \"first\": \"none\" }",
+      "{ \"list\": [ ], \"first\": \"none\" }",
+      "{ \"list\": [ ], \"first\": null }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ list: payload.items default [\"none\"], first: payload.items[0].sku default \"none\" }",
+  "explanation": {
+    "approach": "An empty Array is a value, not null, so `default` leaves it alone. Selecting past the end of it gives null, and `default` does replace that.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ list: payload.items default [\"none\"], first: payload.items[0].sku default \"none\" }",
+        "payload": "{\"items\":[]}",
+        "expect": {
+          "output": "{ \"list\": [ ], \"first\": \"none\" }"
+        },
+        "note": "Two different reasons, one per field."
+      }
+    ]
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "id": "mcq-coerce-null-to-string",
+  "unit": "type-coercion",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "as",
+    "String",
+    "null"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "payload": "{\"id\":7}",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload.name as String",
+      "%dw 2.0\noutput application/json\n---\n(payload.name default \"\") as String",
+      "%dw 2.0\noutput application/json\n---\npayload.name default \"n/a\"",
+      "%dw 2.0\noutput application/json\n---\npayload.id as String"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n(payload.name default \"\") as String",
+  "explanation": {
+    "approach": "Reading a field that is not there gives null, and that is not an error. Coercing that null to String is. Put the `default` before the coercion.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.name as String",
+        "payload": "{\"id\":7}",
+        "expect": {
+          "error": true
+        },
+        "note": "Cannot coerce Null to String."
+      },
+      {
+        "label": "Default first",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload.name default \"\") as String",
+        "payload": "{\"id\":7}",
+        "expect": {
+          "output": "\"\""
+        },
+        "note": "The parentheses make the order explicit: fall back, then coerce."
+      }
+    ]
+  }
+}

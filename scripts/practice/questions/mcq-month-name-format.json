@@ -1,0 +1,62 @@
+{
+  "id": "mcq-month-name-format",
+  "unit": "dates-formatting",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "as",
+    "format",
+    "Date"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n\"Mar 5, 2024\"\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"d\":\"2024-03-05\"}",
+    "target": "\"Mar 5, 2024\"",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload.d as Date as String {format: \"MMM dd, yyyy\"}",
+      "%dw 2.0\noutput application/json\n---\npayload.d as Date as String {format: \"MM d, yyyy\"}",
+      "%dw 2.0\noutput application/json\n---\npayload.d as Date as String {format: \"MMMM d, yyyy\"}",
+      "%dw 2.0\noutput application/json\n---\npayload.d as Date as String {format: \"MMM d, yyyy\"}"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.d as Date as String {format: \"MMM d, yyyy\"}",
+  "explanation": {
+    "approach": "The number of pattern letters matters. `MMM` is the short month name, `MMMM` the full name, `MM` the number. `d` prints the day without padding and `dd` pads it to two digits.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.d as Date as String {format: \"MMM d, yyyy\"}",
+        "payload": "{\"d\":\"2024-03-05\"}",
+        "expect": {
+          "output": "\"Mar 5, 2024\""
+        },
+        "note": "Short name, unpadded day."
+      },
+      {
+        "label": "Padded day",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.d as Date as String {format: \"MMM dd, yyyy\"}",
+        "payload": "{\"d\":\"2024-03-05\"}",
+        "expect": {
+          "output": "\"Mar 05, 2024\""
+        },
+        "note": "One letter different."
+      },
+      {
+        "label": "Full month name",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.d as Date as String {format: \"MMMM d, yyyy\"}",
+        "payload": "{\"d\":\"2024-03-05\"}",
+        "expect": {
+          "output": "\"March 5, 2024\""
+        },
+        "note": "Four letters."
+      }
+    ]
+  }
+}

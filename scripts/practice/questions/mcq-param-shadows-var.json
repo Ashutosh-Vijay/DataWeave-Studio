@@ -1,0 +1,44 @@
+{
+  "id": "mcq-param-shadows-var",
+  "unit": "higher-order",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "fun",
+    "var",
+    "default parameters"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nvar rate = 0.5\nfun price(p, rate = 0.1) = p * (1 - rate)\n---\n[ price(100), price(100, 0.5) ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ 90, 90 ]",
+      "It fails: rate is declared twice",
+      "[ 50, 50 ]",
+      "[ 90, 50 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nvar rate = 0.5\nfun price(p, rate = 0.1) = p * (1 - rate)\n---\n[ price(100), price(100, 0.5) ]",
+  "explanation": {
+    "approach": "A parameter is a new name in the function's own scope, so it hides a header variable with the same name. The header `rate` is never read inside `price`.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nvar rate = 0.5\nfun price(p, rate = 0.1) = p * (1 - rate)\n---\n[ price(100), price(100, 0.5) ]",
+        "expect": {
+          "output": "[ 90, 50 ]"
+        },
+        "note": "The default 0.1 wins when no argument is passed."
+      }
+    ]
+  }
+}

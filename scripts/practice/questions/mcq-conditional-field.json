@@ -1,0 +1,61 @@
+{
+  "id": "mcq-conditional-field",
+  "unit": "conditional-fields",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "if",
+    "conditional fields"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "The `tier` field must appear only for VIPs. Given the payload below,\n\n**which script produces exactly this output?**\n\n```\n{ \"name\": \"Ann\" }\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"name\":\"Ann\",\"vip\":false}",
+    "target": "{ \"name\": \"Ann\" }",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n{ name: payload.name, (tier: \"gold\") if (not payload.vip) }",
+      "%dw 2.0\noutput application/json\n---\n{ name: payload.name, tier: payload.vip default \"gold\" }",
+      "%dw 2.0\noutput application/json\n---\n{ name: payload.name, (tier: \"gold\") if payload.vip }",
+      "%dw 2.0\noutput application/json\n---\n{ name: payload.name, tier: if (payload.vip) \"gold\" else null }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, (tier: \"gold\") if payload.vip }",
+  "explanation": {
+    "approach": "A field in parentheses followed by `if` is only written when the condition is true. Setting the value to null still writes the key.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, (tier: \"gold\") if payload.vip }",
+        "payload": "{\"name\":\"Ann\",\"vip\":false}",
+        "expect": {
+          "output": "{ \"name\": \"Ann\" }"
+        },
+        "note": "No key at all."
+      },
+      {
+        "label": "A null value is still a field",
+        "script": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, tier: if (payload.vip) \"gold\" else null }",
+        "payload": "{\"name\":\"Ann\",\"vip\":false}",
+        "expect": {
+          "output": "{ \"name\": \"Ann\", \"tier\": null }"
+        },
+        "note": "Present, with a null value."
+      },
+      {
+        "label": "false is not missing",
+        "script": "%dw 2.0\noutput application/json\n---\n{ name: payload.name, tier: payload.vip default \"gold\" }",
+        "payload": "{\"name\":\"Ann\",\"vip\":false}",
+        "expect": {
+          "output": "{ \"name\": \"Ann\", \"tier\": false }"
+        },
+        "note": "`default` only replaces null."
+      }
+    ]
+  }
+}

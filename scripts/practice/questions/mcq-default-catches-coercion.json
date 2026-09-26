@@ -1,0 +1,55 @@
+{
+  "id": "mcq-default-catches-coercion",
+  "unit": "type-coercion",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "default",
+    "as",
+    "map"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload map (($ as Number) default 0)",
+    "payload": "[\"1\",\"x\",\"3\"]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ 1, \"x\", 3 ]",
+      "It fails: Cannot coerce String (x) to Number",
+      "[ 1, null, 3 ]",
+      "[ 1, 0, 3 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map (($ as Number) default 0)",
+  "explanation": {
+    "approach": "A failed coercion inside the left side of `default` does not stop the script. `default` supplies its right side instead, so \"x\" becomes 0.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map (($ as Number) default 0)",
+        "payload": "[\"1\",\"x\",\"3\"]",
+        "expect": {
+          "output": "[ 1, 0, 3 ]"
+        },
+        "note": "Only the element that could not be coerced gets the fallback."
+      },
+      {
+        "label": "Without default, the whole script fails",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map ($ as Number)",
+        "payload": "[\"1\",\"x\",\"3\"]",
+        "expect": {
+          "error": true
+        },
+        "note": "This is the behaviour the second option describes. Adding `default` changes it."
+      }
+    ]
+  }
+}

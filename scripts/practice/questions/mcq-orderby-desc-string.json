@@ -1,0 +1,55 @@
+{
+  "id": "mcq-orderby-desc-string",
+  "unit": "distinct-and-order",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "Which one fails?",
+  "topics": [
+    "orderBy"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n[\"b\", \"a\", \"c\"] orderBy -$",
+      "%dw 2.0\noutput application/json\n---\n[{ d: |2024-01-02| }, { d: |2024-01-01| }] orderBy $.d",
+      "%dw 2.0\noutput application/json\n---\n([\"b\", \"a\", \"c\"] orderBy $)[-1 to 0]",
+      "%dw 2.0\noutput application/json\n---\n[3, 1, 2] orderBy -$"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n([\"b\", \"a\", \"c\"] orderBy $)[-1 to 0]",
+  "explanation": {
+    "approach": "Negating the sort key reverses a numeric order, but you cannot negate a String. For Strings, sort ascending and then reverse with `[-1 to 0]`.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\n[\"b\", \"a\", \"c\"] orderBy -$",
+        "expect": {
+          "error": true
+        },
+        "note": "There is no minus for a String."
+      },
+      {
+        "label": "The fix",
+        "script": "%dw 2.0\noutput application/json\n---\n([\"b\", \"a\", \"c\"] orderBy $)[-1 to 0]",
+        "expect": {
+          "output": "[ \"c\", \"b\", \"a\" ]"
+        },
+        "note": "Sort, then reverse."
+      },
+      {
+        "label": "Dates sort chronologically",
+        "script": "%dw 2.0\noutput application/json\n---\n[{ d: |2024-01-02| }, { d: |2024-01-01| }] orderBy $.d",
+        "expect": {
+          "output": "[ { \"d\": \"2024-01-01\" }, { \"d\": \"2024-01-02\" } ]"
+        },
+        "note": "A Date sort key is fine."
+      }
+    ]
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "id": "mcq-arrays-some-import",
+  "unit": "filter-and-null",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "dw::core::Arrays",
+    "some",
+    "every",
+    "import"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\nimport every from dw::core::Arrays\n---\n[3, 8] every ($ > 2)",
+      "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\n[3, 8] some ($ > 5)",
+      "%dw 2.0\noutput application/json\n---\nsizeOf([3, 8] filter ($ > 5)) > 0",
+      "%dw 2.0\noutput application/json\n---\n[3, 8] some ($ > 5)"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\n[3, 8] some ($ > 5)",
+  "explanation": {
+    "approach": "`some` and `every` are in `dw::core::Arrays`, not in the core that every script gets. Without an import the name is unknown. The last option does the same job with core functions only.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\n[3, 8] some ($ > 5)",
+        "expect": {
+          "error": true
+        },
+        "note": "Unable to resolve reference of: some."
+      },
+      {
+        "label": "With the import",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Arrays\n---\n[ [3, 8] some ($ > 5), [3, 8] every ($ > 2) ]",
+        "expect": {
+          "output": "[ true, true ]"
+        },
+        "note": "Both are true for this data."
+      }
+    ]
+  }
+}

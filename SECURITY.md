@@ -1,19 +1,18 @@
 # Security & Privacy
 
-DataWeave Studio is a **local-first desktop app**. It is designed so that your
-scripts, payloads, and secrets never leave your machine. This document spells out
-exactly what the app does — written for security/compliance reviewers (e.g. at a
-bank or other regulated environment) who need to clear it before use.
+DataWeave Studio is a local desktop app and VS Code extension. This page lists
+exactly what it does on your machine and on the network, for security and
+compliance reviewers who need to approve it before use.
 
-## TL;DR
+## Summary
 
-- **No telemetry, no analytics, no tracking, no accounts.** Nothing about how you
-  use the app is collected or transmitted.
-- **The DataWeave engine runs entirely locally** — a bundled JRE 17 executes the
-  DataWeave runtime as a child process that talks to the app over local
-  stdin/stdout. It never opens a network socket.
-- **The only outbound network request the app can make is an optional update
-  check** (see below). You can turn it off, making the app 100% offline.
+- **No telemetry, analytics, tracking or accounts.**
+- **The DataWeave engine runs locally.** A bundled JRE 17 runs the DataWeave runtime
+  as a child process that talks to the app over stdin/stdout. It doesn't open a
+  network socket.
+- **The app connects to the internet in three cases**, listed below: an optional
+  update check, feedback when you choose to send it, and Java library downloads
+  when you ask for one.
 - **Open source (MIT).** You can read every line and build it yourself.
 
 ## What data the app handles, and where it lives
@@ -21,58 +20,71 @@ bank or other regulated environment) who need to clear it before use.
 | Data | Where it's stored | Leaves your machine? |
 |------|-------------------|----------------------|
 | Scripts, payloads, workspaces | Local app-data folder (below) | No |
-| Settings/preferences | Browser `localStorage` inside the app's WebView | No |
-| Encryption keys (Secure Properties tool) | **In memory only** — never written to disk | No |
+| Settings and preferences | `localStorage` inside the app's WebView | No |
+| Encryption keys (Secure Properties tool) | Memory only, never written to disk | No |
+| Feedback you send | The feedback server (see below) | Only when you press Send |
 
 App-data folder:
 - **Windows:** `%APPDATA%\com.dwstudio.desktop`
 - **macOS:** `~/Library/Application Support/com.dwstudio.desktop`
 
-There is no cloud sync, no remote storage, and no background upload of any kind.
+There is no cloud sync and no background upload.
 
-## Network activity — the complete list
+## Network activity: the complete list
 
-The app makes **one** category of outbound request, and only this one:
+1. **Update check (desktop app only).** On startup the app asks one of these
+   endpoints whether a newer version exists:
+   - `https://ashutosh-vijay.dev/dataweave/update.json`
+   - `https://dataweave-studio.pages.dev/update.json`
 
-- **Update check.** On startup the app may contact the release server to see if a
-  newer version exists:
-  - `https://ashutosh-vijay.dev/dataweave/update.json`
-  - `https://dataweave-studio.pages.dev/update.json`
+   The request is an HTTP GET carrying the app version and platform in the query
+   string (for example `?v=3.2.0&t=windows-x86_64`). The server adds one to a daily
+   count for that version and platform, and stores nothing else: no IP address, no
+   identifier. If an update exists you are shown a notice, and nothing downloads
+   until you click.
 
-  It sends only a standard HTTP GET (no payload, no identifiers). If an update
-  exists, you are shown a prompt; nothing downloads or installs without your
-  explicit click.
+   **To turn it off:** Settings → Advanced → Privacy → *Check for updates on
+   startup*. The Microsoft Store build never makes this request, and the VS Code
+   extension is updated by the Marketplace instead.
 
-  **To disable it entirely:** Settings → Advanced → Privacy →
-  *"Check for updates on startup"* (off). With it off, the app makes **no network
-  requests at all**.
+2. **Feedback, when you send it.** The app asks for a rating after a few sessions,
+   and there is a feedback button in the top bar. Nothing is sent unless you press
+   **Send**. A rating is a POST to `/api/feedback` on the same two domains, and
+   stores the score (1 to 5), your optional comment, the app version, whether it
+   came from the desktop app or the VS Code extension, and the date. To limit spam,
+   the server keeps a hash of your IP address combined with the date for one day,
+   so it can count how many ratings arrive from one address. It can't be linked
+   across days and is deleted the next day. Comments are published on the
+   [feedback page](https://ashutosh-vijay.dev/dataweave/feedback) only after they
+   have been read.
 
-This is enforced at two layers:
-1. The startup check is gated behind the setting above.
-2. The app's Content-Security-Policy (`connect-src`) restricts all network access
-   to `self` and the two update endpoints above — the WebView cannot reach any
-   other origin even if asked to.
+3. **Java library downloads, when you ask.** The Java tester can fetch a JAR from
+   Maven Central (`repo1.maven.org`) when you request one.
 
-Everything else — running scripts, mocking Salesforce/Database/HTTP nodes,
-generating secure properties — is computed locally. The Salesforce/Database/HTTP
-"connectors" in the Flow Designer are **mocks**: they return sample data you
-provide, they do not call any real endpoint.
+Clicking a link (for example "report a bug", which opens a GitHub issue) opens it
+in your normal browser; the app itself doesn't send anything.
+
+On the desktop app this is enforced by the WebView's Content-Security-Policy:
+`connect-src` allows only the app itself and the two domains above.
+
+Everything else, including running scripts, the Flow Designer's Salesforce,
+Database and HTTP steps, and secure-property encryption, is computed locally. The
+Flow Designer's connectors are **mocks** that return sample data you provide; they
+don't call real endpoints.
 
 ## Code signing
 
-The installers are **not yet code-signed** (Apple notarization is ~$99/yr and a
-Windows EV certificate is ~$300+/yr — a lot for a free side-project). Because of
-this your OS will warn on first launch (Windows SmartScreen / Smart App Control,
-macOS Gatekeeper). The warning means "the publisher isn't verified," **not** that
-the app is malicious.
+The direct-download installers aren't code-signed yet (Apple notarization is about
+$99 a year and a Windows EV certificate $300+), so your OS will warn on first launch.
+That warning means the publisher isn't verified. The **Microsoft Store** build is
+signed by Microsoft and shows no warning.
 
-If you need assurance beyond "trust me":
-- **Build from source** (see the README's Development Setup) and run your own
-  build — then nothing is unsigned-from-a-stranger.
-- **Inspect the source** — the entire app, including the network code and CSP, is
-  in this repository.
+For more assurance:
+- **Build from source** (see the README's Development setup) and run your own build.
+- **Read the source.** The whole app, including its network code and CSP, is in this
+  repository.
 
 ## Reporting a vulnerability
 
-Found something? Please email **issues@ashutosh-vijay.dev** with details rather than
-opening a public issue, and allow reasonable time to fix before disclosure.
+Please email **issues@ashutosh-vijay.dev** with details rather than opening a public
+issue, and allow reasonable time for a fix before disclosure.

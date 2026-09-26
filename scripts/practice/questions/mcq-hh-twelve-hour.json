@@ -1,0 +1,61 @@
+{
+  "id": "mcq-hh-twelve-hour",
+  "unit": "dates-formatting",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which script produces this output?",
+  "topics": [
+    "as",
+    "format"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n\"14:07\"\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"t\":\"2024-03-05T14:07:09\"}",
+    "target": "\"14:07\"",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload.t as LocalDateTime as String {format: \"h:mm\"}",
+      "%dw 2.0\noutput application/json\n---\npayload.t as LocalDateTime as String {format: \"HH:mm\"}",
+      "%dw 2.0\noutput application/json\n---\npayload.t as LocalDateTime as String {format: \"hh:mm\"}",
+      "%dw 2.0\noutput application/json\n---\npayload.t as LocalDateTime as String {format: \"HH:MM\"}"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload.t as LocalDateTime as String {format: \"HH:mm\"}",
+  "explanation": {
+    "approach": "`HH` is the 24-hour clock and `hh` the 12-hour one. `MM` is the month, not minutes.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.t as LocalDateTime as String {format: \"HH:mm\"}",
+        "payload": "{\"t\":\"2024-03-05T14:07:09\"}",
+        "expect": {
+          "output": "\"14:07\""
+        },
+        "note": "24-hour hours, minutes."
+      },
+      {
+        "label": "12-hour clock",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.t as LocalDateTime as String {format: \"hh:mm\"}",
+        "payload": "{\"t\":\"2024-03-05T14:07:09\"}",
+        "expect": {
+          "output": "\"02:07\""
+        },
+        "note": "Without an `a` for AM/PM, this is ambiguous."
+      },
+      {
+        "label": "Month in the minutes place",
+        "script": "%dw 2.0\noutput application/json\n---\npayload.t as LocalDateTime as String {format: \"HH:MM\"}",
+        "payload": "{\"t\":\"2024-03-05T14:07:09\"}",
+        "expect": {
+          "output": "\"14:03\""
+        },
+        "note": "March."
+      }
+    ]
+  }
+}

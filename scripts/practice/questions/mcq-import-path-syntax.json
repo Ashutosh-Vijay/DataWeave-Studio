@@ -1,0 +1,57 @@
+{
+  "id": "mcq-import-path-syntax",
+  "unit": "string-basics",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "Which one fails?",
+  "topics": [
+    "import",
+    "modules",
+    "dw::core::Strings"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\nimport dw::core::Strings::capitalize\n---\ncapitalize(\"abc\")",
+      "%dw 2.0\noutput application/json\nimport dw::core::Strings as S\n---\nS::capitalize(\"abc\")",
+      "%dw 2.0\noutput application/json\nimport capitalize as cap from dw::core::Strings\n---\ncap(\"abc\")",
+      "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\ncapitalize(\"abc\")"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport capitalize from dw::core::Strings\n---\ncapitalize(\"abc\")",
+  "explanation": {
+    "approach": "The path after `import` names a module. A function inside it is imported with `import name from module`, not by appending it to the path. A single imported function can be renamed with `as`.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\nimport dw::core::Strings::capitalize\n---\ncapitalize(\"abc\")",
+        "expect": {
+          "error": true
+        },
+        "note": "The engine looks for a module called dw::core::Strings::capitalize."
+      },
+      {
+        "label": "The fix",
+        "script": "%dw 2.0\noutput application/json\nimport capitalize from dw::core::Strings\n---\ncapitalize(\"abc\")",
+        "expect": {
+          "output": "\"Abc\""
+        },
+        "note": "Function first, then `from` and the module."
+      },
+      {
+        "label": "Renaming a function",
+        "script": "%dw 2.0\noutput application/json\nimport capitalize as cap from dw::core::Strings\n---\ncap(\"abc\")",
+        "expect": {
+          "output": "\"Abc\""
+        },
+        "note": "Useful when two modules export the same name."
+      }
+    ]
+  }
+}

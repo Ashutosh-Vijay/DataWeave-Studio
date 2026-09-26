@@ -1,0 +1,54 @@
+{
+  "id": "mcq-key-rewrite-camelize-import",
+  "unit": "generic-key-rewrite",
+  "tier": "easy",
+  "title": "Which script produces this output?",
+  "topics": [
+    "mapObject",
+    "camelize",
+    "dw::core::Strings"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "basics": "`mapObject` rebuilds an Object pair by pair, so it can change keys as well as values: `{ (newKey): v }`. `camelize` from `dw::core::Strings` turns `order_id` into `orderId`.",
+  "mode": "choice",
+  "prompt": "Given the payload, **which script produces exactly this output?**\n\n```\n{\"orderId\":7,\"customerName\":\"Ann\"}\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"order_id\":7,\"customer_name\":\"Ann\"}",
+    "target": "{\"orderId\":7,\"customerName\":\"Ann\"}",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\npayload mapObject ((v, k) -> { (camelize(k)): v })",
+      "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\npayload mapObject ((v, k) -> { (k): camelize(v) })",
+      "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\npayload pluck { (camelize($$)): $ }",
+      "%dw 2.0\noutput application/json\n---\npayload mapObject ((v, k) -> { (camelize(k)): v })"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\npayload mapObject ((v, k) -> { (camelize(k)): v })",
+  "explanation": {
+    "approach": "Renaming keys is `mapObject` with a computed key. `camelize` needs its import, `pluck` returns an Array instead of an Object, and applying the function to the value renames nothing.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\npayload mapObject ((v, k) -> { (camelize(k)): v })",
+        "payload": "{\"order_id\":7,\"customer_name\":\"Ann\"}",
+        "expect": {
+          "output": "{\"orderId\":7,\"customerName\":\"Ann\"}"
+        },
+        "note": "Keys changed, values untouched."
+      },
+      {
+        "label": "pluck makes an Array",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::core::Strings\n---\npayload pluck { (camelize($$)): $ }",
+        "payload": "{\"order_id\":7,\"customer_name\":\"Ann\"}",
+        "expect": {
+          "output": "[{\"orderId\":7},{\"customerName\":\"Ann\"}]"
+        },
+        "note": "The same pairs, not merged."
+      }
+    ]
+  }
+}

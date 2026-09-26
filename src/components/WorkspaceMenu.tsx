@@ -93,9 +93,9 @@ export function WorkspaceMenu({
           {item('Export as Playground zip…', null, onExportPlayground)}
           <div className="my-1 border-t" style={{ borderColor: 'var(--line)' }} />
           <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-content-faint font-medium">Share</div>
-          {item('Copy link — this request', null, onCopyShareLink)}
-          {item('Copy link — whole workspace', null, onCopyWorkspaceShareLink)}
-          {item('Copy code only — no link', null, onCopyShareCode)}
+          {item('Copy link: this request', null, onCopyShareLink)}
+          {item('Copy link: whole workspace', null, onCopyWorkspaceShareLink)}
+          {item('Copy code only (no link)', null, onCopyShareCode)}
           {item('Open from share link', null, onOpenShareLink)}
         </div>
       )}

@@ -1,0 +1,43 @@
+{
+  "id": "mcq-update-several-cases",
+  "unit": "update-operator",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "update"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "basics": "One `update` block can hold several `case` lines, one per field to change. Every field not named in a case is copied through unchanged.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ a: 1, b: 2, c: 3 } update {\n  case .a -> 10\n  case .c -> 30\n}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "{ \"a\": 10, \"b\": 2, \"c\": 30 }",
+      "{ \"a\": 10, \"b\": 2, \"c\": 3 }",
+      "{ \"a\": 1, \"b\": 2, \"c\": 30 }",
+      "{ \"a\": 10, \"c\": 30 }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ a: 1, b: 2, c: 3 } update {\n  case .a -> 10\n  case .c -> 30\n}",
+  "explanation": {
+    "approach": "Every case that matches is applied, not only the first. The fields that no case mentions stay as they were, which is the difference between `update` and building a new Object.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ a: 1, b: 2, c: 3 } update {\n  case .a -> 10\n  case .c -> 30\n}",
+        "expect": {
+          "output": "{\"a\":10,\"b\":2,\"c\":30}"
+        },
+        "note": "Two fields changed, one kept."
+      }
+    ]
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "id": "mcq-dup-key-minus-removes-all",
+  "unit": "duplicate-keys",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "-",
+    "duplicate keys"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "The `-` operator removes a key from an Object: `{ a: 1, b: 2 } - \"a\"` is `{ b: 2 }`. When an Object holds the same key more than once, the question is whether one of them goes or all of them.",
+  "mode": "choice",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\npayload - \"a\"",
+    "payload": "{ \"a\": 1, \"b\": 2, \"a\": 3 }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "{ \"b\": 2, \"a\": 3 }",
+      "It fails: the key a is ambiguous",
+      "{ \"b\": 2 }",
+      "{ \"a\": 1, \"b\": 2 }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload - \"a\"",
+  "explanation": {
+    "approach": "`-` removes every pair with that key, not just the first. That makes it a quick way to clear out duplicates before writing a key back once.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload - \"a\"",
+        "payload": "{ \"a\": 1, \"b\": 2, \"a\": 3 }",
+        "expect": {
+          "output": "{\"b\":2}"
+        },
+        "note": "Both `a` pairs are gone."
+      },
+      {
+        "label": "Remove, then add once",
+        "script": "%dw 2.0\noutput application/json\n---\n(payload - \"a\") ++ { a: 9 }",
+        "payload": "{ \"a\": 1, \"b\": 2, \"a\": 3 }",
+        "expect": {
+          "output": "{\"b\":2,\"a\":9}"
+        },
+        "note": "Exactly one `a`."
+      }
+    ]
+  }
+}

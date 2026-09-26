@@ -114,7 +114,7 @@ export function MuleLogTool({
             placeholder={
               'Paste log output containing an HTTP request.\n\n' +
               'Mule writes one per call with DEBUG on\n' +
-              'org.mule.service.http.impl.service.HttpMessageLogger —\n' +
+              'org.mule.service.http.impl.service.HttpMessageLogger -\n' +
               'a raw request pasted from anywhere else works too.'
             }
             className="flex-1 w-full resize-none outline-none px-3.5 py-3 text-[11.5px] font-mono leading-[1.55] bg-bg text-content-secondary"
@@ -178,7 +178,7 @@ export function MuleLogTool({
             ) : (
               <div className="h-full flex items-center justify-center text-center px-8 text-[12px] text-content-faint leading-relaxed">
                 {text.trim()
-                  ? 'No HTTP request found in this text. The parser looks for a request line — GET /path HTTP/1.1 — followed by headers.'
+                  ? 'No HTTP request found in this text. The parser looks for a request line such as GET /path HTTP/1.1, followed by headers.'
                   : 'Paste a log on the left. Every request in it turns up here as a cURL command, ready to replay or to import as a payload and transform.'}
               </div>
             )}

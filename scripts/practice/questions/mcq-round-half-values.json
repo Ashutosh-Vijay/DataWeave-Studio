@@ -1,0 +1,42 @@
+{
+  "id": "mcq-round-half-values",
+  "unit": "numbers-and-rounding",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "round"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ round(2.5), round(3.5), round(-2.5) ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ 3, 4, -2 ]",
+      "[ 2, 3, -3 ]",
+      "[ 2, 4, -2 ]",
+      "[ 3, 4, -3 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ round(2.5), round(3.5), round(-2.5) ]",
+  "explanation": {
+    "approach": "`round` sends an exact half away from zero: 2.5 goes up to 3 and -2.5 goes down to -3. It is not banker's rounding, which would give 2 for 2.5.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ round(2.5), round(3.5), round(-2.5) ]",
+        "expect": {
+          "output": "[ 3, 4, -3 ]"
+        },
+        "note": "The half-even option is the one people expect from finance tooling. This engine does not do that."
+      }
+    ]
+  }
+}

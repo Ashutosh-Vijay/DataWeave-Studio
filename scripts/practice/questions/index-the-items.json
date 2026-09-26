@@ -1,0 +1,89 @@
+{
+  "id": "index-the-items",
+  "unit": "map-basics",
+  "tier": "easy",
+  "title": "Number each item in a list",
+  "topics": ["map", "index"],
+  "prompt": "You have an array of item names. For each item, build an object with two fields: `position` (starting from 1, not 0) and `item`.\n\nKeep the original order.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "[\"apple\", \"banana\", \"cherry\"]",
+      "output": "[{\"position\": 1, \"item\": \"apple\"}, {\"position\": 2, \"item\": \"banana\"}, {\"position\": 3, \"item\": \"cherry\"}]"
+    },
+    {
+      "input": "[\"one\"]",
+      "output": "[{\"position\": 1, \"item\": \"one\"}]"
+    },
+    {
+      "input": "[\"x\", \"y\", \"z\", \"w\"]",
+      "output": "[{\"position\": 1, \"item\": \"x\"}, {\"position\": 2, \"item\": \"y\"}, {\"position\": 3, \"item\": \"z\"}, {\"position\": 4, \"item\": \"w\"}]"
+    },
+    {
+      "input": "[]",
+      "output": "[]"
+    },
+    {
+      "input": "[\"single\"]",
+      "output": "[{\"position\": 1, \"item\": \"single\"}]"
+    }
+  ],
+  "hints": [
+    "`map` gives you access to two things at once: the element (`$`) and its index (`$$`). You need both.",
+    "The index is zero-based, but the task asks for one-based positions. So index 0 becomes position 1, index 1 becomes position 2, and so on.",
+    "Inside your map, return an object with `position: $$ + 1` (to adjust from zero-based to one-based) and `item: $` (the element itself)."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload map {position: $$ + 1, item: $}",
+  "mustFail": [
+    {
+      "why": "hardcodes the first sample",
+      "script": "%dw 2.0\noutput application/json\n---\n[{\"position\": 1, \"item\": \"apple\"}, {\"position\": 2, \"item\": \"banana\"}, {\"position\": 3, \"item\": \"cherry\"}]"
+    },
+    {
+      "why": "forgets to adjust the index from zero-based to one-based",
+      "script": "%dw 2.0\noutput application/json\n---\npayload map {position: $$, item: $}"
+    }
+  ],
+  "explanation": {
+    "approach": "When you map over an array, you have access to the current element (via `$`) and its position in the array (via `$$`). The position is zero-based by default, so you add 1 to get a human-friendly one-based count. Build an object with both pieces of information.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map {position: $$ + 1, item: $}",
+        "payload": "[\"apple\", \"banana\", \"cherry\"]",
+        "expect": { "output": "[ { \"position\": 1, \"item\": \"apple\" }, { \"position\": 2, \"item\": \"banana\" }, { \"position\": 3, \"item\": \"cherry\" } ]" },
+        "note": "`$` is the element, `$$` is the index. Index 0 becomes position 1, index 1 becomes position 2, and so on."
+      },
+      {
+        "label": "What $$ actually is",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map $$",
+        "payload": "[\"apple\", \"banana\", \"cherry\"]",
+        "expect": { "output": "[ 0, 1, 2 ]" },
+        "note": "`$$` is zero-based. The first element is at index 0, the second at index 1, and so on."
+      },
+      {
+        "label": "The zero-based mistake",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map {position: $$, item: $}",
+        "payload": "[\"apple\", \"banana\", \"cherry\"]",
+        "expect": { "output": "[ { \"position\": 0, \"item\": \"apple\" }, { \"position\": 1, \"item\": \"banana\" }, { \"position\": 2, \"item\": \"cherry\" } ]" },
+        "note": "Forgetting to add 1 gives you zero-based positions. It is valid DataWeave, but it does not answer the task."
+      },
+      {
+        "label": "What happens if you only use $ without the index",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map {item: $}",
+        "payload": "[\"apple\", \"banana\", \"cherry\"]",
+        "expect": { "output": "[ { \"item\": \"apple\" }, { \"item\": \"banana\" }, { \"item\": \"cherry\" } ]" },
+        "note": "You lose the position information entirely. `map` does not automatically include it; you have to ask for it with `$$`."
+      },
+      {
+        "label": "The long form with named parameters",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map ((element, index) -> {position: index + 1, item: element})",
+        "payload": "[\"apple\", \"banana\", \"cherry\"]",
+        "expect": { "output": "[ { \"position\": 1, \"item\": \"apple\" }, { \"position\": 2, \"item\": \"banana\" }, { \"position\": 3, \"item\": \"cherry\" } ]" },
+        "note": "Instead of `$` and `$$`, you can name your parameters. The second parameter is the index, the first is the element. Identical result."
+      }
+    ]
+  }
+}

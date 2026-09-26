@@ -1,0 +1,50 @@
+{
+  "id": "mcq-pluck-keys-values",
+  "unit": "pluck-and-mapobject",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "pluck"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ keys: { a: 1, b: 2 } pluck $$, values: { a: 1, b: 2 } pluck $ }"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "{ \"keys\": [ \"a\", \"b\" ], \"values\": [ 1, 2 ] }",
+      "{ \"keys\": { \"a\": \"a\", \"b\": \"b\" }, \"values\": { \"a\": 1, \"b\": 2 } }",
+      "{ \"keys\": [ 1, 2 ], \"values\": [ \"a\", \"b\" ] }",
+      "{ \"keys\": [ 0, 1 ], \"values\": [ 1, 2 ] }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ keys: { a: 1, b: 2 } pluck $$, values: { a: 1, b: 2 } pluck $ }",
+  "explanation": {
+    "approach": "`pluck` turns an Object into an Array. Inside it, `$` is the value, `$$` is the key and `$$$` is the index.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ keys: { a: 1, b: 2 } pluck $$, values: { a: 1, b: 2 } pluck $ }",
+        "expect": {
+          "output": "{ \"keys\": [ \"a\", \"b\" ], \"values\": [ 1, 2 ] }"
+        },
+        "note": "Two Arrays."
+      },
+      {
+        "label": "The index is $$$",
+        "script": "%dw 2.0\noutput application/json\n---\n{ a: 1, b: 2 } pluck $$$",
+        "expect": {
+          "output": "[ 0, 1 ]"
+        },
+        "note": "The third parameter, not the second."
+      }
+    ]
+  }
+}

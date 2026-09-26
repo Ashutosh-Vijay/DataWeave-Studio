@@ -1,4 +1,4 @@
-# Microsoft Store listing — copy/paste source
+# Microsoft Store listing: copy/paste source
 
 Store ID: 9NWD4L4J7D92 · Listing: https://apps.microsoft.com/detail/9NWD4L4J7D92
 
@@ -10,8 +10,8 @@ Store ID: 9NWD4L4J7D92 · Listing: https://apps.microsoft.com/detail/9NWD4L4J7D9
 Developer tools
 
 ## Short description (used in search results)
-Write, run and debug DataWeave 2.0 transforms locally — with the real MuleSoft
-engine built in. Free, offline, no Anypoint Studio required.
+Write, run and debug DataWeave 2.0 transforms with the real MuleSoft engine
+built in. Free, works offline, no Anypoint Studio required.
 
 ---
 
@@ -25,12 +25,20 @@ Maven project.
 Paste a payload, write a script, press Run. That is the whole loop, and it takes
 milliseconds.
 
-Everything happens on your computer. There is no account, no sign-up, no telemetry and
-no cloud. Your scripts and data never leave your machine, which means you can safely
-use it with production payloads.
+There is no account to create and nothing to configure: install it and start typing.
 
 Bundled with its own Java runtime - nothing else to install, no JAVA_HOME, no Maven,
 no PATH changes.
+
+
+PRACTICE, GRADED BY THE REAL ENGINE
+
+• 739 problems across 40 topics and six levels, from picking fields out of a payload
+  up to recursive tree walks.
+• Write a script, fix a broken one, predict what a snippet returns, or pick the right
+  answer. Your solution runs against test cases you cannot see.
+• Hints, a trace of every value, the reference solution and a worked explanation
+  when you are stuck. What you typed and what you solved are kept between sessions.
 
 
 SEE WHAT YOUR SCRIPT ACTUALLY DID
@@ -191,22 +199,28 @@ DataWeave Studio is an independent tool. It is not affiliated with, endorsed by 
 sponsored by MuleSoft or Salesforce. DataWeave, Mule, MuleSoft and Anypoint are
 trademarks of their respective owners.
 
+## What's new in this version (3.2.0)
+Practice DataWeave: 739 problems across 40 topics, graded by the real engine against
+test cases you can't see. Failed runs now show the type checker's diagnosis, naming
+the expression that went wrong.
+
 ## Key features (short bullets for the listing form)
 1. Runs the real MuleSoft DataWeave 2.12 engine locally
-2. Works fully offline — no account, no telemetry, no cloud
-3. Results in milliseconds, with inline error line and column
-4. JSON, XML, CSV, YAML, Excel, multipart and more
-5. Message Flow designer with mock Salesforce/Database/HTTP connectors
-6. Built-in MCP server so AI assistants can validate DataWeave for real
-7. OpenAPI/Swagger reader generates sample payloads and DataWeave
-8. Java tester — call your own Java classes from DataWeave
-9. Offline function reference and cookbook
-10. Share a whole setup in one link — nothing is uploaded
-11. Offline secure-properties encrypt/decrypt — no website, no blocked URL
-12. Free and open source (MIT)
+2. Works offline, with no account to create
+3. 739 practice problems, graded by the engine against hidden test cases
+4. Results in milliseconds, with inline error line and column
+5. JSON, XML, CSV, YAML, Excel, multipart and more
+6. Message Flow designer with mock Salesforce/Database/HTTP connectors
+7. Built-in MCP server so AI assistants can validate DataWeave for real
+8. OpenAPI/Swagger reader generates sample payloads and DataWeave
+9. Java tester: call your own Java classes from DataWeave
+10. Offline function reference and cookbook
+11. Share a whole setup in one link
+12. Encrypt and decrypt secure properties without a website
+13. Free and open source (MIT)
 
 ## Search terms
-(max 7 terms — avoid words already in the product name)
+(max 7 terms; avoid words already in the product name)
 mulesoft
 dataweave playground
 dwl
@@ -223,7 +237,7 @@ https://ashutosh-vijay.dev/dataweave/privacy
 
 ---
 
-## Submission options — restricted capability justification
+## Submission options: restricted capability justification
 
 Paste this into the "Restricted capabilities" explanation for runFullTrust.
 NOTE: the field caps at 500 characters, so this is the trimmed version.
@@ -234,7 +248,7 @@ Win32 desktop app packaged as MSIX; runFullTrust is required for it to run at al
 
 ## Screenshots (minimum 1, at least 1366x768)
 Suggested set:
-1. Workbench — payload on the left, script centre, result right
+1. Workbench: payload on the left, script centre, result right
 2. Message Flow designer with a flow laid out
 3. OpenAPI reader with a spec open
 4. MCP server panel showing "Server is live"

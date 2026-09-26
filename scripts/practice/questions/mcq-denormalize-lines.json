@@ -1,0 +1,62 @@
+{
+  "id": "mcq-denormalize-lines",
+  "unit": "denormalize",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "Which script produces this output?",
+  "topics": [
+    "flatMap",
+    "map",
+    "lambda"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Given the payload below, **which script produces exactly this output?**\n\n```\n[ { \"order\": \"o1\", \"sku\": \"x\" }, { \"order\": \"o1\", \"sku\": \"y\" }, { \"order\": \"o2\", \"sku\": \"z\" } ]\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "[{\"id\":\"o1\",\"cust\":\"A\",\"lines\":[{\"sku\":\"x\",\"q\":1},{\"sku\":\"y\",\"q\":2}]},{\"id\":\"o2\",\"cust\":\"B\",\"lines\":[{\"sku\":\"z\",\"q\":5}]}]",
+    "target": "[ { \"order\": \"o1\", \"sku\": \"x\" }, { \"order\": \"o1\", \"sku\": \"y\" }, { \"order\": \"o2\", \"sku\": \"z\" } ]",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\npayload flatMap ((o) -> o.lines map { order: $.id, sku: $.sku })",
+      "%dw 2.0\noutput application/json\n---\npayload flatMap ((o) -> o.lines map { order: o.id, sku: $.sku })",
+      "%dw 2.0\noutput application/json\n---\npayload map ((o) -> o.lines map { order: o.id, sku: $.sku })",
+      "%dw 2.0\noutput application/json\n---\npayload.lines map { order: $.id, sku: $.sku }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\npayload flatMap ((o) -> o.lines map { order: o.id, sku: $.sku })",
+  "explanation": {
+    "approach": "Each line needs a field from its parent order. Naming the outer parameter `o` keeps it reachable inside the inner `map`, where `$` means the line. `flatMap` then joins the per-order lists into one.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\npayload flatMap ((o) -> o.lines map { order: o.id, sku: $.sku })",
+        "payload": "[{\"id\":\"o1\",\"cust\":\"A\",\"lines\":[{\"sku\":\"x\",\"q\":1},{\"sku\":\"y\",\"q\":2}]},{\"id\":\"o2\",\"cust\":\"B\",\"lines\":[{\"sku\":\"z\",\"q\":5}]}]",
+        "expect": {
+          "output": "[ { \"order\": \"o1\", \"sku\": \"x\" }, { \"order\": \"o1\", \"sku\": \"y\" }, { \"order\": \"o2\", \"sku\": \"z\" } ]"
+        },
+        "note": "One row per line, carrying its order id."
+      },
+      {
+        "label": "$ is the inner element",
+        "script": "%dw 2.0\noutput application/json\n---\npayload flatMap ((o) -> o.lines map { order: $.id, sku: $.sku })",
+        "payload": "[{\"id\":\"o1\",\"cust\":\"A\",\"lines\":[{\"sku\":\"x\",\"q\":1},{\"sku\":\"y\",\"q\":2}]},{\"id\":\"o2\",\"cust\":\"B\",\"lines\":[{\"sku\":\"z\",\"q\":5}]}]",
+        "expect": {
+          "output": "[ { \"order\": null, \"sku\": \"x\" }, { \"order\": null, \"sku\": \"y\" }, { \"order\": null, \"sku\": \"z\" } ]"
+        },
+        "note": "A line has no `id`."
+      },
+      {
+        "label": "map keeps one list per order",
+        "script": "%dw 2.0\noutput application/json\n---\npayload map ((o) -> o.lines map { order: o.id, sku: $.sku })",
+        "payload": "[{\"id\":\"o1\",\"cust\":\"A\",\"lines\":[{\"sku\":\"x\",\"q\":1},{\"sku\":\"y\",\"q\":2}]},{\"id\":\"o2\",\"cust\":\"B\",\"lines\":[{\"sku\":\"z\",\"q\":5}]}]",
+        "expect": {
+          "output": "[ [ { \"order\": \"o1\", \"sku\": \"x\" }, { \"order\": \"o1\", \"sku\": \"y\" } ], [ { \"order\": \"o2\", \"sku\": \"z\" } ] ]"
+        },
+        "note": "Right rows, still nested."
+      }
+    ]
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "id": "config-with-defaults",
+  "unit": "default-and-missing",
+  "tier": "easy",
+  "title": "Apply defaults, but keep false and empty strings",
+  "topics": ["default", "null"],
+  "prompt": "A configuration object has some fields that are `null` and need fallback values. Apply defaults for the `timeout`, `retries`, and `debug` fields.\n\nBut be careful: if a field has the value `false` or an empty string `\"\"`, those are valid values and should not be replaced. Only `null` gets a default.\n\nReturn the updated object with all three fields present.",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "starter": "%dw 2.0\noutput application/json\n---\n",
+  "cases": [
+    {
+      "input": "{\"timeout\": null, \"retries\": null, \"debug\": null}",
+      "output": "{\"timeout\": 30, \"retries\": 3, \"debug\": false}"
+    },
+    {
+      "input": "{\"timeout\": 60, \"retries\": 5, \"debug\": true}",
+      "output": "{\"timeout\": 60, \"retries\": 5, \"debug\": true}"
+    },
+    {
+      "input": "{\"timeout\": false, \"retries\": 0, \"debug\": \"\"}",
+      "output": "{\"timeout\": false, \"retries\": 0, \"debug\": \"\"}"
+    },
+    {
+      "input": "{}",
+      "output": "{\"timeout\": 30, \"retries\": 3, \"debug\": false}"
+    },
+    {
+      "input": "{\"timeout\": null, \"retries\": 0, \"debug\": null}",
+      "output": "{\"timeout\": 30, \"retries\": 0, \"debug\": false}"
+    }
+  ],
+  "hints": [
+    "The `default` operator replaces only `null` values. If a field is missing, the selector returns `null`, so `default` handles both cases in one go.",
+    "`false` is a value, not a missing value. The same goes for empty strings: `'' default 'fallback'` keeps the empty string, not the fallback.",
+    "Apply `default` to each field selector: `$.timeout default 30`, `$.retries default 3`, and `$.debug default false`."
+  ],
+  "solution": "%dw 2.0\noutput application/json\n---\n{timeout: payload.timeout default 30, retries: payload.retries default 3, debug: payload.debug default false}",
+  "mustFail": [
+    {
+      "why": "hardcodes the first sample",
+      "script": "%dw 2.0\noutput application/json\n---\n{\"timeout\": 30, \"retries\": 3, \"debug\": false}"
+    },
+    {
+      "why": "uses if/else instead of default, which incorrectly replaces false and empty string",
+      "script": "%dw 2.0\noutput application/json\n---\n{timeout: (if ($.timeout) $.timeout else 30), retries: (if ($.retries) $.retries else 3), debug: (if ($.debug != null) $.debug else false)}"
+    }
+  ],
+  "explanation": {
+    "approach": "`default` is the right tool for this job. It checks if a value is `null` and replaces it with a fallback. Other falsy values like `false`, `0`, and empty strings are NOT null, so they pass through unchanged. Build an object with three fields, each using `default` to supply its fallback.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{timeout: payload.timeout default 30, retries: payload.retries default 3, debug: payload.debug default false}",
+        "payload": "{\"timeout\": null, \"retries\": null, \"debug\": null}",
+        "expect": { "output": "{ \"timeout\": 30, \"retries\": 3, \"debug\": false }" },
+        "note": "All three fields are null, so all three defaults kick in."
+      },
+      {
+        "label": "null gets the default",
+        "script": "%dw 2.0\noutput application/json\n---\nnull default 'fallback'",
+        "expect": { "output": "\"fallback\"" },
+        "note": "`null` is the ONE case where `default` fires."
+      },
+      {
+        "label": "false is NOT null",
+        "script": "%dw 2.0\noutput application/json\n---\nfalse default true",
+        "expect": { "output": "false" },
+        "note": "`false` is a value. It is not null, so the default is ignored. `false` passes through."
+      },
+      {
+        "label": "empty string is NOT null",
+        "script": "%dw 2.0\noutput application/json\n---\n\"\" default \"fallback\"",
+        "expect": { "output": "\"\"" },
+        "note": "Empty string is a valid value, not null. The default does not apply. This is the trap: many languages treat empty strings as falsy, but DataWeave treats them as real values."
+      },
+      {
+        "label": "zero is NOT null",
+        "script": "%dw 2.0\noutput application/json\n---\n0 default 3",
+        "expect": { "output": "0" },
+        "note": "Zero is a number value, not null. It passes through."
+      },
+      {
+        "label": "Missing field becomes null, then gets the default",
+        "script": "%dw 2.0\noutput application/json\n---\n{timeout: payload.missing default 30}",
+        "payload": "{}",
+        "expect": { "output": "{ \"timeout\": 30 }" },
+        "note": "A field that does not exist returns `null` when accessed, so `default` treats it the same as an explicit `null`."
+      }
+    ]
+  }
+}

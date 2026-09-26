@@ -69,7 +69,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
     }
   };
   const [copied, setCopied] = useState('');
-  const [log, setLog] = useState<LogLine[]>([{ t: '—', m: 'Server stopped. Press Start to listen on the port.', kind: 'muted' }]);
+  const [log, setLog] = useState<LogLine[]>([{ t: '–', m: 'Server stopped. Press Start to listen on the port.', kind: 'muted' }]);
   const lastReq = useRef(0);
   // VS Code only: whether an MCP server process is currently alive (heartbeat).
   // VS Code spawns it on demand, so this reflects "an agent has it running now".
@@ -151,7 +151,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
   const setAdvanced = async (next: boolean) => {
     setAdvancedState(next);
     try { localStorage.setItem('dw.mcp.advanced', String(next)); } catch { /* ignore */ }
-    addLog(next ? 'Advanced mode ON — Java interop allowed (RCE risk)' : 'Safe mode ON — Java interop blocked', next ? 'warn' : 'ok');
+    addLog(next ? 'Advanced mode on: Java interop allowed (can run any code)' : 'Safe mode on: Java interop blocked', next ? 'warn' : 'ok');
     // Live-toggle if running; otherwise it's applied at the next Start.
     try { if (status.running) await invoke('mcp_set_advanced', { advanced: next }); }
     catch (e) { toast(String(e), 'error'); }
@@ -172,7 +172,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
         useRandomIv: false,
       });
       if (clear) setDecryptKey('');
-      addLog(clear ? 'Decryption key cleared' : `Decryption key set (${decryptAlgo}/${decryptMode}) — session only`, 'ok');
+      addLog(clear ? 'Decryption key cleared' : `Decryption key set (${decryptAlgo}/${decryptMode}), this session only`, 'ok');
     } catch (e) { toast(String(e), 'error'); }
   };
 
@@ -206,7 +206,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
     const addToClient = async (client: string, label: string) => {
       try {
         const r = await invoke<{ copied?: boolean; path?: string; existed?: boolean }>('mcp_write_config', { client });
-        if (r.copied) toast('MCP config copied — paste it into your client', 'success');
+        if (r.copied) toast('MCP config copied. Paste it into your client', 'success');
         else toast(`${r.existed ? 'Updated' : 'Added'} ${label} · ${r.path}`, 'success');
       } catch (e) { toast(e instanceof Error ? e.message : String(e), 'error'); }
     };
@@ -227,8 +227,8 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
             </div>
             <div className="flex-1" />
             <span className="inline-flex items-center" title={mode === 'http'
-              ? (httpApi.running ? `HTTP API listening on 127.0.0.1:${httpApi.port}` : 'HTTP API stopped — start it below')
-              : (vscodeRunning ? 'An agent is running the MCP server now' : 'No MCP server process running — VS Code starts it on demand')} style={{ gap: 7, height: 26, padding: '0 11px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, background: live ? 'color-mix(in oklch, #10b981 15%, transparent)' : 'color-mix(in oklch, #ef4444 11%, transparent)', border: '1px solid ' + (live ? 'color-mix(in oklch, #10b981 45%, transparent)' : 'color-mix(in oklch, #ef4444 36%, transparent)'), color: live ? '#10b981' : '#ef4444' }}>
+              ? (httpApi.running ? `HTTP API listening on 127.0.0.1:${httpApi.port}` : 'HTTP API stopped. Start it below')
+              : (vscodeRunning ? 'An agent is running the MCP server now' : 'No MCP server process running. VS Code starts it when a client connects')} style={{ gap: 7, height: 26, padding: '0 11px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, background: live ? 'color-mix(in oklch, #10b981 15%, transparent)' : 'color-mix(in oklch, #ef4444 11%, transparent)', border: '1px solid ' + (live ? 'color-mix(in oklch, #10b981 45%, transparent)' : 'color-mix(in oklch, #ef4444 36%, transparent)'), color: live ? '#10b981' : '#ef4444' }}>
               <span style={{ position: 'relative', width: 8, height: 8 }}>
                 {live && <span style={{ position: 'absolute', inset: -3, borderRadius: '50%', border: '1.5px solid #10b981', animation: 'mcpRing 2.2s ease-out infinite' }} />}
                 <span style={{ display: 'block', width: 8, height: 8, borderRadius: '50%', background: live ? '#10b981' : '#ef4444', animation: live ? 'mcpDot 1.4s ease-in-out infinite' : 'none' }} />
@@ -255,7 +255,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
 
             {mode === 'mcp' && <p style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--content-muted)' }}>
               This extension ships a Model Context Protocol server so an AI agent can run and validate DataWeave
-              on the real local engine. <b>GitHub Copilot agent mode discovers it automatically</b> — other clients
+              on the real local engine. <b>GitHub Copilot agent mode finds it automatically</b>. Other clients
               (Claude Code, Cursor, Claude Desktop) read their own config, so add it there with one click below.
             </p>}
 
@@ -269,7 +269,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
                 <button style={btnGhost} onClick={() => addToClient('copy', '')} className="hover:text-content">⧉ Copy config</button>
               </div>
               <div style={{ fontSize: 10.5, color: 'var(--content-faint)', lineHeight: 1.5 }}>
-                Writes a stdio entry into the client's <code style={{ fontFamily: MONO }}>mcpServers</code> that runs the bundled server with VS Code's own runtime — no separate Node.js install needed. For Claude Code, run {kbd('/mcp')} afterwards to connect.
+                Writes a stdio entry into the client's <code style={{ fontFamily: MONO }}>mcpServers</code> that runs the bundled server with VS Code's own runtime, so there's no Node.js to install. For Claude Code, run {kbd('/mcp')} afterwards to connect.
               </div>
             </div>}
 
@@ -277,7 +277,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--content-faint)' }}>Or with GitHub Copilot</div>
               <div style={step}><span style={num}>1</span><div style={{ fontSize: 12.5, lineHeight: 1.55 }}>Open the Command Palette ({kbd('Ctrl/Cmd+Shift+P')}) and run {kbd('MCP: List Servers')}.</div></div>
               <div style={step}><span style={num}>2</span><div style={{ fontSize: 12.5, lineHeight: 1.55 }}>Pick <b>DataWeave Studio</b> → <b>Start Server</b>.</div></div>
-              <div style={step}><span style={num}>3</span><div style={{ fontSize: 12.5, lineHeight: 1.55 }}>In Copilot Chat, switch to <b>Agent</b> mode — the DataWeave tools appear under the 🔧 Tools picker.</div></div>
+              <div style={step}><span style={num}>3</span><div style={{ fontSize: 12.5, lineHeight: 1.55 }}>In Copilot Chat, switch to <b>Agent</b> mode. The DataWeave tools appear under the 🔧 Tools picker.</div></div>
             </div>}
             {mode === 'mcp' && <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px' }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--content-faint)', marginBottom: 8 }}>6 tools exposed</div>
@@ -286,7 +286,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
               </div>
             </div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 11.5, lineHeight: 1.55, color: 'var(--content-muted)' }}>
-              <div><b>Safe mode (default):</b> a pure-transform sandbox — <code style={{ fontFamily: MONO }}>java!</code> / <code style={{ fontFamily: MONO }}>readUrl</code> / <code style={{ fontFamily: MONO }}>dw::io</code> are rejected (in scripts and imported modules). To lift the gate for FULL local access, set the env var {kbd('DWSTUDIO_MCP_ADVANCED=1')} on the server entry in <code style={{ fontFamily: MONO }}>mcp.json</code>.</div>
+              <div><b>Safe mode (default):</b> a pure-transform sandbox. <code style={{ fontFamily: MONO }}>java!</code> / <code style={{ fontFamily: MONO }}>readUrl</code> / <code style={{ fontFamily: MONO }}>dw::io</code> are rejected (in scripts and imported modules). To lift the gate for FULL local access, set the env var {kbd('DWSTUDIO_MCP_ADVANCED=1')} on the server entry in <code style={{ fontFamily: MONO }}>mcp.json</code>.</div>
               <div><b>Encrypted secure config:</b> pass the key per-call as <code style={{ fontFamily: MONO }}>secureKey</code>, or set {kbd('DWSTUDIO_SECURE_KEY')} on the server. A <code style={{ fontFamily: MONO }}>{'![…]'}</code> value with no key is rejected (never run as ciphertext).</div>
               <div><b>Custom modules:</b> pass a <code style={{ fontFamily: MONO }}>modules</code> array so <code style={{ fontFamily: MONO }}>import x from MyModule</code> resolves.</div>
             </div>
@@ -295,15 +295,15 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
                 its own start/stop rather than hiding in a paragraph. */}
             {mode === 'http' && <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 10, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div className="flex items-center" style={{ gap: 8 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--content-faint)', flex: 1 }}>HTTP API — run scripts from anything</div>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--content-faint)', flex: 1 }}>HTTP API: run scripts from anything</div>
                 <span style={{ fontSize: 10.5, fontWeight: 600, color: httpApi.running ? '#10b981' : 'var(--content-faint)' }}>
                   {httpApi.running ? `127.0.0.1:${httpApi.port}` : 'Stopped'}
                 </span>
               </div>
               <div style={{ fontSize: 11.5, lineHeight: 1.55, color: 'var(--content-muted)' }}>
                 <code style={{ fontFamily: MONO }}>POST /run</code> takes <code style={{ fontFamily: MONO }}>{'{ script, payload, vars }'}</code> and
-                returns the output. Send a <code style={{ fontFamily: MONO }}>rows</code> array instead and one script runs over every row —
-                a back-test across a CSV of real traffic, without deploying an API just to try a transform.
+                returns the output. Send a <code style={{ fontFamily: MONO }}>rows</code> array instead and one script runs over every row,
+                for example to back-test a transform against a CSV of real traffic.
                 Loopback only, Safe mode applies, and it stays off until you start it.
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
@@ -398,8 +398,8 @@ output application/json
                   <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
                 </button>
               </div>
-              {chip('uptime', running ? fmtUptime(status.uptimeSecs) : '—')}
-              {chip('requests', running ? String(status.requests) : '—', running && status.requests > 0)}
+              {chip('uptime', running ? fmtUptime(status.uptimeSecs) : '–')}
+              {chip('requests', running ? String(status.requests) : '–', running && status.requests > 0)}
             </div>
           </div>
           <button onClick={toggleServer} disabled={busy} className="inline-flex items-center cursor-pointer disabled:opacity-50" style={{ gap: 9, height: 46, padding: '0 22px', borderRadius: 11, fontSize: 14, fontWeight: 600, border: running ? '1px solid color-mix(in oklch, var(--err) 45%, transparent)' : '1px solid var(--accent)', background: running ? 'color-mix(in oklch, var(--err) 12%, transparent)' : 'var(--accent)', color: running ? 'var(--err)' : 'var(--accent-ink)', boxShadow: running ? 'none' : '0 8px 24px color-mix(in oklch, var(--accent) 35%, transparent)' }}>
@@ -414,7 +414,7 @@ output application/json
           <div className="flex flex-col" style={{ gap: 20, minWidth: 0 }}>
             {/* Endpoint */}
             <section style={card}>
-              {cardHead('Endpoint', 'Where clients connect — AI agents and scripts alike. Bound to localhost, never exposed to your network.')}
+              {cardHead('Endpoint', 'Where clients connect, AI agents and scripts alike. Listens on localhost only.')}
               <div className="flex items-center" style={{ gap: 14, padding: '13px 16px' }}>
                 <div className="flex-1">
                   <div style={{ fontSize: 12.5, fontWeight: 500 }}>Port</div>
@@ -439,8 +439,8 @@ output application/json
               <div style={{ padding: 14 }}>
                 <div className="flex" style={{ gap: 10 }}>
                   {([
-                    [false, 'Safe mode', 'No java! imports, no JAR loading — a pure transform reads your payload and nothing else. Recommended.'],
-                    [true, 'Advanced mode', 'Allows import java! so scripts can use Java libs — but a generated script could run arbitrary code.'],
+                    [false, 'Safe mode', 'No java! imports and no JAR loading, so a script can only transform the payload it’s given. Recommended.'],
+                    [true, 'Advanced mode', 'Allows import java! so scripts can use Java libraries, which means a generated script could run any code.'],
                   ] as const).map(([adv, title, desc]) => {
                     const on = advanced === adv;
                     const tone = adv ? 'var(--err)' : accent;
@@ -470,7 +470,7 @@ output application/json
                 <span style={{ color: accent }}><svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></span>
                 <div className="flex-1">
                   <div style={{ fontSize: 13, fontWeight: 600 }}>Secure-properties key</div>
-                  <div style={{ fontSize: 11, color: 'var(--content-muted)', marginTop: 1 }}>Decrypts <code style={{ fontFamily: MONO, fontSize: 10.5 }}>![…]</code> values in config before a run. Session-only — never saved or sent over MCP.</div>
+                  <div style={{ fontSize: 11, color: 'var(--content-muted)', marginTop: 1 }}>Decrypts <code style={{ fontFamily: MONO, fontSize: 10.5 }}>![…]</code> values in config before a run. Kept for this session only, and never sent over MCP.</div>
                 </div>
                 <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', padding: '2px 6px', borderRadius: 5, color: status.decryptKeySet ? accent : 'var(--content-muted)', background: `color-mix(in oklch, ${status.decryptKeySet ? 'var(--accent)' : 'var(--content-muted)'} 13%, transparent)`, border: `1px solid color-mix(in oklch, ${status.decryptKeySet ? 'var(--accent)' : 'var(--content-muted)'} 28%, transparent)` }}>{status.decryptKeySet ? 'Key set' : 'No key'}</span>
               </div>
@@ -493,7 +493,7 @@ output application/json
                   <button onClick={() => applyDecrypt(false)} disabled={!decryptKey} className="cursor-pointer" style={{ height: 30, padding: '0 14px', borderRadius: 8, background: accent, color: 'var(--accent-contrast, #fff)', border: 'none', fontSize: 12, fontWeight: 600, opacity: decryptKey ? 1 : 0.5 }}>Set</button>
                   {status.decryptKeySet && <button onClick={() => applyDecrypt(true)} className="cursor-pointer" style={{ height: 30, padding: '0 12px', borderRadius: 8, background: 'var(--surface-2)', color: 'var(--content-secondary)', border: '1px solid var(--line)', fontSize: 12 }}>Clear</button>}
                 </div>
-                <div style={{ fontSize: 10.5, color: 'var(--content-muted)', marginTop: 10, lineHeight: 1.5 }}>An agent can also pass <code style={{ fontFamily: MONO, fontSize: 10 }}>secure_key</code> per call, which overrides this. If a <code style={{ fontFamily: MONO, fontSize: 10 }}>![…]</code> value appears with no key set, the run is rejected — ciphertext is never sent to the engine.</div>
+                <div style={{ fontSize: 10.5, color: 'var(--content-muted)', marginTop: 10, lineHeight: 1.5 }}>An agent can also pass <code style={{ fontFamily: MONO, fontSize: 10 }}>secure_key</code> per call, which overrides this. If a <code style={{ fontFamily: MONO, fontSize: 10 }}>![…]</code> value appears with no key set, the run is rejected rather than sending ciphertext to the engine.</div>
               </div>
             </section>
 
@@ -502,14 +502,14 @@ output application/json
               {cardHead('Tools exposed', 'Capabilities the agent can call over the protocol.')}
               {[
                 { name: 'validate_and_run_dataweave', desc: 'Run a script + payload locally; returns output or the exact error & line. Supports attributes, vars, named inputs, config / secure-config (with ![…] decryption), and multipart/binary.', badge: 'Live', live: true },
-                { name: 'secure_properties', desc: 'Encrypt / decrypt MuleSoft ![…] secure values (AES/Blowfish/… via the official tool) — one value, or a whole config file in one call.', badge: 'Live', live: true },
+                { name: 'secure_properties', desc: 'Encrypt / decrypt MuleSoft ![…] secure values (AES/Blowfish/… via the official tool), one value or a whole config file per call.', badge: 'Live', live: true },
                 { name: 'migrate_dw_1_to_2', desc: 'Best-effort DataWeave 1.0 → 2.0 migration; flags manual-fixup spots. Validate the result with the run tool.', badge: 'Live', live: true },
-                { name: 'dw_function_reference', desc: 'Offline DataWeave 2.12 stdlib reference — every function in the bundled engine, with signatures, docs & examples (by name, search, or list).', badge: 'Live', live: true },
-                { name: 'dw_cookbook', desc: 'Offline cookbook — validated recipes for common transforms (by id, search, or category).', badge: 'Live', live: true },
+                { name: 'dw_function_reference', desc: 'DataWeave 2.12 standard library reference: every function in the bundled engine, with signatures, docs & examples (by name, search, or list).', badge: 'Live', live: true },
+                { name: 'dw_cookbook', desc: 'Cookbook: tested recipes for common transforms (by id, search, or category).', badge: 'Live', live: true },
                 { name: 'format_dataweave', desc: 'Pretty-print / reformat a script via the engine’s own IDE formatter.', badge: 'Live', live: true },
                 { name: 'run_dataweave_tests', desc: 'Run a dw::test suite and report which assertions passed, with the engine’s own failure messages.', badge: 'Live', live: true },
-                { name: 'lint_dataweave', desc: 'Type-check and lint without running — undefined references, wrong arity, insecure hashes, leftover log(). Works with no payload.', badge: 'Live', live: true },
-                { name: 'dw_scope_at', desc: 'What is in scope at one point in a script — every visible variable with its inferred type, so a lambda’s parameter is a real shape rather than a guess.', badge: 'Live', live: true },
+                { name: 'lint_dataweave', desc: 'Type-check and lint without running: undefined references, wrong argument counts, insecure hashes, leftover log(). Needs no payload.', badge: 'Live', live: true },
+                { name: 'dw_scope_at', desc: 'What is in scope at one point in a script: every visible variable with its inferred type, so a lambda’s parameter is a real shape rather than a guess.', badge: 'Live', live: true },
               ].map((t) => (
                 <div key={t.name} className="flex items-center" style={{ gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--line-subtle)', opacity: t.live ? 1 : 0.6 }}>
                   <div className="flex-1 min-w-0">
@@ -540,11 +540,11 @@ output application/json
 
             {mode === 'http' ? (
               <section style={card}>
-                {cardHead('Run scripts over HTTP', 'The same engine, behind a POST any script can call — no MCP client needed.')}
+                {cardHead('Run scripts over HTTP', 'The same engine behind a POST that any script can call, no MCP client needed.')}
                 <div style={{ padding: '12px 14px', fontSize: 11.5, lineHeight: 1.6, color: 'var(--content-muted)' }}>
                   <div style={{ marginBottom: 10 }}>
                     Send a script and a payload, get the output back. Send a <code style={{ fontFamily: MONO }}>rows</code> array
-                    instead and one script runs over every row — a back-test across a CSV export of real traffic,
+                    instead and one script runs over every row, for example to back-test a transform against a CSV export of real traffic,
                     without deploying an API just to try a transform.
                   </div>
                   <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 9, overflow: 'hidden' }}>
@@ -555,13 +555,13 @@ output application/json
                     <pre style={{ margin: 0, padding: '13px 14px', fontFamily: MONO, fontSize: 11, lineHeight: 1.6, color: 'var(--content-secondary)', whiteSpace: 'pre', overflowX: 'auto' }}>{httpSample}</pre>
                   </div>
                   <div style={{ marginTop: 10, fontSize: 10.5, color: 'var(--content-faint)', lineHeight: 1.5 }}>
-                    <b>Any format, in and out.</b> Only the request envelope is JSON — set
+                    <b>Any format, in and out.</b> Only the request envelope is JSON. Set
                     <code style={{ fontFamily: MONO }}>payloadMime</code> to <code style={{ fontFamily: MONO }}>application/xml</code>,
                     <code style={{ fontFamily: MONO }}>application/csv</code> or anything else, and the output is whatever your
                     script&rsquo;s <code style={{ fontFamily: MONO }}>output</code> directive says.
                     <br /><br />
-                    The engine compiles the script once and caches it — the first row costs about a second, every row
-                    after runs in milliseconds. Safe mode applies here too.
+                    The engine compiles the script once and caches it, so the first row takes about a second and every row
+                    after that runs in milliseconds. Safe mode applies here too.
                   </div>
                   <button
                     onClick={() => setDocsOpen(true)}

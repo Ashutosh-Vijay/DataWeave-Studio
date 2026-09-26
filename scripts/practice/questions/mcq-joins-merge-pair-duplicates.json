@@ -1,0 +1,58 @@
+{
+  "id": "mcq-joins-merge-pair-duplicates",
+  "unit": "joins",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "join",
+    "++",
+    "duplicate keys"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "A join returns pairs, `{ l, r }`. A common way to merge a pair into one row is `$.l ++ $.r`. Remember that `++` on Objects appends pairs rather than replacing them.",
+  "mode": "choice",
+  "prompt": "The output is written with `indent=false`. **What does it return, exactly?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json indent=false",
+  "given": {
+    "script": "%dw 2.0\noutput application/json indent=false\nimport * from dw::core::Arrays\n---\njoin([{ id: 1, qty: 2 }], [{ id: 1, name: \"Pen\" }], (l) -> l.id, (r) -> r.id) map ($.l ++ $.r)"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[{\"qty\": 2,\"name\": \"Pen\"}]",
+      "[{\"id\": 1,\"qty\": 2,\"name\": \"Pen\"}]",
+      "[{\"l\": {\"id\": 1,\"qty\": 2},\"r\": {\"id\": 1,\"name\": \"Pen\"}}]",
+      "[{\"id\": 1,\"qty\": 2,\"id\": 1,\"name\": \"Pen\"}]"
+    ]
+  },
+  "compare": "text",
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json indent=false\nimport * from dw::core::Arrays\n---\njoin([{ id: 1, qty: 2 }], [{ id: 1, name: \"Pen\" }], (l) -> l.id, (r) -> r.id) map ($.l ++ $.r)",
+  "explanation": {
+    "approach": "Both sides have an `id`, so the merged row has it twice. Remove the key from one side first, for example `$.l ++ ($.r - \"id\")`, to write it once.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json indent=false\nimport * from dw::core::Arrays\n---\njoin([{ id: 1, qty: 2 }], [{ id: 1, name: \"Pen\" }], (l) -> l.id, (r) -> r.id) map ($.l ++ $.r)",
+        "outputMime": "application/json indent=false",
+        "expect": {
+          "output": "[{\"id\": 1,\"qty\": 2,\"id\": 1,\"name\": \"Pen\"}]"
+        },
+        "compare": "text",
+        "note": "The join key appears twice."
+      },
+      {
+        "label": "Dropping it from one side",
+        "script": "%dw 2.0\noutput application/json indent=false\nimport * from dw::core::Arrays\n---\njoin([{ id: 1, qty: 2 }], [{ id: 1, name: \"Pen\" }], (l) -> l.id, (r) -> r.id) map ($.l ++ ($.r - \"id\"))",
+        "outputMime": "application/json indent=false",
+        "expect": {
+          "output": "[{\"id\": 1,\"qty\": 2,\"name\": \"Pen\"}]"
+        },
+        "compare": "text",
+        "note": "Once."
+      }
+    ]
+  }
+}

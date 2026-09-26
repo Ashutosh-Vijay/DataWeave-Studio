@@ -1,0 +1,64 @@
+{
+  "id": "mcq-rename-keys-deep",
+  "unit": "generic-key-rewrite",
+  "mode": "choice",
+  "tier": "extra",
+  "title": "Which script produces this output?",
+  "topics": [
+    "fun",
+    "recursion",
+    "match",
+    "mapObject",
+    "upper"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Upper-case every key at every depth. Given the payload below,\n\n**which script produces exactly this output?**\n\n```\n{ \"A\": 1, \"B\": { \"C\": [ { \"D\": 2 } ] } }\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"a\":1,\"b\":{\"c\":[{\"d\":2}]}}",
+    "target": "{ \"A\": 1, \"B\": { \"C\": [ { \"D\": 2 } ] } }",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\nfun rk(v) = v match {\n  case o is Object -> o mapObject ((val, k) -> { (upper(k)): val })\n  case a is Array -> a map rk($)\n  else -> v\n}\n---\nrk(payload)",
+      "%dw 2.0\noutput application/json\nfun rk(v) = v match {\n  case o is Object -> o mapObject ((val, k) -> { (upper(k)): rk(val) })\n  else -> v\n}\n---\nrk(payload)",
+      "%dw 2.0\noutput application/json\n---\npayload mapObject ((val, k) -> { (upper(k)): val })",
+      "%dw 2.0\noutput application/json\nfun rk(v) = v match {\n  case o is Object -> o mapObject ((val, k) -> { (upper(k)): rk(val) })\n  case a is Array -> a map rk($)\n  else -> v\n}\n---\nrk(payload)"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun rk(v) = v match {\n  case o is Object -> o mapObject ((val, k) -> { (upper(k)): rk(val) })\n  case a is Array -> a map rk($)\n  else -> v\n}\n---\nrk(payload)",
+  "explanation": {
+    "approach": "The function has to recurse into Objects and into Arrays, and it has to call itself on each value. Each wrong option drops one of the three: all recursion, the Array case, or the recursive call on values.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nfun rk(v) = v match {\n  case o is Object -> o mapObject ((val, k) -> { (upper(k)): rk(val) })\n  case a is Array -> a map rk($)\n  else -> v\n}\n---\nrk(payload)",
+        "payload": "{\"a\":1,\"b\":{\"c\":[{\"d\":2}]}}",
+        "expect": {
+          "output": "{ \"A\": 1, \"B\": { \"C\": [ { \"D\": 2 } ] } }"
+        },
+        "note": "Every level, through the Array."
+      },
+      {
+        "label": "Top level only",
+        "script": "%dw 2.0\noutput application/json\n---\npayload mapObject ((val, k) -> { (upper(k)): val })",
+        "payload": "{\"a\":1,\"b\":{\"c\":[{\"d\":2}]}}",
+        "expect": {
+          "output": "{ \"A\": 1, \"B\": { \"c\": [ { \"d\": 2 } ] } }"
+        },
+        "note": "No recursion."
+      },
+      {
+        "label": "No Array case",
+        "script": "%dw 2.0\noutput application/json\nfun rk(v) = v match {\n  case o is Object -> o mapObject ((val, k) -> { (upper(k)): rk(val) })\n  else -> v\n}\n---\nrk(payload)",
+        "payload": "{\"a\":1,\"b\":{\"c\":[{\"d\":2}]}}",
+        "expect": {
+          "output": "{ \"A\": 1, \"B\": { \"C\": [ { \"d\": 2 } ] } }"
+        },
+        "note": "It stops at the Array."
+      }
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "id": "mcq-add-one-month",
+  "unit": "date-arithmetic",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "+",
+    "Period",
+    "Date"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ |2024-01-31| + |P1M|, |2023-01-31| + |P1M| ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "[ \"2024-03-01\", \"2023-03-01\" ]",
+      "[ \"2024-02-31\", \"2023-02-31\" ]",
+      "[ \"2024-03-02\", \"2023-03-03\" ]",
+      "[ \"2024-02-29\", \"2023-02-28\" ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ |2024-01-31| + |P1M|, |2023-01-31| + |P1M| ]",
+  "explanation": {
+    "approach": "Adding a month moves to the same day of the next month, and if that day does not exist it uses the last day of that month. It does not overflow into March.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ |2024-01-31| + |P1M|, |2023-01-31| + |P1M| ]",
+        "expect": {
+          "output": "[ \"2024-02-29\", \"2023-02-28\" ]"
+        },
+        "note": "2024 is a leap year."
+      }
+    ]
+  }
+}

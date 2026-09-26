@@ -1,0 +1,53 @@
+{
+  "id": "mcq-tree-upper-numbers",
+  "unit": "tree-module",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "dw::util::Tree",
+    "mapLeafValues",
+    "upper"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "basics": "`mapLeafValues` passes every leaf to your function, whatever its type. A function written with Strings in mind will also receive Numbers, Booleans and nulls, so it has to decide what to do with them.",
+  "mode": "choice",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\n{ name: \"ann\", age: 30, vip: true } mapLeafValues upper($)"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "{ \"name\": \"ANN\", \"age\": \"30\", \"vip\": \"TRUE\" }",
+      "It fails: upper cannot take a Number",
+      "{ \"name\": \"ANN\", \"age\": 30, \"vip\": true }",
+      "{ \"name\": \"ANN\" }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\n{ name: \"ann\", age: 30, vip: true } mapLeafValues upper($)",
+  "explanation": {
+    "approach": "`upper` coerces its argument to a String, so the Number and the Boolean come back as upper-cased text. The structure is kept, but the types are not. Guard with `if (v is String)` when only text should change.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\n{ name: \"ann\", age: 30, vip: true } mapLeafValues upper($)",
+        "expect": {
+          "output": "{\"name\":\"ANN\",\"age\":\"30\",\"vip\":\"TRUE\"}"
+        },
+        "note": "Quietly, the age is now a String."
+      },
+      {
+        "label": "Only the Strings",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\n{ name: \"ann\", age: 30 } mapLeafValues ((v, p) -> if (v is String) upper(v) else v)",
+        "expect": {
+          "output": "{\"name\":\"ANN\",\"age\":30}"
+        },
+        "note": "Types preserved."
+      }
+    ]
+  }
+}

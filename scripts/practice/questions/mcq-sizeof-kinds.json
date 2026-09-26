@@ -1,0 +1,42 @@
+{
+  "id": "mcq-sizeof-kinds",
+  "unit": "sizeof-and-slicing",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "What does this return?",
+  "topics": [
+    "sizeOf"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ sizeOf(\"abc\"), sizeOf({ a: 1, b: [1, 2, 3] }), sizeOf([]) ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ 3, 2, 0 ]",
+      "[ 3, 2, null ]",
+      "[ 1, 2, 0 ]",
+      "[ 3, 4, 0 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ sizeOf(\"abc\"), sizeOf({ a: 1, b: [1, 2, 3] }), sizeOf([]) ]",
+  "explanation": {
+    "approach": "`sizeOf` counts characters in a String, key-value pairs in an Object, and elements in an Array. It does not count nested values.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ sizeOf(\"abc\"), sizeOf({ a: 1, b: [1, 2, 3] }), sizeOf([]) ]",
+        "expect": {
+          "output": "[ 3, 2, 0 ]"
+        },
+        "note": "The Object has two keys. The array inside `b` does not add to that."
+      }
+    ]
+  }
+}

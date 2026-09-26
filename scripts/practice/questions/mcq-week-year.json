@@ -1,0 +1,52 @@
+{
+  "id": "mcq-week-year",
+  "unit": "dates-formatting",
+  "mode": "choice",
+  "tier": "max",
+  "title": "What does this return?",
+  "topics": [
+    "as",
+    "format",
+    "Date"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ |2024-12-30| as String {format: \"yyyy-MM-dd\"}, |2024-12-30| as String {format: \"YYYY-MM-dd\"} ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "[ \"2024-12-30\", \"2025-12-30\" ]",
+      "[ \"2024-12-30\", \"24-12-30\" ]",
+      "[ \"2024-12-30\", \"2024-12-30\" ]",
+      "It fails: YYYY is not a valid pattern"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ |2024-12-30| as String {format: \"yyyy-MM-dd\"}, |2024-12-30| as String {format: \"YYYY-MM-dd\"} ]",
+  "explanation": {
+    "approach": "`YYYY` is the week-based year. 30 December 2024 falls in the first week of 2025, so it prints 2025. For most of the year the two agree, which is how this bug survives testing.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ |2024-12-30| as String {format: \"yyyy-MM-dd\"}, |2024-12-30| as String {format: \"YYYY-MM-dd\"} ]",
+        "expect": {
+          "output": "[ \"2024-12-30\", \"2025-12-30\" ]"
+        },
+        "note": "A date a year in the future, printed without any error."
+      },
+      {
+        "label": "In June they agree",
+        "script": "%dw 2.0\noutput application/json\n---\n|2024-06-15| as String {format: \"YYYY-MM-dd\"}",
+        "expect": {
+          "output": "\"2024-06-15\""
+        },
+        "note": "Which is why a test run in June passes."
+      }
+    ]
+  }
+}

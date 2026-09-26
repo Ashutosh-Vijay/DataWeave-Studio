@@ -1,66 +1,69 @@
-# Privacy Policy — DataWeave Studio
+# Privacy Policy: DataWeave Studio
 
-**Last updated: 22 August 2026**
+**Last updated: 26 September 2026**
 
-DataWeave Studio does not collect, transmit, or store any personal data. There is
-no account, no sign-up, no telemetry, and no analytics of any kind.
+DataWeave Studio has no account, telemetry or analytics. Scripts run on an engine
+bundled with the app. Two things do reach the developer, and both are described
+below: an anonymous count of update checks, and feedback if you choose to send it.
 
 ## What stays on your device
 
-Everything you work with stays on your machine:
-
-- Your DataWeave scripts, payloads, sample data, and test cases
-- Saved workspaces, custom modules, and snippets
+- Your DataWeave scripts, payloads, sample data and test cases
+- Saved workspaces, custom modules and snippets
 - Encryption keys and secure-property values you enter
-- Configuration, settings, and logs
-
-Transformations run on a DataWeave engine bundled inside the app. Your scripts and
-data are never uploaded anywhere, and the developer has no ability to see them.
+- Settings, configuration and logs
 
 ## When the app uses the internet
 
-The app is fully usable offline. It makes network requests in only three cases,
-none of which include your scripts, data, or any identifying information:
+The app works fully offline. It connects in four cases, and none of them include
+your scripts or data:
 
-1. **Checking for updates** — the desktop app asks a static file on
-   `ashutosh-vijay.dev` (or `dataweave-studio.pages.dev`) whether a newer version
-   exists. You can turn this off in **Settings → Advanced**.
-   *This is disabled entirely in the Microsoft Store version*, where Windows
-   handles updates.
-2. **Downloading a Java library** — only when you explicitly ask the Java tester to
-   fetch a library from Maven Central (`repo1.maven.org`).
-3. **Opening a link you clicked** — for example "Send feedback", which opens a
-   pre-filled GitHub issue in your normal browser. Nothing is sent automatically;
-   you decide what to submit.
+1. **Checking for updates.** The desktop app asks `ashutosh-vijay.dev` (or
+   `dataweave-studio.pages.dev`) whether a newer version exists. You can turn this
+   off in **Settings → Advanced**, and the Microsoft Store version never checks,
+   since Windows handles its updates. Each check adds one to a daily count by app
+   version and platform (for example "3.2.0, windows"). No IP address or identifier
+   is stored with it.
+2. **Downloading a Java library.** Only when you ask the Java tester to fetch one
+   from Maven Central (`repo1.maven.org`).
+3. **Sending feedback.** After you have used the app for a while, it asks for a
+   rating with an optional comment. If you skip, nothing is sent and it asks again
+   in a couple of weeks, unless you tell it not to. Once you send a rating, it stops
+   asking. A rating stores the score, your comment, the app version, whether it came
+   from the desktop app or VS Code, and the date. To limit spam, a hash of your IP
+   address and the date counts how many you send in a day; it can't be linked across
+   days and is deleted the next day. Ratings are shown as totals on the
+   [feedback page](https://ashutosh-vijay.dev/dataweave/feedback), and comments
+   appear there after they have been read.
+4. **Opening a link you clicked,** such as reporting a bug on GitHub, which opens a
+   pre-filled issue in your browser for you to review.
 
 ## The built-in MCP server
 
-DataWeave Studio can run a local MCP server so AI coding assistants on your machine
-can validate DataWeave scripts against the real engine. When you start it:
-
-- It listens on `127.0.0.1` (your machine only) and is never exposed to your network
-- It is **off by default** and only runs while you choose to run it
-- Scripts sent to it are executed locally and are not transmitted anywhere
+DataWeave Studio can run a local MCP server so AI assistants on your machine can run
+DataWeave against the real engine. It is off until you start it, and it listens on
+`127.0.0.1`, so only programs on your own computer can reach it.
 
 ## Third parties and children
 
-There are no third-party analytics, advertising, tracking, or data-sharing services
-in this application. No data is sold or shared, because none is collected. The app
-is a developer tool and is not directed at children.
+The app has no third-party analytics, advertising or tracking. Feedback and update
+counts are stored with Cloudflare, which hosts the website, and are never sold or
+shared. The app is a developer tool and is not directed at children.
 
 ## Your rights
 
-Because no personal data is collected, there is nothing to request, correct, or
-delete. Data you create lives on your own device, and you can remove it at any time
-by deleting your workspaces or uninstalling the app.
+Feedback is anonymous, so it can't be traced back to you. If you want a comment you
+sent taken down, email the address below with its wording and it will be removed.
+Everything else lives on your own device, and you can remove it by deleting your
+workspaces or uninstalling the app.
 
 ## Contact
 
-Questions about this policy: **issues@ashutosh-vijay.dev**
+Questions: **issues@ashutosh-vijay.dev**
 
 Source code: https://github.com/Ashutosh-Vijay/DataWeave-Studio
 
 ## Changes
 
-If this policy changes, the updated version will be posted at this URL with a new
-"last updated" date.
+If this policy changes, the new version will be posted here with a new "last
+updated" date.

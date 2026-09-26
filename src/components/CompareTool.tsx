@@ -329,7 +329,7 @@ export function CompareTool({ open, onClose }: CompareToolProps) {
           }`}
           title={
             ignoreIds
-              ? 'Showing the comparison with doc:id and UUID values blanked out. Panes are read-only while this is on — switch it off to edit.'
+              ? 'Showing the comparison with doc:id and UUID values blanked out. Panes are read-only while this is on. Switch it off to edit.'
               : 'Ignore doc:id and UUID values, so a re-exported flow doesn’t diff as entirely different'
           }
         >

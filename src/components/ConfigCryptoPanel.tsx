@@ -190,7 +190,7 @@ export function ConfigCryptoPanel({ open: isOpen, onClose }: { open: boolean; on
         <div className="w-px h-4 bg-line" />
         <Icons.Key size={15} />
         <span className="text-[13px] font-semibold text-content">Config encryption</span>
-        <span className="text-[11px] text-content-ghost">— encrypt or decrypt every value in a config at once</span>
+        <span className="text-[11px] text-content-ghost">Encrypt or decrypt every value in a config at once</span>
         <span className="flex-1" />
         <WindowControls />
       </header>
@@ -277,10 +277,10 @@ export function ConfigCryptoPanel({ open: isOpen, onClose }: { open: boolean; on
           {error && <div>{error}</div>}
           {unsupported.length > 0 && (
             <div>
-              This Java runtime can’t carry non-English characters through to the encryptor on Windows — {unsupported.join(', ')} would come back as “?”. Encrypt those elsewhere.
+              This Java runtime can’t carry non-English characters through to the encryptor on Windows, so {unsupported.join(', ')} would come back as “?”. Encrypt those elsewhere.
             </div>
           )}
-          {failures.map((f) => <div key={f.path}><span className="font-mono">{f.path}</span> — {f.message}</div>)}
+          {failures.map((f) => <div key={f.path}><span className="font-mono">{f.path}</span>: {f.message}</div>)}
         </div>
       )}
 
@@ -303,7 +303,7 @@ export function ConfigCryptoPanel({ open: isOpen, onClose }: { open: boolean; on
                   setResult('');
                 }}
                 disabled={!source.trim() || !fields.some((f) => !f.skip)}
-                title={`Rewrite as ${format === 'yaml' ? 'dotted properties keys' : 'nested YAML'} — comments and blank lines are not carried over`}
+                title={`Rewrite as ${format === 'yaml' ? 'dotted properties keys' : 'nested YAML'}. Comments and blank lines are not carried over.`}
               >
                 To {format === 'yaml' ? 'properties' : 'YAML'}
               </SmallBtn>
@@ -346,7 +346,7 @@ export function ConfigCryptoPanel({ open: isOpen, onClose }: { open: boolean; on
                   <div className="h-full flex flex-col">
                     <div className="shrink-0 flex items-start gap-2 px-3.5 py-2 border-b border-line-subtle">
                       <span className="text-[11px] text-content-faint leading-relaxed flex-1">
-                        An encrypted file does nothing on its own — Mule needs to be told which file,
+                        An encrypted file does nothing on its own. Mule needs to be told which file,
                         which cipher, and where the key comes from. The key is left as a placeholder
                         so this is safe to commit.
                       </span>
@@ -376,7 +376,7 @@ export function ConfigCryptoPanel({ open: isOpen, onClose }: { open: boolean; on
               <div className="h-full grid place-items-center px-6 text-center">
                 <div className="text-[11.5px] text-content-faint max-w-[300px] leading-relaxed">
                   {source.trim()
-                    ? `Press ${direction === 'encrypt' ? 'Encrypt' : 'Decrypt'} — the file comes back here with the selected values changed and nothing else touched.`
+                    ? `Press ${direction === 'encrypt' ? 'Encrypt' : 'Decrypt'}. The file comes back here with the selected values changed and nothing else touched.`
                     : 'Paste a YAML or .properties config on the left, or load one from disk.'}
                 </div>
               </div>
@@ -477,7 +477,7 @@ function FieldRow({
             {checked && <Icons.Dot size={7} />}
           </span>
         ) : (
-          <span className="text-content-ghost">—</span>
+          <span className="text-content-ghost">–</span>
         )}
       </td>
       <td className="pr-3 py-1 align-top whitespace-nowrap" style={{ color: 'var(--content-secondary)' }}>{field.path}</td>
@@ -506,7 +506,7 @@ function Pane({
             disabled={!onBadgeClick}
             className={`font-mono text-[10px] px-1.5 rounded ${onBadgeClick ? 'cursor-pointer hover:text-content-secondary' : 'cursor-default'}`}
             style={{ background: 'var(--surface-2)', color: 'var(--content-ghost)' }}
-            title={onBadgeClick ? 'Detected from the content — click to switch' : undefined}
+            title={onBadgeClick ? 'Detected from the content. Click to switch' : undefined}
           >
             {badge}
           </button>

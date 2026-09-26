@@ -1,0 +1,52 @@
+{
+  "id": "mcq-mm-is-minutes",
+  "unit": "dates-formatting",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "as",
+    "format",
+    "DateTime"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n|2024-03-05T14:07:09| as String {format: \"yyyy-mm-dd HH:mm\"}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "\"2024-03-05 02:07\"",
+      "\"2024-03-05 14:07\"",
+      "It fails: mm cannot appear twice",
+      "\"2024-07-05 14:07\""
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n|2024-03-05T14:07:09| as String {format: \"yyyy-mm-dd HH:mm\"}",
+  "explanation": {
+    "approach": "Pattern letters are case-sensitive. `mm` is minutes wherever it appears, so the month position prints 07, the minutes.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n|2024-03-05T14:07:09| as String {format: \"yyyy-mm-dd HH:mm\"}",
+        "expect": {
+          "output": "\"2024-07-05 14:07\""
+        },
+        "note": "A plausible-looking wrong date, which is the dangerous kind."
+      },
+      {
+        "label": "The intended pattern",
+        "script": "%dw 2.0\noutput application/json\n---\n|2024-03-05T14:07:09| as String {format: \"yyyy-MM-dd HH:mm\"}",
+        "expect": {
+          "output": "\"2024-03-05 14:07\""
+        },
+        "note": "Upper-case MM for the month."
+      }
+    ]
+  }
+}

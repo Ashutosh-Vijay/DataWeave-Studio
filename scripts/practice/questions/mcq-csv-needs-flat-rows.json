@@ -1,0 +1,50 @@
+{
+  "id": "mcq-csv-needs-flat-rows",
+  "unit": "csv-round-trip",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "csv",
+    "output",
+    "write"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "Every script writes `application/csv`. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/csv\n---\n[{ sku: \"A\", w: 1 }, { sku: \"B\", w: 2 }]",
+      "%dw 2.0\noutput application/csv\n---\n{ sku: \"A\", w: 1 }",
+      "%dw 2.0\noutput application/csv\n---\n[{ sku: \"A\", w: 1, h: 2 }]",
+      "%dw 2.0\noutput application/csv\n---\n[{ sku: \"A\", dims: { w: 1, h: 2 } }]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/csv\n---\n[{ sku: \"A\", w: 1, h: 2 }]",
+  "explanation": {
+    "approach": "A CSV cell holds a single value. A nested Object has no cell to go in, so the writer fails. Flatten the row first. A single Object is accepted and written as one row.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/csv\n---\n[{ sku: \"A\", dims: { w: 1, h: 2 } }]",
+        "outputMime": "application/csv",
+        "expect": {
+          "error": true
+        },
+        "note": "Cannot coerce Object to String."
+      },
+      {
+        "label": "A single Object is one row",
+        "script": "%dw 2.0\noutput application/json\n---\nwrite({ sku: \"A\", w: 1 }, \"application/csv\", { header: false })",
+        "expect": {
+          "output": "\"A,1\\n\""
+        },
+        "note": "Shown through `write` so the text is visible."
+      }
+    ]
+  }
+}

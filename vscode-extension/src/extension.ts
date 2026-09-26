@@ -29,6 +29,9 @@ import { registerSidebar, secureKeyNames, secureKeySave, secureKeyDelete, secure
 let server: DwServer | null = null;
 let warmupError: string | null = null;
 let storageDir = '';
+/** Parent of the workspaces folder. The desktop app's data folder, so both apps
+ *  on one machine list and open the same workspaces; see sharedWorkspaceRoot. */
+let workspaceRoot = '';
 let logDir = '';
 /** The one playground panel. A second "Open" reveals it instead of stacking a
  *  duplicate — which matters now that the Side Bar opens it on every row click. */
@@ -59,12 +62,70 @@ async function getServer(extensionRoot: string): Promise<DwServer> {
   return server;
 }
 
+/**
+ * Where workspaces live: the standalone desktop app's data folder (Tauri's
+ * app_local_data_dir for com.dwstudio.desktop), so the extension and the desktop
+ * app on the same machine share one set of workspaces. Both write the same
+ * .dwstudio format, and neither autosaves to the file (unsaved edits are a
+ * per-app draft), so a file only changes when you press Save in one of them.
+ *
+ * Remote windows (SSH, WSL, containers) keep the extension's own storage: the
+ * desktop app is not on that machine. The Store build of the desktop app has its
+ * AppData redirected into its package, so it does not see this folder.
+ *
+ * The first time, workspaces saved in the extension's old folder are copied
+ * across. The old folder is left alone as a backup.
+ */
+function sharedWorkspaceRoot(context: vscode.ExtensionContext): string {
+  if (vscode.env.remoteName) return storageDir;
+  const base =
+    process.platform === 'win32' ? process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local')
+    : process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Application Support')
+    : process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+  const root = path.join(base, 'com.dwstudio.desktop');
+  try {
+    fs.mkdirSync(path.join(root, 'workspaces'), { recursive: true });
+  } catch {
+    return storageDir;
+  }
+
+  if (!context.globalState.get('dw.workspacesShared')) {
+    const oldDir = path.join(storageDir, 'workspaces');
+    const newDir = path.join(root, 'workspaces');
+    const files = fs.existsSync(oldDir) ? fs.readdirSync(oldDir).filter((f) => f.endsWith('.dwstudio')) : [];
+    for (const f of files) {
+      const text = fs.readFileSync(path.join(oldDir, f), 'utf8');
+      const target = path.join(newDir, f);
+      if (!fs.existsSync(target)) {
+        fs.writeFileSync(target, text);
+      } else if (fs.readFileSync(target, 'utf8') !== text) {
+        // Same name, different work: keep both, and say which one came from here.
+        const stem = f.slice(0, -'.dwstudio'.length);
+        let copy = path.join(newDir, `${stem}-vscode.dwstudio`);
+        for (let n = 2; fs.existsSync(copy); n++) copy = path.join(newDir, `${stem}-vscode-${n}.dwstudio`);
+        let out = text;
+        try {
+          const w = JSON.parse(text);
+          w.projectName = `${w.projectName || stem} (VS Code)`;
+          out = JSON.stringify(w, null, 2);
+        } catch {
+          /* not JSON: copy it as it is */
+        }
+        fs.writeFileSync(copy, out);
+      }
+    }
+    void context.globalState.update('dw.workspacesShared', true);
+  }
+  return root;
+}
+
 export function activate(context: vscode.ExtensionContext) {
   // Per-extension persistent dirs (VS Code-managed, survive restarts).
   extCtx = context;
   storageDir = context.globalStorageUri.fsPath;
   logDir = path.join(storageDir, 'logs');
   fs.mkdirSync(logDir, { recursive: true });
+  workspaceRoot = sharedWorkspaceRoot(context);
 
   // No-op target for the keybindings that swallow VS Code's defaults while our
   // webview is focused (see contributes.keybindings) — the app's own in-webview
@@ -78,7 +139,7 @@ export function activate(context: vscode.ExtensionContext) {
   // "Open Playground" link.
   registerSidebar(
     context,
-    storageDir,
+    workspaceRoot,
     context.extensionPath,
     (filename) => vscode.commands.executeCommand('dataweaveStudio.open', filename),
     (a) => securePropertiesInvoke(context.extensionPath, a),
@@ -242,7 +303,7 @@ function writeMcpClientConfig(client: string, extensionRoot: string, workspaceRo
     const raw = fs.readFileSync(cfgPath, 'utf8').trim();
     if (raw) {
       try { obj = JSON.parse(raw); } catch {
-        throw new Error(`${cfgPath} isn't valid JSON — add the server manually (use "Copy config").`);
+        throw new Error(`${cfgPath} isn't valid JSON. Add the server manually (use "Copy config").`);
       }
     }
   }
@@ -272,13 +333,13 @@ async function connectMcpToClient(extensionRoot: string): Promise<void> {
   if (pick.client === 'copy') {
     const snippet = JSON.stringify({ mcpServers: { 'dataweave-studio': mcpStdioEntry(extensionRoot) } }, null, 2);
     await vscode.env.clipboard.writeText(snippet);
-    vscode.window.showInformationMessage('DataWeave Studio MCP config copied — paste it into your client\'s mcpServers.');
+    vscode.window.showInformationMessage('DataWeave Studio MCP config copied. Paste it into your client\'s mcpServers.');
     return;
   }
 
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (pick.client === 'claude-code' && !workspaceRoot) {
-    vscode.window.showErrorMessage('Open a folder/workspace first — Claude Code reads .mcp.json from the workspace root.');
+    vscode.window.showErrorMessage('Open a folder or workspace first. Claude Code reads .mcp.json from the workspace root.');
     return;
   }
   try {
@@ -417,7 +478,7 @@ async function handleInvoke(
 
     // --- Workspaces (port of workspace.rs) ----------------------------------
     case 'save_workspace': {
-      const saved = ws.saveWorkspace(storageDir, args.workspace);
+      const saved = ws.saveWorkspace(workspaceRoot, args.workspace);
       // Keep the Side Bar list honest without the user hitting refresh.
       void vscode.commands.executeCommand('dataweaveStudio.refreshWorkspaces');
       return saved;
@@ -430,27 +491,27 @@ async function handleInvoke(
       return f;
     }
     case 'load_workspace':
-      return ws.loadWorkspace(storageDir, args.filename as string);
+      return ws.loadWorkspace(workspaceRoot, args.filename as string);
     case 'list_workspaces':
-      return ws.listWorkspaces(storageDir);
+      return ws.listWorkspaces(workspaceRoot);
     case 'list_workspaces_meta':
-      return ws.listWorkspacesMeta(storageDir);
+      return ws.listWorkspacesMeta(workspaceRoot);
     case 'delete_workspace':
-      ws.deleteWorkspace(storageDir, args.filename as string);
+      ws.deleteWorkspace(workspaceRoot, args.filename as string);
       void vscode.commands.executeCommand('dataweaveStudio.refreshWorkspaces');
       return null;
     case 'rename_workspace': {
-      const renamed = ws.renameWorkspace(storageDir, args.filename as string, args.newName as string);
+      const renamed = ws.renameWorkspace(workspaceRoot, args.filename as string, args.newName as string);
       void vscode.commands.executeCommand('dataweaveStudio.refreshWorkspaces');
       return renamed;
     }
     case 'duplicate_workspace_file': {
-      const dup = ws.duplicateWorkspaceFile(storageDir, args.filename as string);
+      const dup = ws.duplicateWorkspaceFile(workspaceRoot, args.filename as string);
       void vscode.commands.executeCommand('dataweaveStudio.refreshWorkspaces');
       return dup;
     }
     case 'get_workspaces_dir':
-      return ws.getWorkspacesDir(storageDir);
+      return ws.getWorkspacesDir(workspaceRoot);
 
     // --- Module library (port of module_lib.rs) -----------------------------
     case 'load_modules':
@@ -475,7 +536,7 @@ async function handleInvoke(
       }
       const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
       if (client === 'claude-code' && !workspaceRoot) {
-        throw new Error('Open a folder/workspace first — Claude Code reads .mcp.json from the workspace root.');
+        throw new Error('Open a folder or workspace first. Claude Code reads .mcp.json from the workspace root.');
       }
       const { path: p, existed } = writeMcpClientConfig(client, extensionRoot, workspaceRoot);
       return { path: p, existed };
@@ -581,6 +642,28 @@ async function handleInvoke(
     case 'vscode_open_external':
       await vscode.env.openExternal(vscode.Uri.parse(args.url as string));
       return null;
+
+    // The rating form's POST. The webview's CSP only allows its own origin, so
+    // the request is made here; the URLs come from the webview so the list
+    // lives in one place (src/components/RatingForm.tsx).
+    case 'send_feedback': {
+      let last = 'Could not reach the feedback server.';
+      for (const url of args.urls as string[]) {
+        try {
+          const r = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(args.body),
+          });
+          if (r.ok) return null;
+          last = ((await r.json().catch(() => null)) as { error?: string } | null)?.error ?? `The server answered ${r.status}.`;
+          if (r.status === 400 || r.status === 429) break;
+        } catch {
+          /* blocked or offline — try the other domain */
+        }
+      }
+      throw new Error(last);
+    }
 
     default:
       throw new Error(`Command not implemented in extension host yet: ${cmd}`);

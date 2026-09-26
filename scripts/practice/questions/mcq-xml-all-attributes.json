@@ -1,0 +1,47 @@
+{
+  "id": "mcq-xml-all-attributes",
+  "unit": "xml-selectors",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "xml",
+    "@",
+    "sizeOf"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/xml",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ attrs: payload.order.@, size: sizeOf(payload.order) }",
+    "payload": "<order id=\"9\" cur=\"EUR\"><line>A</line><line>B</line></order>"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "{ \"attrs\": { \"id\": \"9\", \"cur\": \"EUR\" }, \"size\": 2 }",
+      "{ \"attrs\": { \"id\": \"9\", \"cur\": \"EUR\" }, \"size\": 4 }",
+      "{ \"attrs\": [ \"9\", \"EUR\" ], \"size\": 2 }",
+      "{ \"attrs\": null, \"size\": 2 }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ attrs: payload.order.@, size: sizeOf(payload.order) }",
+  "explanation": {
+    "approach": "`.@` with no name returns all attributes as an Object. Attributes are not children, so `sizeOf` counts only the two line elements.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ attrs: payload.order.@, size: sizeOf(payload.order) }",
+        "payload": "<order id=\"9\" cur=\"EUR\"><line>A</line><line>B</line></order>",
+        "payloadMime": "application/xml",
+        "expect": {
+          "output": "{ \"attrs\": { \"id\": \"9\", \"cur\": \"EUR\" }, \"size\": 2 }"
+        },
+        "note": "Attributes live beside the content, not in it."
+      }
+    ]
+  }
+}

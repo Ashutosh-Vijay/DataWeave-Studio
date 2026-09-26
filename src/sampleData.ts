@@ -100,8 +100,8 @@ export async function generateSample(
   if (!gen?.script) {
     throw new Error(
       typeName
-        ? `Nothing to generate for ${typeName} — it resolves to a type with no fields.`
-        : 'Nothing to generate — this script has no output shape the engine can fill in yet.',
+        ? `Nothing to generate for ${typeName}. It resolves to a type with no fields.`
+        : 'Nothing to generate. This script has no type the engine can fill in yet.',
     );
   }
 

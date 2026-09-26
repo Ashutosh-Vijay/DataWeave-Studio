@@ -1,0 +1,42 @@
+{
+  "id": "mcq-reverse-range",
+  "unit": "sizeof-and-slicing",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "range"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n[ [1, 2, 3][2 to 0], [1, 2, 3][5], [1, 2, 3][-1] ]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 2,
+    "options": [
+      "[ [ ], null, 3 ]",
+      "[ [ 3, 2, 1 ], null, 1 ]",
+      "[ [ 3, 2, 1 ], null, 3 ]",
+      "[ [ 1, 2, 3 ], 3, 3 ]"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n[ [1, 2, 3][2 to 0], [1, 2, 3][5], [1, 2, 3][-1] ]",
+  "explanation": {
+    "approach": "A descending range returns the elements in reverse. Reading past the end is null, not an error. -1 is the last element.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n[ [1, 2, 3][2 to 0], [1, 2, 3][5], [1, 2, 3][-1] ]",
+        "expect": {
+          "output": "[ [ 3, 2, 1 ], null, 3 ]"
+        },
+        "note": "`[-1 to 0]` is the usual way to reverse an Array of any length."
+      }
+    ]
+  }
+}

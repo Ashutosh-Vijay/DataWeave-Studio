@@ -1,0 +1,57 @@
+{
+  "id": "mcq-csv-fields-are-strings",
+  "unit": "csv-round-trip",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "csv",
+    "typeOf",
+    "max"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/csv",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ t: typeOf(payload[0].qty), top: max(payload.qty) }",
+    "payload": "sku,qty\nA,9\nB,10"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "{ \"t\": \"Number\", \"top\": 10 }",
+      "{ \"t\": \"Number\", \"top\": 9 }",
+      "{ \"t\": \"String\", \"top\": \"10\" }",
+      "{ \"t\": \"String\", \"top\": \"9\" }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ t: typeOf(payload[0].qty), top: max(payload.qty) }",
+  "explanation": {
+    "approach": "CSV has no types. Every field is read as a String, including ones that look like numbers, so `max` compares the values as text and \"9\" sorts after \"10\".",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ t: typeOf(payload[0].qty), top: max(payload.qty) }",
+        "payload": "sku,qty\nA,9\nB,10",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "{ \"t\": \"String\", \"top\": \"9\" }"
+        },
+        "note": "Both halves come from the same fact: the column holds Strings."
+      },
+      {
+        "label": "Coerce first for a numeric maximum",
+        "script": "%dw 2.0\noutput application/json\n---\nmax(payload.qty map ($ as Number))",
+        "payload": "sku,qty\nA,9\nB,10",
+        "payloadMime": "application/csv",
+        "expect": {
+          "output": "10"
+        },
+        "note": "Now the comparison is between Numbers."
+      }
+    ]
+  }
+}

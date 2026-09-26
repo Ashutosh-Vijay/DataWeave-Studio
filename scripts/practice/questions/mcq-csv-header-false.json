@@ -1,0 +1,46 @@
+{
+  "id": "mcq-csv-header-false",
+  "unit": "csv-round-trip",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "csv",
+    "output"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "The output is `application/csv header=false`. **What does it write?**",
+  "inputMime": "application/json",
+  "outputMime": "application/csv header=false",
+  "given": {
+    "script": "%dw 2.0\noutput application/csv header=false\n---\n[{ sku: \"A\", qty: 1 }, { sku: \"B\", qty: 2 }]"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "A,1\nB,2",
+      "\"A\",1\n\"B\",2",
+      "sku,qty\nA,1\nB,2",
+      "A;1\nB;2"
+    ]
+  },
+  "compare": "text",
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/csv header=false\n---\n[{ sku: \"A\", qty: 1 }, { sku: \"B\", qty: 2 }]",
+  "explanation": {
+    "approach": "Each Object is a row and its keys are the columns. `header=false` leaves out the row of column names. The default separator is a comma, and plain values are not quoted.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/csv header=false\n---\n[{ sku: \"A\", qty: 1 }, { sku: \"B\", qty: 2 }]",
+        "outputMime": "application/csv header=false",
+        "expect": {
+          "output": "A,1\nB,2"
+        },
+        "compare": "text",
+        "note": "Two data rows, no header."
+      }
+    ]
+  }
+}

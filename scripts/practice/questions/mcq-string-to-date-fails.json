@@ -1,0 +1,56 @@
+{
+  "id": "mcq-string-to-date-fails",
+  "unit": "dates-formatting",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "as",
+    "Date"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 0,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n\"05-03-2024\" as Date",
+      "%dw 2.0\noutput application/json\n---\n\"2024-03-05T10:00:00Z\" as DateTime",
+      "%dw 2.0\noutput application/json\n---\n\"2024-03-05\" as Date",
+      "%dw 2.0\noutput application/json\n---\n\"05-03-2024\" as Date {format: \"dd-MM-yyyy\"}"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n\"05-03-2024\" as Date {format: \"dd-MM-yyyy\"}",
+  "explanation": {
+    "approach": "Without a format, `as Date` accepts only the ISO form, year first. Anything else needs a pattern that describes it.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\n\"05-03-2024\" as Date",
+        "expect": {
+          "error": true
+        },
+        "note": "Cannot coerce String (05-03-2024) to Date."
+      },
+      {
+        "label": "ISO needs no pattern",
+        "script": "%dw 2.0\noutput application/json\n---\n\"2024-03-05\" as Date",
+        "expect": {
+          "output": "\"2024-03-05\""
+        },
+        "note": "The default form."
+      },
+      {
+        "label": "Anything else needs one",
+        "script": "%dw 2.0\noutput application/json\n---\n\"05-03-2024\" as Date {format: \"dd-MM-yyyy\"}",
+        "expect": {
+          "output": "\"05-03-2024\""
+        },
+        "note": "It prints with the pattern it was read with."
+      }
+    ]
+  }
+}

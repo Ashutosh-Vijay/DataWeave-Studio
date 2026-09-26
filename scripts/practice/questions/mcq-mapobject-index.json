@@ -1,0 +1,43 @@
+{
+  "id": "mcq-mapobject-index",
+  "unit": "pluck-and-mapobject",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "mapObject",
+    "upper"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ a: 1, b: 2 } mapObject ((v, k, i) -> { (upper(k)): i })"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 0,
+    "options": [
+      "{ \"A\": 0, \"B\": 1 }",
+      "[ { \"A\": 0 }, { \"B\": 1 } ]",
+      "{ \"A\": 1, \"B\": 2 }",
+      "{ \"a\": 0, \"b\": 1 }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ a: 1, b: 2 } mapObject ((v, k, i) -> { (upper(k)): i })",
+  "explanation": {
+    "approach": "`mapObject` gives its lambda the value, the key and the index, in that order. The result is always an Object, and computed keys need parentheses.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ a: 1, b: 2 } mapObject ((v, k, i) -> { (upper(k)): i })",
+        "expect": {
+          "output": "{ \"A\": 0, \"B\": 1 }"
+        },
+        "note": "Upper-cased keys, index values."
+      }
+    ]
+  }
+}

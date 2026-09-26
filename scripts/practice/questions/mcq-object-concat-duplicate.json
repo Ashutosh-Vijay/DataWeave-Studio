@@ -1,0 +1,70 @@
+{
+  "id": "mcq-object-concat-duplicate",
+  "unit": "duplicate-keys",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "++",
+    "duplicate keys"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "The output is written with `indent=false`. Read the script and the payload. **What does it return, exactly?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json indent=false",
+  "given": {
+    "script": "%dw 2.0\noutput application/json indent=false\n---\npayload ++ { status: \"sent\" }",
+    "payload": "{\"id\":1,\"status\":\"new\"}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "{\"status\": \"sent\",\"id\": 1}",
+      "{\"id\": 1,\"status\": \"new\",\"status\": \"sent\"}",
+      "{\"id\": 1,\"status\": \"new\"}",
+      "{\"id\": 1,\"status\": \"sent\"}"
+    ]
+  },
+  "compare": "text",
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json indent=false\n---\npayload ++ { status: \"sent\" }",
+  "explanation": {
+    "approach": "`++` on Objects does not update a field. It appends the pairs on the right, so the Object now has two `status` keys, and the JSON writer prints both.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json indent=false\n---\npayload ++ { status: \"sent\" }",
+        "payload": "{\"id\":1,\"status\":\"new\"}",
+        "outputMime": "application/json indent=false",
+        "expect": {
+          "output": "{\"id\": 1,\"status\": \"new\",\"status\": \"sent\"}"
+        },
+        "compare": "text",
+        "note": "Many JSON parsers keep only the last one, which hides the problem downstream."
+      },
+      {
+        "label": "Remove, then add",
+        "script": "%dw 2.0\noutput application/json indent=false\n---\n(payload - \"status\") ++ { status: \"sent\" }",
+        "payload": "{\"id\":1,\"status\":\"new\"}",
+        "outputMime": "application/json indent=false",
+        "expect": {
+          "output": "{\"id\": 1,\"status\": \"sent\"}"
+        },
+        "compare": "text",
+        "note": "Or use the `update` operator."
+      },
+      {
+        "label": "The update operator",
+        "script": "%dw 2.0\noutput application/json indent=false\n---\npayload update { case .status -> \"sent\" }",
+        "payload": "{\"id\":1,\"status\":\"new\"}",
+        "outputMime": "application/json indent=false",
+        "expect": {
+          "output": "{\"id\": 1,\"status\": \"sent\"}"
+        },
+        "compare": "text",
+        "note": "Replaces the value in place, keeping the key where it was."
+      }
+    ]
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "id": "mcq-date-to-datetime-fails",
+  "unit": "date-arithmetic",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "Which one fails?",
+  "topics": [
+    "as",
+    "DateTime",
+    "++"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 3,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n|2024-01-15T10:00:00Z| as Date",
+      "%dw 2.0\noutput application/json\n---\n|2024-01-15| ++ |10:00:00|",
+      "%dw 2.0\noutput application/json\n---\n1705312800 as DateTime",
+      "%dw 2.0\noutput application/json\n---\n|2024-01-15| as DateTime"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n|2024-01-15| ++ |10:00:00|",
+  "explanation": {
+    "approach": "A Date has no time of day, and DataWeave will not invent one. Build the date-time explicitly by joining a Date and a Time with `++`. Going the other way, dropping the time, is allowed.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\n|2024-01-15| as DateTime",
+        "expect": {
+          "error": true
+        },
+        "note": "Cannot coerce Date to DateTime."
+      },
+      {
+        "label": "Join a Date and a Time",
+        "script": "%dw 2.0\noutput application/json\n---\n|2024-01-15| ++ |10:00:00|",
+        "expect": {
+          "output": "\"2024-01-15T10:00:00\""
+        },
+        "note": "The result is a LocalDateTime."
+      },
+      {
+        "label": "Epoch seconds to DateTime",
+        "script": "%dw 2.0\noutput application/json\n---\n1705312800 as DateTime",
+        "expect": {
+          "output": "\"2024-01-15T10:00:00Z\""
+        },
+        "note": "A Number is read as seconds since 1970, in UTC."
+      }
+    ]
+  }
+}

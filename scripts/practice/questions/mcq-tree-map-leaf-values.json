@@ -1,0 +1,52 @@
+{
+  "id": "mcq-tree-map-leaf-values",
+  "unit": "tree-module",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "What does this return?",
+  "topics": [
+    "dw::util::Tree",
+    "mapLeafValues",
+    "mapObject"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "prompt": "Read the script. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\n{ a: 1, b: [2, { c: 3 }], d: \"x\" } mapLeafValues (v) -> if (v is Number) v * 10 else v"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 3,
+    "options": [
+      "It fails: d is not a Number",
+      "{ \"a\": 10, \"b\": [ 20, { \"c\": 3 } ], \"d\": \"x\" }",
+      "{ \"a\": 10, \"b\": [ 2, { \"c\": 3 } ], \"d\": \"x\" }",
+      "{ \"a\": 10, \"b\": [ 20, { \"c\": 30 } ], \"d\": \"x\" }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\n{ a: 1, b: [2, { c: 3 }], d: \"x\" } mapLeafValues (v) -> if (v is Number) v * 10 else v",
+  "explanation": {
+    "approach": "`mapLeafValues` from `dw::util::Tree` visits every leaf, however deep, inside Objects and Arrays alike, and leaves the structure as it is. `mapObject` would only see the top level.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nimport * from dw::util::Tree\n---\n{ a: 1, b: [2, { c: 3 }], d: \"x\" } mapLeafValues (v) -> if (v is Number) v * 10 else v",
+        "expect": {
+          "output": "{ \"a\": 10, \"b\": [ 20, { \"c\": 30 } ], \"d\": \"x\" }"
+        },
+        "note": "Every Number, at every depth."
+      },
+      {
+        "label": "mapObject stops at the top",
+        "script": "%dw 2.0\noutput application/json\n---\n{ a: 1, b: [2, { c: 3 }] } mapObject ((v, k) -> { (k): if (v is Number) v * 10 else v })",
+        "expect": {
+          "output": "{ \"a\": 10, \"b\": [ 2, { \"c\": 3 } ] }"
+        },
+        "note": "The nested values are untouched."
+      }
+    ]
+  }
+}

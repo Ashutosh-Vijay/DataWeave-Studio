@@ -1,0 +1,44 @@
+{
+  "id": "mcq-update-missing-field",
+  "unit": "update-operator",
+  "mode": "choice",
+  "tier": "hard",
+  "title": "What does this return?",
+  "topics": [
+    "update"
+  ],
+  "examObjective": "Predicting the result of core DataWeave functions",
+  "prompt": "Read the script and the payload. **What does it return?**",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "given": {
+    "script": "%dw 2.0\noutput application/json\n---\n{ plain: payload update { case .status -> \"new\" }, upsert: payload update { case .status! -> \"new\" } }",
+    "payload": "{\"id\":1}"
+  },
+  "choice": {
+    "kind": "which-output",
+    "answer": 1,
+    "options": [
+      "{ \"plain\": { \"id\": 1 }, \"upsert\": { \"id\": 1 } }",
+      "{ \"plain\": { \"id\": 1 }, \"upsert\": { \"id\": 1, \"status\": \"new\" } }",
+      "{ \"plain\": null, \"upsert\": { \"id\": 1, \"status\": \"new\" } }",
+      "{ \"plain\": { \"id\": 1, \"status\": \"new\" }, \"upsert\": { \"id\": 1, \"status\": \"new\" } }"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ plain: payload update { case .status -> \"new\" }, upsert: payload update { case .status! -> \"new\" } }",
+  "explanation": {
+    "approach": "`update` only changes fields that exist. A case on a missing field matches nothing and the Object is returned unchanged. Ending the selector with `!` creates the field when it is missing.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\n---\n{ plain: payload update { case .status -> \"new\" }, upsert: payload update { case .status! -> \"new\" } }",
+        "payload": "{\"id\":1}",
+        "expect": {
+          "output": "{ \"plain\": { \"id\": 1 }, \"upsert\": { \"id\": 1, \"status\": \"new\" } }"
+        },
+        "note": "Only the `!` version adds the key."
+      }
+    ]
+  }
+}

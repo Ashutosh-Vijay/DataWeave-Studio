@@ -1,0 +1,56 @@
+{
+  "id": "mcq-filter-on-object",
+  "unit": "filter-and-null",
+  "mode": "choice",
+  "tier": "easy",
+  "title": "Which one fails?",
+  "topics": [
+    "filter",
+    "filterObject"
+  ],
+  "examObjective": "Applying correct syntax to write DataWeave transformations to coerce, format, order, and filter data",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n[1, 5] filter ($$ > 0)",
+      "%dw 2.0\noutput application/json\n---\n{ a: 1, b: 5 } filter $ > 2",
+      "%dw 2.0\noutput application/json\n---\n[1, 5] filter $ > 2",
+      "%dw 2.0\noutput application/json\n---\n{ a: 1, b: 5 } filterObject $ > 2"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\n---\n{ a: 1, b: 5 } filterObject $ > 2",
+  "explanation": {
+    "approach": "`filter` works on arrays (and Strings). For an Object, the function is `filterObject`, which gives the lambda the value, the key and the index.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput application/json\n---\n{ a: 1, b: 5 } filter $ > 2",
+        "expect": {
+          "error": true
+        },
+        "note": "A compile error: `filter` has no Object version."
+      },
+      {
+        "label": "The Object version",
+        "script": "%dw 2.0\noutput application/json\n---\n{ a: 1, b: 5 } filterObject $ > 2",
+        "expect": {
+          "output": "{ \"b\": 5 }"
+        },
+        "note": "The result is still an Object."
+      },
+      {
+        "label": "$$ is the index",
+        "script": "%dw 2.0\noutput application/json\n---\n[1, 5] filter ($$ > 0)",
+        "expect": {
+          "output": "[ 5 ]"
+        },
+        "note": "In `filter`, `$$` is the position, so this drops the first element."
+      }
+    ]
+  }
+}

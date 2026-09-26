@@ -1,0 +1,50 @@
+{
+  "id": "mcq-text-plain-object",
+  "unit": "multi-format-embed",
+  "mode": "choice",
+  "tier": "medium",
+  "title": "Which one fails?",
+  "topics": [
+    "text/plain",
+    "output",
+    "write"
+  ],
+  "examObjective": "Converting between output types and data types using DataWeave",
+  "prompt": "Three of these run. **One fails.** Which one?",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-fails",
+    "answer": 1,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n{ a: 1 }",
+      "%dw 2.0\noutput text/plain\n---\n{ a: 1 }",
+      "%dw 2.0\noutput text/plain\n---\n\"a is 1\"",
+      "%dw 2.0\noutput text/plain\n---\nwrite({ a: 1 }, \"application/json\")"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput text/plain\n---\nwrite({ a: 1 }, \"application/json\")",
+  "explanation": {
+    "approach": "The text/plain writer only writes a String. To put structured data into a text output, serialise it to a String yourself with `write`.",
+    "snippets": [
+      {
+        "label": "The one that fails",
+        "script": "%dw 2.0\noutput text/plain\n---\n{ a: 1 }",
+        "outputMime": "text/plain",
+        "expect": {
+          "error": true
+        },
+        "note": "Text plain writer is unable to write Object."
+      },
+      {
+        "label": "write returns a String",
+        "script": "%dw 2.0\noutput application/json\n---\ntypeOf(write({ a: 1 }, \"application/json\"))",
+        "expect": {
+          "output": "\"String\""
+        },
+        "note": "That String is something text/plain can write."
+      }
+    ]
+  }
+}

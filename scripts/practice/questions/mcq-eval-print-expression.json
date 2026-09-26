@@ -1,0 +1,55 @@
+{
+  "id": "mcq-eval-print-expression",
+  "unit": "expression-evaluator",
+  "tier": "hard",
+  "title": "Which script produces this output?",
+  "topics": [
+    "fun",
+    "recursion",
+    "match",
+    "++"
+  ],
+  "examObjective": "Defining, using, and reusing DataWeave modules, functions, and variables",
+  "basics": "The same recursive walk that evaluates a tree can also print it. Instead of combining two Numbers, each operation node combines the printed forms of its two sides into one String.",
+  "mode": "choice",
+  "prompt": "Given the payload, **which script produces exactly this output?**\n\n```\n\"((1 + 2) * 4)\"\n```",
+  "inputMime": "application/json",
+  "outputMime": "application/json",
+  "choice": {
+    "kind": "which-script",
+    "payload": "{\"op\":\"*\",\"l\":{\"op\":\"+\",\"l\":1,\"r\":2},\"r\":4}",
+    "target": "\"((1 + 2) * 4)\"",
+    "answer": 2,
+    "options": [
+      "%dw 2.0\noutput application/json\n---\n\"(\" ++ payload.l ++ \" \" ++ payload.op ++ \" \" ++ payload.r ++ \")\"",
+      "%dw 2.0\noutput application/json\nfun show(e) = e match {\n  case n is Number -> n as String\n  else -> show(e.l) ++ \" \" ++ e.op ++ \" \" ++ show(e.r)\n}\n---\nshow(payload)",
+      "%dw 2.0\noutput application/json\nfun show(e) = e match {\n  case n is Number -> n as String\n  else -> \"(\" ++ show(e.l) ++ \" \" ++ e.op ++ \" \" ++ show(e.r) ++ \")\"\n}\n---\nshow(payload)",
+      "%dw 2.0\noutput application/json\nfun show(e) = e match {\n  case n is Number -> n as String\n  else -> \"(\" ++ e.l ++ \" \" ++ e.op ++ \" \" ++ e.r ++ \")\"\n}\n---\nshow(payload)"
+    ]
+  },
+  "cases": [],
+  "solution": "%dw 2.0\noutput application/json\nfun show(e) = e match {\n  case n is Number -> n as String\n  else -> \"(\" ++ show(e.l) ++ \" \" ++ e.op ++ \" \" ++ show(e.r) ++ \")\"\n}\n---\nshow(payload)",
+  "explanation": {
+    "approach": "Each operation wraps its own printed form in parentheses, and each side is printed by the same function, so the nesting of the brackets follows the nesting of the tree. Without the brackets the grouping is lost, and without the recursive calls the sub-tree cannot be joined as text.",
+    "snippets": [
+      {
+        "label": "The answer",
+        "script": "%dw 2.0\noutput application/json\nfun show(e) = e match {\n  case n is Number -> n as String\n  else -> \"(\" ++ show(e.l) ++ \" \" ++ e.op ++ \" \" ++ show(e.r) ++ \")\"\n}\n---\nshow(payload)",
+        "payload": "{\"op\":\"*\",\"l\":{\"op\":\"+\",\"l\":1,\"r\":2},\"r\":4}",
+        "expect": {
+          "output": "\"((1 + 2) * 4)\""
+        },
+        "note": "One pair of brackets per operation."
+      },
+      {
+        "label": "No brackets",
+        "script": "%dw 2.0\noutput application/json\nfun show(e) = e match {\n  case n is Number -> n as String\n  else -> show(e.l) ++ \" \" ++ e.op ++ \" \" ++ show(e.r)\n}\n---\nshow(payload)",
+        "payload": "{\"op\":\"*\",\"l\":{\"op\":\"+\",\"l\":1,\"r\":2},\"r\":4}",
+        "expect": {
+          "output": "\"1 + 2 * 4\""
+        },
+        "note": "Reads as 9, the tree says 12."
+      }
+    ]
+  }
+}
