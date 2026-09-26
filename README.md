@@ -405,7 +405,7 @@ Otherwise, download the latest installer from the **[website](https://ashutosh-v
 
 ## Privacy
 
-DataWeave Studio has no account, telemetry or analytics, and your scripts run on the bundled engine. The update check is counted by version and platform, and in-app feedback is sent only when you choose to send it. The [privacy policy](https://ashutosh-vijay.dev/dataweave/privacy) has the details, and [SECURITY.md](SECURITY.md) lists every network connection for security reviewers.
+DataWeave Studio has no account, telemetry or analytics, and your scripts run on the bundled engine. The standalone desktop app's update check is counted by version and platform (the Store and VS Code versions don't make one), and in-app feedback is sent only when you choose to send it. The [privacy policy](https://ashutosh-vijay.dev/dataweave/privacy) has the details, and [SECURITY.md](SECURITY.md) lists every network connection for security reviewers.
 
 ---
 

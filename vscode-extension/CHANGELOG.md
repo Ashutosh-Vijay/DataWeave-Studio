@@ -11,8 +11,7 @@ All notable changes to DataWeave Studio for VS Code.
 - **Predict questions work like flashcards.** Read the snippet, reveal what the engine returns, and mark whether you got it. Typing your answer out is still there if you prefer.
 - **Pick up where you left off.** What you typed is kept for every question. Next takes you to something you haven't solved and spaces out questions built on the same scenario. Filter by kind of question, hide the ones you've solved, and follow your progress by level, over the last 30 days, and against an optional daily goal.
 - **Errors that name the problem.** When a run fails, the error panel shows the type checker's diagnosis, naming the expression that went wrong, instead of a general hint.
-- **Tell me what you think.** The smiley in the top bar sends a rating and an optional comment, no account needed. After a few sessions the extension asks once; send one and it won't ask again. Totals and comments show on the [feedback page](https://ashutosh-vijay.dev/dataweave/feedback).
-- **Fixes.** The payload toolbar no longer clips Load file on a narrow pane: it switches to icons, then to a menu. The Open button in the Side Bar disappeared once you had saved a workspace; it stays now. Wording across the extension is plainer.
+- **Fixes.** The payload toolbar no longer clips Load file on a narrow pane: it switches to icons, then to a menu. The Open button in the Side Bar disappeared once you had saved a workspace; it stays now.
 
 ## 3.1.0 (2026-09-20)
 

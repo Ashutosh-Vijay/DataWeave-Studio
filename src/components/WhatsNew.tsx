@@ -25,14 +25,14 @@ const V32_HIGHLIGHTS: Highlight[] = [
     desc: 'What you typed is kept for every question. Next takes you to something you haven’t solved and spaces out questions built on the same scenario. Filter by kind of question, hide the ones you’ve solved, and follow your progress by level, over the last 30 days, and against an optional daily goal.' },
   { title: 'Errors that name the problem',
     desc: 'When a run fails, the error panel now shows the type checker’s diagnosis, naming the expression that went wrong, instead of a general hint.' },
-  { title: 'Tell me what you think', tag: 'NEW',
-    desc: 'The smiley in the top bar sends a rating and an optional comment, no account needed. After a few sessions the app asks once; send one and it won’t ask again. Totals and comments show on the feedback page at ashutosh-vijay.dev/dataweave/feedback.' },
-  { title: 'Counting installs', only: 'desktop',
-    desc: 'Each update check now adds one to a daily count by version and platform, so I can see how many people use the app. Nothing that identifies you is sent or kept, and turning off update checks in Settings → Advanced stops it.' },
+  // Only the standalone desktop app checks for updates: the Store and the
+  // Marketplace update their own builds, so neither sends this.
+  ...(import.meta.env.VITE_STORE_BUILD === '1' ? [] : [{ title: 'Counting installs', only: 'desktop' as const,
+    desc: 'Each update check now adds one to a daily count by version and platform, so I can see how many people use the app. Nothing that identifies you is sent or kept, and turning off update checks in Settings → Advanced stops it.' }]),
   { title: 'Fixes', only: 'desktop',
-    desc: 'The payload toolbar no longer clips Load file on a narrow pane: it switches to icons, then to a menu. Wording across the app is plainer.' },
+    desc: 'The payload toolbar no longer clips Load file on a narrow pane: it switches to icons, then to a menu.' },
   { title: 'Fixes', only: 'vscode',
-    desc: 'The payload toolbar no longer clips Load file on a narrow pane: it switches to icons, then to a menu. The Open button in the Side Bar disappeared once you had saved a workspace; it stays now. Wording across the extension is plainer.' },
+    desc: 'The payload toolbar no longer clips Load file on a narrow pane: it switches to icons, then to a menu. The Open button in the Side Bar disappeared once you had saved a workspace; it stays now.' },
 ];
 
 const DESKTOP_RELEASES: Release[] = [
