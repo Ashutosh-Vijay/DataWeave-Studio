@@ -2,6 +2,18 @@
 
 All notable changes to DataWeave Studio for VS Code.
 
+## 3.2.0 (2026-09-26)
+
+**Practice DataWeave, graded by the real engine.**
+
+- **Practice.** 739 problems across 40 topics, from picking fields out of a payload up to recursive tree walks. Your answer runs on the same engine as your scripts, against test cases you can't see, so passing means it works on data it hasn't met. Four kinds: write the script, fix a broken one, predict what a snippet returns, and multiple choice, over six levels from Low to Ultra. Open it from the rail or from Tools.
+- **Learn from each attempt.** Hints come one at a time. A trace shows what every expression in your script evaluated to on the sample. The reference solution is there when you want it, and every explanation walks through snippets that were each run before they shipped.
+- **Predict questions work like flashcards.** Read the snippet, reveal what the engine returns, and mark whether you got it. Typing your answer out is still there if you prefer.
+- **Pick up where you left off.** What you typed is kept for every question. Next takes you to something you haven't solved and spaces out questions built on the same scenario. Filter by kind of question, hide the ones you've solved, and follow your progress by level, over the last 30 days, and against an optional daily goal.
+- **Errors that name the problem.** When a run fails, the error panel shows the type checker's diagnosis, naming the expression that went wrong, instead of a general hint.
+- **Tell me what you think.** The smiley in the top bar sends a rating and an optional comment, no account needed. After a few sessions the extension asks once; send one and it won't ask again. Totals and comments show on the [feedback page](https://ashutosh-vijay.dev/dataweave/feedback).
+- **Fixes.** The payload toolbar no longer clips Load file on a narrow pane: it switches to icons, then to a menu. The Open button in the Side Bar disappeared once you had saved a workspace; it stays now. Wording across the extension is plainer.
+
 ## 3.1.0 (2026-09-20)
 
 **Stop retyping the key.**
