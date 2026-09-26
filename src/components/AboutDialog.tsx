@@ -80,11 +80,6 @@ export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvaila
 
   if (!open) return null;
 
-  // Issue number = floor(months since launch / 3) + 1, but keep it editorial — Issue 4 for v1.4.x
-  const issue = appVersion ? Math.max(1, parseInt(appVersion.split('.')[1] || '0', 10) + 1) : 1;
-  const issueLabel = `Vol. 1 · Issue ${issue}`;
-  const releaseMonth = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
-
   const updateDotColor =
     updateStatus === 'update-available' ? 'var(--warn)' :
     updateStatus === 'error' ? 'var(--err)' :
@@ -124,24 +119,6 @@ export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvaila
           <Icons.X size={13} />
         </button>
 
-        {/* Header strip — issue / volume style */}
-        <div
-          className="px-7 py-3 flex items-center gap-3 text-[10.5px] uppercase tracking-[0.4px]"
-          style={{
-            borderBottom: '1px solid var(--line-subtle)',
-            fontFamily: 'var(--font-mono)',
-            color: 'var(--content-faint)',
-          }}
-        >
-          <span>{issueLabel}</span>
-          <span>·</span>
-          <span>MIT</span>
-          <span>·</span>
-          <span>{releaseMonth}</span>
-          <span className="flex-1" />
-          <span style={{ color: 'var(--accent)' }}>read time 90s</span>
-        </div>
-
         <div className="px-8 pt-7 pb-6">
           {/* Eyebrow */}
           <div
@@ -180,15 +157,15 @@ export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvaila
             <Stat kicker="license" value="MIT" sub="free forever" />
             <Stat kicker="dw engine" value={engine || '–'} sub="Apache 2.0 · MuleSoft" />
             {isTauri ? (
-              <Stat kicker="size" value="~87 MB" sub="installer · all bundled" />
+              <Stat kicker="size" value="~100 MB" sub="installer · all bundled" />
             ) : (
               <Stat kicker="java" value="17" sub="bundled · zero setup" />
             )}
             <Stat kicker="platforms" value="3" sub="Windows · macOS · Linux" />
             {isTauri ? (
-              <Stat kicker="dependencies" value="0" sub="no cloud · no signup" />
+              <Stat kicker="dependencies" value="0" sub="nothing else to install" />
             ) : (
-              <Stat kicker="telemetry" value="0" sub="no cloud · no signup" />
+              <Stat kicker="telemetry" value="0" sub="no account needed" />
             )}
           </div>
 

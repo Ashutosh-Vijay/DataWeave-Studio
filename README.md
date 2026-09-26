@@ -145,7 +145,7 @@ JRE 17 and the DataWeave runtime ship inside the app. No Java install, no `JAVA_
 | **Publish to Exchange** | No | Yes | No | Yes |
 | **Dependency management** | Custom classpath | Maven | No | Maven |
 | **Themes** | Dusk, Paper and 5 accents | VS Code themes | Dark | Dark |
-| **Footprint** | ~90 MB | VS Code, Java and Maven | Browser | 2 GB+ |
+| **Footprint** | ~100 MB | VS Code, Java and Maven | Browser | 2 GB+ |
 | **Live preview** | Auto-run (toggle) | AutoPreview (opt-in) | Always on | No |
 | **Execution time display** | Yes | No | No | No |
 | **Cancel a running script** | Yes | No | No | No |
