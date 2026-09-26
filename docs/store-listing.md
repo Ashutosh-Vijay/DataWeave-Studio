@@ -200,11 +200,9 @@ sponsored by MuleSoft or Salesforce. DataWeave, Mule, MuleSoft and Anypoint are
 trademarks of their respective owners.
 
 ## What's new in this version (3.2.0)
-Practice DataWeave, graded by the real engine: 739 problems across 40 topics, from
-picking fields out of a payload to recursive tree walks. Write a script, fix a broken
-one, predict what a snippet returns, or pick the right answer, with hints, a value
-trace and worked explanations. Failed runs now show the type checker's diagnosis,
-naming the expression that went wrong.
+Practice DataWeave: 739 problems across 40 topics, graded by the real engine against
+test cases you can't see. Failed runs now show the type checker's diagnosis, naming
+the expression that went wrong.
 
 ## Key features (short bullets for the listing form)
 1. Runs the real MuleSoft DataWeave 2.12 engine locally
