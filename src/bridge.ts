@@ -9,18 +9,29 @@
  *     extension host (vscode-extension/), which reimplements the same command
  *     surface in Node. The host replies with a matching message keyed by id.
  *
+ *   - Plain browser:    neither of the above → src/webBackend.ts, which runs
+ *     the engine as WebAssembly in a Web Worker. Nothing leaves the page.
+ *
  * Wire protocol (must match vscode-extension/src/extension.ts):
  *   webview → host:  { kind: 'invoke',        id, cmd, args }
  *   host → webview:  { kind: 'invoke:result', id, ok, value? , error? }
  */
 
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
+import { webInvoke, startEngine } from './webBackend';
 
 // Tauri injects __TAURI_INTERNALS__ into the webview global before our code
 // runs. Its absence means we're in the VS Code webview (or a plain browser).
 // Exported so UI can drop desktop-only chrome (e.g. window controls) in VS Code.
 export const isTauri =
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+export const isVsCode =
+  !isTauri && typeof window !== 'undefined' && 'acquireVsCodeApi' in window;
+
+export const isWeb = typeof window !== 'undefined' && !isTauri && !isVsCode;
+
+if (isWeb) void startEngine();
 
 // --- VS Code webview transport ----------------------------------------------
 // acquireVsCodeApi() may be called only ONCE per webview, so cache the handle.
@@ -72,5 +83,6 @@ function vscodeInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
  * call sites don't care which runtime they're in.
  */
 export function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  return isTauri ? tauriInvoke<T>(cmd, args) : vscodeInvoke<T>(cmd, args);
+  if (isTauri) return tauriInvoke<T>(cmd, args);
+  return isWeb ? webInvoke<T>(cmd, args) : vscodeInvoke<T>(cmd, args);
 }

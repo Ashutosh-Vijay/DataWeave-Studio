@@ -3,7 +3,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { Icons } from './Icons';
-import { isTauri } from '../bridge';
+import { isTauri, isWeb } from '../bridge';
 
 interface AboutDialogProps {
   open: boolean;
@@ -150,7 +150,9 @@ export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvaila
           >
             {isTauri
               ? 'A free desktop tool for MuleSoft developers'
-              : 'A free DataWeave playground for VS Code'}
+              : isWeb
+                ? 'A free DataWeave playground in your browser'
+                : 'A free DataWeave playground for VS Code'}
           </div>
 
           {/* Title — display-size, tight */}
@@ -168,13 +170,30 @@ export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvaila
             className="mt-[18px] mb-0 text-[15px] leading-[1.55] max-w-[560px]"
             style={{ color: 'var(--content-muted)' }}
           >
-            The real DataWeave {engineMinor || '2'} engine, {isTauri ? 'in a desktop app' : 'right inside VS Code'}.
-            No Anypoint Studio, no browser tab, no signup. Write a script, drop a payload, hit Run.
+            {isWeb ? (
+              <>
+                The real DataWeave {engineMinor || '2'} engine, compiled to WebAssembly and running
+                in this tab. No Anypoint Studio, no install, no signup, and your scripts and
+                payloads never leave the page. Write a script, drop a payload, hit Run.
+              </>
+            ) : (
+              <>
+                The real DataWeave {engineMinor || '2'} engine, {isTauri ? 'in a desktop app' : 'right inside VS Code'}.
+                No Anypoint Studio, no browser tab, no signup. Write a script, drop a payload, hit Run.
+              </>
+            )}
           </p>
 
           <Divider />
 
-          {/* Three-column meta — 2 rows of 3 stats */}
+          {isWeb ? (
+            <div className="grid grid-cols-3 gap-x-7 gap-y-6">
+              <Stat kicker="version" value={appVersion || '—'} sub="latest stable" valueAccent />
+              <Stat kicker="license" value="MIT" sub="free forever" />
+              <Stat kicker="dw engine" value={engine || '—'} sub="Apache 2.0 · MuleSoft" />
+            </div>
+          ) : (
+          /* Three-column meta — 2 rows of 3 stats */
           <div className="grid grid-cols-3 gap-x-7 gap-y-6">
             <Stat kicker="version" value={appVersion || '—'} sub="latest stable" valueAccent />
             <Stat kicker="license" value="MIT" sub="free forever" />
@@ -191,6 +210,7 @@ export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvaila
               <Stat kicker="telemetry" value="0" sub="no cloud · no signup" />
             )}
           </div>
+          )}
 
           <Divider />
 
@@ -270,11 +290,23 @@ export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvaila
             ) : (
               <span className="inline-flex items-center gap-[6px]" style={{ color: 'var(--accent)' }}>
                 <Icons.Dot size={8} />
-                <span>{isTauri ? 'Installed via Microsoft Store · Store handles updates' : 'Installed via VS Code · Marketplace handles updates'}</span>
+                <span>
+                  {isTauri
+                    ? 'Installed via Microsoft Store · Store handles updates'
+                    : isWeb
+                      ? 'Runs in your browser · always the latest version'
+                      : 'Installed via VS Code · Marketplace handles updates'}
+                </span>
               </span>
             )}
             <span style={{ color: 'var(--content-faint)' }}>·</span>
-            <span>{isTauri ? 'Tauri 2 · React · Monaco · Rust' : 'VS Code · React · Monaco · Node'}</span>
+            <span>
+              {isTauri
+                ? 'Tauri 2 · React · Monaco · Rust'
+                : isWeb
+                  ? 'React · Monaco · WebAssembly'
+                  : 'VS Code · React · Monaco · Node'}
+            </span>
             <span className="flex-1" />
             <button
               onClick={() => openUrl('https://github.com/Ashutosh-Vijay/dataweave-studio/releases')}
@@ -299,6 +331,7 @@ export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvaila
           >
             DataWeave runtime by MuleSoft / Salesforce, Apache License 2.0. Not
             affiliated with, endorsed by, or sponsored by MuleSoft or Salesforce.
+            {isWeb && ' Web Edition (WebAssembly build) contributed by Venkatesh Omkaram.'}
           </div>
         </div>
       </div>

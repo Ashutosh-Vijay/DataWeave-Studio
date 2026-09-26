@@ -95,6 +95,10 @@ object DwServer {
   private val hotLoader: HotURLClassLoader =
     new HotURLClassLoader(Thread.currentThread().getContextClassLoader)
 
+  // Web Image (WASM) has no java.io.RandomAccessFile, which File-backed
+  // bindings read through, so the browser build binds every input as bytes.
+  @volatile private[dwstudio] var bindInputsAsBytes: Boolean = false
+
   def main(args: Array[String]): Unit = {
     Thread.currentThread().setContextClassLoader(hotLoader)
     val engine = createEngine()
@@ -115,7 +119,7 @@ object DwServer {
     }
   }
 
-  private def createEngine(): DataWeaveScriptingEngine = {
+  private[dwstudio] def createEngine(): DataWeaveScriptingEngine = {
     val resolver = ClassLoaderWeaveResourceResolver.apply()
     new DataWeaveScriptingEngine(
       ModuleComponentsFactory.apply(resolver),
@@ -124,7 +128,7 @@ object DwServer {
     )
   }
 
-  private def handleRequest(line: String, engine: DataWeaveScriptingEngine): String = {
+  private[dwstudio] def handleRequest(line: String, engine: DataWeaveScriptingEngine): String = {
     val started = System.currentTimeMillis()
     val req: JsonObject =
       try Json.parse(line).asObject()
@@ -217,7 +221,7 @@ object DwServer {
           if (f.exists()) {
             // The (name, File, mime) overload gives DW a stream-compatible
             // source — required for application/json/xml/csv readers.
-            if (debugRun) bindings.addBinding(name, Files.readAllBytes(f.toPath), mime)
+            if (debugRun || bindInputsAsBytes) bindings.addBinding(name, Files.readAllBytes(f.toPath), mime)
             else bindings.addBinding(name, f, mime)
             mimeByName(name) = mime
           }

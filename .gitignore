@@ -58,6 +58,11 @@ src-tauri/resources/dw-server/*.jar
 src-tauri/resources/jre/
 dw-server/target/
 
+# Browser build: WASM engine (npm run build:wasm), static site, local toolchain
+web-wasm/target/
+dist-web/
+.tools/
+
 # Build artifacts / cached files
 latest_release.json
 AGENTS.md

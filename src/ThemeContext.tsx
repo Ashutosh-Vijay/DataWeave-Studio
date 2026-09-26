@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useState, ReactNode } from 'react';
-import { isTauri } from './bridge';
+import { isTauri, isVsCode } from './bridge';
 
 type Theme = 'dark' | 'light';
 type ThemePref = 'dark' | 'light' | 'system';
@@ -33,7 +33,7 @@ const ThemeContext = createContext<ThemeContextValue>({
 
 const STORAGE_KEY = 'dwstudio_theme';
 const MATCH_VSCODE_KEY = 'dw.matchVsCode';
-const inVsCode = !isTauri;
+const inVsCode = isVsCode;
 
 function readStoredPref(): ThemePref {
   try {

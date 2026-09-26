@@ -14,7 +14,7 @@ import { loader } from "@monaco-editor/react";
 import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ThemeProvider } from "./ThemeContext";
-import { isTauri } from "./bridge";
+import { isTauri, isVsCode } from "./bridge";
 import { ACCENTS, applyAccentVars } from "./accents";
 import { pinnedSeason } from "./seasons";
 import "./index.css";
@@ -76,7 +76,7 @@ if (!isTauri) {
     // When adopting the VS Code theme, the accent comes from VS Code's button
     // color via the .dw-vscode-theme CSS class — setting an inline --accent here
     // would override it (inline beats class), so skip.
-    if (!isTauri && localStorage.getItem("dw.matchVsCode") !== "0") return;
+    if (isVsCode && localStorage.getItem("dw.matchVsCode") !== "0") return;
     const isDark = !document.documentElement.classList.contains("light");
     const pinned = pinnedSeason();
     if (pinned) { applyAccentVars(pinned.accent, isDark); return; }

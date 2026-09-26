@@ -3,6 +3,7 @@ import { pickRandomLoader } from './Loaders';
 import { SeasonalEffects } from './SeasonalEffects';
 import { activeSeason } from '../seasons';
 import { applyAccentVars } from '../accents';
+import { isWeb } from '../bridge';
 
 interface SplashScreenProps {
   isReady: boolean;
@@ -232,7 +233,7 @@ export function SplashScreen({ isReady, hasError, onDismiss }: SplashScreenProps
         DataWeave Studio
       </h1>
       <p className="text-sm text-content-faint mb-10 relative">
-        {season ? season.greeting : 'Desktop Edition'}
+        {season ? season.greeting : isWeb ? 'Web Edition' : 'Desktop Edition'}
       </p>
 
       {/* Progress bar */}
@@ -266,8 +267,17 @@ export function SplashScreen({ isReady, hasError, onDismiss }: SplashScreenProps
           className="text-[11px] text-content-ghost mt-3 text-center max-w-[340px] leading-relaxed relative"
           style={{ animation: 'fadeIn 400ms ease-out' }}
         >
-          The DataWeave runtime takes a few extra seconds on slow / heavily-monitored
-          machines. Hang tight — this is a one-time per-launch cost.
+          {isWeb ? (
+            <>
+              The first visit downloads the DataWeave engine. After that your browser
+              keeps it, and later visits start without the download.
+            </>
+          ) : (
+            <>
+              The DataWeave runtime takes a few extra seconds on slow / heavily-monitored
+              machines. Hang tight — this is a one-time per-launch cost.
+            </>
+          )}
           <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }`}</style>
         </div>
       )}

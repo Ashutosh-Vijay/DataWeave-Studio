@@ -1,0 +1,100 @@
+name: Publish Web Edition (GitHub Pages)
+
+# The browser build: the DataWeave engine compiled to WebAssembly with GraalVM
+# Web Image, plus the React UI as a static site. Nothing runs server-side, so
+# GitHub Pages serves it as-is.
+#
+# The build runs on Linux, macOS and Windows so a platform-specific step can't
+# creep into it. The site itself is platform-neutral (wasm + js), so Pages
+# gets the Linux build, and only once every platform has built and passed the
+# smoke test.
+#
+# One-time setup: Settings -> Pages -> Source: "GitHub Actions".
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+  BINARYEN_VERSION: '133'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            binaryen: x86_64-linux
+            deploy: true
+          # The other platforms only prove the build is portable, so they take
+          # native-image's quick mode; it also keeps within the macOS runner's
+          # smaller memory.
+          - os: macos-14
+            binaryen: arm64-macos
+            nativeImageArgs: -Ob
+          - os: windows-latest
+            binaryen: x86_64-windows
+            nativeImageArgs: -Ob
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Web Image (--tool:svm-wasm) ships with Oracle GraalVM only, not Community.
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: graalvm
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: maven
+
+      - name: Install binaryen (wasm-as)
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSL "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-${{ matrix.binaryen }}.tar.gz" | tar xz
+          echo "$RUNNER_TEMP/binaryen-version_${BINARYEN_VERSION}/bin" >> "$GITHUB_PATH"
+
+      - name: Build the WASM engine
+        run: npm run build:wasm
+        env:
+          NATIVE_IMAGE_ARGS: ${{ matrix.nativeImageArgs }}
+
+      - name: Smoke-test the engine
+        run: node web-wasm/smoke-test.cjs
+
+      - name: Build the static site
+        run: |
+          npm ci
+          npm run build:web
+
+      - if: matrix.deploy
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
