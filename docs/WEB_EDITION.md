@@ -124,10 +124,14 @@ The workflow `.github/workflows/pages.yml` builds and deploys on every push to
 2. In the repository, open **Settings → Pages** and set **Source** to **GitHub Actions**.
 3. Push to `main`. The site appears at `https://<user>.github.io/<repo>/`.
 
-The workflow builds and smoke-tests the engine on Linux, macOS and Windows,
-and deploys only if all three pass. The macOS and Windows runs use quick mode
-(`-Ob`) because their only job is to prove the build is portable. The Linux
-build, fully optimised, is what gets published.
+The workflow builds and smoke-tests the engine once, on Linux, and deploys it
+if the smoke test passes. The site is platform-neutral, so a single build is
+all GitHub Pages needs.
+
+`web-wasm/build.mjs` is still written to run on Linux, macOS and Windows, so
+contributors can build the engine locally on any of them. That is not verified
+in CI: a platform-specific change to the build script would only show up for
+someone building locally, so keep it portable by hand.
 
 No `index.html` needs to be written by hand. Vite generates it, and every path
 in it is relative (`base: './'`), so the site works under any sub-path.
@@ -268,7 +272,7 @@ desktop app and the VS Code extension behave exactly as before.
 | `web-wasm/smoke-test.cjs` | Loads the engine in Node and runs 8 checks: JSON, CSV→XML with vars, format, compile error, YAML, completion, secure-properties round trip, and the traced parse error. |
 | `src/webBackend.ts` | Browser implementation of the command surface. |
 | `vite.config.web.ts` | Static-site build config. |
-| `.github/workflows/pages.yml` | Build on three OSes, then deploy to GitHub Pages. |
+| `.github/workflows/pages.yml` | Build on Linux, then deploy to GitHub Pages. |
 
 ---
 
@@ -368,8 +372,9 @@ The first build script was bash and used `unzip`, `grep`, `sed`, `awk` and a
 - The smoke test copies the engine file instead of symlinking it, since
   symlinks need admin rights on Windows.
 
-The Pages workflow builds on Linux, macOS and Windows on every push, so any
-platform-specific step that creeps in fails the build.
+The Pages workflow builds on Linux only, since that is the only build it
+publishes. Portability is kept by hand rather than by CI, so avoid shell
+commands that only exist on one platform.
 
 ---
 
