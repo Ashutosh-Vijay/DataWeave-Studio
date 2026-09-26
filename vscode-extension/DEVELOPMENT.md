@@ -118,7 +118,7 @@ DataWeave Studio runs **entirely on your machine**:
   DataWeave runtime). Updates are handled by the VS Code Marketplace, not the
   extension.
 - **Your data stays local.** Scripts, payloads, and workspaces live only on disk
-  (workspaces in the extension's storage folder); files are read/written only
+  (workspaces in the desktop app's data folder, shared with it; see sharedWorkspaceRoot in extension.ts); files are read/written only
   when you pick them via a dialog. Encryption keys for Secure Properties are held
   in memory and never written to disk.
 - **Java** is the bundled JRE, invoked by absolute path — it never reads or

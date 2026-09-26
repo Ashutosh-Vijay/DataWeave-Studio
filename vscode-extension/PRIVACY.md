@@ -26,7 +26,10 @@ policies.
 ## Data handled locally
 
 - **Scripts, payloads, named inputs and flows** are kept in memory and in the
-  workspace files you save, in the extension's storage folder managed by VS Code.
+  workspace files you save. Workspaces go in the same folder the desktop app uses
+  (for example `%LOCALAPPDATA%\com.dwstudio.desktop\workspaces` on Windows), so
+  both see the same ones. Everything else stays in the extension's storage folder
+  managed by VS Code.
 - **Files** are read or written only when you choose them in a file dialog, for
   example to load a payload, export output or add a JAR.
 - **Encryption keys** for the Secure Properties tool are held in memory only and
