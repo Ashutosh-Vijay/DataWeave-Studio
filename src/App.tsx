@@ -1512,6 +1512,7 @@ function App() {
     { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: '⌘/', group: 'App', run: () => setShortcutsOpen(true) },
     { id: 'settings', label: 'Open Settings', shortcut: '⌘,', group: 'App', run: () => setSettingsOpen(true) },
     { id: 'about', label: 'About DataWeave Studio', group: 'App', run: () => setAboutOpen(true) },
+    { id: 'whats-new', label: 'What’s new', hint: 'Release notes for this version and earlier ones', group: 'App', run: () => setShowWhatsNew(true) },
     { id: 'feedback', label: 'Send feedback / report a bug', group: 'App', run: () => setFeedbackOpen(true) },
     { id: 'tour', label: 'Show guided tour', group: 'App', run: () => {
       beginTransforming();
