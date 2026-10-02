@@ -28,6 +28,8 @@ interface RunResult {
   error_column: number | null;
   logs?: string[] | null;
   trace?: TraceRow[] | null;
+  /** The format the output was written in: the script's own, or Mule's rule's pick. */
+  output_mime?: string | null;
 }
 
 interface WarmupStatus {
@@ -48,6 +50,8 @@ interface UseDWRunnerReturn {
   logs: string[];
   /** Per-expression values from the last run, when it was run with `valueTrace`. */
   trace: TraceRow[];
+  /** What the last run was written in: the script's own format, or Mule's rule's pick. */
+  outputMime: string | null;
   isRunning: boolean;
   executionTimeMs: number | undefined;
   isWarmedUp: boolean;
@@ -85,6 +89,8 @@ export function useDWRunner(): UseDWRunnerReturn {
   const [engineVersion, setEngineVersion] = useState<string | undefined>(undefined);
   const [logs, setLogs] = useState<string[]>([]);
   const [trace, setTrace] = useState<TraceRow[]>([]);
+  // What the last run was written in, for the output format menu.
+  const [outputMime, setOutputMime] = useState<string | null>(null);
   const pollGenRef = useRef(0);
   const runningRef = useRef(false);
   /** Result of the engine's startup encoding self-check, and whether we've
@@ -199,6 +205,7 @@ export function useDWRunner(): UseDWRunnerReturn {
         if (result.output) setOutput(result.output);
         setLogs(result.logs ?? []);
         setTrace(result.trace ?? []);
+        setOutputMime(result.output_mime ?? null);
         setExecutionTimeMs(result.execution_time_ms);
       } catch (e: unknown) {
         setError(String(e));
@@ -245,6 +252,7 @@ export function useDWRunner(): UseDWRunnerReturn {
     errorColumn,
     logs,
     trace,
+    outputMime,
     isRunning,
     executionTimeMs,
     isWarmedUp,

@@ -113,7 +113,8 @@ export async function openEngine({ quiet = false } = {}) {
         attributesPath,
         varsPath,
         namedInputs: opts.namedInputs ?? [],
-        outputMime: opts.outputMime ?? 'application/json',
+        // DW_MULE_OUTPUT=1 leaves the format to Mule's rule, the way the app runs scripts.
+        outputMime: opts.outputMime ?? (process.env.DW_MULE_OUTPUT === '1' ? '' : 'application/json'),
         modules: opts.modules,
         languageLevel: opts.languageLevel,
         trace: opts.trace,
@@ -130,6 +131,9 @@ export async function openEngine({ quiet = false } = {}) {
         logs: res.logs,
         /** One row per source expression when `valueTrace` was set. */
         trace: res.trace,
+        /** The format the output was written in: the script's own, or the one
+         *  Mule's rule picked when it has none (pass outputMime: ''). */
+        outputMime: res.outputMime,
       };
     },
 

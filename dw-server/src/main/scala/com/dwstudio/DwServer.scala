@@ -134,7 +134,6 @@ object DwServer {
     val id = if (req.get("id") == null) -1 else req.get("id").asInt()
     try {
       val rawScript = req.getString("script", "")
-      val outputMime = req.getString("outputMime", "application/json")
 
       // op=format: pretty-print the script via the DataWeave tooling formatter
       // (same engine the IDE uses) and return it. No evaluation.
@@ -242,6 +241,33 @@ object DwServer {
         }
       }
 
+      // A script with no `output` directive gets the format Mule would give it
+      // (MuleSoft docs, "DataWeave Scripts"): it follows the inputs the script
+      // uses. None used: application/java. All in one format: that format. In
+      // different formats: an error asking for a directive. The engine only takes
+      // a fixed default, so the rule lives here. A request that names outputMime
+      // (scripts/dwEngine.mjs, older callers) keeps the format it asked for.
+      val requestedMime = req.getString("outputMime", "")
+      val outputMime: String =
+        if (declaresOutput(script)) (if (requestedMime.nonEmpty) requestedMime else "application/json")
+        else if (requestedMime.nonEmpty) requestedMime
+        else {
+          // In Mule, attributes and vars are Java objects, whatever format the
+          // values inside them came from.
+          val formatOf = (n: String) =>
+            if (n == "attributes" || n == "vars") "application/java" else mimeByName(n).split(';')(0).trim
+          val used = usedInputs(script, mimeByName.keys.toSeq)
+          val formats = used.map(formatOf).distinct
+          if (formats.size > 1) {
+            return errorResponse(id,
+              "This script has no output directive and reads inputs in different formats: " +
+                used.map(n => s"$n (${formatOf(n)})").mkString(", ") +
+                ". Mule refuses that as well. Add an output directive, for example output application/json, or pick a format from the menu above the output.",
+              started)
+          }
+          formats.headOption.getOrElse("application/java")
+        }
+
       // Pass None for the type — DW resolves mime from the script's
       // `input <name> <mime>` directives or the SourceProvider.
       val inputTypes: Array[InputType] =
@@ -309,8 +335,12 @@ object DwServer {
         // pattern-matching the source: it catches every spelling of the
         // directive, trailing properties and all.
         val declared = compiled.getDeclaredOutputMimeType
+        // What the output was written in, for the format menu: the script's own
+        // directive, or the format Mule's rule picked.
+        val reportedMime = if (declared.isPresent) declared.get() else outputMime
         val renderAs: String =
           if (declared.isPresent && declared.get().startsWith("application/java")) "application/json"
+          else if (!declared.isPresent && outputMime.startsWith("application/java")) "application/json"
           else null
 
         if (valueTrace) {
@@ -341,6 +371,7 @@ object DwServer {
           r.add("output", out.toString("UTF-8"))
           if (failure == null) r.add("error", Json.NULL) else r.add("error", failure)
           r.add("executionTimeMs", System.currentTimeMillis() - started)
+          r.add("outputMime", reportedMime)
           if (logger.messages.nonEmpty) {
             val arr = new com.eclipsesource.json.JsonArray()
             logger.messages.foreach(arr.add)
@@ -353,12 +384,12 @@ object DwServer {
           val sm = makeServiceManager(logger, sandbox)
           if (renderAs != null) compiled.write(bindings, sm, renderAs, Some(out))
           else compiled.write(bindings, sm, Some(out))
-          successResponse(id, out.toString("UTF-8"), started, logger.messages.toList)
+          successResponse(id, out.toString("UTF-8"), started, logger.messages.toList, reportedMime)
         } else {
           val sm = makeServiceManager(sandbox = sandbox)
           if (renderAs != null) compiled.write(bindings, sm, renderAs, Some(out))
           else compiled.write(bindings, sm, Some(out))
-          successResponse(id, out.toString("UTF-8"), started)
+          successResponse(id, out.toString("UTF-8"), started, Nil, reportedMime)
         }
       }
     } catch {
@@ -1534,19 +1565,41 @@ object DwServer {
     override def logWarn(msg: String): Unit = add(msg)
   }
 
-  private def successResponse(id: Int, output: String, started: Long, logs: List[String] = Nil): String = {
+  private def successResponse(id: Int, output: String, started: Long, logs: List[String] = Nil, outputMime: String = null): String = {
     val r = new JsonObject()
     r.add("id", id)
     r.add("ok", true)
     r.add("output", output)
     r.add("error", Json.NULL)
     r.add("executionTimeMs", System.currentTimeMillis() - started)
+    if (outputMime != null) r.add("outputMime", outputMime)
     if (logs.nonEmpty) {
       val arr = new com.eclipsesource.json.JsonArray()
       logs.foreach(arr.add)
       r.add("logs", arr)
     }
     r.toString
+  }
+
+  /** True when the script's header (before the first `---`) has an output directive. */
+  private def declaresOutput(script: String): Boolean = {
+    val lines = script.split("\n", -1)
+    val sep = lines.indexWhere(_.trim == "---")
+    sep >= 0 && lines.take(sep).exists(_.trim.startsWith("output "))
+  }
+
+  /**
+   * Which of these input names the script's body refers to. Comments are
+   * dropped first; strings are kept, because `"$(payload.name)"` reads payload.
+   * A name after a dot is a field (`order.payload`), not the input.
+   */
+  private def usedInputs(script: String, names: Seq[String]): Seq[String] = {
+    val lines = script.split("\n", -1)
+    val sep = lines.indexWhere(_.trim == "---")
+    val body = (if (sep < 0) lines else lines.drop(sep + 1)).mkString("\n")
+      .replaceAll("(?s)/\\*.*?\\*/", " ")
+      .replaceAll("(?m)(^|\\s)//[^\\n]*", " ")
+    names.filter(n => ("(?<![\\w.$])" + java.util.regex.Pattern.quote(n) + "(?![\\w$])").r.findFirstIn(body).nonEmpty)
   }
 
   private def errorResponse(id: Int, msg: String, started: Long): String = {

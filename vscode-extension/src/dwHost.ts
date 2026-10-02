@@ -168,6 +168,8 @@ interface DwResponse {
   logs?: string[];
   /** One row per expression when the request set `valueTrace`. */
   trace?: TraceRow[];
+  /** The format the output was written in: the script's own, or Mule's rule's pick. */
+  outputMime?: string;
 }
 
 /** What one expression in the script evaluated to, from the engine's execution
@@ -578,7 +580,6 @@ function buildFullScript(
 
   const hasDwHeader = lines.some((l) => l.trim().startsWith('%dw'));
   const hasSeparator = lines.some((l) => l.trim() === '---');
-  const hasOutput = lines.some((l) => l.trim().startsWith('output '));
 
   if (!hasDwHeader) header.push('%dw 2.0');
 
@@ -601,8 +602,9 @@ function buildFullScript(
     }
   }
 
-  if (!hasOutput && !hasSeparator) {
-    header.push('output application/json');
+  // No `output` line: the engine server picks the format Mule would (the
+  // output rule in DwServer.scala). Only the separator closes the header.
+  if (!hasSeparator) {
     header.push('---');
   }
 
@@ -612,8 +614,8 @@ function buildFullScript(
     const result: string[] = [];
     let inserted = false;
     for (const line of lines) {
-      if (!hasOutput && hasSeparator && !inserted && line.trim() === '---') {
-        result.push(...header, 'output application/json');
+      if (hasSeparator && !inserted && line.trim() === '---') {
+        result.push(...header);
         inserted = true;
       }
       result.push(line);
@@ -658,6 +660,8 @@ export interface RunResult {
   logs?: string[] | null;
   /** Per-expression values when `valueTrace` was requested (null otherwise). */
   trace?: TraceRow[] | null;
+  /** The format the output was written in (see DwResponse.outputMime). */
+  output_mime?: string | null;
 }
 
 export interface RunArgs {
@@ -842,7 +846,7 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
           attributesPath: attrsPath,
           varsPath: varsPath,
           namedInputs: serverNamedInputs,
-          outputMime: 'application/json',
+          outputMime: '', // the server applies Mule's rule when there's no output line
           classpath: cpEntries.length ? cpEntries : undefined,
           compileOnly: false,
           modules: modules.length ? modules : undefined,
@@ -881,6 +885,7 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
         error_column: null,
         logs: resp.logs ?? null,
         trace: resp.trace ?? null,
+        output_mime: resp.outputMime ?? null,
       };
     }
     const shifted = shiftStderrLines(resp.error ?? '(no error message)', lineOffset);
@@ -893,6 +898,7 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
       error_column: col,
       logs: resp.logs ?? null,
       trace: resp.trace ?? null,
+      output_mime: resp.outputMime ?? null,
     };
   } finally {
     fs.rmSync(runDir, { recursive: true, force: true });
@@ -929,7 +935,7 @@ export async function debugDataweave(
       payloadPath: '',
       payloadMime: 'application/json',
       namedInputs: [],
-      outputMime: 'application/json',
+      outputMime: '', // the server applies Mule's rule when there's no output line
     },
     20000,
   );
@@ -1059,7 +1065,7 @@ export async function warmDataweave(server: DwServer, args: WarmArgs): Promise<v
         payloadPath: '',
         payloadMime: 'application/json',
         namedInputs: [],
-        outputMime: 'application/json',
+        outputMime: '', // the server applies Mule's rule when there's no output line
         compileOnly: true,
       },
       15000

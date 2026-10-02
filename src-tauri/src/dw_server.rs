@@ -136,6 +136,10 @@ pub struct DwResponse {
     /// One row per expression when the request set `value_trace`.
     #[serde(default)]
     pub trace: Option<Vec<TraceRow>>,
+    /// The format the output was written in: the script's own, or the one
+    /// Mule's rule picked when the script has no `output` line.
+    #[serde(default)]
+    pub output_mime: Option<String>,
 }
 
 /// What one expression in the script evaluated to, as recorded by the engine's

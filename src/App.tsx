@@ -46,6 +46,7 @@ const FlowDesigner = lazy(() =>
 );
 import { OpenWorkspaceDialog } from './components/OpenWorkspaceDialog';
 import { shareUrl, encodeShare, decodeShare, isShareTooLong, unshareableItems, type ShareRequest } from './shareLink';
+import { declaredOutput, setOutput, OUTPUT_FORMATS } from './outputDirective';
 import { TestsView } from './components/TestsView';
 import { useTestRunner } from './hooks/useTestRunner';
 import { FirstWorkspacePrompt } from './components/FirstWorkspacePrompt';
@@ -689,6 +690,20 @@ function App() {
     { label: 'Send feedback', run: () => setFeedbackOpen(true) },
     { label: 'About DataWeave Studio', run: () => setAboutOpen(true) },
   ];
+
+  // The output format menu: the script's own directive, or, without one, the
+  // format Mule's rule picked on the last run. Picking rewrites the directive.
+  const declaredFormat = declaredOutput(workspace.script);
+  const formatMime = declaredFormat ?? runner.outputMime;
+  const handlePickFormat = useCallback(
+    (mime: string | null) => workspace.setScript(setOutput(workspace.script, mime)),
+    [workspace.setScript, workspace.script],
+  );
+  // Highlighting follows the format the output was actually written in.
+  useEffect(() => {
+    const m = runner.outputMime;
+    if (m) setOutputFormat(/xml/.test(m) ? 'xml' : /json|java/.test(m) ? 'json' : 'raw');
+  }, [runner.outputMime]);
 
   // Menu entry point: read the clipboard, then hand off to the same apply path.
   const handleOpenShareLink = useCallback(async () => {
@@ -1514,9 +1529,8 @@ function App() {
     { id: 'layout-workbench', label: 'Switch UI → Workbench', hint: layout === 'workbench' ? 'current' : 'Sidebar · tabs · tests', shortcut: '⌘⇧1', group: 'View', run: () => setLayout('workbench') },
     { id: 'layout-focus', label: 'Switch UI → Playground', hint: layout === 'focus' ? 'current' : 'Input · script · output', shortcut: '⌘⇧2', group: 'View', run: () => setLayout('focus') },
     { id: 'theme', label: isDark ? 'Switch to Paper (light)' : 'Switch to Dusk (dark)', shortcut: '⌘⇧T', group: 'View', run: () => toggle() },
-    { id: 'out-json', label: 'Output: JSON', hint: outputFormat === 'json' ? 'current' : '', group: 'Output', run: () => setOutputFormat('json') },
-    { id: 'out-xml', label: 'Output: XML', hint: outputFormat === 'xml' ? 'current' : '', group: 'Output', run: () => setOutputFormat('xml') },
-    { id: 'out-raw', label: 'Output: Raw', hint: outputFormat === 'raw' ? 'current' : '', group: 'Output', run: () => setOutputFormat('raw') },
+    { id: 'out-auto', label: 'Output format: Auto', hint: declaredFormat ? 'remove the output line' : 'current', group: 'Output', run: () => handlePickFormat(null) },
+    ...OUTPUT_FORMATS.map((f) => ({ id: `out-${f.label.toLowerCase()}`, label: `Output format: ${f.label}`, hint: declaredFormat === f.mime ? 'current' : f.mime, group: 'Output', run: () => handlePickFormat(f.mime) })),
     ...NODE_LABELS.map((l) => ({
       id: `node-${l}`,
       label: `Node: ${l}`,
@@ -2091,7 +2105,9 @@ function App() {
                   trace={runner.trace}
                   onRevealLine={revealScriptLine}
                   outputFormat={outputFormat}
-                  onFormatChange={setOutputFormat}
+                  formatMime={formatMime}
+                  formatAuto={!declaredFormat}
+                  onPickFormat={handlePickFormat}
                   queryResult={queryResult}
                   isQueryMode={isQueryMode}
                   queryLanguage={queryLanguage}
@@ -2237,7 +2253,9 @@ function App() {
                 trace={runner.trace}
                 onRevealLine={revealScriptLine}
                 outputFormat={outputFormat}
-                onFormatChange={setOutputFormat}
+                formatMime={formatMime}
+                formatAuto={!declaredFormat}
+                onPickFormat={handlePickFormat}
                 queryResult={queryResult}
                 isQueryMode={isQueryMode}
                 queryLanguage={queryLanguage}

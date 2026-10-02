@@ -21,6 +21,9 @@ pub struct RunResult {
     /// One row per expression when value tracing was requested.
     #[serde(default)]
     pub trace: Option<Vec<crate::dw_server::TraceRow>>,
+    /// The format the output was written in (see DwResponse::output_mime).
+    #[serde(default)]
+    pub output_mime: Option<String>,
 }
 
 /// Managed state to track warm-up status and any errors
@@ -200,7 +203,6 @@ fn build_full_script(
 
     let has_dw_header = user_script.lines().any(|l| l.trim().starts_with("%dw"));
     let has_separator = user_script.lines().any(|l| l.trim() == "---");
-    let has_output = user_script.lines().any(|l| l.trim().starts_with("output "));
 
     if !has_dw_header {
         header_lines.push("%dw 2.0".to_string());
@@ -236,8 +238,11 @@ fn build_full_script(
         }
     }
 
-    if !has_output && !has_separator {
-        header_lines.push("output application/json".to_string());
+    // No `output` line is added: the engine server picks the format Mule would
+    // (see the output rule in DwServer.scala), so a script without one behaves
+    // the way it does in a Mule app. Only the separator is needed, to close the
+    // header that the input directives above go in.
+    if !has_separator {
         header_lines.push("---".to_string());
     }
 
@@ -251,11 +256,10 @@ fn build_full_script(
         let mut result = Vec::new();
         let mut inserted = false;
         for line in &lines {
-            if !has_output && has_separator && !inserted && line.trim() == "---" {
+            if has_separator && !inserted && line.trim() == "---" {
                 for h in &header_lines {
                     result.push(h.clone());
                 }
-                result.push("output application/json".to_string());
                 inserted = true;
             }
             result.push(line.to_string());
@@ -538,7 +542,9 @@ pub async fn run_dataweave(
                 attributes_path: attrs_path_str.as_deref(),
                 vars_path: vars_path_str.as_deref(),
                 named_inputs: &server_named_inputs,
-                output_mime: "application/json",
+                // Empty: the server picks the format by Mule's rule when the script has no
+                // `output` line (DwServer.scala).
+                output_mime: "",
                 classpath: &cp_entries,
                 compile_only: false,
                 modules: &modules,
@@ -578,6 +584,7 @@ pub async fn run_dataweave(
                     error_column: None,
                     logs: None,
                     trace: None,
+                    output_mime: None,
                 });
             }
         }
@@ -603,6 +610,7 @@ pub async fn run_dataweave(
             error_column: None,
             logs: None,
             trace: None,
+            output_mime: None,
         });
     }
 
@@ -622,6 +630,7 @@ pub async fn run_dataweave(
                     error_column: None,
                     logs: resp.logs,
                     trace: resp.trace,
+                    output_mime: resp.output_mime,
                 })
             } else {
                 let raw = resp.error.unwrap_or_else(|| "(no error message)".into());
@@ -635,6 +644,7 @@ pub async fn run_dataweave(
                     error_column,
                     logs: resp.logs,
                     trace: resp.trace,
+                    output_mime: resp.output_mime,
                 })
             }
         }
@@ -646,6 +656,7 @@ pub async fn run_dataweave(
             error_column: None,
             logs: None,
             trace: None,
+            output_mime: None,
         }),
     }
 }
@@ -866,7 +877,9 @@ pub async fn warm_dataweave_script(
                 attributes_path: None,
                 vars_path: None,
                 named_inputs: &[],
-                output_mime: "application/json",
+                // Empty: the server picks the format by Mule's rule when the script has no
+                // `output` line (DwServer.scala).
+                output_mime: "",
                 classpath: &[],
                 compile_only: true,
                 modules: &[],
@@ -918,12 +931,13 @@ mod tests {
 
     #[test]
     fn test_build_full_script() {
-        // Scenario 1: Entirely empty script, should auto-insert DW header & JSON output
+        // Scenario 1: Entirely empty script gets a header and separator, and no
+        // output line: the server picks the format by Mule's rule.
         let script = "";
         let full = build_full_script(script, "application/json", false, false, &[]);
         assert!(full.contains("%dw 2.0"));
         assert!(full.contains("input payload application/json"));
-        assert!(full.contains("output application/json"));
+        assert!(!full.contains("output "));
         assert!(full.contains("---"));
 
         // Scenario 2: Already contains headers, should not duplicate
@@ -934,7 +948,7 @@ mod tests {
         // Scenario 3: Has a %dw 2.0 but missing output/separator
         let script_dw = "%dw 2.0\ninput payload application/json";
         let full = build_full_script(script_dw, "application/json", false, false, &[]);
-        assert!(full.contains("output application/json"));
+        assert!(!full.contains("output "));
         assert!(full.contains("---"));
 
         // Scenario 4: Multiple named inputs

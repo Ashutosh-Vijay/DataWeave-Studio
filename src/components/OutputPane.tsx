@@ -10,6 +10,7 @@ import { Icons } from './Icons';
 import { matchErrorHint, categoryLabel } from '../dataweaveErrorHints';
 import { engineDiagnosisFor } from '../dataweaveEngineLanguage';
 import type { TraceRow } from '../hooks/useDWRunner';
+import { OUTPUT_FORMATS, formatLabel } from '../outputDirective';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
@@ -32,8 +33,14 @@ interface OutputPaneProps {
   trace?: TraceRow[];
   /** Jump the script editor to a line. Enables click-through on trace rows. */
   onRevealLine?: (line: number, column: number) => void;
+  /** Syntax highlighting, which follows the output format. */
   outputFormat: 'json' | 'xml' | 'raw';
-  onFormatChange: (format: 'json' | 'xml' | 'raw') => void;
+  /** The format the script declares, or what Mule's rule picked on the last run. */
+  formatMime?: string | null;
+  /** True when the script has no `output` line, so the format is Mule's rule's pick. */
+  formatAuto?: boolean;
+  /** Rewrite the script's output directive; null removes it (Auto). */
+  onPickFormat?: (mime: string | null) => void;
   queryResult?: QueryResult | null;
   isQueryMode?: boolean;
   queryLanguage?: string;
@@ -109,7 +116,9 @@ export const OutputPane = memo(function OutputPane({
   trace,
   onRevealLine,
   outputFormat,
-  onFormatChange,
+  formatMime,
+  formatAuto,
+  onPickFormat,
   queryResult,
   isQueryMode,
   queryLanguage,
@@ -119,6 +128,7 @@ export const OutputPane = memo(function OutputPane({
   const [copied, setCopied] = useState(false);
   const [exported, setExported] = useState(false);
   const [stackOpen, setStackOpen] = useState(false);
+  const [formatMenuOpen, setFormatMenuOpen] = useState(false);
   const { isDark } = useTheme();
   const editorFont = useEditorFont();
   const monaco = useMonaco();
@@ -174,25 +184,54 @@ export const OutputPane = memo(function OutputPane({
         )}
         <span className="flex-1" />
 
-        {/* Segmented format switch — highlighting only. It follows the
-            script's `output` directive on each run; switching it here does
-            NOT convert the output (change the directive for that). */}
-        <div className="flex items-center p-0.5 rounded-md bg-surface-2 border border-line-secondary" title="Syntax highlighting only. To convert the output, change the script's `output` directive">
-          {(['json', 'xml', 'raw'] as const).map((f) => {
-            const active = outputFormat === f;
-            return (
-              <button
-                key={f}
-                onClick={() => onFormatChange(f)}
-                className={`px-2 h-5 rounded-sm font-mono text-[11px] cursor-pointer transition-colors ${
-                  active ? 'text-content font-semibold bg-surface-3' : 'text-content-faint hover:text-content-secondary'
-                }`}
-              >
-                {f}
-              </button>
-            );
-          })}
-        </div>
+        {/* Output format, as in MuleSoft's playground: picking one rewrites the
+            script's `output` line. Auto removes it, and the format then follows
+            Mule's rule (no inputs used: Java; all one format: that format). */}
+        {!isQueryMode && onPickFormat && (
+          <div className="relative">
+            <button
+              onClick={() => setFormatMenuOpen((o) => !o)}
+              className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-line-secondary bg-surface-2 text-[11.5px] font-medium text-content-secondary hover:text-content cursor-pointer"
+              title={formatAuto
+                ? 'No output line in the script, so the format follows the inputs it uses, as in Mule. Pick one to set it.'
+                : 'The script\'s output format. Picking another rewrites its output line.'}
+            >
+              {formatAuto && <span className="text-content-faint">{formatMime ? 'Auto ·' : 'Auto'}</span>}
+              {formatMime ? formatLabel(formatMime) : formatAuto ? null : 'Format'}
+              {formatMime?.startsWith('application/java') && <span className="text-content-faint">(as JSON)</span>}
+              <Icons.ChevronDown size={11} />
+            </button>
+            {formatMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setFormatMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 z-50 w-60 py-1 rounded-lg border border-line bg-surface shadow-2xl">
+                  <button
+                    onClick={() => { setFormatMenuOpen(false); onPickFormat(null); }}
+                    className="w-full text-left px-3 py-1.5 cursor-pointer hover:bg-surface-2"
+                  >
+                    <span className={`block text-[12.5px] ${formatAuto ? 'text-accent font-semibold' : 'text-content-secondary'}`}>Auto</span>
+                    <span className="block text-[10.5px] text-content-faint leading-snug">No output line: follows the inputs the script uses, as in Mule</span>
+                  </button>
+                  <div className="my-1 h-px bg-line-subtle" />
+                  {OUTPUT_FORMATS.map((f) => {
+                    const active = !formatAuto && formatMime?.split(';')[0].trim() === f.mime;
+                    return (
+                      <button
+                        key={f.mime}
+                        onClick={() => { setFormatMenuOpen(false); onPickFormat(f.mime); }}
+                        className="w-full text-left px-3 h-7 flex items-center gap-2 cursor-pointer hover:bg-surface-2"
+                      >
+                        <span className={`text-[12.5px] ${active ? 'text-accent font-semibold' : 'text-content-secondary'}`}>{f.label}</span>
+                        <span className="flex-1" />
+                        <span className="font-mono text-[10px] text-content-faint">{f.mime}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {hasContent && (
           <>
