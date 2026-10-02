@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { invoke, isTauri } from '../bridge';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { Icons } from './Icons';
 
 /**
@@ -116,6 +117,21 @@ export function RatingForm({ appVersion, onDone, onSent }: { appVersion?: string
           <span className="text-content-secondary">ashutosh-vijay.dev/dataweave/feedback</span>
           {comment.trim() ? ', and your comment will appear there once it has been read.' : '.'}
         </p>
+        {/* Marketplace ratings are what people see before they install, and
+            almost nobody leaves the editor to give one. Only asked of people
+            who just said they like it, and only once, here. */}
+        {!isTauri && rating !== null && rating >= 4 && (
+          <p className="text-[12px] text-content-muted mt-2 leading-relaxed">
+            If you can, a rating on the{' '}
+            <button
+              onClick={() => openUrl('https://marketplace.visualstudio.com/items?itemName=ashutosh-vijay.dataweave-studio&ssr=false#review-details')}
+              className="text-accent hover:underline cursor-pointer"
+            >
+              VS Code Marketplace
+            </button>{' '}
+            helps other people find it. It needs a Microsoft sign-in, so skip it if your work machine won't allow that.
+          </p>
+        )}
         <button
           onClick={onDone}
           className="mt-3 h-7 px-3 rounded-md text-[12px] font-medium border border-line text-content-secondary hover:bg-surface-2 cursor-pointer"

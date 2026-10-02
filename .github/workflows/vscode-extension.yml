@@ -134,6 +134,32 @@ jobs:
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
+      # Open VSX is the registry Cursor, Windsurf, VSCodium and Gitpod install
+      # from; they can't reach the Marketplace. Same .vsix, same per-platform
+      # targets. Skipped until the OVSX_PAT secret exists, and never fails the
+      # release: the Marketplace is the one that has to succeed.
+      - name: Publish to Open VSX
+        if: github.event_name == 'push' || inputs.publish
+        continue-on-error: true
+        working-directory: vscode-extension
+        shell: bash
+        run: |
+          if [ -z "$OVSX_PAT" ]; then
+            echo "::notice::OVSX_PAT is not set; skipping Open VSX"
+            exit 0
+          fi
+          for attempt in 1 2 3; do
+            if npx --yes ovsx publish "dataweave-studio-${{ matrix.target }}.vsix" \
+                 --skip-duplicate -p "$OVSX_PAT"; then
+              exit 0
+            fi
+            [ "$attempt" -lt 3 ] && sleep $((attempt * 30))
+          done
+          echo "::warning::Open VSX publish failed after 3 attempts"
+          exit 1
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+
   # Attach all .vsix to one GitHub release in a SINGLE job after every build.
   # Previously each matrix job did its own `gh release create || true` + upload;
   # run in parallel they race — one wins the create and the others' uploads hit
