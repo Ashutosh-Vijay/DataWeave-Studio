@@ -190,8 +190,9 @@ for row, r in zip(rows, res):
 
           <H>Good to know</H>
           <P>
-            <b>Safe mode</b> blocks <C>java!</C>, <C>readUrl</C> and <C>dw::io</C> before a script runs.
-            Leave it on unless you need Java interop.
+            <b>Safe mode</b> runs scripts with the engine's own permission checks on: Java interop,
+            <C>readUrl</C>, <C>dw::io</C>, <C>eval</C> / <C>run</C> and environment variables are refused.
+            Leave it on unless you need them.
             <br /><br />
             <b>Loopback is not a trust boundary.</b> Any process on your machine can reach this port, and
             a web page you visit could try to. That&rsquo;s why the endpoint requires

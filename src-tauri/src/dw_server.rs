@@ -107,6 +107,10 @@ struct DwRequest<'a> {
     /// server, so it is off unless the user asked for it.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     value_trace: bool,
+    /// Run under the engine's privilege checks with nothing granted (MCP and
+    /// HTTP Safe mode). See makeServiceManager in DwServer.scala.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    sandbox: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -173,6 +177,8 @@ pub struct DwRunArgs<'a> {
     pub breakpoints: &'a [u32],
     /// Record every expression's value during the run.
     pub value_trace: bool,
+    /// No readUrl, eval/run, Java, file I/O or environment access.
+    pub sandbox: bool,
 }
 
 /// Resolve the bundled dwstudio-server.jar path from Tauri resources.
@@ -545,6 +551,7 @@ fn run_once(app: &AppHandle, args: &DwRunArgs) -> Result<DwResponse, RunErr> {
         action: if args.debug { Some("start") } else { None },
         breakpoints: args.breakpoints,
         value_trace: args.value_trace,
+        sandbox: args.sandbox,
     };
     let line = serde_json::to_string(&req)
         .map_err(|e| RunErr::Other(format!("Failed to serialize request: {}", e)))?;

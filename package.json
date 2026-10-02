@@ -11,6 +11,7 @@
     "tauri": "tauri",
     "test": "vitest run",
     "test:encoding": "node scripts/check-encoding.mjs",
+    "test:sandbox": "node scripts/check-sandbox.mjs",
     "docs:refresh": "node scripts/refresh-dw-docs.mjs",
     "practice:verify": "vite-node scripts/practice/verify-questions.mjs",
     "practice:bundle": "node scripts/practice/bundle.mjs",

@@ -711,6 +711,7 @@ impl DwTools {
             None,              // debug — agents run, they don't step
             None,
             input.value_trace, // value trace — every expression's real value
+            Some(!self.advanced.load(Ordering::Relaxed)), // Safe mode: engine privileges off
         )
         .await
         .map_err(|e| rmcp::ErrorData::internal_error(e, None))?;
@@ -814,6 +815,7 @@ impl DwTools {
             "{}".to_string(),
             "[]".to_string(),
             None, None, None, None, None, None, None, None, None, None,
+            Some(!self.advanced.load(Ordering::Relaxed)),
         )
         .await
         .map_err(|e| rmcp::ErrorData::internal_error(e, None))?;
@@ -1267,9 +1269,9 @@ impl ServerHandler for DwTools {
              `dw::io` can read local files (file://) and reach the network. Treat results like code you ran \
              locally."
         } else {
-            "- Safe mode (the default) is a PURE-TRANSFORM SANDBOX: `import java!…`, `readUrl`, and `dw::io` \
-             are rejected before running — no file or network access. A script sees only the payload/inputs you \
-             pass. (`dw::core::Java` is not bundled either.)"
+            "- Safe mode (the default) is a PURE-TRANSFORM SANDBOX enforced by the engine: Java interop, `readUrl`, \
+             `dw::io`, `eval`/`run` and environment variables are refused, so there is no file or network \
+             access. A script sees only the payload/inputs you pass. (`dw::core::Java` is not bundled either.)"
         };
         // Built by concatenation (not format!) — the text contains literal
         // ${key} braces that format! would try to parse as placeholders.
@@ -1375,6 +1377,43 @@ fn stop_inner(state: &McpState) {
     }
 }
 
+/// POST /run is our own route, so it doesn't get rmcp's Host check. Binding to
+/// 127.0.0.1 keeps other machines out but not a web page in your own browser:
+///
+/// - A `Host` that isn't loopback means DNS rebinding (a site whose name now
+///   points at 127.0.0.1), so it's refused.
+/// - Browsers put `Origin` on every POST a page makes, same-site or not, while
+///   curl, Python and MCP clients don't send it. Refusing it keeps pages out
+///   even if one gets past the Host check.
+/// "127.0.0.1:4675", "localhost", "[::1]:4675" are loopback; anything else isn't.
+fn is_loopback_host(host: &str) -> bool {
+    let name = if host.starts_with('[') {
+        host.split(']').next().map(|h| format!("{}]", h)).unwrap_or_default()
+    } else {
+        host.split(':').next().unwrap_or("").to_string()
+    };
+    matches!(name.as_str(), "127.0.0.1" | "localhost" | "[::1]")
+}
+
+async fn guard_run(
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let host = req
+        .headers()
+        .get(axum::http::header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if !is_loopback_host(host) {
+        return (axum::http::StatusCode::FORBIDDEN, "Refused: the Host header must be localhost or 127.0.0.1.").into_response();
+    }
+    if req.headers().contains_key(axum::http::header::ORIGIN) {
+        return (axum::http::StatusCode::FORBIDDEN, "Refused: requests from a web page are not accepted.").into_response();
+    }
+    next.run(req).await
+}
+
 /// rmcp's Streamable-HTTP transport hard-rejects (HTTP 406) any request whose
 /// `Accept` header doesn't list BOTH `application/json` and `text/event-stream`.
 /// Compliant MCP clients send that, but several real clients send only
@@ -1443,7 +1482,8 @@ pub async fn mcp_start(
                 let app = batch_app.clone();
                 let advanced = batch_advanced.clone();
                 async move { axum::Json(run_batch(app, advanced, req).await) }
-            }),
+            })
+            .route_layer(axum::middleware::from_fn(guard_run)),
         )
         .layer(axum::middleware::from_fn(normalize_accept));
     let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
@@ -1548,6 +1588,16 @@ mod tests {
         assert!(safe_mode_block_reason("read(payload, \"application/json\")").is_none()); // string parse, not I/O
         assert!(safe_mode_block_reason("import java!java::lang::System").is_some());
         assert!(safe_mode_block_reason("readUrl(\"file:///etc/passwd\", \"text/plain\")").is_some());
+    }
+
+    #[test]
+    fn run_accepts_only_loopback_hosts() {
+        for ok in ["127.0.0.1:4675", "localhost:4675", "localhost", "[::1]:4675", "127.0.0.1"] {
+            assert!(super::is_loopback_host(ok), "{} should pass", ok);
+        }
+        for bad in ["evil.com", "evil.com:4675", "127.0.0.1.evil.com:4675", "localhost.evil.com", "", "[::2]:4675"] {
+            assert!(!super::is_loopback_host(bad), "{} should be refused", bad);
+        }
         assert!(safe_mode_block_reason("import http from dw::io::http::Client").is_some());
     }
 
@@ -1704,6 +1754,7 @@ pub async fn run_batch(
             row.vars.as_ref().map(|v| v.to_string()).unwrap_or_else(|| "{}".into()),
             "[]".to_string(),
             None, None, None, None, None, None, None, None, None, None,
+            Some(!advanced.load(Ordering::Relaxed)),
         )
         .await;
         let execution_time_ms = started.elapsed().as_millis();

@@ -340,6 +340,7 @@ export function registerTools(
         modulesJson: modulesJson ?? null,
         trace: a.trace === true,
         valueTrace: a.valueTrace === true,
+        sandbox: !advanced,
       });
 
       // Trace logs appended below the result so the agent can inspect intermediate
@@ -588,6 +589,7 @@ export function registerTools(
         attributesJson: '{}',
         varsJson: '{}',
         namedInputsJson: '[]',
+        sandbox: !advanced,
       });
       if (result.error) {
         const where = result.error_line != null ? ` (line ${result.error_line})` : '';
