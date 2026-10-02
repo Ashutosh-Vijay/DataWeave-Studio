@@ -106,6 +106,7 @@ import { useMediaQuery } from './hooks/useMediaQuery';
 import { useTheme } from './ThemeContext';
 import { KeyValuePair, METHOD_COLORS, NODE_LABEL_COLORS, NODE_LABELS, isValidMimeType } from './types';
 import { Icons } from './components/Icons';
+import { ToolsLauncher, type Tool } from './components/ToolsLauncher';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { CurlImporter, CurlImportResult } from './components/CurlImporter';
 import { OpenApiReader, OpenApiImportResult } from './components/OpenApiReader';
@@ -656,6 +657,38 @@ function App() {
       toast((e as Error).message, 'error');
     }
   }, [beginTransforming, workspace, perWorkspaceTarget]);
+
+  /** Everything the All tools panel lists. Rail icons are shortcuts to the same. */
+  const allTools: Tool[] = [
+    { group: 'Write and learn', label: 'Function reference', desc: 'Every DataWeave function, with signatures and runnable examples.', icon: <Icons.Braces size={16} />, run: () => setReferenceOpen(true) },
+    { group: 'Write and learn', label: 'DataWeave cookbook', desc: 'Ready-made recipes that open as a workspace you can tweak.', icon: <Icons.Book size={16} />, run: () => setRecipesOpen(true) },
+    { group: 'Write and learn', label: 'Snippets', desc: 'Starter scripts for common patterns like map, filter and groupBy.', icon: <Icons.Library size={16} />, run: handleOpenSnippets },
+    { group: 'Write and learn', label: 'Practice', desc: 'DataWeave problems graded by the engine, from basics to recursion.', icon: (
+      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M7 4h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" /><path d="M9.5 9.5 11 11l-1.5 1.5" /><path d="M13 13h2" />
+      </svg>
+    ), run: () => setPracticeOpen(true) },
+    { group: 'Write and learn', label: 'Compare', desc: 'Diff two payloads side by side, with an option to ignore IDs.', icon: <Icons.Compare size={16} />, run: () => setCompareToolOpen(true) },
+    { group: 'Bring data in', label: 'Import cURL', desc: 'Paste a cURL command and get the payload, headers and a starting script.', icon: <Icons.Import size={16} />, run: handleOpenImport },
+    { group: 'Bring data in', label: 'Mule log → cURL', desc: 'Turn the requests in a Mule debug log back into cURL commands.', icon: <Icons.Terminal size={16} />, run: () => setMuleLogOpen(true) },
+    { group: 'Bring data in', label: 'OpenAPI / Swagger reader', desc: 'Sample payloads and DataWeave straight from an API spec.', icon: <Icons.ApiSpec size={16} />, run: () => { introFeature('openapi'); setOpenApiOpen(true); } },
+    { group: 'Mule configuration', label: 'Secure Properties tool', desc: 'Encrypt or decrypt a value the way secure-properties-tool.jar does.', icon: <Icons.Secure size={16} />, run: () => setSecureToolOpen(true) },
+    { group: 'Mule configuration', label: 'Config encryption', desc: 'Encrypt or decrypt every value in a YAML or .properties config at once.', icon: <Icons.Key size={16} />, run: () => setConfigCryptoOpen(true) },
+    { group: 'Build and connect', label: 'Message Flow designer', desc: 'Chain transforms into a flow, with mock HTTP, Salesforce and database steps.', icon: <Icons.Flow size={16} />, run: () => setFlowDesignerOpen(true) },
+    { group: 'Build and connect', label: 'Java tester', desc: 'Compile Java classes and call them from DataWeave.', icon: <Icons.Coffee size={16} />, run: () => setJavaTesterOpen(true) },
+    { group: 'Build and connect', label: 'Module library', desc: 'Save reusable .dwl modules and import them in any script.', icon: <Icons.Package size={16} />, run: () => setModulesOpen(true) },
+    { group: 'Build and connect', label: 'Local Server', desc: 'Let AI assistants and your own scripts run DataWeave on this machine.', icon: (
+      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2v4" /><path d="M5.5 5.5 8 8" /><path d="M18.5 5.5 16 8" /><rect x="6" y="8" width="12" height="8" rx="3" /><path d="M9 16v3a3 3 0 0 0 6 0v-3" />
+      </svg>
+    ), run: () => setMcpOpen(true) },
+  ];
+  const toolExtras = [
+    { label: 'Keyboard shortcuts', run: () => setShortcutsOpen(true) },
+    { label: 'What’s new', run: () => setShowWhatsNew(true) },
+    { label: 'Send feedback', run: () => setFeedbackOpen(true) },
+    { label: 'About DataWeave Studio', run: () => setAboutOpen(true) },
+  ];
 
   // Menu entry point: read the clipboard, then hand off to the same apply path.
   const handleOpenShareLink = useCallback(async () => {
@@ -1500,6 +1533,7 @@ function App() {
     { id: 'snippets', label: 'Open snippets library', shortcut: '⌘L', group: 'Writing', run: handleOpenSnippets },
     { id: 'modules', label: 'Open Module library', group: 'Writing', run: () => setModulesOpen(true) },
     { id: 'import-curl', label: 'Import cURL', shortcut: '⌘⇧I', group: 'Bring data in', run: handleOpenImport },
+    { id: 'all-tools', label: 'All tools', hint: 'Every tool, with what it’s for', group: 'Tools', run: () => setToolsMenuOpen(true) },
     { id: 'mule-log', label: 'Mule log → cURL', hint: 'Replay a request that only exists in a log', group: 'Bring data in', run: () => setMuleLogOpen(true) },
     { id: 'openapi', label: 'Open OpenAPI / Swagger reader', group: 'Bring data in', run: () => { introFeature('openapi'); setOpenApiOpen(true); } },
     { id: 'secure', label: 'Open Secure Properties tool', shortcut: '⌘⇧E', group: 'Secrets', run: () => setSecureToolOpen(true) },
@@ -1637,46 +1671,12 @@ function App() {
               Playground (which has no sidebar) can still reach every tool. */}
           <div className="relative">
             <button
-              onClick={() => setToolsMenuOpen((o) => !o)}
+              onClick={() => setToolsMenuOpen(true)}
               className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-[12px] font-medium text-content-faint hover:text-content-secondary hover:bg-surface-2 cursor-pointer transition-colors"
               title="Tools"
             >
-              Tools <Icons.ChevronDown size={12} />
+              Tools
             </button>
-            {toolsMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setToolsMenuOpen(false)} />
-                <div className="absolute right-0 top-full mt-2 z-50 w-56 py-1 rounded-lg border border-line bg-surface shadow-2xl">
-                  {([
-                    ['Function reference', () => setReferenceOpen(true)],
-                    ['DataWeave cookbook', () => setRecipesOpen(true)],
-                    ['Message Flow designer', () => setFlowDesignerOpen(true)],
-                    ['Java tester', () => setJavaTesterOpen(true)],
-                    ['Module library', () => setModulesOpen(true)],
-                    ['Local Server', () => setMcpOpen(true)],
-                    ['Secure Properties tool', () => setSecureToolOpen(true)],
-                    ['Config encryption', () => setConfigCryptoOpen(true)],
-                    ['Practice', () => setPracticeOpen(true)],
-                    ['Compare tool', () => setCompareToolOpen(true)],
-                    ['Mule log → cURL', () => setMuleLogOpen(true)],
-                    ['Import cURL', handleOpenImport],
-                    ['OpenAPI / Swagger reader', () => { introFeature('openapi'); setOpenApiOpen(true); }],
-                    ['Snippets', handleOpenSnippets],
-                    ['Keyboard shortcuts', () => setShortcutsOpen(true)],
-                    ['Send feedback', () => setFeedbackOpen(true)],
-                    ['About DataWeave Studio', () => setAboutOpen(true)],
-                  ] as const).map(([label, run]) => (
-                    <button
-                      key={label}
-                      onClick={() => { setToolsMenuOpen(false); run(); }}
-                      className="w-full text-left px-3 h-8 flex items-center text-[12.5px] text-content-secondary hover:bg-surface-2 hover:text-content cursor-pointer transition-colors"
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
           </div>
 
           <IconBtn title="Settings (⌘,)" onClick={() => { setSettingsSection(undefined); setSettingsOpen(true); }}>
@@ -1947,6 +1947,7 @@ function App() {
           onOpenConfigCrypto={() => setConfigCryptoOpen(true)}
           onOpenCompare={() => { introFeature('compare'); setCompareToolOpen(true); }}
           onOpenPractice={() => setPracticeOpen(true)}
+          onOpenAllTools={() => setToolsMenuOpen(true)}
           onOpenFlowDesigner={() => { introFeature('flow'); setFlowDesignerOpen(true); }}
           onOpenJavaTester={() => { introFeature('java'); setJavaTesterOpen(true); }}
           onOpenOpenApi={() => { introFeature('openapi'); setOpenApiOpen(true); }}
@@ -2415,6 +2416,10 @@ function App() {
             }}
           />
         </Suspense>
+      )}
+
+      {toolsMenuOpen && (
+        <ToolsLauncher tools={allTools} extras={toolExtras} onClose={() => setToolsMenuOpen(false)} />
       )}
 
       {/* What's new — once per release, for returning users after an update. */}
