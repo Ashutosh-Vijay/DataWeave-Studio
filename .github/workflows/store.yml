@@ -169,7 +169,44 @@ jobs:
             --clientId ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }} `
             --clientSecret ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
 
-      - name: Publish to the Microsoft Store
+      # Upload as a draft, put the listing from the repo on it, then submit, so
+      # the Store page (description, features, search terms, What's new) changes
+      # with the release. The text lives in docs/store-listing.json and
+      # src/releases.json. `msstore publish` recreates the draft, so it has to run
+      # before the listing is edited, never after.
+      - name: Upload the package as a draft
         if: steps.creds.outputs.ready == 'true'
         shell: pwsh
-        run: msstore publish "${{ github.workspace }}/dataweave-studio.msix" -id $env:STORE_PRODUCT_ID
+        run: |
+          msstore publish "${{ github.workspace }}/dataweave-studio.msix" -id $env:STORE_PRODUCT_ID --noCommit
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # A problem with the text must never hold up a release: if this step fails,
+      # the next one still submits the package with the listing as it was.
+      - name: Apply the listing from the repo
+        id: listing
+        if: steps.creds.outputs.ready == 'true'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          msstore submission get $env:STORE_PRODUCT_ID | Out-File -Encoding utf8 submission.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/store-listing.mjs submission.json submission-updated.json "${{ github.ref_name }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $json = Get-Content -Raw submission-updated.json
+          # Windows caps a command line at 32767 characters.
+          if ($json.Length -gt 30000) { throw "The submission JSON is $($json.Length) characters, too long to pass to msstore." }
+          msstore submission update $env:STORE_PRODUCT_ID $json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Submit to the Microsoft Store
+        if: steps.creds.outputs.ready == 'true'
+        shell: pwsh
+        run: |
+          msstore submission publish $env:STORE_PRODUCT_ID
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Flag a listing that wasn't applied
+        if: steps.creds.outputs.ready == 'true' && steps.listing.outcome == 'failure'
+        shell: bash
+        run: echo "::warning::The package was submitted, but the listing text from the repo wasn't applied. See the 'Apply the listing from the repo' step."
