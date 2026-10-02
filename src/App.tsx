@@ -1235,8 +1235,8 @@ function App() {
     // rewrite them to "${key}" (and drop a now-dead `import p from Mule`) before
     // resolving placeholders — a pasted Mule script runs without a manual convert.
     // Substitute ${key} and ${secure::key} in script and payload (with decryption).
-    const resolvedScript = await substitutePropertiesAsync(convertAllPropertyCalls(workspace.script).text, configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings);
-    const resolvedPayload = await substitutePropertiesAsync(workspace.payload, configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings);
+    const resolvedScript = await substitutePropertiesAsync(convertAllPropertyCalls(workspace.script).text, configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings, workspace.context.encryptionKeyName);
+    const resolvedPayload = await substitutePropertiesAsync(workspace.payload, configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings, workspace.context.encryptionKeyName);
 
     // Expression-typed vars (fx) are evaluated through the engine against the
     // resolved message before the run, so `vars.x = payload.name` computes

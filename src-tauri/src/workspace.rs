@@ -47,6 +47,8 @@ pub struct EncryptionSettings {
 #[serde(rename_all = "camelCase")]
 pub struct ContextState {
     pub method: String,
+    #[serde(default)]
+    pub uri_params: Vec<KeyValuePair>,
     pub query_params: Vec<KeyValuePair>,
     pub headers: Vec<KeyValuePair>,
     pub vars: Vec<VarEntry>,
@@ -56,18 +58,23 @@ pub struct ContextState {
     pub secure_config_yaml: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encryption_settings: Option<EncryptionSettings>,
+    /// A key saved in the OS keychain, by name. The key itself never lands here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encryption_key_name: Option<String>,
 }
 
 impl Default for ContextState {
     fn default() -> Self {
         Self {
             method: "GET".into(),
+            uri_params: vec![],
             query_params: vec![],
             headers: vec![],
             vars: vec![],
             config_yaml: String::new(),
             secure_config_yaml: String::new(),
             encryption_settings: None,
+            encryption_key_name: None,
         }
     }
 }

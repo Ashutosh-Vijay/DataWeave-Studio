@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { substituteProperties, substituteFromMaps } from '../propertySubstitution';
+import { substituteProperties, substituteFromMaps, parseConfigFlat } from '../propertySubstitution';
 
 describe('substituteProperties', () => {
   it('substitutes ${key} from config YAML', () => {
@@ -42,5 +42,37 @@ describe('substituteProperties', () => {
 
   it('leaves real DataWeave interpolation $(...) untouched', () => {
     expect(substituteFromMaps('"hi $(payload.name)"', {}, {})).toBe('"hi $(payload.name)"');
+  });
+});
+
+describe('parseConfigFlat', () => {
+  it('reads a .properties file', () => {
+    const text = [
+      '# comment',
+      '! also a comment',
+      'db.host=localhost',
+      'db.port : 5432',
+      'api.url   https://x.test/a=b',
+      'secret=![abc+/=]',
+      'long=one \\',
+      '     two',
+      'path=C:\\\\temp\\=x',
+    ].join('\r\n');
+    expect(parseConfigFlat(text)).toEqual({
+      'db.host': 'localhost',
+      'db.port': '5432',
+      'api.url': 'https://x.test/a=b',
+      secret: '![abc+/=]',
+      long: 'one two',
+      path: 'C:\\temp=x',
+    });
+  });
+
+  it('still reads YAML, including bare encrypted values', () => {
+    expect(parseConfigFlat('db:\n  host: h\n  pw: ![abc]')).toEqual({ 'db.host': 'h', 'db.pw': '![abc]' });
+  });
+
+  it('substitutes from a properties config', () => {
+    expect(substituteProperties('${db.host}:${secure::db.pw}', 'db.host=h', 'db.pw=p')).toBe('h:p');
   });
 });

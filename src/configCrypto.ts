@@ -65,7 +65,9 @@ export function detectFormat(text: string): ConfigFormat {
     if (/^[^=\s:]+\s*=/.test(line)) properties++;
     else if (/^[^:]+:(\s|$)/.test(line)) yaml++;
   }
-  return properties > yaml ? 'properties' : 'yaml';
+  // A tie goes to properties: `key: value` is valid in both, while `key=value`
+  // is not YAML (outside a block scalar).
+  return properties > 0 && properties >= yaml ? 'properties' : 'yaml';
 }
 
 export function scanConfig(text: string, format: ConfigFormat): ConfigField[] {

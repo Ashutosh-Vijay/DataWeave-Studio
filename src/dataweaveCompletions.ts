@@ -1,6 +1,6 @@
 import type * as Monaco from 'monaco-editor';
 import { registerEngineLanguageFeatures, engineFieldSuggestions } from './dataweaveEngineLanguage';
-import yaml from 'js-yaml';
+import { parseConfigFlat } from './propertySubstitution';
 import { buildCompletionDoc, registerDWHoverProvider } from './dataweaveHover';
 import { getDwFunctions } from './dataweaveDocsLazy';
 import { DW_FORMATS, type FormatProperty } from './dataweaveFormats';
@@ -516,29 +516,8 @@ export function resolveChainRoot(
   return { root, path };
 }
 
-/** Flatten nested YAML object into dot-notation keys */
-function flattenYamlKeys(obj: unknown, prefix = ''): string[] {
-  const keys: string[] = [];
-  if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
-      const fullKey = prefix ? `${prefix}.${key}` : key;
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
-        keys.push(...flattenYamlKeys(value, fullKey));
-      } else {
-        keys.push(fullKey);
-      }
-    }
-  }
-  return keys;
-}
-
-function parseYamlKeys(yamlStr?: string): string[] {
-  if (!yamlStr) return [];
-  try {
-    return flattenYamlKeys(yaml.load(yamlStr));
-  } catch {
-    return [];
-  }
+function parseYamlKeys(configText?: string): string[] {
+  return Object.keys(parseConfigFlat(configText));
 }
 
 // ── Shared provider registration ────────────────────────────────────────

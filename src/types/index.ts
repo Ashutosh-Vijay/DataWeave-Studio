@@ -32,6 +32,8 @@ export interface ContextState {
   configYaml?: string;
   secureConfigYaml?: string;
   encryptionSettings?: EncryptionSettings;
+  /** Name of a key saved in the OS keychain to decrypt with. Only the name is stored. */
+  encryptionKeyName?: string;
 }
 
 export interface MultipartPart {

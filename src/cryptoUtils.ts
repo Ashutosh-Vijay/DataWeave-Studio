@@ -83,7 +83,8 @@ export async function encryptValue(
 export async function decryptFlatMap(
   flatMap: Record<string, string>,
   key: string,
-  settings: EncryptionSettings
+  settings: EncryptionSettings,
+  keyName?: string,
 ): Promise<Record<string, string>> {
   const entries = Object.entries(flatMap);
   const results = await Promise.all(
@@ -91,7 +92,7 @@ export async function decryptFlatMap(
       const match = v.trim().match(ENCRYPTED_VALUE_RE);
       if (!match) return [k, v] as const;
       try {
-        return [k, await decryptValue(match[1], key, settings)] as const;
+        return [k, await decryptValue(match[1], key, settings, keyName)] as const;
       } catch (e) {
         // Tauri rejects with a string, not an Error — `.message` would be undefined
         // on every failed row, hiding the actual reason (usually a wrong key).

@@ -5,28 +5,302 @@ import { ContextState, HTTP_METHODS, METHOD_COLORS, KeyValuePair, VarEntry } fro
 import { KeyValueRows } from './KeyValueRows';
 import { VarsPanel } from './VarsPanel';
 import { defineDataWeaveTheme, DATAWEAVE_THEME_NAME, DATAWEAVE_LIGHT_THEME_NAME } from '../dataweaveTheme';
-import { hasEncryptedValues, inspectAesKey, DEFAULT_ENCRYPTION_SETTINGS } from '../cryptoUtils';
+import { hasEncryptedValues, isEncryptedValue, inspectAesKey, decryptFlatMap, DEFAULT_ENCRYPTION_SETTINGS } from '../cryptoUtils';
+import { detectFormat } from '../configCrypto';
+import { parseConfigFlat } from '../propertySubstitution';
+import { invoke } from '../bridge';
+import { Icons } from './Icons';
 import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
-const CONFIG_PLACEHOLDER = `# config.yaml, referenced as \${key}
-# Example:
+const CONFIG_PLACEHOLDER = `# Paste config.yaml or config.properties
 # salesforce:
 #   path: /api/v1
-#   timeout: 30000
+# or: salesforce.path=/api/v1
 `;
 
-const SECURE_PLACEHOLDER = `# secure-config.yaml, referenced as \${secure::key}
-# Plaintext or encrypted ![...] values:
+const SECURE_PLACEHOLDER = `# Plain or encrypted ![...] values
 # salesforce:
-#   clientId: abc123
-#   clientSecret: "![Base64EncryptedValue]"
+#   secret: "![Base64EncryptedValue]"
+# or: salesforce.secret=![Base64EncryptedValue]
 `;
 
 const ALGORITHMS = ['AES', 'Blowfish', 'DES', 'DESede', 'RC2'] as const;
 const MODES = ['CBC', 'CFB', 'ECB', 'OFB'] as const;
+
+/** One config file: config or secure config, YAML or .properties (detected). */
+function ConfigFile({ title, secure, value, onChange, theme }: {
+  title: string;
+  secure: boolean;
+  value: string;
+  onChange: (v: string) => void;
+  theme: string;
+}) {
+  const editorFont = useEditorFont();
+  const format = value.trim() ? detectFormat(value) : null;
+  const ref = secure ? '${secure::key}' : '${key}';
+  return (
+    <div className="rounded-md border border-line overflow-hidden bg-surface">
+      <div className="h-8 flex items-center gap-2 px-2.5 border-b border-line bg-surface-2">
+        <span className={`w-1.5 h-1.5 rounded-full ${secure ? 'bg-warn' : 'bg-violet'}`} />
+        <span
+          className="text-[11.5px] font-medium text-content"
+          title="YAML or .properties, detected from what you paste"
+        >
+          {title}
+          <span className="text-content-faint">{format === 'properties' ? '.properties' : '.yaml'}</span>
+        </span>
+        <span className="ml-auto text-[10px] text-content-faint font-mono">{ref}</span>
+      </div>
+      <div style={{ height: 140 }}>
+        <Editor
+          height="100%"
+          language={format === 'properties' ? 'ini' : 'yaml'}
+          theme={theme}
+          beforeMount={handleBeforeMount}
+          onMount={configureEditor}
+          value={value}
+          onChange={(val) => onChange(val || '')}
+          options={{
+            minimap: { enabled: false },
+            automaticLayout: true,
+            fontFamily: editorFont.fontFamily,
+            fontSize: 11,
+            lineNumbers: 'off',
+            wordWrap: 'on',
+            scrollBeyondLastLine: false,
+            folding: false,
+            glyphMargin: false,
+            lineDecorationsWidth: 8,
+            lineNumbersMinChars: 0,
+            renderLineHighlight: 'none',
+            scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
+            overviewRulerLanes: 0,
+            padding: { top: 6 },
+            placeholder: secure ? SECURE_PLACEHOLDER : CONFIG_PLACEHOLDER,
+            autoClosingBrackets: 'beforeWhitespace',
+            autoClosingQuotes: 'beforeWhitespace',
+            autoSurround: 'languageDefined',
+            autoIndent: 'full',
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Decrypting the secure config's ![...] values: a key typed in (kept for this
+ * session only) or one saved in the OS keychain, picked by name. Only the name
+ * goes into the workspace. Checks the key against the actual values, so a wrong
+ * key shows up here rather than as garbage in the output.
+ */
+function DecryptionCard({ context, onChange, encryptionKey, onEncryptionKeyChange }: {
+  context: ContextState;
+  onChange: (context: ContextState) => void;
+  encryptionKey: string;
+  onEncryptionKeyChange: (key: string) => void;
+}) {
+  const settings = context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS;
+  const keyName = context.encryptionKeyName || '';
+  const secureText = context.secureConfigYaml || '';
+  const [savedNames, setSavedNames] = useState<string[]>([]);
+  const [showKey, setShowKey] = useState(false);
+  const [naming, setNaming] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [cipherOpen, setCipherOpen] = useState(false);
+  const [check, setCheck] = useState<{ total: number; failed: number; error: string } | null>(null);
+  const [saveError, setSaveError] = useState('');
+
+  useEffect(() => {
+    invoke<string[]>('secure_key_names').then(setSavedNames).catch(() => setSavedNames([]));
+  }, []);
+
+  const encrypted = Object.entries(parseConfigFlat(secureText)).filter(([, v]) => isEncryptedValue(v));
+
+  // Try the key on every encrypted value, shortly after the last change.
+  useEffect(() => {
+    setCheck(null);
+    if (!keyName && !encryptionKey) return;
+    const flat = Object.fromEntries(Object.entries(parseConfigFlat(secureText)).filter(([, v]) => isEncryptedValue(v)));
+    const total = Object.keys(flat).length;
+    if (!total) return;
+    let stale = false;
+    const t = setTimeout(async () => {
+      const out = await decryptFlatMap(flat, encryptionKey, settings, keyName);
+      if (stale) return;
+      const errors = Object.values(out).filter((v) => v.startsWith('[DECRYPT_ERROR'));
+      setCheck({
+        total,
+        failed: errors.length,
+        error: errors[0]?.replace(/^\[DECRYPT_ERROR: ?/, '').replace(/\]$/, '') ?? '',
+      });
+    }, 500);
+    return () => { stale = true; clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [secureText, encryptionKey, keyName, settings.algorithm, settings.mode, settings.useRandomIVs]);
+
+  const setSettings = (patch: Partial<typeof settings>) =>
+    onChange({ ...context, encryptionSettings: { ...settings, ...patch } });
+
+  const pickKey = (name: string) => {
+    onChange({ ...context, encryptionKeyName: name || undefined });
+    onEncryptionKeyChange('');
+    setNaming(false);
+    setSaveError('');
+  };
+
+  const saveKey = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    try {
+      setSavedNames(await invoke<string[]>('secure_key_save', { name, value: encryptionKey }));
+      setNewName('');
+      pickKey(name);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const missing = keyName && !savedNames.includes(keyName);
+  const aes = !keyName && encryptionKey && settings.algorithm === 'AES' ? inspectAesKey(encryptionKey) : null;
+  const field =
+    'h-7 bg-surface-input border border-line-secondary rounded-md px-2 text-[11px] text-content placeholder-content-ghost focus:border-accent focus:outline-none';
+  const ghost =
+    'h-7 px-2 text-[10.5px] text-content-faint hover:text-content hover:bg-surface-2 rounded-md cursor-pointer transition-colors';
+
+  let status: { tone: 'ok' | 'warn' | 'err' | 'idle'; text: string };
+  if (!keyName && !encryptionKey) status = { tone: 'idle', text: 'Add the key to decrypt them on run' };
+  else if (missing) status = { tone: 'err', text: `"${keyName}" isn't saved on this computer` };
+  else if (!check) status = { tone: 'idle', text: 'Checking the key…' };
+  else if (!check.failed) status = { tone: 'ok', text: check.total === 1 ? 'Key works on the value' : `Key works on all ${check.total}` };
+  else status = { tone: 'err', text: `${check.failed} of ${check.total} didn't decrypt: ${check.error}` };
+  const toneColor = { ok: 'var(--accent)', warn: 'var(--warn)', err: 'var(--err)', idle: 'var(--content-faint)' }[status.tone];
+
+  return (
+    <div className="rounded-md border border-line bg-surface">
+      <div className="h-8 flex items-center gap-2 px-2.5 border-b border-line bg-surface-2 rounded-t-md">
+        <Icons.Key size={12} className="text-warn shrink-0" />
+        <span className="text-[11.5px] font-medium text-content">Decryption</span>
+        <span className="text-[10px] text-content-faint">
+          {encrypted.length} encrypted {encrypted.length === 1 ? 'value' : 'values'}
+        </span>
+      </div>
+
+      <div className="p-2.5 space-y-2">
+        <div className="flex gap-1.5">
+          <select
+            value={keyName}
+            onChange={(e) => pickKey(e.target.value)}
+            title="Keys saved in this computer's keychain. Only the name goes into the workspace."
+            className={`${field} cursor-pointer ${keyName ? 'flex-1' : 'w-[118px] shrink-0'}`}
+          >
+            <option value="">Type a key</option>
+            {savedNames.map((n) => <option key={n} value={n}>Saved: {n}</option>)}
+            {missing && <option value={keyName}>{keyName} (not on this computer)</option>}
+          </select>
+          {!keyName && (
+            <>
+              <input
+                type={showKey ? 'text' : 'password'}
+                value={encryptionKey}
+                onChange={(e) => onEncryptionKeyChange(e.target.value)}
+                placeholder={settings.algorithm === 'AES' ? '16, 24 or 32 chars' : 'Encryption key'}
+                className={`${field} flex-1 min-w-0 font-mono`}
+              />
+              <button onClick={() => setShowKey(!showKey)} className={ghost}>{showKey ? 'Hide' : 'Show'}</button>
+              <button
+                onClick={() => { setNaming(true); setNewName(''); setSaveError(''); }}
+                disabled={!encryptionKey.trim()}
+                title="Save it in this computer's keychain so you can pick it by name"
+                className={`${ghost} disabled:opacity-40 disabled:cursor-not-allowed`}
+              >
+                Save
+              </button>
+            </>
+          )}
+        </div>
+
+        {naming && (
+          <div className="flex gap-1.5">
+            <input
+              autoFocus
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') saveKey(); if (e.key === 'Escape') setNaming(false); }}
+              placeholder="Name it, e.g. dev, uat, prod"
+              className={`${field} flex-1 min-w-0`}
+            />
+            <button
+              onClick={saveKey}
+              disabled={!newName.trim()}
+              className="h-7 px-2.5 text-[10.5px] font-semibold rounded-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+            >
+              Save
+            </button>
+            <button onClick={() => setNaming(false)} className={ghost}>Cancel</button>
+          </div>
+        )}
+
+        <div className="flex items-start gap-1.5 text-[10.5px] leading-snug" style={{ color: toneColor }}>
+          <span className="mt-[5px] w-1.5 h-1.5 rounded-full shrink-0" style={{ background: toneColor }} />
+          <span className="min-w-0 break-words">
+            {saveError || status.text}
+            {aes && !aes.aesValid && status.tone !== 'ok' && (
+              <span className="text-warn">. Key is {aes.bytes} bytes; AES needs 16, 24 or 32</span>
+            )}
+          </span>
+        </div>
+
+        <div className="border-t border-line-subtle pt-1.5">
+          <button
+            onClick={() => setCipherOpen(!cipherOpen)}
+            className="w-full flex items-center gap-1.5 text-[10.5px] text-content-faint hover:text-content-secondary cursor-pointer"
+          >
+            {cipherOpen ? <Icons.ChevronDown size={11} /> : <Icons.ChevronRight size={11} />}
+            Cipher
+            <span className="ml-auto font-mono text-content-muted">
+              {settings.algorithm} · {settings.mode} · {settings.useRandomIVs ? 'random IV' : 'fixed IV'}
+            </span>
+          </button>
+          {cipherOpen && (
+            <div className="pt-2 space-y-2">
+              <div className="flex gap-1.5">
+                <select
+                  value={settings.algorithm}
+                  onChange={(e) => setSettings({ algorithm: e.target.value })}
+                  className={`${field} flex-1 cursor-pointer`}
+                >
+                  {ALGORITHMS.map((a) => <option key={a} value={a}>{a}</option>)}
+                </select>
+                <select
+                  value={settings.mode}
+                  onChange={(e) => setSettings({ mode: e.target.value })}
+                  className={`${field} flex-1 cursor-pointer`}
+                >
+                  {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.useRandomIVs}
+                  onChange={(e) => setSettings({ useRandomIVs: e.target.checked })}
+                  className="w-3 h-3 accent-[var(--accent)]"
+                />
+                <span className="text-[10.5px] text-content-muted">Random IV</span>
+                <span className="text-[10px] text-content-ghost">off is Mule's default</span>
+              </label>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type Tab = 'Request' | 'Vars' | 'Config';
 
@@ -44,9 +318,7 @@ function activeCount(pairs: KeyValuePair[]): number {
 
 export const ContextPanel = memo(function ContextPanel({ context, onChange, encryptionKey, onEncryptionKeyChange, defaultTab }: ContextPanelProps) {
   const [tab, setTab] = useState<Tab>(defaultTab ?? 'Request');
-  const [showKey, setShowKey] = useState(false);
   const { isDark } = useTheme();
-  const editorFont = useEditorFont();
   const monaco = useMonaco();
   useEffect(() => {
     const apply = () => { if (monaco) defineDataWeaveTheme(monaco); };
@@ -166,208 +438,30 @@ export const ContextPanel = memo(function ContextPanel({ context, onChange, encr
 
         {tab === 'Config' && (
           <>
-            {/* config.yaml */}
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10.5px] font-semibold text-violet uppercase tracking-[0.6px]">
-                  config.yaml
-                </span>
-                <span className="text-[9.5px] text-content-ghost font-mono">{'${key}'}</span>
-              </div>
-              <div className="border border-line rounded overflow-hidden" style={{ height: 140 }}>
-                <Editor
-                  height="100%"
-                  language="yaml"
-                  theme={editorTheme}
-                  beforeMount={handleBeforeMount}
-                  onMount={configureEditor}
-                  value={context.configYaml || ''}
-                  onChange={(val) => onChange({ ...context, configYaml: val || '' })}
-                  options={{
-                    minimap: { enabled: false },
-                    automaticLayout: true,
-                    fontFamily: editorFont.fontFamily,
-                    fontSize: 11,
-                    lineNumbers: 'off',
-                    wordWrap: 'on',
-                    scrollBeyondLastLine: false,
-                    folding: false,
-                    glyphMargin: false,
-                    lineDecorationsWidth: 4,
-                    lineNumbersMinChars: 0,
-                    renderLineHighlight: 'none',
-                    scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
-                    overviewRulerLanes: 0,
-                    placeholder: CONFIG_PLACEHOLDER,
-                    autoClosingBrackets: 'beforeWhitespace',
-                    autoClosingQuotes: 'beforeWhitespace',
-                    autoSurround: 'languageDefined',
-                    autoIndent: 'full',
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* secure-config.yaml */}
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10.5px] font-semibold text-warn uppercase tracking-[0.6px]">
-                  secure-config.yaml
-                </span>
-                <span className="text-[9.5px] text-content-ghost font-mono">{'${secure::key}'}</span>
-              </div>
-              <div className="border border-line rounded overflow-hidden" style={{ height: 140 }}>
-                <Editor
-                  height="100%"
-                  language="yaml"
-                  theme={editorTheme}
-                  beforeMount={handleBeforeMount}
-                  onMount={configureEditor}
-                  value={context.secureConfigYaml || ''}
-                  onChange={(val) => onChange({ ...context, secureConfigYaml: val || '' })}
-                  options={{
-                    minimap: { enabled: false },
-                    automaticLayout: true,
-                    fontFamily: editorFont.fontFamily,
-                    fontSize: 11,
-                    lineNumbers: 'off',
-                    wordWrap: 'on',
-                    scrollBeyondLastLine: false,
-                    folding: false,
-                    glyphMargin: false,
-                    lineDecorationsWidth: 4,
-                    lineNumbersMinChars: 0,
-                    renderLineHighlight: 'none',
-                    scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
-                    overviewRulerLanes: 0,
-                    placeholder: SECURE_PLACEHOLDER,
-                    autoClosingBrackets: 'beforeWhitespace',
-                    autoClosingQuotes: 'beforeWhitespace',
-                    autoSurround: 'languageDefined',
-                    autoIndent: 'full',
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Encryption status row */}
+            <ConfigFile
+              title="config"
+              secure={false}
+              value={context.configYaml || ''}
+              onChange={(v) => onChange({ ...context, configYaml: v })}
+              theme={editorTheme}
+            />
+            <ConfigFile
+              title="secure-config"
+              secure
+              value={context.secureConfigYaml || ''}
+              onChange={(v) => onChange({ ...context, secureConfigYaml: v })}
+              theme={editorTheme}
+            />
             {hasEncryptedValues(context.secureConfigYaml || '') && (
-              <div className="space-y-2 p-2.5 border border-warn-border rounded-md bg-warn-tint">
-                <div className="flex items-center gap-1.5">
-                  <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" className="shrink-0 text-warn">
-                    <path d="M8 1a4 4 0 0 0-4 4v3H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V5a4 4 0 0 0-4-4zm2 7H6V5a2 2 0 1 1 4 0v3z" />
-                  </svg>
-                  <span className="text-[11px] font-medium text-warn">Encrypted values detected</span>
-                  <span className="ml-auto font-mono text-[10px] text-content-faint">
-                    {(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).algorithm} ·{' '}
-                    {(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).mode}
-                  </span>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-[10px] text-content-faint">Encryption key</span>
-                  <div className="flex gap-1">
-                    <input
-                      type={showKey ? 'text' : 'password'}
-                      value={encryptionKey}
-                      onChange={(e) => onEncryptionKeyChange(e.target.value)}
-                      placeholder="16, 24, or 32 chars"
-                      className="flex-1 bg-surface-input border border-line-secondary rounded px-2 py-1 text-[11px] text-content placeholder-content-ghost focus:border-warn-border focus:outline-none font-mono"
-                    />
-                    <button
-                      onClick={() => setShowKey(!showKey)}
-                      className="px-2 text-[10px] text-content-faint hover:text-content-secondary border border-line-secondary rounded cursor-pointer"
-                      title={showKey ? 'Hide key' : 'Show key'}
-                    >
-                      {showKey ? 'Hide' : 'Show'}
-                    </button>
-                  </div>
-                  {encryptionKey ? (() => {
-                    const info = inspectAesKey(encryptionKey);
-                    return (
-                      <span
-                        className="text-[9px] block"
-                        style={{ color: info.aesValid ? 'var(--accent)' : 'var(--warn)' }}
-                      >
-                        {info.bytes} bytes, {info.aesValid ? `${info.aesVariant} ✓` : 'invalid AES length'}
-                      </span>
-                    );
-                  })() : null}
-                  <span className="text-[9px] text-content-ghost block">Not saved to workspace file</span>
-                </div>
-
-                <div className="flex gap-2">
-                  <div className="flex-1 space-y-0.5">
-                    <span className="text-[10px] text-content-faint">Algorithm</span>
-                    <select
-                      value={(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).algorithm}
-                      onChange={(e) =>
-                        onChange({
-                          ...context,
-                          encryptionSettings: {
-                            ...(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS),
-                            algorithm: e.target.value,
-                          },
-                        })
-                      }
-                      className="w-full bg-surface-input border border-line-secondary rounded px-1.5 py-1 text-[10.5px] text-content focus:outline-none cursor-pointer"
-                    >
-                      {ALGORITHMS.map((a) => (
-                        <option key={a} value={a}>
-                          {a}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex-1 space-y-0.5">
-                    <span className="text-[10px] text-content-faint">Mode</span>
-                    <select
-                      value={(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).mode}
-                      onChange={(e) =>
-                        onChange({
-                          ...context,
-                          encryptionSettings: {
-                            ...(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS),
-                            mode: e.target.value,
-                          },
-                        })
-                      }
-                      className="w-full bg-surface-input border border-line-secondary rounded px-1.5 py-1 text-[10.5px] text-content focus:outline-none cursor-pointer"
-                    >
-                      {MODES.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS).useRandomIVs}
-                    onChange={(e) =>
-                      onChange({
-                        ...context,
-                        encryptionSettings: {
-                          ...(context.encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS),
-                          useRandomIVs: e.target.checked,
-                        },
-                      })
-                    }
-                    className="w-3 h-3 rounded border-line-secondary accent-warn"
-                  />
-                  <span className="text-[11px] text-content-muted">Random IV</span>
-                  <span className="text-[9.5px] text-content-ghost">(off matches Mule default)</span>
-                </label>
-
-              </div>
+              <DecryptionCard
+                context={context}
+                onChange={onChange}
+                encryptionKey={encryptionKey}
+                onEncryptionKeyChange={onEncryptionKeyChange}
+              />
             )}
-
-            <div className="text-[9.5px] text-content-ghost leading-relaxed">
-              YAML keys flatten with dots:{' '}
-              <code className="text-violet font-mono">salesforce.path</code> →{' '}
+            <div className="text-[10px] text-content-ghost leading-relaxed">
+              Reach a nested YAML key with dots, as in Mule:{' '}
               <code className="text-violet font-mono">{'${salesforce.path}'}</code>
             </div>
           </>

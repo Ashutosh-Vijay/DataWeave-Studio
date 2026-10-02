@@ -9,6 +9,7 @@
  */
 import yaml from 'js-yaml';
 import { decryptFlatMap, hasEncryptedValues, DEFAULT_ENCRYPTION_SETTINGS } from './cryptoUtils';
+import { detectFormat } from './configCrypto';
 import type { EncryptionSettings } from './types';
 
 /**
@@ -43,6 +44,41 @@ export function flattenYaml(obj: unknown, prefix = ''): Record<string, string> {
     }
   }
   return result;
+}
+
+/**
+ * A .properties file as a flat key -> value map. Handles `=`, `:` and
+ * whitespace separators, `#` / `!` comments and backslash line continuations.
+ */
+export function parseProperties(text: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const unescape = (v: string) =>
+    v.replace(/\\(.)/g, (_, c) => (c === 'n' ? '\n' : c === 't' ? '\t' : c === 'r' ? '\r' : c));
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trimStart();
+    if (!line || line.startsWith('#') || line.startsWith('!')) continue;
+    // An odd number of trailing backslashes continues the value on the next line.
+    while (/(?:^|[^\\])(?:\\\\)*\\$/.test(line) && i + 1 < lines.length) {
+      line = line.slice(0, -1) + lines[++i].trimStart();
+    }
+    // Key runs to the first unescaped `=`, `:` or whitespace.
+    const m = line.match(/^((?:\\.|[^=:\s\\])+)\s*(?:[=:]\s*|\s+|$)(.*)$/);
+    if (!m) continue;
+    out[unescape(m[1])] = unescape(m[2].trimEnd());
+  }
+  return out;
+}
+
+/**
+ * A config panel's text as a flat key -> value map. Mule takes both
+ * config.yaml and config.properties; which one this is gets detected from the
+ * text, so pasting either just works. Unparseable text gives an empty map.
+ */
+export function parseConfigFlat(text: string | undefined): Record<string, string> {
+  if (!text || !text.trim()) return {};
+  if (detectFormat(text) === 'properties') return parseProperties(text);
+  try { return flattenYaml(yaml.load(escapeBangBracketValues(text))); } catch { return {}; }
 }
 
 /**
@@ -123,24 +159,13 @@ export function substituteFromMaps(
 }
 
 /**
- * Parse YAML config strings and substitute ${key} / ${secure::key} placeholders.
+ * Parse YAML / .properties config strings and substitute ${key} / ${secure::key} placeholders.
  * Synchronous — does NOT decrypt ![...] values (App.tsx has an async variant
  * for that). Used for the Flow Designer and the query-template preview.
  */
 export function substituteProperties(text: string, configYaml?: string, secureConfigYaml?: string): string {
   if (!configYaml && !secureConfigYaml) return text;
-
-  let configFlat: Record<string, string> = {};
-  let secureFlat: Record<string, string> = {};
-
-  if (configYaml) {
-    try { configFlat = flattenYaml(yaml.load(configYaml)); } catch { /* skip */ }
-  }
-  if (secureConfigYaml) {
-    try { secureFlat = flattenYaml(yaml.load(escapeBangBracketValues(secureConfigYaml))); } catch { /* skip */ }
-  }
-
-  return substituteFromMaps(text, configFlat, secureFlat);
+  return substituteFromMaps(text, parseConfigFlat(configYaml), parseConfigFlat(secureConfigYaml));
 }
 
 /**
@@ -154,28 +179,16 @@ export async function substitutePropertiesAsync(
   secureConfigYaml: string | undefined,
   encryptionKey: string,
   encryptionSettings?: EncryptionSettings,
+  /** A key saved in the OS keychain, used instead of `encryptionKey` when set. */
+  encryptionKeyName?: string,
 ): Promise<string> {
   if (!configYaml && !secureConfigYaml) return text;
 
-  let configFlat: Record<string, string> = {};
-  let secureFlat: Record<string, string> = {};
-
-  if (configYaml) {
-    try { configFlat = flattenYaml(yaml.load(configYaml)); } catch { /* skip */ }
+  let secureFlat = parseConfigFlat(secureConfigYaml);
+  // Decrypt ![...] values if a key is provided.
+  if ((encryptionKey || encryptionKeyName) && secureConfigYaml && hasEncryptedValues(secureConfigYaml)) {
+    secureFlat = await decryptFlatMap(secureFlat, encryptionKey, encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS, encryptionKeyName);
   }
 
-  if (secureConfigYaml) {
-    try {
-      secureFlat = flattenYaml(yaml.load(escapeBangBracketValues(secureConfigYaml)));
-      // Decrypt ![...] values if a key is provided.
-      if (encryptionKey && hasEncryptedValues(secureConfigYaml)) {
-        const settings = encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS;
-        secureFlat = await decryptFlatMap(secureFlat, encryptionKey, settings);
-      }
-    } catch (e) {
-      console.warn('Secure config parse failed:', e);
-    }
-  }
-
-  return substituteFromMaps(text, configFlat, secureFlat);
+  return substituteFromMaps(text, parseConfigFlat(configYaml), secureFlat);
 }
