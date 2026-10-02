@@ -22,7 +22,7 @@ export function RowCheck({ on, onToggle, onFocus }: { on: boolean; onToggle: () 
       aria-checked={on}
       role="checkbox"
       title={on ? 'Leave this row out' : 'Include this row'}
-      className="w-8 shrink-0 flex items-center justify-center cursor-pointer"
+      className="w-8 h-8 self-start shrink-0 flex items-center justify-center cursor-pointer"
     >
       <span
         className="w-3 h-3 rounded-[3px] flex items-center justify-center transition-colors"
@@ -120,12 +120,16 @@ export function KeyValueRows({
                 on={enabled}
                 onToggle={() => onChange(pairs.map((p, j) => j === i ? { ...p, enabled: !enabled } : p))}
               />
-              <input
-                type="text"
+              {/* A one-line textarea rather than an input: it stretches with the row
+                  when the value grows, with its text kept on the first line. */}
+              <textarea
                 value={pair.key}
-                onChange={(e) => updateRow(i, 'key', e.target.value)}
+                onChange={(e) => updateRow(i, 'key', e.target.value.replace(/\r?\n/g, ''))}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                 placeholder={keyPlaceholder}
-                className={`${cellInput} w-[38%] shrink-0 ${enabled ? 'text-content' : 'text-content-faint line-through'}`}
+                rows={1}
+                style={{ resize: 'none', overflow: 'hidden' }}
+                className={`${cellInput} w-[38%] shrink-0 py-[7px] leading-[18px] ${enabled ? 'text-content' : 'text-content-faint line-through'}`}
               />
               {/* Always a textarea, so focusing it never swaps the element. */}
               <textarea
@@ -145,7 +149,7 @@ export function KeyValueRows({
               />
               <button
                 onClick={() => onChange(pairs.filter((_, j) => j !== i))}
-                className="w-7 shrink-0 flex items-center justify-center text-content-faint hover:text-err opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity cursor-pointer"
+                className="w-7 h-8 self-start shrink-0 flex items-center justify-center text-content-faint hover:text-err opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity cursor-pointer"
                 title="Remove"
               >
                 <Icons.X size={11} />
