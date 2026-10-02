@@ -2,6 +2,16 @@
 
 All notable changes to DataWeave Studio for VS Code.
 
+## 3.3.0 (2026-10-03)
+
+**Output the way Mule does.**
+
+- **Choose the output format.** A menu above the output switches between JSON, XML, CSV, Java and the other formats by writing the output line for you. A script without an output line now gets what Mule would give it: the format of the inputs it reads, Java when it reads none, and an error naming the formats when it mixes them.
+- **`vars` and `attributes`, as in a flow.** They always exist now, so `vars.missing` is `null` instead of a compile error, the way it is in a Mule flow. Hovering `vars.order` shows its type, and typing `vars.` or `attributes.headers.` suggests what you set in the Context panel.
+- **All tools in one place.** The Tools menu is now a panel listing every tool with a line on what it does. Open it from the rail or the top bar.
+- **Config files, YAML or .properties.** Paste `config.yaml` or `config.properties` and the format is detected. Pick a decryption key you saved earlier instead of typing it again, and the panel tries the key on your encrypted values as you type, so a wrong one shows up before you run. `${key}` placeholders are no longer underlined as errors, and the Context panel has a cleaner layout.
+- **Also on Open VSX,** so Cursor, Windsurf and VSCodium can install it from their own extensions panel.
+
 ## 3.2.1 (2026-10-02)
 
 - **Shared links wait for you.** A script opened from a share link or an imported Playground zip doesn't run until you press Run, and a notice says if it uses `readUrl`, Java, `dw::io` or `eval`. Those can reach your files or the network, so it's worth a read first.
