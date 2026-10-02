@@ -16,6 +16,9 @@ export interface DWCompletionContext {
   secureConfigYaml?: string;
   /** Target runtime, e.g. "2.4" for Mule 4.4. Empty = the engine's own version. */
   languageLevel?: string;
+  /** The vars and attributes JSON a run would bind, for engine hover/completion. */
+  varsJson?: string;
+  attributesJson?: string;
 }
 
 interface DWCompletion {

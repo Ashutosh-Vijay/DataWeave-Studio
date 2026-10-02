@@ -756,6 +756,8 @@ pub fn dw_tooling(
     language_level: Option<String>,
     mime_type: Option<String>,
     repeat: Option<i64>,
+    vars: Option<String>,
+    attributes: Option<String>,
 ) -> Result<serde_json::Value, String> {
     crate::dw_server::tooling(
         &app,
@@ -768,6 +770,8 @@ pub fn dw_tooling(
         language_level.as_deref().unwrap_or(""),
         mime_type.as_deref().unwrap_or("application/json"),
         repeat.unwrap_or(1),
+        vars.as_deref().unwrap_or(""),
+        attributes.as_deref().unwrap_or(""),
     )
 }
 

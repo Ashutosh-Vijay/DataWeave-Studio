@@ -841,6 +841,11 @@ function App() {
     };
   }, [workspace.setScript, workspace.setPayload, workspace.setPayloadMimeType]);
   const contextDataMemo = useMemo(() => ({
+    // What a run binds, so the editor's hover and completion know their types.
+    varsJson: buildVarsJson(workspace.context.vars),
+    attributesJson: buildAttributesJson(
+      workspace.context.method, workspace.context.queryParams, workspace.context.headers, workspace.context.uriParams ?? [],
+    ),
     vars: workspace.context.vars,
     headers: workspace.context.headers,
     queryParams: workspace.context.queryParams,
@@ -849,6 +854,7 @@ function App() {
     secureConfigYaml: workspace.context.secureConfigYaml,
   }), [
     workspace.context.vars, workspace.context.headers, workspace.context.queryParams,
+    workspace.context.method, workspace.context.uriParams,
     workspace.namedInputs, workspace.context.configYaml, workspace.context.secureConfigYaml,
   ]);
   const autoRunTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

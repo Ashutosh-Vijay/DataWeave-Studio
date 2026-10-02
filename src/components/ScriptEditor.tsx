@@ -22,6 +22,9 @@ interface ScriptEditorProps {
   payload?: string;
   payloadMimeType?: string;
   contextData?: {
+    /** The vars and attributes JSON a run would bind (see runInput.ts). */
+    varsJson?: string;
+    attributesJson?: string;
     vars: { key: string; value: string; valueType: string }[];
     headers: { key: string; value: string }[];
     queryParams: { key: string; value: string }[];
@@ -228,6 +231,8 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
       configYaml: contextData?.configYaml || '',
       secureConfigYaml: contextData?.secureConfigYaml || '',
       languageLevel: languageLevel || '',
+      varsJson: contextData?.varsJson || '',
+      attributesJson: contextData?.attributesJson || '',
     };
   }, [payload, payloadMimeType, contextData, languageLevel]);
 

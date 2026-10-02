@@ -76,6 +76,8 @@ interface EngineSuggestion {
  * in flight and dropping the rest is better than a backlog of stale answers.
  */
 let inFlight = false;
+/** vars and attributes as a run would bind them; set by registerEngineLanguageFeatures. */
+let implicitInputs: () => { vars: string; attributes: string } = () => ({ vars: '', attributes: '' });
 
 async function ask<T>(
   kind: string,
@@ -91,7 +93,7 @@ async function ask<T>(
   if (inFlight) return null;
   inFlight = true;
   try {
-    return await invoke<T>('dw_tooling', { kind, script, offset, payload, languageLevel });
+    return await invoke<T>('dw_tooling', { kind, script, offset, payload, languageLevel, ...implicitInputs() });
   } catch {
     return null; // engine cold, restarting, host doesn't implement it, or the script doesn't parse
   } finally {
@@ -117,7 +119,7 @@ async function askNow<T>(
   extra?: Record<string, unknown>,
 ): Promise<T | null> {
   try {
-    return await invoke<T>('dw_tooling', { kind, script, offset, payload, languageLevel, ...extra });
+    return await invoke<T>('dw_tooling', { kind, script, offset, payload, languageLevel, ...implicitInputs(), ...extra });
   } catch {
     return null;
   }
@@ -213,6 +215,10 @@ export function registerEngineLanguageFeatures(
   monaco: typeof Monaco,
   getContext: () => DWCompletionContext | null,
 ): Monaco.IDisposable {
+  implicitInputs = () => {
+    const ctx = getContext();
+    return { vars: ctx?.varsJson ?? '', attributes: ctx?.attributesJson ?? '' };
+  };
   const payloadOf = () => {
     const ctx = getContext();
     // Only JSON can be turned into a type right now; anything else just means

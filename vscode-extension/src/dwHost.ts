@@ -224,6 +224,9 @@ interface DwRequest {
   offset?: number;
   /** op=tooling: sample payload, so `payload.` can be typed against its shape. */
   payload?: string;
+  /** op=tooling: the vars and attributes JSON a run would bind, typed the same way. */
+  vars?: string;
+  attributes?: string;
   /** Trace mode: capture the script's `log(...)` output into the response. */
   trace?: boolean;
   /** Record what every expression evaluated to. Forces a fresh compile server-side. */
@@ -1015,6 +1018,8 @@ export async function toolingQuery(
   languageLevel?: string,
   mimeType?: string,
   repeat?: number,
+  vars?: string,
+  attributes?: string,
 ): Promise<unknown> {
   const resp = await server.run(
     {
@@ -1022,6 +1027,8 @@ export async function toolingQuery(
       kind,
       offset,
       payload,
+      vars,
+      attributes,
       newName,
       languageLevel,
       mimeType,

@@ -886,6 +886,8 @@ impl DwTools {
             "",
             &input.payload_mime_type.unwrap_or_else(default_mime),
             1,
+            "",
+            "",
         )
         .map_err(|e| rmcp::ErrorData::internal_error(e, None))?;
 
@@ -1050,11 +1052,11 @@ impl DwTools {
         let payload = input.payload.unwrap_or_default();
         let mime = input.payload_mime_type.unwrap_or_else(default_mime);
         let vars = crate::dw_server::tooling(
-            &self.app, "visibleVariables", &input.script, offset, &payload, &[], "", "", &mime, 1,
+            &self.app, "visibleVariables", &input.script, offset, &payload, &[], "", "", &mime, 1, "", "",
         )
         .map_err(|e| rmcp::ErrorData::internal_error(e, None))?;
         let funs = crate::dw_server::tooling(
-            &self.app, "availableFunctions", &input.script, offset, &payload, &[], "", "", &mime, 1,
+            &self.app, "availableFunctions", &input.script, offset, &payload, &[], "", "", &mime, 1, "", "",
         )
         .map_err(|e| rmcp::ErrorData::internal_error(e, None))?;
 

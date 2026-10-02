@@ -1030,6 +1030,16 @@ object DwServer {
         hasPayloadType = true
       } catch { case _: Throwable => () }  // not JSON: fall back to no input type
     }
+    // vars and attributes as a run would bind them (built by the app from the
+    // Vars and Request tabs), so hovering vars.x shows its type and vars.
+    // completes, as payload. already did.
+    for (name <- Seq("vars", "attributes")) {
+      val raw = req.getString(name, "")
+      if (raw.trim.nonEmpty) {
+        try inputs.addInput(name, weaveTypeOfJson(Json.parse(raw)))
+        catch { case _: Throwable => () }
+      }
+    }
     val doc = service.open("/main.dwl", inputs, scala.None)
 
     val payload = new JsonObject()

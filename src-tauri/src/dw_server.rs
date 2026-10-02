@@ -758,6 +758,9 @@ pub fn tooling(
     // entries to put inside arrays.
     mime_type: &str,
     repeat: i64,
+    // The vars and attributes JSON a run would get, for hover/completion types.
+    vars: &str,
+    attributes: &str,
 ) -> Result<serde_json::Value, String> {
     let state = app.state::<DwServerState>();
     let id = state.next_id.fetch_add(1, Ordering::Relaxed);
@@ -767,6 +770,7 @@ pub fn tooling(
         "classpath": classpath, "newName": new_name,
         "languageLevel": language_level,
         "mimeType": mime_type, "repeat": repeat,
+        "vars": vars, "attributes": attributes,
     })
     .to_string();
 
