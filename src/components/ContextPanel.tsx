@@ -363,13 +363,7 @@ export const ContextPanel = memo(function ContextPanel({ context, onChange, encr
             >
               {t}
               {count > 0 && (
-                <span
-                  className={`inline-flex items-center justify-center min-w-[16px] h-[15px] px-1 rounded-full font-mono text-[9.5px] ${
-                    active ? 'bg-accent-dim text-accent' : 'bg-surface-2 text-content-faint'
-                  }`}
-                >
-                  {count}
-                </span>
+                <span className={`font-mono text-[10px] ${active ? 'text-accent' : 'text-content-ghost'}`}>{count}</span>
               )}
               {active && <span className="absolute left-1.5 right-1.5 -bottom-px h-0.5 rounded-sm bg-accent" />}
             </button>
@@ -378,36 +372,35 @@ export const ContextPanel = memo(function ContextPanel({ context, onChange, encr
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-3.5 space-y-4">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {tab === 'Request' && (
           <>
-            <div className="space-y-1.5">
-              <span className="text-[10.5px] font-semibold text-content-faint uppercase tracking-[0.6px]">
-                Method
-              </span>
-              <div className="flex gap-1.5 flex-wrap">
-                {HTTP_METHODS.map((m) => {
-                  const colors = METHOD_COLORS[m] || METHOD_COLORS.GET;
-                  const isActive = context.method === m;
-                  return (
-                    <button
-                      key={m}
-                      onClick={() => updateMethod(m)}
-                      className={`h-6 px-2 inline-flex items-center justify-center rounded-md text-[10.5px] font-bold tracking-wide transition-all cursor-pointer border font-mono ${
-                        isActive
-                          ? `${colors.bg} ${colors.text} ${colors.border}`
-                          : 'bg-transparent border-line-subtle text-content-faint hover:text-content-secondary hover:border-line'
-                      }`}
-                    >
-                      {m}
-                    </button>
-                  );
-                })}
-              </div>
+            {/* One segmented control, not five separate buttons. */}
+            <div className="flex rounded-md border border-line bg-surface-2 p-0.5" role="radiogroup" aria-label="Method">
+              {HTTP_METHODS.map((m) => {
+                const colors = METHOD_COLORS[m] || METHOD_COLORS.GET;
+                const isActive = context.method === m;
+                return (
+                  <button
+                    key={m}
+                    role="radio"
+                    aria-checked={isActive}
+                    onClick={() => updateMethod(m)}
+                    className={`flex-1 h-6 rounded-[5px] text-[10.5px] font-mono font-semibold tracking-wide cursor-pointer transition-colors ${
+                      isActive
+                        ? `bg-surface shadow-sm ${colors.text}`
+                        : 'text-content-faint hover:text-content-secondary'
+                    }`}
+                  >
+                    {m}
+                  </button>
+                );
+              })}
             </div>
 
             <KeyValueRows
-              label="URI Params"
+              label="URI params"
+              noun="URI param"
               pairs={context.uriParams ?? []}
               onChange={updateUriParams}
               keyPlaceholder="param"
@@ -415,7 +408,8 @@ export const ContextPanel = memo(function ContextPanel({ context, onChange, encr
             />
 
             <KeyValueRows
-              label="Query Params"
+              label="Query params"
+              noun="query param"
               pairs={context.queryParams}
               onChange={updateQueryParams}
               keyPlaceholder="param"
@@ -424,6 +418,7 @@ export const ContextPanel = memo(function ContextPanel({ context, onChange, encr
 
             <KeyValueRows
               label="Headers"
+              noun="header"
               pairs={context.headers}
               onChange={updateHeaders}
               keyPlaceholder="Header-Name"

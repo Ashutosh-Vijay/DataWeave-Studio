@@ -1,17 +1,88 @@
 import { useState } from 'react';
 import { KeyValuePair } from '../types';
 import { handleBracketKey, applyWithCaret } from '../textareaBrackets';
+import { Icons } from './Icons';
 
 interface KeyValueRowsProps {
   label: string;
+  /** "header", "query param": used for the add row. */
+  noun: string;
   pairs: KeyValuePair[];
   onChange: (pairs: KeyValuePair[]) => void;
   keyPlaceholder?: string;
   valuePlaceholder?: string;
 }
 
+/** The row checkbox shared by the Request and Vars tables. */
+export function RowCheck({ on, onToggle, onFocus }: { on: boolean; onToggle: () => void; onFocus?: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      onFocus={onFocus}
+      aria-checked={on}
+      role="checkbox"
+      title={on ? 'Leave this row out' : 'Include this row'}
+      className="w-8 shrink-0 flex items-center justify-center cursor-pointer"
+    >
+      <span
+        className="w-3 h-3 rounded-[3px] flex items-center justify-center transition-colors"
+        style={{
+          background: on ? 'var(--accent)' : 'transparent',
+          border: `1px solid ${on ? 'var(--accent)' : 'var(--line-secondary)'}`,
+        }}
+      >
+        {on && (
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--accent-ink)" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        )}
+      </span>
+    </button>
+  );
+}
+
+/** Card header used by every Context table: title, live count, enable/disable all. */
+export function TableHeader({ label, active, total, allOn, onSetAll }: {
+  label: string;
+  active: number;
+  total: number;
+  allOn: boolean;
+  onSetAll: (on: boolean) => void;
+}) {
+  return (
+    <div className="h-8 flex items-center gap-2 px-2.5 bg-surface-2 border-b border-line">
+      <span className="text-[11.5px] font-medium text-content">{label}</span>
+      {total > 0 && <span className="text-[10px] font-mono text-content-faint">{active}/{total}</span>}
+      {total > 1 && (
+        <button
+          onClick={() => onSetAll(!allOn)}
+          className="ml-auto text-[10.5px] text-content-faint hover:text-content-secondary cursor-pointer"
+        >
+          {allOn ? 'Disable all' : 'Enable all'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function AddRow({ noun, onAdd }: { noun: string; onAdd: () => void }) {
+  return (
+    <button
+      onClick={onAdd}
+      className="w-full h-8 px-2.5 flex items-center gap-1.5 text-[11px] text-content-faint hover:text-accent hover:bg-surface-2 cursor-pointer transition-colors"
+    >
+      <Icons.Plus size={11} />
+      Add {noun}
+    </button>
+  );
+}
+
+export const cellInput =
+  'bg-transparent px-2 text-[11.5px] placeholder-content-ghost focus:outline-none focus:bg-surface-input border-l border-line-subtle';
+
 export function KeyValueRows({
   label,
+  noun,
   pairs,
   onChange,
   keyPlaceholder = 'Key',
@@ -19,80 +90,44 @@ export function KeyValueRows({
 }: KeyValueRowsProps) {
   const [focusedRow, setFocusedRow] = useState<number | null>(null);
 
-  const addRow = () => onChange([...pairs, { key: '', value: '', enabled: true }]);
-  const removeRow = (index: number) => onChange(pairs.filter((_, i) => i !== index));
   const updateRow = (index: number, field: 'key' | 'value', val: string) => {
     onChange(pairs.map((pair, i) => i === index ? { ...pair, [field]: val } : pair));
   };
-  const toggleRow = (index: number) => {
-    onChange(pairs.map((pair, i) => i === index ? { ...pair, enabled: pair.enabled === false ? true : false } : pair));
-  };
-  const enabledCount = pairs.filter((p) => p.enabled !== false && p.key && p.value !== '').length;
-  const allEnabled = pairs.length > 0 && pairs.every((p) => p.enabled !== false);
-  const setAll = (on: boolean) => onChange(pairs.map((p) => ({ ...p, enabled: on })));
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-content-muted uppercase tracking-wide">{label}</span>
-          {pairs.length > 0 && (
-            <button
-              onClick={() => setAll(!allEnabled)}
-              className="text-[10px] text-content-faint hover:text-content-secondary cursor-pointer"
-              title={allEnabled ? 'Deselect all' : 'Select all'}
+    <div className="rounded-md border border-line bg-surface overflow-hidden">
+      <TableHeader
+        label={label}
+        active={pairs.filter((p) => p.enabled !== false && p.key && p.value !== '').length}
+        total={pairs.length}
+        allOn={pairs.every((p) => p.enabled !== false)}
+        onSetAll={(on) => onChange(pairs.map((p) => ({ ...p, enabled: on })))}
+      />
+      <div className="divide-y divide-line-subtle">
+        {pairs.map((pair, i) => {
+          const isExpanded = focusedRow === i;
+          const enabled = pair.enabled !== false;
+          return (
+            <div
+              key={i}
+              onFocus={() => setFocusedRow(i)}
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocusedRow(null);
+              }}
+              className="group flex items-stretch min-h-8"
             >
-              {allEnabled ? 'Deselect all' : 'Select all'} · {enabledCount}/{pairs.length}
-            </button>
-          )}
-        </div>
-        <button onClick={addRow} className="text-xs text-cyan hover:text-cyan transition-colors cursor-pointer">
-          + Add
-        </button>
-      </div>
-      {pairs.length === 0 && (
-        <div className="text-xs text-content-ghost italic">No {label.toLowerCase()} set</div>
-      )}
-      {pairs.map((pair, i) => {
-        const isExpanded = focusedRow === i;
-        const enabled = pair.enabled !== false;
-        return (
-          <div
-            key={i}
-            onFocus={() => setFocusedRow(i)}
-            onBlur={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                setFocusedRow(null);
-              }
-            }}
-            className={`rounded-md ${isExpanded ? 'bg-surface-section ring-1 ring-accent-border p-1.5 -mx-1' : ''}`}
-          >
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => toggleRow(i)}
-                aria-checked={enabled}
-                role="checkbox"
-                title={enabled ? 'Disable row' : 'Enable row'}
-                className="shrink-0 w-3 h-3 rounded-[3px] flex items-center justify-center cursor-pointer transition-colors"
-                style={{
-                  background: enabled ? 'var(--accent)' : 'transparent',
-                  border: `1px solid ${enabled ? 'var(--accent)' : 'var(--line-secondary)'}`,
-                }}
-              >
-                {enabled && (
-                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--accent-ink)" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
-              </button>
+              <RowCheck
+                on={enabled}
+                onToggle={() => onChange(pairs.map((p, j) => j === i ? { ...p, enabled: !enabled } : p))}
+              />
               <input
                 type="text"
                 value={pair.key}
                 onChange={(e) => updateRow(i, 'key', e.target.value)}
                 placeholder={keyPlaceholder}
-                className={`bg-surface-elevated border border-line rounded px-2 py-1 text-xs placeholder-content-ghost focus:border-accent focus:outline-none ${isExpanded ? 'w-24 shrink-0' : 'w-[42%]'} ${enabled ? 'text-content' : 'text-content-faint line-through'}`}
+                className={`${cellInput} w-[38%] shrink-0 ${enabled ? 'text-content' : 'text-content-faint line-through'}`}
               />
-              {/* Value — always a textarea so no element-swap on focus */}
+              {/* Always a textarea, so focusing it never swaps the element. */}
               <textarea
                 value={pair.value}
                 onChange={(e) => updateRow(i, 'value', e.target.value)}
@@ -106,22 +141,20 @@ export function KeyValueRows({
                 placeholder={valuePlaceholder}
                 rows={isExpanded ? 3 : 1}
                 style={{ resize: 'none', overflow: isExpanded ? 'auto' : 'hidden' }}
-                className={`flex-1 bg-surface-elevated border rounded px-2 py-1 text-xs placeholder-content-ghost focus:outline-none ${isExpanded ? 'border-accent-border focus:border-accent font-mono' : 'border-line focus:border-accent'} ${enabled ? 'text-content' : 'text-content-faint'}`}
+                className={`${cellInput} flex-1 min-w-0 py-[7px] leading-[18px] ${isExpanded ? 'font-mono' : ''} ${enabled ? 'text-content' : 'text-content-faint'}`}
               />
               <button
-                onClick={() => removeRow(i)}
-                className="text-content-faint hover:text-err text-xs px-1 transition-colors cursor-pointer shrink-0"
+                onClick={() => onChange(pairs.filter((_, j) => j !== i))}
+                className="w-7 shrink-0 flex items-center justify-center text-content-faint hover:text-err opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity cursor-pointer"
                 title="Remove"
-              >✕</button>
+              >
+                <Icons.X size={11} />
+              </button>
             </div>
-            {isExpanded && (
-              <div className="mt-1 text-[9px] text-content-ghost leading-none">
-                Click elsewhere to collapse
-              </div>
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
+        <AddRow noun={noun} onAdd={() => onChange([...pairs, { key: '', value: '', enabled: true }])} />
+      </div>
     </div>
   );
 }

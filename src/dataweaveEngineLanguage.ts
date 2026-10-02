@@ -169,10 +169,20 @@ const lastDiagnostics = new Map<string, { script: string; messages: EngineMessag
 export function engineDiagnosisFor(script: string): { severity: string; message: string; code?: string }[] {
   for (const entry of lastDiagnostics.values()) {
     if (entry.script === script) {
-      return entry.messages.filter((m) => m.severity === 'error' || m.severity === 'warning');
+      return entry.messages.filter((m) =>
+        (m.severity === 'error' || m.severity === 'warning') && !isPropertyPlaceholder(script, m));
     }
   }
   return [];
+}
+
+/**
+ * `${key}` is a Mule property placeholder, filled in from the Config tab before
+ * every run. The engine alone reads its `$` as an unknown reference; Anypoint
+ * Studio underlines it the same way, but it runs fine, so the complaint is noise.
+ */
+function isPropertyPlaceholder(script: string, m: EngineMessage): boolean {
+  return m.code === 'InvalidReferenceMessage' && (m.location?.startIndex ?? -1) >= 0 && script.startsWith('${', m.location.startIndex);
 }
 
 /** A source range as the engine reports it. Offsets, not line/column — see the
@@ -806,6 +816,7 @@ export function attachEngineDiagnostics(
     for (const m of res.messages ?? []) {
       const range = rangeOf(model, m.location);
       if (!range) continue;
+      if (isPropertyPlaceholder(script, m)) continue;
       markers.push({
         // A hint is a faint underline with no entry in the problems gutter —
         // the right weight for "you probably meant to take this out", which is

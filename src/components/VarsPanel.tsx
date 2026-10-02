@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { VarEntry } from '../types';
 import { handleBracketKey, applyWithCaret } from '../textareaBrackets';
+import { Icons } from './Icons';
+import { RowCheck, TableHeader, AddRow, cellInput } from './KeyValueRows';
 
 interface VarsPanelProps {
   vars: VarEntry[];
@@ -74,172 +76,136 @@ export function VarsPanel({ vars, onChange }: VarsPanelProps) {
   const allEnabled = vars.length > 0 && vars.every((v) => v.enabled !== false);
   const setAll = (on: boolean) => onChange(vars.map((v) => ({ ...v, enabled: on })));
 
+  const typeTag = (v: VarEntry, i: number) => (
+    <div className="shrink-0 flex items-center gap-1 pr-1 border-l border-line-subtle pl-1.5">
+      <button
+        onClick={() => toggleExpr(i)}
+        onFocus={() => cancelCollapse()}
+        title={v.valueType === 'expression' ? 'Expression, evaluated against the message. Click for a literal value.' : 'Treat as a DataWeave expression (payload.x, vars.y)'}
+        className={`h-5 px-1 rounded text-[10.5px] font-mono italic cursor-pointer transition-colors ${
+          v.valueType === 'expression' ? 'bg-accent-dim text-accent' : 'text-content-faint hover:text-content'
+        }`}
+      >
+        fx
+      </button>
+      {v.valueType !== 'expression' && (
+        <span
+          className={`w-8 text-center text-[9.5px] font-mono ${v.valueType === 'json' ? 'text-violet' : 'text-content-faint'}`}
+          title={
+            v.valueType === 'json'
+              ? 'Parsed as JSON: null, true/false, numbers, objects and arrays all work'
+              : 'Passed as plain string'
+          }
+        >
+          {v.valueType === 'json' ? 'JSON' : 'STR'}
+        </span>
+      )}
+    </div>
+  );
+
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-content-muted uppercase tracking-wide">Variables</span>
-          {vars.length > 0 && (
-            <button
-              onClick={() => setAll(!allEnabled)}
-              className="text-[10px] text-content-faint hover:text-content-secondary cursor-pointer"
-              title={allEnabled ? 'Deselect all' : 'Select all'}
-            >
-              {allEnabled ? 'Deselect all' : 'Select all'} · {enabledCount}/{vars.length}
-            </button>
-          )}
-        </div>
-        <button onClick={addVar} className="text-xs text-cyan hover:text-cyan transition-colors cursor-pointer">
-          + Add
-        </button>
-      </div>
-      <div className="text-[10px] text-content-ghost">
-        Access in script as <code className="text-content-faint">vars.name</code>. Use <span className="font-mono italic">fx</span> to set a value from an expression (e.g. <code className="text-content-faint">payload.name</code>).
-      </div>
-      {vars.length === 0 && <div className="text-xs text-content-ghost italic">No variables set</div>}
-      {vars.map((v, i) => {
-        const isExpanded = focusedRow === i;
-        const enabled = v.enabled !== false;
-        return (
-          <div
-            key={i}
-            onBlur={(e) => scheduleCollapse(e.currentTarget)}
-            className={`rounded-md ${isExpanded ? 'bg-surface-2 ring-1 ring-accent-border p-1.5 -mx-1' : ''}`}
-          >
-            {/* Top row */}
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => toggleVar(i)}
-                onFocus={() => cancelCollapse()}
-                aria-checked={enabled}
-                role="checkbox"
-                title={enabled ? 'Disable variable' : 'Enable variable'}
-                className="shrink-0 w-3 h-3 rounded-[3px] flex items-center justify-center cursor-pointer transition-colors"
-                style={{
-                  background: enabled ? 'var(--accent)' : 'transparent',
-                  border: `1px solid ${enabled ? 'var(--accent)' : 'var(--line-secondary)'}`,
-                }}
+    <div className="space-y-2">
+      <div className="rounded-md border border-line bg-surface overflow-hidden">
+        <TableHeader
+          label="Variables"
+          active={enabledCount}
+          total={vars.length}
+          allOn={allEnabled}
+          onSetAll={setAll}
+        />
+        <div className="divide-y divide-line-subtle">
+          {vars.map((v, i) => {
+            const isExpanded = focusedRow === i;
+            const enabled = v.enabled !== false;
+            return (
+              <div
+                key={i}
+                onBlur={(e) => scheduleCollapse(e.currentTarget)}
+                className={`group ${isExpanded ? 'bg-surface-section' : ''}`}
               >
-                {enabled && (
-                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--accent-ink)" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
-              </button>
-              <input
-                type="text"
-                value={v.key}
-                onChange={(e) => updateVar(i, 'key', e.target.value)}
-                onFocus={() => {
-                  expandedFromValueRef.current = false; // key click → don't steal focus to value
-                  cancelCollapse();
-                  setFocusedRow(i);
-                }}
-                placeholder="Name"
-                className={`bg-surface-elevated border border-line rounded px-2 py-1 text-xs placeholder-content-ghost focus:border-accent focus:outline-none ${isExpanded ? 'flex-1' : 'w-1/3'} ${enabled ? 'text-content' : 'text-content-faint line-through'}`}
-              />
-              {/* Collapsed: inline single-line value + type badge */}
-              {!isExpanded && (
-                <>
-                  <textarea
-                    value={v.value}
-                    onChange={(e) => updateVar(i, 'value', e.target.value)}
+                <div className="flex items-stretch min-h-8">
+                  <RowCheck on={enabled} onToggle={() => toggleVar(i)} onFocus={() => cancelCollapse()} />
+                  <input
+                    type="text"
+                    value={v.key}
+                    onChange={(e) => updateVar(i, 'key', e.target.value)}
                     onFocus={() => {
-                      expandedFromValueRef.current = true; // value click → focus expanded textarea
+                      expandedFromValueRef.current = false; // key click: don't steal focus to value
                       cancelCollapse();
                       setFocusedRow(i);
                     }}
-                    placeholder={v.valueType === 'expression' ? 'payload.name' : 'Value'}
-                    rows={1}
-                    style={{ resize: 'none', overflow: 'hidden' }}
-                    className="flex-1 bg-surface-elevated border border-line rounded px-2 py-1 text-xs text-content placeholder-content-ghost focus:border-accent focus:outline-none"
+                    placeholder="name"
+                    className={`${cellInput} font-mono ${isExpanded ? 'flex-1' : 'w-[34%] shrink-0'} ${enabled ? 'text-content' : 'text-content-faint line-through'}`}
                   />
-                  <button
-                    onClick={() => toggleExpr(i)}
-                    onFocus={() => cancelCollapse()}
-                    title={v.valueType === 'expression' ? 'Expression, evaluated against the message. Click for a literal value.' : 'Treat as a DataWeave expression (payload.x, vars.y)'}
-                    className={`text-[10px] font-mono italic px-1 py-0.5 rounded shrink-0 cursor-pointer transition-colors ${
-                      v.valueType === 'expression' ? 'bg-accent-dim text-accent' : 'bg-line-subtle text-content-faint hover:text-content'
-                    }`}
-                  >
-                    fx
-                  </button>
-                  {v.valueType !== 'expression' && (
-                    <span
-                      className={`text-[10px] px-1 py-0.5 rounded shrink-0 ${
-                        v.valueType === 'json'
-                          ? 'bg-violet-tint text-violet'
-                          : 'bg-line-subtle text-content-faint'
-                      }`}
-                      title={
-                        v.valueType === 'json'
-                          ? 'Parsed as JSON: null, true/false, numbers, objects and arrays all work'
-                          : 'Passed as plain string'
-                      }
-                    >
-                      {v.valueType === 'json' ? 'JSON' : 'STR'}
-                    </span>
+                  {!isExpanded && (
+                    <textarea
+                      value={v.value}
+                      onChange={(e) => updateVar(i, 'value', e.target.value)}
+                      onFocus={() => {
+                        expandedFromValueRef.current = true; // value click: focus the expanded textarea
+                        cancelCollapse();
+                        setFocusedRow(i);
+                      }}
+                      placeholder={v.valueType === 'expression' ? 'payload.name' : 'value'}
+                      rows={1}
+                      style={{ resize: 'none', overflow: 'hidden' }}
+                      className={`${cellInput} flex-1 min-w-0 py-[7px] leading-[18px] ${enabled ? 'text-content' : 'text-content-faint'}`}
+                    />
                   )}
-                </>
-              )}
-              <button
-                onFocus={() => cancelCollapse()}
-                onClick={() => removeVar(i)}
-                className="text-content-faint hover:text-err text-xs px-1 transition-colors cursor-pointer shrink-0"
-                title="Remove"
-              >✕</button>
-            </div>
+                  {typeTag(v, i)}
+                  <button
+                    onFocus={() => cancelCollapse()}
+                    onClick={() => removeVar(i)}
+                    className="w-7 shrink-0 flex items-center justify-center text-content-faint hover:text-err opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity cursor-pointer"
+                    title="Remove"
+                  >
+                    <Icons.X size={11} />
+                  </button>
+                </div>
 
-            {/* Expanded: full-width textarea */}
-            {isExpanded && (
-              <div className="mt-1.5 space-y-1">
-                <textarea
-                  // Only steal focus when expansion was triggered by clicking the value field
-                  autoFocus={expandedFromValueRef.current}
-                  onFocus={() => cancelCollapse()}
-                  value={v.value}
-                  onChange={(e) => updateVar(i, 'value', e.target.value)}
-                  onKeyDown={(e) =>
-                    handleBracketKey(e, v.valueType === 'json', (next, caret) =>
-                      applyWithCaret(e.currentTarget, (val) => updateVar(i, 'value', val), next, caret),
-                    )
-                  }
-                  placeholder={
-                    v.valueType === 'expression'
-                      ? 'DataWeave expression, e.g.  payload.name  •  payload.items filter ($.active)  •  vars.count + 1'
-                      : 'e.g.  "hello"  •  42  •  null  •  true  •  {"key": "val"}  •  [1,2,3]'
-                  }
-                  rows={4}
-                  style={{ resize: 'vertical' }}
-                  className="w-full bg-surface-input border border-accent-border rounded px-2 py-1.5 text-xs text-content placeholder-content-ghost focus:border-accent focus:outline-none font-mono"
-                />
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => toggleExpr(i)}
+                {/* Expanded: the whole value, full width. */}
+                {isExpanded && (
+                  <div className="px-2 pb-2 space-y-1">
+                    <textarea
+                      // Only steal focus when expansion came from clicking the value field
+                      autoFocus={expandedFromValueRef.current}
                       onFocus={() => cancelCollapse()}
-                      title={v.valueType === 'expression' ? 'Expression mode is on. Click for a literal value' : 'Treat as a DataWeave expression'}
-                      className={`text-[10px] font-mono italic px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
-                        v.valueType === 'expression' ? 'bg-accent-dim text-accent' : 'bg-line-subtle text-content-faint hover:text-content'
-                      }`}
-                    >
-                      fx
-                    </button>
-                    <span className="text-[10px] text-content-faint">
+                      value={v.value}
+                      onChange={(e) => updateVar(i, 'value', e.target.value)}
+                      onKeyDown={(e) =>
+                        handleBracketKey(e, v.valueType === 'json', (next, caret) =>
+                          applyWithCaret(e.currentTarget, (val) => updateVar(i, 'value', val), next, caret),
+                        )
+                      }
+                      placeholder={
+                        v.valueType === 'expression'
+                          ? 'DataWeave expression, e.g.  payload.name  •  payload.items filter ($.active)  •  vars.count + 1'
+                          : 'e.g.  "hello"  •  42  •  null  •  true  •  {"key": "val"}  •  [1,2,3]'
+                      }
+                      rows={4}
+                      style={{ resize: 'vertical' }}
+                      className="w-full bg-surface-input border border-line rounded-md px-2 py-1.5 text-[11.5px] text-content placeholder-content-ghost focus:border-accent focus:outline-none font-mono"
+                    />
+                    <div className="text-[10px] text-content-faint">
                       {v.valueType === 'expression'
                         ? 'Expression, evaluated against the message'
                         : v.valueType === 'json'
                           ? 'JSON, parsed into a DataWeave value'
                           : 'String, passed as-is'}
-                    </span>
+                    </div>
                   </div>
-                  <span className="text-[9px] text-content-ghost">Click elsewhere to collapse</span>
-                </div>
+                )}
               </div>
-            )}
-          </div>
-        );
-      })}
+            );
+          })}
+          <AddRow noun="variable" onAdd={addVar} />
+        </div>
+      </div>
+      <div className="text-[10px] text-content-ghost leading-relaxed px-0.5">
+        Read them as <code className="font-mono text-content-faint">vars.name</code>. Turn on{' '}
+        <span className="font-mono italic">fx</span> to compute a value from the message, e.g.{' '}
+        <code className="font-mono text-content-faint">payload.name</code>.
+      </div>
     </div>
   );
 }
