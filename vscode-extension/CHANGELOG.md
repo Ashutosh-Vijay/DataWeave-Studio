@@ -2,6 +2,11 @@
 
 All notable changes to DataWeave Studio for VS Code.
 
+## 3.2.1 (2026-10-02)
+
+- **Shared links wait for you.** A script opened from a share link or an imported Playground zip doesn't run until you press Run, and a notice says if it uses `readUrl`, Java, `dw::io` or `eval`. Those can reach your files or the network, so it's worth a read first.
+- **A stricter Safe mode.** Safe mode for the MCP server and the HTTP API is now enforced by the DataWeave engine itself, the same way MuleSoft's online playground does it: `readUrl`, `eval` and `run`, Java, file access and environment variables are refused however a script is written. The HTTP API also turns away requests whose `Host` isn't localhost.
+
 ## 3.2.0 (2026-09-26)
 
 **Practice DataWeave, graded by the real engine.**

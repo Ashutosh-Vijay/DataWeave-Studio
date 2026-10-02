@@ -27,12 +27,22 @@ const V32_HIGHLIGHTS: Highlight[] = [
     desc: 'The payload toolbar no longer cuts off Load file on a narrow pane, and the Open button in the Side Bar no longer disappears once you have saved a workspace.' },
 ];
 
+// 3.2.1 leads with its two changes and keeps 3.2's, since most people arrive
+// straight from 3.1.
+const V321_HIGHLIGHTS: Highlight[] = [
+  { title: 'Shared links wait for you', tag: 'NEW',
+    desc: 'A script opened from a share link or an imported Playground zip doesn’t run until you press Run, and a notice says if it uses readUrl, Java, dw::io or eval. Those can reach your files or the network, so it’s worth a read first.' },
+  { title: 'A stricter Safe mode',
+    desc: 'Safe mode on the local server is now enforced by the DataWeave engine itself, the same way MuleSoft’s online playground does it: readUrl, eval and run, Java, file access and environment variables are refused however a script is written. The server also turns away requests from web pages.' },
+  ...V32_HIGHLIGHTS,
+];
+
 const DESKTOP_RELEASES: Release[] = [
-  { version: '3.2.0', date: 'September 2026', headline: 'Practice DataWeave, graded by the real engine', highlights: V32_HIGHLIGHTS },
+  { version: '3.2.1', date: 'October 2026', headline: 'Practice DataWeave, graded by the real engine', highlights: V321_HIGHLIGHTS },
 ];
 
 const VSCODE_RELEASES: Release[] = [
-  { version: '3.2.0', date: 'September 2026', headline: 'Practice DataWeave, graded by the real engine', highlights: V32_HIGHLIGHTS },
+  { version: '3.2.1', date: 'October 2026', headline: 'Practice DataWeave, graded by the real engine', highlights: V321_HIGHLIGHTS },
 ];
 
 const RELEASES: Release[] = isTauri ? DESKTOP_RELEASES : VSCODE_RELEASES;

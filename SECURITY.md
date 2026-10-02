@@ -72,6 +72,26 @@ Database and HTTP steps, and secure-property encryption, is computed locally. Th
 Flow Designer's connectors are **mocks** that return sample data you provide; they
 don't call real endpoints.
 
+## The local server
+
+The app can run a local server so AI assistants and scripts on the same machine
+can use the engine. It is off until you start it from **Tools → Local Server**.
+
+- It listens on `127.0.0.1` only (port 4675 by default), so other machines can't
+  reach it.
+- `/mcp` serves AI assistants; `POST /run` runs a script and returns the output.
+  Both refuse a request whose `Host` header isn't `localhost` or `127.0.0.1`
+  (the defence against DNS rebinding), and `/run` also refuses any request
+  carrying an `Origin` header, which browsers add to every request a web page
+  makes.
+- **Safe mode** (the default) runs scripts with the DataWeave engine's own
+  privilege checks on and nothing granted: `readUrl`, `eval` and `run`, Java
+  interop, `dw::io` file access and environment variables are refused when they
+  are called. **Advanced mode** lifts this for a fully trusted local agent.
+
+Scripts opened from a share link or an imported zip don't run on their own in the
+app; they wait for you to press **Run**.
+
 ## Code signing
 
 The direct-download installers aren't code-signed yet (Apple notarization is about

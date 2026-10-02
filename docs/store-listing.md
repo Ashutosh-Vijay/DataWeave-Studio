@@ -199,7 +199,11 @@ DataWeave Studio is an independent tool. It is not affiliated with, endorsed by 
 sponsored by MuleSoft or Salesforce. DataWeave, Mule, MuleSoft and Anypoint are
 trademarks of their respective owners.
 
-## What's new in this version (3.2.0)
+## What's new in this version (3.2.1)
+Scripts opened from a share link or an imported zip now wait for you to press Run, and
+the local server's Safe mode is enforced by the DataWeave engine itself.
+
+3.2.0:
 Practice DataWeave: 739 problems across 40 topics, graded by the real engine against
 test cases you can't see. Failed runs now show the type checker's diagnosis, naming
 the expression that went wrong.
@@ -242,7 +246,7 @@ https://ashutosh-vijay.dev/dataweave/privacy
 Paste this into the "Restricted capabilities" explanation for runFullTrust.
 NOTE: the field caps at 500 characters, so this is the trimmed version.
 
-Win32 desktop app packaged as MSIX; runFullTrust is required for it to run at all. It launches its bundled Java runtime as a child process to run DataWeave transforms locally, compiles user-supplied Java sources with the bundled javac, and binds a loopback-only port (127.0.0.1) for an optional local MCP server that AI coding assistants on the same machine can call. No data leaves the device and no network access is required.
+Win32 desktop app packaged as MSIX; runFullTrust is required for it to run at all. It launches its bundled Java runtime as a child process to run DataWeave transforms locally, compiles user-supplied Java sources with the bundled javac, and binds a loopback-only port (127.0.0.1) for an optional local MCP server that AI coding assistants on the same machine can call. It does not need network access to work: it only goes online when the user sends feedback or asks it to download a Java library.
 
 ---
 
