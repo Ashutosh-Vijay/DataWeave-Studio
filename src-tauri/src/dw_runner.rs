@@ -379,8 +379,13 @@ pub async fn run_dataweave(
     *state.cancelled.lock().unwrap_or_else(|e| e.into_inner()) = false;
     *state.child_pid.lock().unwrap_or_else(|e| e.into_inner()) = None;
 
-    let has_attributes = attributes_json.trim() != "{}" && !attributes_json.trim().is_empty();
-    let has_vars = vars_json.trim() != "{}" && !vars_json.trim().is_empty();
+    // As in a Mule flow, `attributes` and `vars` always exist, as an empty
+    // object when nothing is set, so `vars.missing` is null rather than a
+    // "can't resolve vars" compile error.
+    let attributes_json = if attributes_json.trim().is_empty() { "{}".to_string() } else { attributes_json };
+    let vars_json = if vars_json.trim().is_empty() { "{}".to_string() } else { vars_json };
+    let has_attributes = true;
+    let has_vars = true;
 
     let mut named_inputs: Vec<NamedInput> = if named_inputs_json.trim().is_empty() || named_inputs_json.trim() == "[]" {
         vec![]
@@ -829,8 +834,10 @@ pub async fn warm_dataweave_script(
     app: AppHandle,
     script: String,
     mut payload_mime_type: String,
-    has_attributes: bool,
-    has_vars: bool,
+    // Ignored: a run always declares attributes and vars now (see run_dataweave),
+    // and the warm-up has to compile the same text to hit the same cache entry.
+    _has_attributes: bool,
+    _has_vars: bool,
     named_inputs_json: String,
 ) -> Result<(), String> {
     if script.trim().is_empty() {
@@ -861,8 +868,8 @@ pub async fn warm_dataweave_script(
     let merged = build_full_script(
         &script,
         &payload_mime_type,
-        has_attributes,
-        has_vars,
+        true, // a run always declares attributes and vars
+        true,
         &named_inputs,
     );
 

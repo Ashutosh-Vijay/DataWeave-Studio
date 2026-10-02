@@ -752,9 +752,12 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
   const start = Date.now();
   let payloadMime = args.payloadMimeType;
 
-  const hasAttributes =
-    args.attributesJson.trim() !== '{}' && args.attributesJson.trim() !== '';
-  const hasVars = args.varsJson.trim() !== '{}' && args.varsJson.trim() !== '';
+  // As in a Mule flow, attributes and vars always exist, as {} when nothing is
+  // set, so vars.missing is null rather than a "can't resolve vars" error.
+  if (!args.attributesJson.trim()) args.attributesJson = '{}';
+  if (!args.varsJson.trim()) args.varsJson = '{}';
+  const hasAttributes = true;
+  const hasVars = true;
 
   let namedInputs: NamedInput[] =
     !args.namedInputsJson.trim() || args.namedInputsJson.trim() === '[]'
@@ -1057,7 +1060,8 @@ export async function warmDataweave(server: DwServer, args: WarmArgs): Promise<v
   for (const ni of namedInputs) {
     if (ni.mimeType === 'application/java') ni.mimeType = 'application/json';
   }
-  const merged = buildFullScript(args.script, payloadMime, args.hasAttributes, args.hasVars, namedInputs);
+  // Same text as a run, which always declares attributes and vars.
+  const merged = buildFullScript(args.script, payloadMime, true, true, namedInputs);
   await server
     .run(
       {
