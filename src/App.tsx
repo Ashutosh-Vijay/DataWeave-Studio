@@ -270,6 +270,19 @@ function App() {
   useEffect(() => {
     try { localStorage.setItem('dw.autoRun', autoRun ? '1' : '0'); } catch { /* ignore */ }
   }, [autoRun]);
+  // Content from a share link or an imported zip was written by someone else.
+  // A script can read local files and send them anywhere with readUrl, so it
+  // doesn't auto-run: it waits for one press of Run. Cleared by Run and by
+  // switching workspace.
+  const [untrusted, setUntrusted] = useState(false);
+  // Kept with the draft, so closing the app and restoring it doesn't turn an
+  // unreviewed import into one that runs by itself.
+  // Only written here; Run and a workspace switch remove it (on startup the
+  // flag is false, and clearing it then would lose it before a restore).
+  useEffect(() => {
+    if (!untrusted) return;
+    try { localStorage.setItem('dw.untrustedDraft', '1'); } catch { /* ignore */ }
+  }, [untrusted]);
   /** Pane switch — 'script' shows the editor splits, 'tests' shows the
    *  per-request Tests panel. Per-workspace state, not per-request, so the
    *  user's view sticks when they switch between requests. */
@@ -432,6 +445,8 @@ function App() {
   // away unsaved work with no warning.
   const [pendingSwitch, setPendingSwitch] = useState<null | { kind: 'load'; filename: string } | { kind: 'new' }>(null);
   const performSwitch = useCallback(async (action: { kind: 'load'; filename: string } | { kind: 'new' }) => {
+    setUntrusted(false);
+    try { localStorage.removeItem('dw.untrustedDraft'); } catch { /* ignore */ }
     if (action.kind === 'load') {
       beginTransforming();
       await workspace.loadWorkspace(action.filename);
@@ -541,6 +556,7 @@ function App() {
     try {
       const snap = decodeShare(text);
       beginTransforming();
+      setUntrusted(true);
       if (snap.name) workspace.setProjectName(snap.name);
 
       // A shared suite is a suite. Dropping it into the active transform would
@@ -661,6 +677,7 @@ function App() {
         const { importPlaygroundZip } = await import('./playgroundImport');
         const result = await importPlaygroundZip(file);
         beginTransforming();
+        setUntrusted(true);
         workspace.newWorkspace();
         workspace.setProjectName(result.projectName);
         workspace.setScript(result.script);
@@ -1220,6 +1237,8 @@ function App() {
    *  pane, the suite in the Tests pane. ⌘↵ and the Tests panel's own button both
    *  come through here, so there is one Run, not two that disagree. */
   const handleRun = useCallback(() => {
+    setUntrusted(false);
+    try { localStorage.removeItem('dw.untrustedDraft'); } catch { /* ignore */ }
     if (viewMode === 'tests') {
       void tests.runSuite(workspace.request, targetRuntime);
     } else {
@@ -1404,7 +1423,7 @@ function App() {
   // assertion, and firing that a second after each keystroke would turn writing
   // a test into a stutter. Run it when you mean to (⌘↵).
   useEffect(() => {
-    if (!autoRun || viewMode === 'tests') return;
+    if (!autoRun || untrusted || viewMode === 'tests') return;
     if (autoRunTimerRef.current) clearTimeout(autoRunTimerRef.current);
     autoRunTimerRef.current = setTimeout(() => {
       if (canRunRef.current) {
@@ -1414,7 +1433,7 @@ function App() {
     return () => {
       if (autoRunTimerRef.current) clearTimeout(autoRunTimerRef.current);
     };
-  }, [autoRun, viewMode, workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs]);
+  }, [autoRun, untrusted, viewMode, workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs]);
 
   const inTests = viewMode === 'tests';
   // A test entry keeps its suite in `script`, like every entry keeps its source
@@ -1493,6 +1512,7 @@ function App() {
     { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: '⌘/', group: 'App', run: () => setShortcutsOpen(true) },
     { id: 'settings', label: 'Open Settings', shortcut: '⌘,', group: 'App', run: () => setSettingsOpen(true) },
     { id: 'about', label: 'About DataWeave Studio', group: 'App', run: () => setAboutOpen(true) },
+    { id: 'whats-new', label: 'What’s new', hint: 'Release notes for this version and earlier ones', group: 'App', run: () => setShowWhatsNew(true) },
     { id: 'feedback', label: 'Send feedback / report a bug', group: 'App', run: () => setFeedbackOpen(true) },
     { id: 'tour', label: 'Show guided tour', group: 'App', run: () => {
       beginTransforming();
@@ -1789,6 +1809,43 @@ function App() {
         <WindowControls />
       </header>
 
+      {untrusted && (() => {
+        const all = workspace.requests.map((r) => r.script).join('\n');
+        const uses = [
+          /java!/.test(all) && 'Java',
+          /\breadUrl\b/.test(all) && 'readUrl (files and network)',
+          /dw::io/.test(all) && 'dw::io (files)',
+          /\b(eval|run)\s*\(/.test(all) && /dw::Runtime/.test(all) && 'eval / run (runs other code)',
+        ].filter(Boolean) as string[];
+        return (
+          <div
+            className="px-4 py-2 flex items-center gap-3 shrink-0 border-b"
+            style={{
+              background: `color-mix(in oklch, var(--${uses.length ? 'warn' : 'accent'}) 10%, transparent)`,
+              borderColor: `color-mix(in oklch, var(--${uses.length ? 'warn' : 'accent'}) 28%, transparent)`,
+            }}
+          >
+            <span style={{ color: uses.length ? 'var(--warn)' : 'var(--accent)' }} className="shrink-0 inline-flex">
+              <Icons.Dot size={10} />
+            </span>
+            <div className="flex-1 min-w-0 text-[12px]">
+              <span className="font-medium text-content">Imported from outside, so it won&rsquo;t run until you press Run.</span>
+              <span className="text-content-muted ml-2">
+                {uses.length
+                  ? `It uses ${uses.join(', ')}. Read the script first: these can reach your files or the network.`
+                  : 'Give the script a look first.'}
+              </span>
+            </div>
+            <button
+              onClick={() => handleRun()}
+              className="shrink-0 h-6 px-2 rounded text-[11px] font-medium text-content-secondary hover:text-content border border-line hover:bg-surface-2 cursor-pointer"
+            >
+              Run it
+            </button>
+          </div>
+        );
+      })()}
+
       {/* Runtime error banner — only once the engine has worked at least once.
           A cold-start failure gets EngineDownScreen instead, because there is no
           usable app behind this banner to go back to. */}
@@ -1943,6 +2000,7 @@ function App() {
                   flow: d.flow,
                 });
                 beginTransforming();
+                try { if (localStorage.getItem('dw.untrustedDraft') === '1') setUntrusted(true); } catch { /* ignore */ }
                 return;
               }
               // No draft — fall back to the saved file if there is one.

@@ -151,7 +151,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
   const setAdvanced = async (next: boolean) => {
     setAdvancedState(next);
     try { localStorage.setItem('dw.mcp.advanced', String(next)); } catch { /* ignore */ }
-    addLog(next ? 'Advanced mode on: Java interop allowed (can run any code)' : 'Safe mode on: Java interop blocked', next ? 'warn' : 'ok');
+    addLog(next ? 'Advanced mode on: Java interop allowed (can run any code)' : 'Safe mode on: Java, file and network access blocked', next ? 'warn' : 'ok');
     // Live-toggle if running; otherwise it's applied at the next Start.
     try { if (status.running) await invoke('mcp_set_advanced', { advanced: next }); }
     catch (e) { toast(String(e), 'error'); }
@@ -286,7 +286,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
               </div>
             </div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 11.5, lineHeight: 1.55, color: 'var(--content-muted)' }}>
-              <div><b>Safe mode (default):</b> a pure-transform sandbox. <code style={{ fontFamily: MONO }}>java!</code> / <code style={{ fontFamily: MONO }}>readUrl</code> / <code style={{ fontFamily: MONO }}>dw::io</code> are rejected (in scripts and imported modules). To lift the gate for FULL local access, set the env var {kbd('DWSTUDIO_MCP_ADVANCED=1')} on the server entry in <code style={{ fontFamily: MONO }}>mcp.json</code>.</div>
+              <div><b>Safe mode (default):</b> a pure-transform sandbox. The engine refuses Java interop, <code style={{ fontFamily: MONO }}>readUrl</code>, <code style={{ fontFamily: MONO }}>dw::io</code>, <code style={{ fontFamily: MONO }}>eval</code> / <code style={{ fontFamily: MONO }}>run</code> and environment variables (in scripts and imported modules). To lift the gate for FULL local access, set the env var {kbd('DWSTUDIO_MCP_ADVANCED=1')} on the server entry in <code style={{ fontFamily: MONO }}>mcp.json</code>.</div>
               <div><b>Encrypted secure config:</b> pass the key per-call as <code style={{ fontFamily: MONO }}>secureKey</code>, or set {kbd('DWSTUDIO_SECURE_KEY')} on the server. A <code style={{ fontFamily: MONO }}>{'![…]'}</code> value with no key is rejected (never run as ciphertext).</div>
               <div><b>Custom modules:</b> pass a <code style={{ fontFamily: MONO }}>modules</code> array so <code style={{ fontFamily: MONO }}>import x from MyModule</code> resolves.</div>
             </div>
@@ -439,7 +439,7 @@ output application/json
               <div style={{ padding: 14 }}>
                 <div className="flex" style={{ gap: 10 }}>
                   {([
-                    [false, 'Safe mode', 'No java! imports and no JAR loading, so a script can only transform the payload it’s given. Recommended.'],
+                    [false, 'Safe mode', 'No Java, file or network access, enforced by the engine itself, so a script can only transform the data it’s given. Recommended.'],
                     [true, 'Advanced mode', 'Allows import java! so scripts can use Java libraries, which means a generated script could run any code.'],
                   ] as const).map(([adv, title, desc]) => {
                     const on = advanced === adv;

@@ -118,6 +118,9 @@ export async function openEngine({ quiet = false } = {}) {
         languageLevel: opts.languageLevel,
         trace: opts.trace,
         valueTrace: opts.valueTrace,
+        // DW_SANDBOX=1 runs everything with no engine privileges, the way the
+        // MCP server's Safe mode does, to check ordinary scripts don't need any.
+        sandbox: opts.sandbox ?? process.env.DW_SANDBOX === '1',
       });
       return {
         ok: !!res.ok && !res.error,

@@ -5,7 +5,8 @@ import org.mule.weave.v2.model.ServiceManager
 import org.mule.weave.v2.model.service.{
   CharsetProviderService, LoggingService,
   ProtocolUrlSourceProviderResolverService, UrlProtocolHandler,
-  UrlSourceProviderResolverService
+  UrlSourceProviderResolverService,
+  SecurityManagerService, DefaultSecurityManagerService, WeaveRuntimePrivilege
 }
 import org.mule.weave.v2.parser.ast.variables.NameIdentifier
 import org.mule.weave.v2.parser.phase.ParsingContext
@@ -267,6 +268,11 @@ object DwServer {
       // cache in either direction: it compiles fresh and drops the script after.
       val valueTrace: Boolean =
         if (req.get("valueTrace") != null) req.get("valueTrace").asBoolean() else false
+      // sandbox: run with the engine's own privilege checks and grant nothing,
+      // so readUrl, eval/run, Java interop, file I/O and env/system properties
+      // all fail at the call, however the script spells them.
+      val sandbox: Boolean =
+        if (req.get("sandbox") != null) req.get("sandbox").asBoolean() else false
 
       def compileFresh(): DataWeaveScript = {
         val cfg = compileEngine.newConfig()
@@ -317,7 +323,7 @@ object DwServer {
           compiled.materializeValues(true)
 
           val logger = new CapturingLogger()
-          val sm = makeServiceManager(logger)
+          val sm = makeServiceManager(logger, sandbox)
           var failure: String = null
           try {
             if (renderAs != null) compiled.write(bindings, sm, renderAs, Some(out))
@@ -344,12 +350,12 @@ object DwServer {
           r.toString
         } else if (trace) {
           val logger = new CapturingLogger()
-          val sm = makeServiceManager(logger)
+          val sm = makeServiceManager(logger, sandbox)
           if (renderAs != null) compiled.write(bindings, sm, renderAs, Some(out))
           else compiled.write(bindings, sm, Some(out))
           successResponse(id, out.toString("UTF-8"), started, logger.messages.toList)
         } else {
-          val sm = makeServiceManager()
+          val sm = makeServiceManager(sandbox = sandbox)
           if (renderAs != null) compiled.write(bindings, sm, renderAs, Some(out))
           else compiled.write(bindings, sm, Some(out))
           successResponse(id, out.toString("UTF-8"), started)
@@ -1492,15 +1498,20 @@ object DwServer {
     (engine, " // mods:" + hash)
   }
 
-  private def makeServiceManager(logger: LoggingService = NullLogger): ServiceManager = {
+  private def makeServiceManager(logger: LoggingService = NullLogger, sandbox: Boolean = false): ServiceManager = {
     val charsetService = new CharsetProviderService {
       override def defaultCharset(): Charset = StandardCharsets.UTF_8
     }
     val urlService = new ProtocolUrlSourceProviderResolverService(Seq(UrlProtocolHandler))
-    val customServices: Map[Class[_], _] = Map(
+    val base: Map[Class[_], Any] = Map(
       classOf[UrlSourceProviderResolverService] -> urlService,
       classOf[CharsetProviderService] -> charsetService
     )
+    // Without a SecurityManagerService the engine allows every privilege. With
+    // this one it allows only those listed, and the list is empty.
+    val customServices: Map[Class[_], Any] =
+      if (sandbox) base + (classOf[SecurityManagerService] -> new DefaultSecurityManagerService(Array.empty[WeaveRuntimePrivilege]))
+      else base
     ServiceManager(logger, customServices)
   }
 

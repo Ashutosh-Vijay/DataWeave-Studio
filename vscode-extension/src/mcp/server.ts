@@ -52,8 +52,9 @@ function startHeartbeat(): void {
 const ADVANCED = process.env.DWSTUDIO_MCP_ADVANCED === '1' || process.env.DWSTUDIO_MCP_ADVANCED === 'true';
 
 const SAFE_LINE =
-  '- Safe mode (the default) is a PURE-TRANSFORM SANDBOX: `import java!…`, `readUrl`, and `dw::io` are rejected ' +
-  'before running, with no file or network access. A script sees only the payload/inputs you pass.';
+  '- Safe mode (the default) is a PURE-TRANSFORM SANDBOX enforced by the engine: Java interop, `readUrl`, `dw::io`, ' +
+  '`eval`/`run` and environment variables are refused, so there is no file or network access. A script sees only ' +
+  'the payload/inputs you pass.';
 const ADVANCED_LINE =
   '- Advanced mode is ON: scripts have FULL local access: `import java!…` works, and `readUrl` / `dw::io` can read ' +
   'local files (file://) and reach the network. Treat results like code you ran locally.';

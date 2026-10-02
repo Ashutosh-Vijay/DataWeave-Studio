@@ -226,6 +226,8 @@ interface DwRequest {
   trace?: boolean;
   /** Record what every expression evaluated to. Forces a fresh compile server-side. */
   valueTrace?: boolean;
+  /** Grant the script no engine privileges (readUrl, eval/run, Java, file I/O, env). */
+  sandbox?: boolean;
   /** Target runtime to validate against, e.g. "2.4" for Mule 4.4. Omitted means
    *  the engine's own version, i.e. no version gating. */
   languageLevel?: string;
@@ -676,6 +678,8 @@ export interface RunArgs {
   trace?: boolean;
   /** Record what every expression evaluated to, without any `log()` calls. */
   valueTrace?: boolean;
+  /** MCP / HTTP Safe mode: run with no engine privileges. The editor never sets it. */
+  sandbox?: boolean;
   /** Start a debug session instead of running straight through. */
   debug?: boolean;
   /** 1-based lines to break on. Only meaningful with `debug`. */
@@ -844,6 +848,7 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
           modules: modules.length ? modules : undefined,
           trace: args.trace || undefined,
           valueTrace: args.valueTrace || undefined,
+          sandbox: args.sandbox || undefined,
           languageLevel: args.languageLevel || undefined,
           op: args.debug ? 'debug' : undefined,
           action: args.debug ? 'start' : undefined,

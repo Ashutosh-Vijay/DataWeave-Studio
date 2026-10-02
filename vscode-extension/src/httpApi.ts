@@ -105,6 +105,13 @@ export async function start(
     if (req.headers.origin) {
       return send(403, 'Refused: requests from a web page are not accepted.');
     }
+    // A Host that isn't loopback means DNS rebinding: a site whose name now
+    // points at 127.0.0.1.
+    const host = String(req.headers.host || '');
+    const hostName = host.startsWith('[') ? host.slice(0, host.indexOf(']') + 1) : host.split(':')[0];
+    if (!['127.0.0.1', 'localhost', '[::1]'].includes(hostName)) {
+      return send(403, 'Refused: the Host header must be localhost or 127.0.0.1.');
+    }
     const ctype = String(req.headers['content-type'] || '');
     if (!ctype.toLowerCase().includes('application/json')) {
       return send(415, 'Content-Type must be application/json.');
@@ -148,6 +155,7 @@ export async function start(
             attributesJson: toJson(row.attributes, '{}'),
             varsJson: toJson(row.vars, '{}'),
             namedInputsJson: '[]',
+            sandbox: !advanced,
           });
           results.push(
             r.error

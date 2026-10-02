@@ -346,6 +346,9 @@ pub async fn run_dataweave(
     // value_trace: record what every expression evaluated to. Costs a fresh
     // compile and forces materialization, so it is opt-in per run.
     value_trace: Option<bool>,
+    // sandbox: grant the script no engine privileges. Set by the MCP server and
+    // POST /run in Safe mode; the editor never sets it.
+    sandbox: Option<bool>,
 ) -> Result<RunResult, String> {
     let start_time = Instant::now();
     let trace = trace.unwrap_or(false);
@@ -355,6 +358,7 @@ pub async fn run_dataweave(
     let debug = debug.unwrap_or(false);
     let debug_breakpoints = debug_breakpoints.unwrap_or_default();
     let value_trace = value_trace.unwrap_or(false);
+    let sandbox = sandbox.unwrap_or(false);
     // Target runtime, e.g. "2.4" for Mule 4.4. Empty = the engine's own 2.12.
     let language_level = language_level.unwrap_or_default();
 
@@ -543,6 +547,7 @@ pub async fn run_dataweave(
                 debug,
                 breakpoints: &debug_breakpoints,
                 value_trace,
+                sandbox,
             },
         )
     });
@@ -869,6 +874,7 @@ pub async fn warm_dataweave_script(
                 language_level: "",
                 debug: false,
                 value_trace: false,
+                sandbox: false,
                 breakpoints: &[],
             },
         ) {
