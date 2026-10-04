@@ -15,7 +15,7 @@ permissions:
 env:
   # Vite + Monaco bundle exceeds Node's 2 GB default on macOS x86_64 runners.
   NODE_OPTIONS: --max-old-space-size=4096
-  # linuxdeploy/appimagetool are themselves AppImages; ubuntu-24.04 runners have
+  # linuxdeploy/appimagetool are themselves AppImages; newer Ubuntu runners have
   # no FUSE, so tell them to self-extract instead of FUSE-mounting. Harmless on
   # Windows/macOS jobs.
   APPIMAGE_EXTRACT_AND_RUN: "1"
@@ -52,7 +52,10 @@ jobs:
           - platform: macos-latest
             target: x86_64-apple-darwin
             jdkArch: x64
-          - platform: ubuntu-latest
+          # The oldest supported Ubuntu LTS, on purpose: the AppImage carries the
+          # build machine's glibc requirement, and one built on 24.04 (glibc
+          # 2.39) refuses to start on 22.04. AppImageHub rejects it for that.
+          - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             jdkArch: x64
 
@@ -89,7 +92,7 @@ jobs:
           architecture: ${{ matrix.jdkArch }}
 
       - name: Install Linux build deps
-        if: matrix.platform == 'ubuntu-latest'
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
@@ -124,7 +127,7 @@ jobs:
           # own rpath at runtime — but linuxdeploy only searches standard paths
           # and hard-fails ("Could not find dependency: libjvm.so"). Point it at
           # the JRE's lib dirs. Empty/harmless on Windows & macOS jobs.
-          LD_LIBRARY_PATH: ${{ matrix.platform == 'ubuntu-latest' && format('{0}/src-tauri/resources/jre/lib:{0}/src-tauri/resources/jre/lib/server', github.workspace) || '' }}
+          LD_LIBRARY_PATH: ${{ runner.os == 'Linux' && format('{0}/src-tauri/resources/jre/lib:{0}/src-tauri/resources/jre/lib/server', github.workspace) || '' }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'DataWeave Studio ${{ github.ref_name }}'
@@ -152,7 +155,7 @@ jobs:
           updaterJsonPreferNsis: true
           # --verbose on Linux so a linuxdeploy failure prints its actual stderr
           # instead of the bare "failed to run linuxdeploy".
-          args: --target ${{ matrix.target }} ${{ matrix.platform == 'ubuntu-latest' && '--verbose' || '' }}
+          args: --target ${{ matrix.target }} ${{ runner.os == 'Linux' && '--verbose' || '' }}
 
       - name: Zip Windows installer for proxy-restricted environments
         if: matrix.platform == 'windows-latest'
