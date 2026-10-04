@@ -1,5 +1,17 @@
 [
   {
+    "version": "3.3.1",
+    "date": "October 2026",
+    "headline": "Linux builds run on older systems again",
+    "highlights": [
+      {
+        "title": "Fixes",
+        "only": "desktop",
+        "desc": "The Linux AppImage, .deb and .rpm start on Ubuntu 22.04, Debian 12, Linux Mint 21 and other older distributions again. They were being built against a newer system library and refused to open there."
+      }
+    ]
+  },
+  {
     "version": "3.3.0",
     "date": "October 2026",
     "headline": "Output the way Mule does",

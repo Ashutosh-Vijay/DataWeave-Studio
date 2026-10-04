@@ -18,7 +18,10 @@ interface Release { version: string; date: string; headline: string; highlights:
 // version and lists the rest below it. `only` limits an item to one runtime.
 // Releases before 3.0.0 had separate desktop and extension version numbers; the
 // dialog links to GitHub for those.
-const RELEASES = RELEASES_DATA as Release[];
+// `only` limits an item to one runtime, and a release with nothing for this one
+// (a desktop-only patch, seen from VS Code) is left out entirely.
+const shows = (h: Highlight) => !h.only || (h.only === 'vscode' ? !isTauri : isTauri);
+const RELEASES = (RELEASES_DATA as Release[]).filter((r) => r.highlights.some(shows));
 
 export function getRelease(version: string): Release | null {
   return RELEASES.find((r) => r.version === version) ?? null;
@@ -46,8 +49,7 @@ export function WhatsNew({ version, onClose }: { version: string; onClose: () =>
 
   if (!release) return null;
 
-  // Some highlights only apply to one runtime (e.g. VS Code theme adoption).
-  const visible = (r: Release) => r.highlights.filter((h) => !h.only || (h.only === 'vscode' ? !isTauri : isTauri));
+  const visible = (r: Release) => r.highlights.filter(shows);
   const highlights = visible(release);
   const earlier = RELEASES.filter((r) => r !== release);
 
