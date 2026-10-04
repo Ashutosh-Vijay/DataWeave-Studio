@@ -8,6 +8,7 @@
  */
 import { useEffect, useState } from 'react';
 import { logoUrl } from '../assets';
+import { WindowControls } from './WindowControls';
 
 const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 
@@ -125,16 +126,13 @@ export function WelcomeScreen({ appVersion, onOpenPlayground, onTakeTour }: {
       <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(60% 70% at 82% -6%, color-mix(in oklch, var(--accent) 16%, transparent), transparent 60%), radial-gradient(48% 60% at 6% 108%, color-mix(in oklch, var(--violet) 12%, transparent), transparent 60%)' }} />
       <div className="absolute inset-0 pointer-events-none" style={{ opacity: 0.7, animation: anim('wDrift 11s ease-in-out infinite'), backgroundImage: 'radial-gradient(1.4px 1.4px at 12% 22%, color-mix(in oklch, var(--accent) 55%, transparent), transparent 100%), radial-gradient(1.4px 1.4px at 34% 68%, color-mix(in oklch, var(--violet) 45%, transparent), transparent 100%), radial-gradient(1.2px 1.2px at 58% 32%, color-mix(in oklch, var(--cyan) 40%, transparent), transparent 100%), radial-gradient(1.4px 1.4px at 78% 74%, color-mix(in oklch, var(--accent) 40%, transparent), transparent 100%), radial-gradient(1.2px 1.2px at 90% 40%, color-mix(in oklch, var(--accent) 45%, transparent), transparent 100%)' }} />
 
-      {/* top bar */}
-      <div className="relative flex items-center gap-3 px-[18px]" style={{ height: 46 }}>
-        <div className="flex gap-[7px]">
-          <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#ff5f57' }} />
-          <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#febc2e' }} />
-          <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#28c840' }} />
-        </div>
-        <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--content-faint)', marginLeft: 4 }}>DataWeave Studio · v{appVersion}</span>
+      {/* top bar: it covers the app's own, so it carries the real window
+          controls and the drag area (the window has no OS frame) */}
+      <div data-tauri-drag-region className="relative flex items-center gap-3 px-[18px]" style={{ height: 46 }}>
+        <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--content-faint)' }}>DataWeave Studio · v{appVersion}</span>
         <div className="flex-1" />
         <button onClick={onOpenPlayground} className="cursor-pointer rounded-md transition-colors hover:bg-surface-2 hover:text-content" style={{ height: 28, padding: '0 12px', border: 'none', background: 'transparent', color: 'var(--content-faint)', fontSize: 12 }}>Skip intro</button>
+        <WindowControls />
       </div>
 
       <div className="absolute overflow-y-auto" style={{ inset: '46px 0 0' }}>
