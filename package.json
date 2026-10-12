@@ -15,7 +15,8 @@
     "docs:refresh": "node scripts/refresh-dw-docs.mjs",
     "practice:verify": "vite-node scripts/practice/verify-questions.mjs",
     "practice:bundle": "node scripts/practice/bundle.mjs",
-    "practice:selftest": "node scripts/practice/selftest.mjs"
+    "practice:selftest": "node scripts/practice/selftest.mjs",
+    "academy:verify": "vite-node scripts/academy/verify-chapter0.mjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

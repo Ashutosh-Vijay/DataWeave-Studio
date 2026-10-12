@@ -363,7 +363,12 @@ function ProgressPanel({
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
-export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function PracticeScreen({ open, onClose, startUnit }: {
+  open: boolean;
+  onClose: () => void;
+  /** Open straight into this unit (from the Academy): its first unsolved question, easiest first. */
+  startUnit?: string | null;
+}) {
   const { isDark } = useTheme();
   const editorFont = useEditorFont();
   const [progress, setProgress] = useState<Record<string, Progress>>(loadProgress);
@@ -436,6 +441,15 @@ export function PracticeScreen({ open, onClose }: { open: boolean; onClose: () =
   const startedAt = useRef<number>(0);
 
   const question = useMemo(() => QUESTIONS.find((q) => q.id === openId) ?? null, [openId]);
+
+  useEffect(() => {
+    if (!open || !startUnit) return;
+    const inUnit = QUESTIONS.filter((q) => q.unit === startUnit)
+      .sort((a, b) => TIERS.indexOf(a.tier as Tier) - TIERS.indexOf(b.tier as Tier));
+    const pick = inUnit.find((q) => !progress[q.id]?.solved) ?? inUnit[0];
+    if (pick) setOpenId(pick.id);
+    // progress is read once on open; re-running on every solve would yank the learner around
+  }, [open, startUnit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open) return;

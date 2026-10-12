@@ -24,6 +24,8 @@ interface EmptyStateProps {
   onOpenWorkspace: () => void;
   onStartTour: () => void;
   onOpenFlowDesigner: () => void;
+  /** DataWeave Academy, for people who have never written DataWeave. */
+  onOpenAcademy: () => void;
   lastWorkspace: string | null;
   /** True when no saved file exists but a recoverable in-progress draft does. */
   hasDraftSession?: boolean;
@@ -34,7 +36,7 @@ interface EmptyStateProps {
 
 export function EmptyState({
   onBlankTransform, onImportCurl, onImportPlayground, onOpenSnippets, onOpenWorkspace,
-  onStartTour, onOpenFlowDesigner, lastWorkspace, hasDraftSession, onResumeLast, season,
+  onStartTour, onOpenFlowDesigner, onOpenAcademy, lastWorkspace, hasDraftSession, onResumeLast, season,
 }: EmptyStateProps) {
   const lastName = lastWorkspace ? lastWorkspace.replace(/\.json$/, '').replace(/\.dwstudio$/, '') : null;
   const showResume = !!lastName || !!hasDraftSession;
@@ -92,6 +94,20 @@ export function EmptyState({
           </button>
         )}
 
+        <button
+          onClick={onOpenAcademy}
+          className="w-full mb-2.5 flex items-center gap-3 px-4 py-3 rounded-lg border text-left cursor-pointer transition-colors"
+          style={{ borderColor: 'var(--accent-border)', background: 'var(--accent-dim)' }}
+        >
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)' }}>
+            <path d="M22 9 12 4 2 9l10 5 10-5Z" /><path d="M6 11v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5" />
+          </svg>
+          <span className="flex-1">
+            <span className="block text-[13px] font-semibold text-content">New to DataWeave? Start here</span>
+            <span className="block text-[11.5px] text-content-muted">DataWeave Academy: from "what is a payload?" to real transforms</span>
+          </span>
+          <Icons.ChevronRight size={14} style={{ color: 'var(--accent)' }} />
+        </button>
         <div className="grid grid-cols-2 gap-2.5 mb-2.5">
           <Card icon={<Icons.Plus size={14} />} label="Blank transform" desc="Empty %dw 2.0 script" shortcut="⌘N" onClick={onBlankTransform} />
           <Card icon={<Icons.Folder size={14} />} label="Open workspace" desc="Pick from saved workspaces" shortcut="⌘O" onClick={onOpenWorkspace} />

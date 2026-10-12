@@ -68,6 +68,7 @@ const ConfigCryptoPanel = lazy(() => import('./components/ConfigCryptoPanel').th
 const CompareTool = lazy(() => import('./components/CompareTool').then((m) => ({ default: m.CompareTool })));
 const MuleLogTool = lazy(() => import('./components/MuleLogTool').then((m) => ({ default: m.MuleLogTool })));
 const PracticeScreen = lazy(() => import('./components/PracticeScreen').then((m) => ({ default: m.PracticeScreen })));
+const AcademyScreen = lazy(() => import('./components/AcademyScreen').then((m) => ({ default: m.AcademyScreen })));
 const WelcomeTour = lazy(() => import('./components/WelcomeTour').then((m) => ({ default: m.WelcomeTour })));
 const ShortcutsDialog = lazy(() => import('./components/ShortcutsDialog').then((m) => ({ default: m.ShortcutsDialog })));
 const SettingsScreen = lazy(() => import('./components/SettingsScreen').then((m) => ({ default: m.SettingsScreen })));
@@ -299,6 +300,9 @@ function App() {
   const [compareToolOpen, setCompareToolOpen] = useState(false);
   const [muleLogOpen, setMuleLogOpen] = useState(false);
   const [practiceOpen, setPracticeOpen] = useState(false);
+  const [academyOpen, setAcademyOpen] = useState(false);
+  /** Set when the Academy opens Practice at a unit; cleared when Practice closes. */
+  const [practiceUnit, setPracticeUnit] = useState<string | null>(null);
 
   /**
    * The daily nudge, Duolingo-owl duty.
@@ -661,6 +665,11 @@ function App() {
 
   /** Everything the All tools panel lists. Rail icons are shortcuts to the same. */
   const allTools: Tool[] = [
+    { group: 'Write and learn', label: 'DataWeave Academy', desc: 'Learn DataWeave from zero: what a payload is, mapping, then the Practice units in order.', icon: (
+      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 9 12 4 2 9l10 5 10-5Z" /><path d="M6 11v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5" />
+      </svg>
+    ), run: () => setAcademyOpen(true) },
     { group: 'Write and learn', label: 'Function reference', desc: 'Every DataWeave function, with signatures and runnable examples.', icon: <Icons.Braces size={16} />, run: () => setReferenceOpen(true) },
     { group: 'Write and learn', label: 'DataWeave cookbook', desc: 'Ready-made recipes that open as a workspace you can tweak.', icon: <Icons.Book size={16} />, run: () => setRecipesOpen(true) },
     { group: 'Write and learn', label: 'Snippets', desc: 'Starter scripts for common patterns like map, filter and groupBy.', icon: <Icons.Library size={16} />, run: handleOpenSnippets },
@@ -1575,6 +1584,7 @@ function App() {
     { id: 'config-crypto', label: 'Encrypt or decrypt a config file', group: 'Secrets', run: () => setConfigCryptoOpen(true) },
     { id: 'flow', label: 'Open Message Flow designer', group: 'Tools', run: () => setFlowDesignerOpen(true) },
     { id: 'practice', label: 'Open Practice', hint: 'Graded DataWeave problems, offline', group: 'Tools', run: () => setPracticeOpen(true) },
+    { id: 'academy', label: 'Open DataWeave Academy', hint: 'Learn DataWeave from zero', group: 'Tools', run: () => setAcademyOpen(true) },
     { id: 'compare', label: 'Open Compare tool', group: 'Tools', run: () => setCompareToolOpen(true) },
     { id: 'java', label: 'Open Java tester', group: 'Tools', run: () => setJavaTesterOpen(true) },
     { id: 'mcp', label: 'Open Local Server', hint: 'MCP for AI agents · HTTP for scripts', group: 'Tools', run: () => setMcpOpen(true) },
@@ -1982,6 +1992,7 @@ function App() {
           onOpenConfigCrypto={() => setConfigCryptoOpen(true)}
           onOpenCompare={() => { introFeature('compare'); setCompareToolOpen(true); }}
           onOpenPractice={() => setPracticeOpen(true)}
+          onOpenAcademy={() => setAcademyOpen(true)}
           onOpenAllTools={() => setToolsMenuOpen(true)}
           onOpenFlowDesigner={() => { introFeature('flow'); setFlowDesignerOpen(true); }}
           onOpenJavaTester={() => { introFeature('java'); setJavaTesterOpen(true); }}
@@ -2015,6 +2026,7 @@ function App() {
               setTimeout(() => setShowTour(true), 50);
             }}
             onOpenFlowDesigner={() => setFlowDesignerOpen(true)}
+            onOpenAcademy={() => setAcademyOpen(true)}
             lastWorkspace={lastWorkspace}
             hasDraftSession={hasDraftSession && !lastWorkspace}
             onResumeLast={async () => {
@@ -2341,9 +2353,20 @@ function App() {
       )}
 
       {/* Mule log → cURL — replay a request that only exists in a log. */}
+      {academyOpen && (
+        <Suspense fallback={null}>
+          <AcademyScreen
+            open={academyOpen}
+            covered={practiceOpen}
+            onClose={() => setAcademyOpen(false)}
+            onOpenUnit={(unit) => { setPracticeUnit(unit); setPracticeOpen(true); }}
+          />
+        </Suspense>
+      )}
+
       {practiceOpen && (
         <Suspense fallback={null}>
-          <PracticeScreen open={practiceOpen} onClose={() => setPracticeOpen(false)} />
+          <PracticeScreen open={practiceOpen} startUnit={practiceUnit} onClose={() => { setPracticeOpen(false); setPracticeUnit(null); }} />
         </Suspense>
       )}
 
