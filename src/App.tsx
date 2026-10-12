@@ -1236,18 +1236,40 @@ function App() {
     // resolving placeholders — a pasted Mule script runs without a manual convert.
     // Substitute ${key} and ${secure::key} in script and payload (with decryption).
     const resolvedScript = await substitutePropertiesAsync(convertAllPropertyCalls(workspace.script).text, configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings, workspace.context.encryptionKeyName);
-    const resolvedPayload = await substitutePropertiesAsync(workspace.payload, configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings, workspace.context.encryptionKeyName);
+    // The payload is not DataWeave, so values are escaped for its own format.
+    const resolvedPayload = await substitutePropertiesAsync(workspace.payload, configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings, workspace.context.encryptionKeyName,
+      workspace.payloadMimeType.includes('json') ? 'json' : 'raw');
+
+    const multipartPartsJson =
+      workspace.payloadMimeType === 'multipart/form-data' && workspace.multipartParts.length > 0
+        ? JSON.stringify(workspace.multipartParts)
+        : undefined;
+
+    const modulesJson = modules.length > 0 ? JSON.stringify(modules) : undefined;
+
+    // As in a Mule set-variable, ${key} (and p('key') in an expression) resolve
+    // in a variable's value too.
+    const resolvedVars = await Promise.all(workspace.context.vars.map(async (v) => ({
+      ...v,
+      value: await substitutePropertiesAsync(
+        v.valueType === 'expression' ? convertAllPropertyCalls(v.value).text : v.value,
+        configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings, workspace.context.encryptionKeyName,
+        v.valueType === 'expression' ? 'dw' : v.valueType === 'json' ? 'json' : 'raw'),
+    })));
 
     // Expression-typed vars (fx) are evaluated through the engine against the
     // resolved message before the run, so `vars.x = payload.name` computes
     // instead of being passed as the literal string "payload.name".
     const varsJson = await resolveVarsJson(
-      workspace.context.vars,
+      resolvedVars,
       resolvedPayload,
       workspace.payloadMimeType,
       attributesJson,
       namedInputsJson,
       workspace.payloadFilePath,
+      workspace.classpath,
+      multipartPartsJson ?? null,
+      modulesJson ?? null,
     );
 
     // Sync the output view to the script's `output` directive — the json/xml/
@@ -1258,15 +1280,8 @@ function App() {
       setOutputFormat(outDirective.includes('xml') ? 'xml' : outDirective.includes('json') ? 'json' : 'raw');
     }
 
-    const multipartPartsJson =
-      workspace.payloadMimeType === 'multipart/form-data' && workspace.multipartParts.length > 0
-        ? JSON.stringify(workspace.multipartParts)
-        : undefined;
-
-    const modulesJson = modules.length > 0 ? JSON.stringify(modules) : undefined;
-
     return { resolvedScript, resolvedPayload, attributesJson, varsJson, namedInputsJson, multipartPartsJson, modulesJson };
-  }, [workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, workspace.payloadFilePath, workspace.multipartParts, modules, encryptionKey]);
+  }, [workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, workspace.payloadFilePath, workspace.multipartParts, workspace.classpath, modules, encryptionKey]);
 
   const handleRunScript = useCallback(async () => {
     const r = await resolveRunInputs();

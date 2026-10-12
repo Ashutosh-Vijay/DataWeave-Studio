@@ -355,6 +355,9 @@ pub async fn run_dataweave(
     sandbox: Option<bool>,
 ) -> Result<RunResult, String> {
     let start_time = Instant::now();
+    // A script saved with a UTF-8 BOM doesn't compile; the BOM is invisible in
+    // the editor, so drop it.
+    let script = script.trim_start_matches('\u{feff}').to_string();
     let trace = trace.unwrap_or(false);
     // A debug run is an ordinary run with a listener attached, so it goes down
     // this same path — that keeps one implementation of payload/attributes/vars
@@ -847,6 +850,7 @@ pub async fn warm_dataweave_script(
     if script.trim().is_empty() {
         return Ok(());
     }
+    let script = script.trim_start_matches('\u{feff}').to_string(); // as run_dataweave does
 
     let mut named_inputs: Vec<NamedInput> =
         if named_inputs_json.trim().is_empty() || named_inputs_json.trim() == "[]" {

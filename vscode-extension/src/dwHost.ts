@@ -754,6 +754,9 @@ function buildMultipartBody(parts: MultipartPartData[]): { body: Buffer; boundar
 export async function runDataweave(server: DwServer, args: RunArgs): Promise<RunResult> {
   const start = Date.now();
   let payloadMime = args.payloadMimeType;
+  // A script saved with a UTF-8 BOM doesn't compile; the BOM is invisible in
+  // the editor, so drop it.
+  args.script = args.script.replace(/^﻿/, '');
 
   // As in a Mule flow, attributes and vars always exist, as {} when nothing is
   // set, so vars.missing is null rather than a "can't resolve vars" error.
@@ -1058,6 +1061,7 @@ export interface WarmArgs {
  *  merge must match runDataweave exactly or the compile-cache key won't match. */
 export async function warmDataweave(server: DwServer, args: WarmArgs): Promise<void> {
   if (!args.script.trim()) return;
+  args.script = args.script.replace(/^﻿/, ''); // as runDataweave does
   let payloadMime = args.payloadMimeType;
   let namedInputs: NamedInput[] =
     !args.namedInputsJson.trim() || args.namedInputsJson.trim() === '[]'

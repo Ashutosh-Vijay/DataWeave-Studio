@@ -495,7 +495,7 @@ function FlowQueryPreview({ template, bindParams, isDbMode, flowInput, varsJson,
           paramsJson = r.output;
         } catch (e) { if (!cancelled) { setErr(String(e)); setState(null); } return; }
       }
-      const resolvedTemplate = await substitutePropertiesAsync(template, flowInput.configYaml, flowInput.secureConfigYaml, encryptionKey, encryptionSettings);
+      const resolvedTemplate = await substitutePropertiesAsync(template, flowInput.configYaml, flowInput.secureConfigYaml, encryptionKey, encryptionSettings, undefined, 'raw');
       const sub = substituteQueryParams(resolvedTemplate, paramsJson, isDbMode);
       if (cancelled) return;
       setErr(null);

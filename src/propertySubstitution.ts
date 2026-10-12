@@ -108,11 +108,16 @@ function escapeForDwString(value: string, quote: '"' | "'"): string {
  * context (see escapeForDwString), values in a bare position are inserted
  * verbatim. `${secure::key}` resolves from the secure map; a bare `${key}`
  * resolves from config first, then secure (MuleSoft behavior).
+ *
+ * `mode` is what the text is: 'dw' for a script, 'json' for a JSON payload
+ * (values inside "..." get JSON escaping, since \$ is not a JSON escape), and
+ * 'raw' for any other payload (values go in as they are).
  */
 export function substituteFromMaps(
   text: string,
   configFlat: Record<string, string>,
   secureFlat: Record<string, string>,
+  mode: 'dw' | 'json' | 'raw' = 'dw',
 ): string {
   const resolve = (name: string): string | undefined => {
     if (name.startsWith('secure::')) return secureFlat[name.slice('secure::'.length)];
@@ -134,7 +139,9 @@ export function substituteFromMaps(
       if (end !== -1) {
         const val = resolve(text.slice(i + 2, end));
         if (val !== undefined) {
-          out += quote ? escapeForDwString(val, quote) : val;
+          out += !quote || mode === 'raw' ? val
+            : mode === 'json' ? JSON.stringify(val).slice(1, -1)
+            : escapeForDwString(val, quote);
           i = end + 1;
           continue;
         }
@@ -148,7 +155,7 @@ export function substituteFromMaps(
     if (quote) {
       if (ch === '\\') { out += ch + (text[i + 1] ?? ''); i += 2; continue; }
       if (ch === quote) quote = null;
-    } else if (ch === '"' || ch === "'") {
+    } else if (ch === '"' || (ch === "'" && mode === 'dw')) {
       quote = ch;
     }
     out += ch;
@@ -181,6 +188,7 @@ export async function substitutePropertiesAsync(
   encryptionSettings?: EncryptionSettings,
   /** A key saved in the OS keychain, used instead of `encryptionKey` when set. */
   encryptionKeyName?: string,
+  mode: 'dw' | 'json' | 'raw' = 'dw',
 ): Promise<string> {
   if (!configYaml && !secureConfigYaml) return text;
 
@@ -190,5 +198,5 @@ export async function substitutePropertiesAsync(
     secureFlat = await decryptFlatMap(secureFlat, encryptionKey, encryptionSettings || DEFAULT_ENCRYPTION_SETTINGS, encryptionKeyName);
   }
 
-  return substituteFromMaps(text, parseConfigFlat(configYaml), secureFlat);
+  return substituteFromMaps(text, parseConfigFlat(configYaml), secureFlat, mode);
 }

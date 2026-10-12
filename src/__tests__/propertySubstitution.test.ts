@@ -43,6 +43,20 @@ describe('substituteProperties', () => {
   it('leaves real DataWeave interpolation $(...) untouched', () => {
     expect(substituteFromMaps('"hi $(payload.name)"', {}, {})).toBe('"hi $(payload.name)"');
   });
+
+  // A payload is not DataWeave: \$ is not a JSON escape, and XML/text want the value as is.
+  it('uses JSON escaping in a JSON payload', () => {
+    const out = substituteFromMaps('{"pw":"${k}","n":${n}}', { k: 'p@$$"w', n: '5' }, {}, 'json');
+    expect(JSON.parse(out)).toEqual({ pw: 'p@$$"w', n: 5 });
+  });
+
+  it("ignores an apostrophe in a JSON payload's string", () => {
+    expect(substituteFromMaps('{"a":"it\'s ${k}"}', { k: 'a$b' }, {}, 'json')).toBe('{"a":"it\'s a$b"}');
+  });
+
+  it('inserts the value as is in a raw payload', () => {
+    expect(substituteFromMaps('<a b="${k}">it\'s ${k}</a>', { k: 'x$y' }, {}, 'raw')).toBe('<a b="x$y">it\'s x$y</a>');
+  });
 });
 
 describe('parseConfigFlat', () => {
