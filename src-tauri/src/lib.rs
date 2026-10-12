@@ -20,9 +20,12 @@ pub fn run() {
     // to the *running* app and screenshot / inspect / drive the real UI,
     // backend `invoke` round-trips included. Must be set before the webview is
     // created, hence the top of `run()`. Windows/WebView2-only (a harmless
-    // no-op on macOS/Linux); never compiled into release builds.
+    // no-op on macOS/Linux); never compiled into release builds. An already-set
+    // value wins, so a second dev app can use another port.
     #[cfg(debug_assertions)]
-    std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--remote-debugging-port=9222");
+    if std::env::var_os("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS").is_none() {
+        std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--remote-debugging-port=9222");
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())

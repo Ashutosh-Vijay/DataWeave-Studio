@@ -180,9 +180,13 @@ export function engineDiagnosisFor(script: string): { severity: string; message:
  * `${key}` is a Mule property placeholder, filled in from the Config tab before
  * every run. The engine alone reads its `$` as an unknown reference; Anypoint
  * Studio underlines it the same way, but it runs fine, so the complaint is noise.
+ * The same goes for Mule's `p('key')` / `Mule::p('key')`, which a run rewrites
+ * into a placeholder (convertAllPropertyCalls).
  */
 function isPropertyPlaceholder(script: string, m: EngineMessage): boolean {
-  return m.code === 'InvalidReferenceMessage' && (m.location?.startIndex ?? -1) >= 0 && script.startsWith('${', m.location.startIndex);
+  if (m.code !== 'InvalidReferenceMessage' || (m.location?.startIndex ?? -1) < 0) return false;
+  const rest = script.slice(m.location.startIndex, m.location.startIndex + 12);
+  return rest.startsWith('${') || /^(Mule::)?p\s*\(/.test(rest);
 }
 
 /** A source range as the engine reports it. Offsets, not line/column — see the
