@@ -8,7 +8,7 @@ Built with Tauri v2 (Rust), React, TypeScript and Monaco. Ships with a bundled J
 
 **[Microsoft Store](https://apps.microsoft.com/detail/9NWD4L4J7D92)** | **[VS Code Extension](https://marketplace.visualstudio.com/items?itemName=ashutosh-vijay.dataweave-studio)** | **[Download](https://ashutosh-vijay.dev/dataweave/)** | **[Releases](https://github.com/Ashutosh-Vijay/DataWeave-Studio/releases)**
 
-> **Also on the VS Code Marketplace.** The same engine and UI run inside VS Code with a bundled Java runtime. Install it from the Marketplace and you're done, which makes it the easy option on locked-down work machines. (This is DataWeave Studio's own extension, not MuleSoft's official one, which is what the comparison below refers to.)
+> **Also on the VS Code Marketplace.** The same app runs inside VS Code with a bundled Java runtime. Install it from the Marketplace and you're done, which makes it the easy option on locked-down work machines. (This is DataWeave Studio's own extension, not MuleSoft's official one, which is what the comparison below refers to.)
 
 ---
 
@@ -27,7 +27,7 @@ Built with Tauri v2 (Rust), React, TypeScript and Monaco. Ships with a bundled J
 *Step debugger: click the gutter to set a breakpoint, then read the call stack, every variable in scope, and evaluate expressions against the paused frame*
 
 ![dw::test suite with five assertions passing](docs/screenshots/tests_suite_dark_mode.png)
-*Real `dw::test` suites, run by the bundled engine, with its own failure messages and per-test timings*
+*Real `dw::test` suites, with clear failure messages and per-test timings*
 
 ![Config encryption](docs/screenshots/config_encryption_dark_mode.png)
 *Config encryption: encrypt every secret in a YAML or .properties file at once. Values already written as `![…]` are left alone and comments survive*
@@ -51,7 +51,7 @@ Built with Tauri v2 (Rust), React, TypeScript and Monaco. Ships with a bundled J
 *Share links: paste a link and the whole setup comes back, including script, payload, variables and headers*
 
 ![Local MCP server](docs/screenshots/mcp_server_paper_theme.png)
-*Local MCP server: Claude, Cursor or VS Code can run transforms against the real engine*
+*Local MCP server: Claude, Cursor or VS Code can run your transforms and check their own work*
 
 ![Snippets sidebar](docs/screenshots/snippets_dark_mode.png)
 *Snippets: reusable templates for map, filter, group-by, reduce and more*
@@ -66,7 +66,7 @@ Built with Tauri v2 (Rust), React, TypeScript and Monaco. Ships with a bundled J
 *Settings: Dusk and Paper themes, five accent colours, Workbench and Playground layouts*
 
 ![DataWeave Studio in VS Code](docs/screenshots/vscode_extension.png)
-*The same app inside VS Code, with the same engine, the same Trace panel and the same ~20 ms runs*
+*The same app inside VS Code, with the same Trace panel and the same ~20 ms runs*
 
 ---
 
@@ -88,10 +88,10 @@ DataWeave Studio puts all of it in one window. Install it and start typing.
 Copy a link that carries the script, payload, variables, headers and query params, for one request or the whole workspace. Whoever opens it gets the same setup and can press Run. The hosted playground can't do this.
 
 **2. A local MCP server**
-Claude, Cursor or any MCP client can compile and run transforms against the real engine, so your assistant checks its DataWeave instead of guessing.
+Claude, Cursor or any MCP client can compile and run transforms, so your assistant checks its DataWeave instead of guessing.
 
 **3. Practice mode**
-Hundreds of DataWeave problems, from your first `map` to exam-style multiple choice questions for the MuleSoft Developer certification. Every answer and explanation was run on the real engine before it shipped.
+Hundreds of DataWeave problems, from your first `map` to exam-style multiple choice questions for the MuleSoft Developer certification. Every problem has a worked explanation.
 
 **4. Visual Message Flow Designer**
 A drag-and-drop canvas inspired by Anypoint Studio. Chain Set Payload, Transform, Set Variable, HTTP Request, Salesforce, Database and Logger steps, then run them all or step through one node at a time and inspect the payload, variables and attributes at each stage.
@@ -207,7 +207,7 @@ JRE 17 and the DataWeave runtime ship inside the app. No Java install, no `JAVA_
 - A short primer on each topic for people who are new to it, plus hints and a worked explanation
 - Progress by level, an activity chart and a daily goal
 - Filter by question type; Next stays within the filter
-- Works offline, graded by the same engine that runs your scripts
+- Works offline, with instant feedback on every attempt
 
 ### Message Flow Designer
 - Drag-and-drop canvas for chaining steps
@@ -242,7 +242,7 @@ The `%dw 2.4` header doesn't do this. The runtime only checks it against its own
 - Switching between Transform, SOQL and SQL keeps each mode's script
 
 ### Testing
-- **Real `dw::test` suites**, run by the bundled engine. This is MuleSoft's framework, and `dw::test::Tests`, `dw::test::Asserts` and `dw::io::file` are built in
+- **Real `dw::test` suites**. This is MuleSoft's framework, and `dw::test::Tests`, `dw::test::Asserts` and `dw::io::file` are built in
 - Named assertions with the engine's own failure messages, such as `Expected value to be 3 but was 2`
 - **Per-test status and timing**, with nested `describedBy` blocks shown as a tree
 - **Line numbers on failures**
@@ -274,7 +274,7 @@ The `%dw 2.4` header doesn't do this. The runtime only checks it against its own
 - Opening a link in a browser shows a preview of every request, so someone without the app still sees something useful
 
 ### Local MCP server
-- Serves the **Model Context Protocol** over HTTP on `127.0.0.1`, so Claude, Cursor or any MCP client can use the real engine
+- Serves the **Model Context Protocol** over HTTP on `127.0.0.1`, so Claude, Cursor or any MCP client can run DataWeave
 - Tools for validating and running DataWeave, so an assistant **checks** its transform before handing it to you
 - Starts only when you start it, from the MCP panel in the left rail
 - Safe mode rejects `java!` imports, and custom modules sent by a client are scanned before use
@@ -288,7 +288,7 @@ The `%dw 2.4` header doesn't do this. The runtime only checks it against its own
 ### Recipes and cookbook
 - Searchable recipes that open into a workspace with the payload and variables already filled in
 - Includes **MuleSoft's official cookbook examples**, generated from `mulesoft/docs-dataweave` (BSD-3)
-- Every recipe was **run against the bundled engine** and kept only if it works, with the engine's output as the expected result
+- Every recipe **runs as shipped**, with its real output alongside
 - `npm run docs:refresh` pulls the reference, format options and cookbook again from the docs branch that matches the bundled engine
 
 ### Compare
@@ -405,7 +405,7 @@ Otherwise, download the latest installer from the **[website](https://ashutosh-v
 
 ## Privacy
 
-DataWeave Studio has no account, telemetry or analytics, and your scripts run on the bundled engine. The standalone desktop app's update check is counted by version and platform (the Store and VS Code versions don't make one), and in-app feedback is sent only when you choose to send it. The [privacy policy](https://ashutosh-vijay.dev/dataweave/privacy) has the details, and [SECURITY.md](SECURITY.md) lists every network connection for security reviewers.
+DataWeave Studio has no account, telemetry or analytics, and your scripts never leave your machine. The standalone desktop app's update check is counted by version and platform (the Store and VS Code versions don't make one), and in-app feedback is sent only when you choose to send it. The [privacy policy](https://ashutosh-vijay.dev/dataweave/privacy) has the details, and [SECURITY.md](SECURITY.md) lists every network connection for security reviewers.
 
 ---
 

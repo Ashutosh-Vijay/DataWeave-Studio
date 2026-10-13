@@ -833,9 +833,8 @@ export function PracticeScreen({ open, onClose, startUnit }: {
           <div className="max-w-3xl mx-auto px-6 py-8">
             <h1 className="text-[20px] font-semibold text-content tracking-tight">Practice</h1>
             <p className="text-[13px] text-content-muted mt-1.5 mb-6 leading-relaxed">
-              Real problems, graded by the engine in this app. Every answer and every worked
-              explanation was executed before it shipped, so nothing here teaches you something
-              that does not compile.
+              Real problems with hidden test cases,
+              and a worked explanation for every answer.
             </p>
 
             <ProgressPanel

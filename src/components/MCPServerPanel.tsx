@@ -540,7 +540,7 @@ output application/json
 
             {mode === 'http' ? (
               <section style={card}>
-                {cardHead('Run scripts over HTTP', 'The same engine behind a POST that any script can call, no MCP client needed.')}
+                {cardHead('Run scripts over HTTP', 'Run DataWeave with a POST from any script, no MCP client needed.')}
                 <div style={{ padding: '12px 14px', fontSize: 11.5, lineHeight: 1.6, color: 'var(--content-muted)' }}>
                   <div style={{ marginBottom: 10 }}>
                     Send a script and a payload, get the output back. Send a <code style={{ fontFamily: MONO }}>rows</code> array

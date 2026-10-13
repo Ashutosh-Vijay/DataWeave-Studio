@@ -673,7 +673,7 @@ function App() {
     { group: 'Write and learn', label: 'Function reference', desc: 'Every DataWeave function, with signatures and runnable examples.', icon: <Icons.Braces size={16} />, run: () => setReferenceOpen(true) },
     { group: 'Write and learn', label: 'DataWeave cookbook', desc: 'Ready-made recipes that open as a workspace you can tweak.', icon: <Icons.Book size={16} />, run: () => setRecipesOpen(true) },
     { group: 'Write and learn', label: 'Snippets', desc: 'Starter scripts for common patterns like map, filter and groupBy.', icon: <Icons.Library size={16} />, run: handleOpenSnippets },
-    { group: 'Write and learn', label: 'Practice', desc: 'DataWeave problems graded by the engine, from basics to recursion.', icon: (
+    { group: 'Write and learn', label: 'Practice', desc: 'DataWeave problems with hidden test cases, from basics to recursion.', icon: (
       <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
         <path d="M7 4h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" /><path d="M9.5 9.5 11 11l-1.5 1.5" /><path d="M13 13h2" />
       </svg>

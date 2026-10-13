@@ -1,6 +1,6 @@
 # DataWeave Studio for VS Code
 
-The real DataWeave 2.12 engine, inside VS Code. Write a script, drop in a payload, press Run, and get the result in about 20 milliseconds. No Anypoint Studio, no Maven project, no Docker, no account. Java ships inside the extension.
+DataWeave 2.12, inside VS Code. Write a script, drop in a payload, press Run, and get the result in about 20 milliseconds. No Anypoint Studio, no Maven project, no Docker, no account. Java ships inside the extension.
 
 ![Script editor with autocomplete and live output](https://raw.githubusercontent.com/Ashutosh-Vijay/DataWeave-Studio/main/docs/screenshots/auto_suggestion_on_typing_monaco_dark_mode.png)
 
@@ -51,7 +51,7 @@ Paste an `application.yaml` and a `secure-config.yaml` with `![encrypted]` value
 
 **Prove it, then share it**
 
-- **Real `dw::test` suites.** Named assertions, run in-app against the bundled engine, with the engine's own failure messages and the line each one failed on.
+- **Real `dw::test` suites.** Named assertions, run in-app, with clear failure messages and the line each one failed on.
 - **A whole setup in one link.** Script, payload, variables and headers, for one request or an entire workspace. The other person opens it and presses Run. If your network blocks the site, **Copy code only** works with no URL at all.
 - **Message Flow designer.** Chain Set Payload, Transform, Set Variable, HTTP, Salesforce, Database and Logger nodes. Run the pipeline or step node by node, inspecting payload, variables and attributes at each stage. Imports real `<flow>` XML from your Mule projects.
 
@@ -61,7 +61,7 @@ Autocomplete over all 361 functions with signature hints, typed against your act
 
 **Practice**
 
-LeetCode for DataWeave, offline. Build problems graded against hidden test cases, "fix this broken script" problems, and multiple choice questions written against the MuleSoft Certified Developer (Level 1) DataWeave objectives. Each topic has a short primer for newcomers, hints and a worked explanation, and every answer was run on the real engine before it shipped.
+LeetCode for DataWeave, offline. Build problems graded against hidden test cases, "fix this broken script" problems, and multiple choice questions written against the MuleSoft Certified Developer (Level 1) DataWeave objectives. Each topic has a short primer for newcomers, hints and a worked explanation.
 
 ![Step debugger paused on a breakpoint](https://raw.githubusercontent.com/Ashutosh-Vijay/DataWeave-Studio/main/docs/screenshots/debugger_paused_dark_mode.png)
 
@@ -69,11 +69,11 @@ LeetCode for DataWeave, offline. Build problems graded against hidden test cases
 
 ![Message Flow designer with step-through debugging](https://raw.githubusercontent.com/Ashutosh-Vijay/DataWeave-Studio/main/docs/screenshots/message_flow_dark_mode.png)
 
-## Give your AI assistant a real DataWeave engine
+## Let your AI assistant run DataWeave
 
 Ask Copilot or Claude for a DataWeave script today and you get something plausible. It has no way to check.
 
-This extension ships an **MCP server** that hands the assistant the actual engine. It can run a script against your payload and read the real error, type-check without running, run a `dw::test` suite and see which assertions passed, ask what every expression evaluated to when the output looks wrong, and look up any of the 361 functions and 172 recipes offline. So the scripts you get have been run before you see them.
+This extension ships an **MCP server** that lets the assistant run DataWeave itself. It can run a script against your payload and read the real error, type-check without running, run a `dw::test` suite and see which assertions passed, ask what every expression evaluated to when the output looks wrong, and look up any of the 361 functions and 172 recipes offline. So the scripts you get have been run before you see them.
 
 It also answers plain HTTP: `POST /run` takes `{ script, payload, vars, attributes }`, and a `rows` array runs one script over every row. That turns "test this transform against a month of production data" into a short Python loop instead of deploying an API to do it.
 
@@ -97,7 +97,7 @@ No telemetry, analytics or accounts. The extension only goes online when you sen
 
 ## Prefer a standalone app?
 
-The same tool ships as a desktop app for Windows, macOS and Linux, with the same engine and features.
+The same tool ships as a desktop app for Windows, macOS and Linux, with the same features.
 
 - **Windows:** [get it from the Microsoft Store](https://apps.microsoft.com/detail/9NWD4L4J7D92). It's signed by Microsoft, so there's no SmartScreen prompt, and updates arrive automatically.
 - **macOS, Linux, or a direct installer:** [ashutosh-vijay.dev/dataweave](https://ashutosh-vijay.dev/dataweave/)

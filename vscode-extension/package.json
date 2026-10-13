@@ -1,7 +1,7 @@
 {
   "name": "dataweave-studio",
   "displayName": "DataWeave Studio",
-  "description": "Write, run, test and debug MuleSoft DataWeave inside VS Code, with the real DataWeave 2.12 engine built in. No Anypoint, no Maven.",
+  "description": "Write, run, test and debug MuleSoft DataWeave inside VS Code, with DataWeave 2.12 built in. No Anypoint, no Maven.",
   "version": "3.0.0",
   "publisher": "ashutosh-vijay",
   "license": "MIT",

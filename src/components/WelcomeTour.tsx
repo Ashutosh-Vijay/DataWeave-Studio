@@ -38,7 +38,7 @@ const STEPS: Step[] = [
     desc: 'The editor talks to MuleSoft’s own DataWeave language service: completion that knows your payload’s actual fields, hover types, signature help, go-to-definition (F12), find references (⇧F12), rename (F2), an outline, folding and quick fixes.',
     tip: 'Errors are underlined as you type, by the same checker the runtime uses.' },
   { sel: 'run-controls', side: 'bottom', kicker: 'Run', title: 'It runs as you type',
-    desc: 'Auto-run is on, so the output re-renders about a second after you stop typing, with no button to press. Everything runs on the bundled DataWeave 2.12 engine. Run also follows the pane you are in: the script, or the test suite.',
+    desc: 'Auto-run is on, so the output re-renders about a second after you stop typing, with no button to press. Scripts run on DataWeave 2.12. Run also follows the pane you are in: the script, or the test suite.',
     tip: '⌘↵ runs on demand. The caret beside Run holds auto-run and value trace if you want either off.' },
   { sel: 'output', side: 'left', kicker: 'Output', title: 'See it instantly',
     desc: 'Results render here as formatted JSON, XML or text. Copy or export it in one click. Errors show the exact line, a source snippet and a collapsible stack trace.' },

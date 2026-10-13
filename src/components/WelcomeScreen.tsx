@@ -54,17 +54,17 @@ const ICONS = {
 
 const BENTO = [
   { key: 'target', tag: 'NEW', title: 'Target your Mule', desc: 'Check scripts against the runtime you deploy to, so a function your Mule lacks fails here, not on the server.', icon: ICONS.target },
-  { key: 'tests', tag: 'NEW', title: 'Unit tests', desc: 'Real dw::test suites, run by the bundled engine, with the engine’s own failure messages and line numbers.', icon: ICONS.tests },
+  { key: 'tests', tag: 'NEW', title: 'Unit tests', desc: 'Real dw::test suites, with clear failure messages and line numbers.', icon: ICONS.tests },
   { key: 'lsp', tag: 'NEW', title: 'Real IDE editing', desc: 'MuleSoft’s own language service: type-aware completion, go-to-definition, rename, outline and quick fixes.', icon: ICONS.lsp },
   { key: 'share', title: 'Share as a link', desc: 'Script, payload, context and target runtime in one link.', icon: ICONS.share },
-  { key: 'mcp', title: 'Local server', desc: 'Expose the engine to Claude, Cursor & Copilot so an agent can run and self-correct scripts.', icon: ICONS.mcp },
+  { key: 'mcp', title: 'Local server', desc: 'Let Claude, Cursor & Copilot run your scripts and fix their own mistakes.', icon: ICONS.mcp },
   { key: 'flow', title: 'Message flows', desc: 'Chain transforms into a pipeline with the visual Message Flow designer.', icon: ICONS.flow },
   { key: 'ref', title: '361 functions', desc: 'The full DataWeave standard library, searchable, with signatures and runnable examples.', icon: ICONS.ref },
   { key: 'modules', title: 'Module library', desc: 'Save reusable .dwl modules once, then import them from any script.', icon: ICONS.modules },
   { key: 'cookbook', title: 'Cookbook', desc: 'A searchable library of ready-to-run recipes. Load one and tweak it.', icon: ICONS.cookbook },
   { key: 'java', title: 'Java tester', desc: 'Compile the Java classes your Mule app calls and run them against a payload.', icon: ICONS.java },
   { key: 'secure', title: 'Secure properties', desc: 'Encrypt & decrypt ${secure::key} values with the built-in crypto tool.', icon: ICONS.secure },
-  { key: 'offline', title: 'Works offline', desc: 'Runs on the bundled engine, with no account to create and nothing to configure.', icon: ICONS.offline },
+  { key: 'offline', title: 'Works offline', desc: 'No account to create and nothing to configure. Your data stays on your machine.', icon: ICONS.offline },
 ];
 
 const CHIPS = ['DataWeave 2.12 runtime', 'Bundled JVM', 'JSON · XML · CSV · YAML', 'cURL import', 'OpenAPI import', 'Share links', 'Cross-platform'];

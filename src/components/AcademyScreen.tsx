@@ -416,7 +416,7 @@ function LessonView({ lesson, index, done, draft, onDraft, onDone, onPrev, onNex
             </>
           ) : (
             <>
-              <div className="text-[13.5px] font-semibold text-content"><Rich text={`Check: ${check.prompt}`} /> <span className="font-normal text-[12px] text-content-faint">graded by the engine on {check.cases.length} inputs</span></div>
+              <div className="text-[13.5px] font-semibold text-content"><Rich text={`Check: ${check.prompt}`} /> <span className="font-normal text-[12px] text-content-faint">checked on {check.cases.length} inputs</span></div>
               <div className="flex items-center gap-3 mt-2.5 flex-wrap">
                 <button onClick={submit} disabled={grading} className="h-8 px-3.5 rounded-lg text-[13px] font-semibold cursor-pointer disabled:opacity-50" style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}>
                   {grading ? 'Checking…' : 'Check my script'}
@@ -574,7 +574,7 @@ export function AcademyScreen({ open, onClose, onOpenUnit, covered = false }: {
         <div className="w-px h-4 bg-line" />
         <span style={{ color: 'var(--accent)' }}><CapIcon /></span>
         <span className="text-[13px] font-semibold text-content tracking-tight">DataWeave Academy</span>
-        <span className="text-[11px] font-mono text-content-faint truncate">{lesson ? `/ Chapter 0 / ${lesson.id} ${lesson.title}` : `${LESSONS.length} lessons · ${UNITS.length} units · runs on the real engine`}</span>
+        <span className="text-[11px] font-mono text-content-faint truncate">{lesson ? `/ Chapter 0 / ${lesson.id} ${lesson.title}` : `${LESSONS.length} lessons · ${UNITS.length} units`}</span>
         <span className="flex-1" />
         <WindowControls />
       </header>
@@ -598,7 +598,7 @@ export function AcademyScreen({ open, onClose, onOpenUnit, covered = false }: {
               <div>
                 <h1 className="text-[30px] font-semibold tracking-tight text-content">Learn DataWeave from zero</h1>
                 <p className="mt-1.5 max-w-[640px] text-[14px] text-content-secondary leading-relaxed">
-                  Start with what a payload is and what mapping means. Finish writing the transforms real Mule apps run. Every example and every check runs on the same engine Mule uses, on your machine.
+                  Start with what a payload is and what mapping means. Finish writing the transforms real Mule apps run. Every lesson has something to try, and every check shows you exactly what was off.
                 </p>
               </div>
               <div className="min-w-[270px] p-4 rounded-xl border border-line bg-surface">
