@@ -24,10 +24,10 @@ This is the playground with those edges removed. It installs like any extension 
 | Step debugger with breakpoints | **Yes** | No | No | No |
 | Secure properties (`![…]`) | **Yes, offline** | No | No | Runtime only |
 | Needs a project / install / account | **No** | No account | Install | 2 GB, a Mule project |
-| Practice problems | **Yes** | Tutorials | No | No |
+| Beginner lessons and practice | **Yes** | Tutorials | No | No |
 | Works with your AI assistant | **Yes, free** | No | No | Subscription |
 
-It runs MuleSoft's actual DataWeave runtime rather than a reimplementation, so what works here works in your Mule app.
+What works here works in your Mule app.
 
 ## What you get
 
@@ -59,9 +59,9 @@ Paste an `application.yaml` and a `secure-config.yaml` with `![encrypted]` value
 
 Autocomplete over all 361 functions with signature hints, typed against your actual payload's shape. Hover docs, go-to-definition, find-references, rename, outline, folding. Live diagnostics with fixes you can apply. Warnings when a script hashes with MD5 or leaves a `log()` behind. Formatting via the engine's own formatter, snippets, a searchable function reference, and DW 1.0 to 2.0 migration with a side-by-side diff.
 
-**Practice**
+**DataWeave Academy and Practice**
 
-LeetCode for DataWeave, offline. Build problems graded against hidden test cases, "fix this broken script" problems, and multiple choice questions written against the MuleSoft Certified Developer (Level 1) DataWeave objectives. Each topic has a short primer for newcomers, hints and a worked explanation.
+New to DataWeave? Nine short lessons start from what a payload is and what mapping means, each with something to try and a check at the end. Then LeetCode for DataWeave, offline. Build problems graded against hidden test cases, "fix this broken script" problems, and multiple choice questions written against the MuleSoft Certified Developer (Level 1) DataWeave objectives. Each topic has a short primer for newcomers, hints and a worked explanation.
 
 ![Step debugger paused on a breakpoint](https://raw.githubusercontent.com/Ashutosh-Vijay/DataWeave-Studio/main/docs/screenshots/debugger_paused_dark_mode.png)
 

@@ -75,7 +75,7 @@ Built with Tauri v2 (Rust), React, TypeScript and Monaco. Ships with a bundled J
 Testing DataWeave today means picking one of these:
 
 - **Anypoint Studio** is a 2 GB Eclipse install that takes minutes to start, and testing one script means running a whole Mule app.
-- **The online playground** runs in the browser. It has no offline mode, no binary formats (Excel, Avro, Protobuf), payloads are limited by browser memory, and there's no way to set `vars` or `attributes` properly.
+- **The online playground** sends your script and payload to MuleSoft's servers and rejects payloads over about 50 KB. It has no offline mode, no binary formats (Excel, Avro, Protobuf), and no way to set `vars` or `attributes` properly.
 - **MuleSoft's VS Code extension** needs Java 8+ and Maven 3.6+, a full Maven project (`pom.xml`, `src/main/dw/`, `src/test/dw/`) and scenario files for every input. *(DataWeave Studio's own extension has none of these requirements.)*
 
 DataWeave Studio puts all of it in one window. Install it and start typing.
@@ -90,8 +90,8 @@ Copy a link that carries the script, payload, variables, headers and query param
 **2. A local MCP server**
 Claude, Cursor or any MCP client can compile and run transforms, so your assistant checks its DataWeave instead of guessing.
 
-**3. Practice mode**
-Hundreds of DataWeave problems, from your first `map` to exam-style multiple choice questions for the MuleSoft Developer certification. Every problem has a worked explanation.
+**3. DataWeave Academy and Practice**
+New to DataWeave? Nine short lessons start from what a payload is and what mapping means, each with something to try and a check at the end. Then hundreds of problems, from your first `map` to exam-style multiple choice questions for the MuleSoft Developer certification, each with a worked explanation.
 
 **4. Visual Message Flow Designer**
 A drag-and-drop canvas inspired by Anypoint Studio. Chain Set Payload, Transform, Set Variable, HTTP Request, Salesforce, Database and Logger steps, then run them all or step through one node at a time and inspect the payload, variables and attributes at each stage.
@@ -137,7 +137,7 @@ JRE 17 and the DataWeave runtime ship inside the app. No Java install, no `JAVA_
 | **Secure config (`![encrypted]`)** | Yes, one value or a whole file | No | No | Yes |
 | **SOQL/SQL query rendering** | Yes | No | No | Yes |
 | **Testing** | `dw::test`, run in the app | `dw::test` | No | MUnit |
-| **Practice problems** | Yes, with explanations | No | Tutorials | No |
+| **Learn and practice** | Beginner lessons, 739 problems | No | Tutorials | No |
 | **Multi-request workspaces** | Yes | One mapping per file | No | Per flow |
 | **Multipart form-data** | Visual builder | No | No | Yes |
 | **DW 1.0 to 2.0 migration** | Yes | No | No | Yes |
@@ -198,6 +198,11 @@ JRE 17 and the DataWeave runtime ship inside the app. No Java install, no `JAVA_
 - **4 modes**: CBC, CFB, ECB, OFB
 - Random IV option for AES
 - Compatible with MuleSoft's `secure-properties-tool.jar`
+
+### DataWeave Academy
+- Nine lessons for complete beginners: payloads, mapping, selectors, building the output, lists, formats, and where data comes from in a Mule flow
+- One running example, something to click or type in every lesson, and a check at the end
+- Then Practice's 40 topics in order, each tagged with the MCD exam objective it covers
 
 ### Practice
 - Build problems graded against hidden test cases, like LeetCode
