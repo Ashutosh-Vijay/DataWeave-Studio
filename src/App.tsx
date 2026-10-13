@@ -2508,14 +2508,15 @@ function App() {
           workspace so the "what's a workspace? what's a request?" mental
           model is clear from the start. */}
       <FirstWorkspacePrompt
-        open={showFirstWorkspace}
+        open={showFirstWorkspace && !academyOpen && !practiceOpen}
         targetRuntime={appTarget}
         onCreate={handleFirstWorkspaceCreate}
       />
 
       {/* Existing installs never saw the onboarding question, so they get it
-          once. Default stays "latest", so ignoring this changes nothing. */}
-      {showTargetPrompt && (
+          once. Default stays "latest", so ignoring this changes nothing. Not over
+          the Academy or Practice: a beginner can't answer "which Mule" yet. */}
+      {showTargetPrompt && !academyOpen && !practiceOpen && (
         <TargetRuntimePrompt
           initial={appTarget}
           onDone={(level) => {
