@@ -7,7 +7,7 @@ All notable changes to DataWeave Studio for VS Code.
 **Learn DataWeave from zero.**
 
 - **DataWeave Academy.** Nine short lessons for anyone who has never written DataWeave, or never heard the word mapping. They start with what a payload is and what mapping means, then cover selectors, building the output, lists, formats and where data comes from in a Mule flow, all on one running example. Every lesson has something to click or type and a check at the end. Practice's 40 topics follow in order, each tagged with the MCD exam objective it covers. Open it from the start screen, the rail or Tools.
-- **Fixes.** A variable set to a DataWeave script now runs properly, including a whole script with its own header or one that reads an earlier variable, and a failing one now says so instead of quietly becoming `null`. `${key}` properties resolve inside variables. A property value with a quote or backslash no longer breaks a JSON payload. `p()` calls are no longer underlined as errors, and a script saved with a byte-order mark runs.
+- **Fixes.** A variable set to a DataWeave script now runs properly, including a whole script with its own header or one that reads an earlier variable, and a failing one now says so instead of quietly becoming `null`. `${key}` properties resolve inside variables. A property value with a quote or backslash no longer breaks a JSON payload. `p()` calls are no longer underlined as errors, and a script saved with a byte-order mark runs. Once you have rated the extension, the rating card no longer comes back after an update.
 
 ## 3.3.0 (2026-10-03)
 

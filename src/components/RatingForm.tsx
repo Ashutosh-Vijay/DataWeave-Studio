@@ -31,23 +31,48 @@ const FACES = [
  * How many sessions there have been, when the prompt may next ask, and whether
  * to stop — `done` is set by a submitted rating (from anywhere) or by "Don't
  * ask again". Anything short of that only postpones it.
+ *
+ * Kept in a file in the home folder (~/.dataweave-studio/feedback-prompt.json),
+ * shared by the desktop app and the extension: WebView storage can be lost on
+ * an update, and the prompt then asked people who had already rated. The old
+ * localStorage value is still read and merged in, for anyone who rated before
+ * the file existed.
  */
 const PROMPT_KEY = 'dw-feedback-prompt-v1';
 type PromptState = { sessions: number; snoozeUntil: number; done: boolean };
 
-function readPrompt(): PromptState {
+async function readPrompt(): Promise<PromptState> {
+  let file: Partial<PromptState> = {};
+  let local: Partial<PromptState> = {};
   try {
-    return { sessions: 0, snoozeUntil: 0, done: false, ...JSON.parse(localStorage.getItem(PROMPT_KEY) ?? '{}') };
+    file = JSON.parse((await invoke<string | null>('read_feedback_prompt')) ?? '{}');
   } catch {
-    return { sessions: 0, snoozeUntil: 0, done: false };
+    /* no file access: WebView storage alone */
   }
+  try {
+    local = JSON.parse(localStorage.getItem(PROMPT_KEY) ?? '{}');
+  } catch {
+    /* blocked storage */
+  }
+  // Merged, not one or the other: whichever app runs first after this change
+  // creates the file, and a rating saved only in the other app must still count.
+  return {
+    sessions: Math.max(file.sessions ?? 0, local.sessions ?? 0),
+    snoozeUntil: Math.max(file.snoozeUntil ?? 0, local.snoozeUntil ?? 0),
+    done: !!(file.done || local.done),
+  };
 }
 
-function writePrompt(s: PromptState) {
+async function writePrompt(s: PromptState) {
   try {
     localStorage.setItem(PROMPT_KEY, JSON.stringify(s));
   } catch {
-    /* blocked storage — the prompt may ask again, nothing worse */
+    /* blocked storage */
+  }
+  try {
+    await invoke('write_feedback_prompt', { state: JSON.stringify(s) });
+  } catch {
+    /* the prompt may ask again, nothing worse */
   }
 }
 
@@ -101,7 +126,7 @@ export function RatingForm({ appVersion, onDone, onSent }: { appVersion?: string
       setStatus('sent');
       onSent?.();
       // Rated from anywhere means the prompt has done its job.
-      writePrompt({ ...readPrompt(), done: true });
+      await writePrompt({ ...(await readPrompt()), done: true });
     } catch (e) {
       setStatus('idle');
       setError(e instanceof Error ? e.message : String(e));
@@ -208,29 +233,33 @@ export function RatingPrompt({ appVersion }: { appVersion?: string }) {
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
-    const s = readPrompt();
-    if (!counted) {
-      counted = true;
-      s.sessions += 1;
-      writePrompt(s);
-    }
-    if (s.done || s.sessions < 3 || Date.now() < s.snoozeUntil) return;
-    const t = setTimeout(() => {
-      // Postponed the moment it appears, so closing the app with the card
-      // open counts as "not now" rather than asking again next launch.
-      writePrompt({ ...readPrompt(), snoozeUntil: Date.now() + 14 * 24 * 3600 * 1000 });
-      setShow(true);
-    }, 90_000);
-    return () => clearTimeout(t);
+    let t: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
+    (async () => {
+      const s = await readPrompt();
+      if (!counted) {
+        counted = true;
+        s.sessions += 1;
+        await writePrompt(s);
+      }
+      if (cancelled || s.done || s.sessions < 3 || Date.now() < s.snoozeUntil) return;
+      t = setTimeout(async () => {
+        // Postponed the moment it appears, so closing the app with the card
+        // open counts as "not now" rather than asking again next launch.
+        await writePrompt({ ...(await readPrompt()), snoozeUntil: Date.now() + 14 * 24 * 3600 * 1000 });
+        setShow(true);
+      }, 90_000);
+    })();
+    return () => { cancelled = true; clearTimeout(t); };
   }, []);
 
   if (!show) return null;
 
   // The snooze was already written when the card appeared.
   const later = () => setShow(false);
-  const never = () => {
-    writePrompt({ ...readPrompt(), done: true });
+  const never = async () => {
     setShow(false);
+    await writePrompt({ ...(await readPrompt()), done: true });
   };
 
   return (

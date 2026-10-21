@@ -122,6 +122,8 @@ pub fn run() {
             mcp_server::mcp_set_advanced,
             mcp_server::mcp_set_decrypt,
             mcp_server::mcp_status,
+            platform::read_feedback_prompt,
+            platform::write_feedback_prompt,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

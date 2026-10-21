@@ -12,12 +12,12 @@
       {
         "title": "Fixes",
         "only": "desktop",
-        "desc": "A variable set to a DataWeave script now runs properly, including a whole script with its own header or one that reads an earlier variable, and a failing one now says so instead of quietly becoming null. ${key} properties resolve inside variables. A property value with a quote or backslash no longer breaks a JSON payload. p() calls are no longer underlined as errors, and a script saved with a byte-order mark runs. The welcome screen’s window buttons are real, so the window can be moved and closed before you skip the intro."
+        "desc": "A variable set to a DataWeave script now runs properly, including a whole script with its own header or one that reads an earlier variable, and a failing one now says so instead of quietly becoming null. ${key} properties resolve inside variables. A property value with a quote or backslash no longer breaks a JSON payload. p() calls are no longer underlined as errors, and a script saved with a byte-order mark runs. Once you have rated the app, the rating card no longer comes back after an update. The welcome screen’s window buttons are real, so the window can be moved and closed before you skip the intro."
       },
       {
         "title": "Fixes",
         "only": "vscode",
-        "desc": "A variable set to a DataWeave script now runs properly, including a whole script with its own header or one that reads an earlier variable, and a failing one now says so instead of quietly becoming null. ${key} properties resolve inside variables. A property value with a quote or backslash no longer breaks a JSON payload. p() calls are no longer underlined as errors, and a script saved with a byte-order mark runs."
+        "desc": "A variable set to a DataWeave script now runs properly, including a whole script with its own header or one that reads an earlier variable, and a failing one now says so instead of quietly becoming null. ${key} properties resolve inside variables. A property value with a quote or backslash no longer breaks a JSON payload. p() calls are no longer underlined as errors, and a script saved with a byte-order mark runs. Once you have rated the app, the rating card no longer comes back after an update."
       }
     ]
   },

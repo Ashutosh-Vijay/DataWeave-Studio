@@ -667,6 +667,23 @@ async function handleInvoke(
       throw new Error(last);
     }
 
+    // The rating prompt's state, in the same home-folder file the desktop app
+    // uses (src-tauri/src/platform.rs). Webview storage can be lost when the
+    // extension updates, which made the prompt ask again.
+    case 'read_feedback_prompt': {
+      try {
+        return fs.readFileSync(path.join(os.homedir(), '.dataweave-studio', 'feedback-prompt.json'), 'utf8');
+      } catch {
+        return null;
+      }
+    }
+    case 'write_feedback_prompt': {
+      const dir = path.join(os.homedir(), '.dataweave-studio');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'feedback-prompt.json'), args.state as string);
+      return null;
+    }
+
     default:
       throw new Error(`Command not implemented in extension host yet: ${cmd}`);
   }

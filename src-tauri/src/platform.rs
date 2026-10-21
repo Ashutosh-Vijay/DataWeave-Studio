@@ -25,6 +25,26 @@ pub fn strip_unc_prefix(path: std::path::PathBuf) -> std::path::PathBuf {
     path
 }
 
+// The rating prompt's state, in the user's home folder rather than WebView
+// storage, so an update never makes it ask again. Shared with the VS Code
+// extension (vscode-extension/src/extension.ts), so rating in one counts for both.
+fn feedback_prompt_path() -> Option<std::path::PathBuf> {
+    let home = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME"))?;
+    Some(std::path::PathBuf::from(home).join(".dataweave-studio").join("feedback-prompt.json"))
+}
+
+#[tauri::command]
+pub fn read_feedback_prompt() -> Option<String> {
+    std::fs::read_to_string(feedback_prompt_path()?).ok()
+}
+
+#[tauri::command]
+pub fn write_feedback_prompt(state: String) -> Result<(), String> {
+    let path = feedback_prompt_path().ok_or("No home folder")?;
+    std::fs::create_dir_all(path.parent().unwrap()).map_err(|e| e.to_string())?;
+    std::fs::write(path, state).map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
