@@ -116,6 +116,7 @@ export async function openEngine({ quiet = false } = {}) {
         // DW_MULE_OUTPUT=1 leaves the format to Mule's rule, the way the app runs scripts.
         outputMime: opts.outputMime ?? (process.env.DW_MULE_OUTPUT === '1' ? '' : 'application/json'),
         modules: opts.modules,
+        classpath: opts.classpath,
         languageLevel: opts.languageLevel,
         trace: opts.trace,
         valueTrace: opts.valueTrace,

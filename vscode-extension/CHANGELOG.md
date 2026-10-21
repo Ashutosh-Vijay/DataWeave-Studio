@@ -2,6 +2,10 @@
 
 All notable changes to DataWeave Studio for VS Code.
 
+## [Unreleased]
+
+- **`readUrl("classpath://...")` works.** Add your Mule project's `src/main/resources` folder (or a JAR) under Settings, Classpath, and scripts that load files from the classpath run the way they do in Mule. Before, every `classpath://` URL was rejected as invalid.
+
 ## 3.4.0 (2026-10-14)
 
 **Learn DataWeave from zero.**

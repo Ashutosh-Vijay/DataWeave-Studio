@@ -4,13 +4,15 @@ import com.eclipsesource.json.{Json, JsonObject}
 import org.mule.weave.v2.model.ServiceManager
 import org.mule.weave.v2.model.service.{
   CharsetProviderService, LoggingService,
-  ProtocolUrlSourceProviderResolverService, UrlProtocolHandler,
+  ProtocolUrlSourceProviderResolverService, UrlProtocolHandler, ReadFunctionProtocolHandler,
   UrlSourceProviderResolverService,
   SecurityManagerService, DefaultSecurityManagerService, WeaveRuntimePrivilege
 }
 import org.mule.weave.v2.parser.ast.variables.NameIdentifier
 import org.mule.weave.v2.parser.phase.ParsingContext
-import org.mule.weave.v2.parser.location.WeaveLocation
+import org.mule.weave.v2.parser.location.{WeaveLocation, LocationCapable}
+import org.mule.weave.v2.module.reader.SourceProvider
+import org.mule.weave.v2.core.exception.InvalidLocationException
 import org.mule.weave.v2.runtime._
 import org.mule.weave.v2.utils.DataWeaveVersion
 import org.mule.weave.v2.versioncheck.SVersion
@@ -1543,7 +1545,7 @@ object DwServer {
     val charsetService = new CharsetProviderService {
       override def defaultCharset(): Charset = StandardCharsets.UTF_8
     }
-    val urlService = new ProtocolUrlSourceProviderResolverService(Seq(UrlProtocolHandler))
+    val urlService = new ProtocolUrlSourceProviderResolverService(Seq(UrlProtocolHandler, ClasspathProtocolHandler))
     val base: Map[Class[_], Any] = Map(
       classOf[UrlSourceProviderResolverService] -> urlService,
       classOf[CharsetProviderService] -> charsetService
@@ -1554,6 +1556,21 @@ object DwServer {
       if (sandbox) base + (classOf[SecurityManagerService] -> new DefaultSecurityManagerService(Array.empty[WeaveRuntimePrivilege]))
       else base
     ServiceManager(logger, customServices)
+  }
+
+  // readUrl("classpath://examples/order.json"): Mule resolves it against the app's
+  // classpath (src/main/resources plus its JARs). Here that is the folders and JARs
+  // in Settings > Classpath, which the hot loader already holds. MuleSoft's CLI
+  // registers the same kind of handler; without one every classpath:// URL was invalid.
+  private object ClasspathProtocolHandler extends ReadFunctionProtocolHandler {
+    private val Prefix = "classpath://"
+    override def handles(url: String): Boolean = url.startsWith(Prefix)
+    override def createSourceProvider(url: String, locatable: LocationCapable, charset: Charset): SourceProvider = {
+      val path = url.stripPrefix(Prefix).stripPrefix("/")
+      val in = hotLoader.getResourceAsStream(path)
+      if (in == null) throw new InvalidLocationException(locatable.location(), path)
+      SourceProvider(in, charset)
+    }
   }
 
   private object NullLogger extends LoggingService {

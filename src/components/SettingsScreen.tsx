@@ -640,7 +640,8 @@ function RuntimePanel({
         </SRow>
       </Group>
 
-      <Group title="Classpath" desc="Extra modules and JARs available to every workspace.">
+      <Group title="Classpath" desc="Folders and JARs your scripts can use, like a Mule app's classpath: Java classes for import java!, and files read with readUrl(&quot;classpath://…&quot;). Add your project's src/main/resources folder here.">
+
         <div className="bg-surface border border-line rounded-lg overflow-hidden">
           {classpath.length === 0 && (
             <div className="px-4 py-4 text-[11.5px] text-content-faint italic">No classpath entries.</div>
