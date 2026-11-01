@@ -10,12 +10,25 @@
  * ones come from Monaco once the DataWeave language service registers its
  * providers.
  */
+/** Mac shows ⌘⇧I; Windows and Linux read Ctrl+Shift+I. The bindings accept
+ *  either modifier, only the labels differ. */
+export const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+
+/** A label with every ⌘ chord spelled the way this platform writes it. */
+export function kbd(text: string): string {
+  if (IS_MAC) return text;
+  return text.replace(/⌘([⇧⌥]*)(↵|.)/g, (_, mods: string, key: string) =>
+    'Ctrl+' + mods.replace(/⇧/g, 'Shift+').replace(/⌥/g, 'Alt+') + (key === '↵' ? 'Enter' : key));
+}
+
+const KEY_NAMES: Record<string, string> = IS_MAC ? {} : { '⌘': 'Ctrl', '⇧': 'Shift', '⌥': 'Alt', '↵': 'Enter' };
+
 export interface Shortcut {
   keys: string[];
   label: string;
 }
 
-export const SHORTCUT_GROUPS: { title: string; items: Shortcut[] }[] = [
+const GROUPS: { title: string; items: Shortcut[] }[] = [
   {
     title: 'Run & execute',
     items: [
@@ -71,3 +84,8 @@ export const SHORTCUT_GROUPS: { title: string; items: Shortcut[] }[] = [
     ],
   },
 ];
+
+export const SHORTCUT_GROUPS = GROUPS.map((g) => ({
+  ...g,
+  items: g.items.map((i) => ({ ...i, keys: i.keys.map((k) => KEY_NAMES[k] ?? k) })),
+}));

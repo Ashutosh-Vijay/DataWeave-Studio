@@ -1,3 +1,4 @@
+import { kbd } from '../shortcuts';
 import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Icons } from './Icons';
 import { ConfirmDialog, ConfirmFile } from './ConfirmDialog';
@@ -89,9 +90,9 @@ interface SidebarProps {
 }
 
 const RAIL_ITEMS: { id: RailTab; title: string; Icon: (typeof Icons)[keyof typeof Icons] }[] = [
-  { id: 'workspaces', title: 'Workspaces (⌘O)', Icon: Icons.Workspaces },
-  { id: 'import', title: 'Import (cURL)  ⌘⇧I', Icon: Icons.Import },
-  { id: 'snippets', title: 'Snippets library (⌘L)', Icon: Icons.Library },
+  { id: 'workspaces', title: kbd('Workspaces (⌘O)'), Icon: Icons.Workspaces },
+  { id: 'import', title: kbd('Import (cURL)  ⌘⇧I'), Icon: Icons.Import },
+  { id: 'snippets', title: kbd('Snippets library (⌘L)'), Icon: Icons.Library },
 ];
 
 const SNIPPETS: { name: string; desc: string; body: string }[] = [
@@ -255,7 +256,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
       <div className="w-12 shrink-0 bg-rail border-r border-line flex flex-col py-2.5">
         <button
           onClick={onOpenSecure}
-          title="Secure Properties tool (⌘⇧E)"
+          title={kbd("Secure Properties tool (⌘⇧E)")}
           aria-label="Secure Properties tool"
           className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
         >
@@ -399,7 +400,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
         )}
         <button
           onClick={onOpenSettings}
-          title="Settings (⌘,)"
+          title={kbd("Settings (⌘,)")}
           aria-label="Settings"
           className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
         >
@@ -420,7 +421,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
             {tab === 'workspaces' && (
               <button
                 onClick={() => { onNew(); refreshFiles(); }}
-                title="New workspace (⌘N)"
+                title={kbd("New workspace (⌘N)")}
                 aria-label="New workspace"
                 className="w-[22px] h-[22px] rounded flex items-center justify-center text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer"
               >
@@ -459,10 +460,10 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                         ? 'bg-surface-2 border border-line text-content-faint'
                         : 'bg-accent hover:bg-accent-hover text-accent-ink'
                     }`}
-                    title={isDirty ? 'Save workspace (⌘S)' : 'All changes saved'}
+                    title={isDirty ? kbd('Save workspace (⌘S)') : 'All changes saved'}
                   >
                     {saveFlash ? '✓ Saved' : saving ? 'Saving…' : (!isDirty && currentFile) ? '✓ Saved' : 'Save'}
-                    {(isDirty || !currentFile) && !saveFlash && <span className="text-[10px] opacity-60 ml-1">⌘S</span>}
+                    {(isDirty || !currentFile) && !saveFlash && <span className="text-[10px] opacity-60 ml-1">{kbd('⌘S')}</span>}
                   </button>
                 </div>
 
@@ -540,7 +541,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                       className="text-[11px] py-2 px-1 leading-relaxed"
                       style={{ color: 'var(--content-faint)' }}
                     >
-                      Nothing saved yet. <span className="font-mono">⌘S</span> saves this workspace.
+                      Nothing saved yet. <span className="font-mono">{kbd('⌘S')}</span> saves this workspace.
                     </div>
                   ) : (
                     <WorkspaceList
@@ -577,7 +578,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                   </button>
                 ))}
                 <div className="px-1.5 pt-2 text-[10.5px] text-content-ghost leading-snug">
-                  Click to replace the current script. Use <span className="font-mono">⌘Z</span> to undo.
+                  Click to replace the current script. Use <span className="font-mono">{kbd('⌘Z')}</span> to undo.
                 </div>
               </div>
             )}

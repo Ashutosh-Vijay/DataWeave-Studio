@@ -1,3 +1,4 @@
+import { kbd } from '../shortcuts';
 import { useEffect, useRef, useState } from 'react';
 import { Icons } from './Icons';
 
@@ -83,10 +84,10 @@ export function WorkspaceMenu({
           style={{ background: 'var(--surface)', borderColor: 'var(--line)' }}
         >
           <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-content-faint font-medium">Workspace</div>
-          {item('Save', '⌘S', onSave)}
-          {item('New blank', '⌘N', onNew)}
-          {item('Open / manage…', '⌘O', onOpen)}
-          {item('Duplicate', '⌘D', onDuplicate)}
+          {item('Save', kbd('⌘S'), onSave)}
+          {item('New blank', kbd('⌘N'), onNew)}
+          {item('Open / manage…', kbd('⌘O'), onOpen)}
+          {item('Duplicate', kbd('⌘D'), onDuplicate)}
           <div className="my-1 border-t" style={{ borderColor: 'var(--line)' }} />
           <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-content-faint font-medium">Playground</div>
           {item('Import from Playground zip…', null, onImportPlayground)}

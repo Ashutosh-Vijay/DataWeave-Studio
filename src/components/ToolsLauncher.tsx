@@ -4,7 +4,8 @@
  * it, so a tool that wasn't on the rail (Mule log to cURL) was easy to miss
  * entirely. Opened from the top bar's Tools button and the rail's All tools.
  */
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { useModalFocus } from '../hooks/useModalFocus';
 
 export interface Tool {
   label: string;
@@ -26,6 +27,9 @@ export function ToolsLauncher({ tools, extras, onClose }: {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  const panelRef = useRef<HTMLDivElement>(null);
+  useModalFocus(panelRef, true);
+
   const groups = [...new Set(tools.map((t) => t.group))];
   const open = (run: () => void) => { onClose(); run(); };
 
@@ -36,8 +40,13 @@ export function ToolsLauncher({ tools, extras, onClose }: {
       onClick={onClose}
     >
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="All tools"
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="flex flex-col rounded-2xl border border-line bg-surface shadow-2xl overflow-hidden"
+        className="flex flex-col rounded-2xl border border-line bg-surface shadow-2xl overflow-hidden outline-none"
         style={{ width: 'min(760px, calc(100vw - 40px))', maxHeight: 'calc(100vh - 64px)' }}
       >
         <div className="flex items-center gap-3 px-6 h-14 shrink-0 border-b border-line-subtle">

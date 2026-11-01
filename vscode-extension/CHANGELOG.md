@@ -5,6 +5,7 @@ All notable changes to DataWeave Studio for VS Code.
 ## [Unreleased]
 
 - **Test on-error scripts.** A new Error tab in Context gives your script the `error` object Mule hands to an error handler: `error.description`, `error.errorType.identifier`, `error.errorMessage.attributes.statusCode` and the rest. Pick a type (HTTP:NOT_FOUND, DB:CONNECTIVITY, APIKIT:BAD_REQUEST, a Scatter-Gather failure and more) or press Generate for a random one, then edit any value. `error.` completes in the editor.
+- **Fixes.** Shortcuts read Ctrl+K, Ctrl+Enter and so on outside macOS, instead of ⌘. Run and Save stay readable on every accent after switching between Paper and Dusk. Settings and the tools list keep keyboard focus inside while open. The output's line-number setting works, and a new one turns off line wrapping for long values. The Compact mode switch, which did nothing, is gone.
 - **`readUrl("classpath://...")` works.** Add your Mule project's `src/main/resources` folder (or a JAR) under Settings, Classpath, and scripts that load files from the classpath run the way they do in Mule. Before, every `classpath://` URL was rejected as invalid.
 
 ## 3.4.0 (2026-10-14)

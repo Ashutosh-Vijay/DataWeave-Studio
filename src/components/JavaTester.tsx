@@ -15,6 +15,7 @@
  * Caveat: the engine's classloader caches classes it has already loaded, so a
  * *changed* class needs an engine restart (button in the header) to take effect.
  */
+import { kbd } from '../shortcuts';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { invoke } from '../bridge';
 import { Icons } from './Icons';
@@ -285,9 +286,9 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
           disabled={compiling || running}
           className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11.5px] font-semibold cursor-pointer transition-colors disabled:opacity-50"
           style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
-          title="Compile and run (⌘↵). Restarts the engine when your code has changed. ⌘B only compiles."
+          title={kbd("Compile and run (⌘↵). Restarts the engine when your code has changed. ⌘B only compiles.")}
         >
-          {compiling ? 'Compiling…' : running ? 'Running…' : <>▶ Compile &amp; Run <kbd className="text-[9.5px] font-mono opacity-80">⌘↵</kbd></>}
+          {compiling ? 'Compiling…' : running ? 'Running…' : <>▶ Compile &amp; Run <kbd className="text-[9.5px] font-mono opacity-80">{kbd('⌘↵')}</kbd></>}
         </button>
         <button
           onClick={restartEngine}
@@ -412,7 +413,7 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
             ) : output ? (
               <pre className="text-[11.5px] font-mono whitespace-pre-wrap leading-relaxed text-content">{output}</pre>
             ) : (
-              <div className="text-[11px] text-content-faint italic">Compile (⌘B), then Run (⌘↵).</div>
+              <div className="text-[11px] text-content-faint italic">Compile ({kbd('⌘B')}), then Run ({kbd('⌘↵')}).</div>
             )}
           </div>
         </div>

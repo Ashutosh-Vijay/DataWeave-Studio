@@ -1,3 +1,4 @@
+import { kbd } from './shortcuts';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { check, type Update } from '@tauri-apps/plugin-updater';
@@ -572,7 +573,7 @@ function App() {
         workspace.addRequest(snap.label || 'Shared tests', 'test', snap.script);
         toast({
           title: 'Opened a shared test suite',
-          message: 'Added to Tests in this workspace. Run it with ⌘↵.',
+          message: kbd('Added to Tests in this workspace. Run it with ⌘↵.'),
           variant: 'success',
         });
         return;
@@ -1540,27 +1541,27 @@ function App() {
   const nodeLabelColors = NODE_LABEL_COLORS[workspace.nodeLabel] || NODE_LABEL_COLORS.Transform;
 
   const paletteCommands: Command[] = [
-    { id: 'run', label: viewMode === 'tests' ? 'Run test suite' : 'Run script', shortcut: '⌘↵', group: 'Run', run: () => { if (canRun) handleRun(); } },
+    { id: 'run', label: viewMode === 'tests' ? 'Run test suite' : 'Run script', shortcut: kbd('⌘↵'), group: 'Run', run: () => { if (canRun) handleRun(); } },
     { id: 'trace', label: valueTrace ? 'Turn off value trace' : 'Trace every expression on the next run', group: 'Run', run: () => setValueTrace(!valueTrace) },
-    { id: 'auto', label: autoRun ? 'Disable auto-run' : 'Enable auto-run', shortcut: '⌘⇧R', group: 'Run', run: () => setAutoRun(!autoRun) },
-    { id: 'save', label: 'Save workspace', shortcut: '⌘S', group: 'Workspace', run: () => { beginTransforming(); handleSave(); } },
-    { id: 'new', label: 'New workspace', shortcut: '⌘N', group: 'Workspace', run: guardedNew },
-    { id: 'open', label: 'Open workspace…', shortcut: '⌘O', group: 'Workspace', run: () => setOpenWsOpen(true) },
-    { id: 'duplicate', label: 'Duplicate workspace', shortcut: '⌘D', group: 'Workspace', run: () => { beginTransforming(); workspace.duplicateWorkspace(); } },
+    { id: 'auto', label: autoRun ? 'Disable auto-run' : 'Enable auto-run', shortcut: kbd('⌘⇧R'), group: 'Run', run: () => setAutoRun(!autoRun) },
+    { id: 'save', label: 'Save workspace', shortcut: kbd('⌘S'), group: 'Workspace', run: () => { beginTransforming(); handleSave(); } },
+    { id: 'new', label: 'New workspace', shortcut: kbd('⌘N'), group: 'Workspace', run: guardedNew },
+    { id: 'open', label: 'Open workspace…', shortcut: kbd('⌘O'), group: 'Workspace', run: () => setOpenWsOpen(true) },
+    { id: 'duplicate', label: 'Duplicate workspace', shortcut: kbd('⌘D'), group: 'Workspace', run: () => { beginTransforming(); workspace.duplicateWorkspace(); } },
     // Creating a share link used to live only in the breadcrumb menu, which is
     // where nobody found it. Sharing is a Share group of its own so ⌘K > "share"
     // surfaces all three actions together.
     { id: 'share-request', label: viewMode === 'tests' ? 'Copy share link: this test suite' : 'Copy share link: this script', hint: viewMode === 'tests' ? 'The suite, in one URL' : 'Script, payload, vars & headers in one URL', group: 'Share', run: handleCopyShareLink },
     { id: 'share-workspace', label: 'Copy share link: whole workspace', hint: 'Every script and suite in this workspace', group: 'Share', run: handleCopyWorkspaceShareLink },
     { id: 'share-code', label: 'Copy share code (no link)', hint: 'For networks that block the site', group: 'Share', run: handleCopyShareCode },
-    { id: 'share-open', label: 'Open from share link…', shortcut: '⌘⇧I', group: 'Share', run: handleOpenShareLink },
+    { id: 'share-open', label: 'Open from share link…', shortcut: kbd('⌘⇧I'), group: 'Share', run: handleOpenShareLink },
     { id: 'import-playground', label: 'Import from Playground zip…', group: 'Workspace', run: handleImportPlayground },
     { id: 'export-playground', label: 'Export as Playground zip…', group: 'Workspace', run: handleExportPlayground },
     { id: 'format', label: 'Format script', shortcut: '⌥⇧F', group: 'Editor', run: () => scriptEditorRef.current?.format() },
-    { id: 'sidebar', label: sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar', shortcut: '⌘B', group: 'View', run: () => setSidebarCollapsed(!sidebarCollapsed) },
-    { id: 'layout-workbench', label: 'Switch UI → Workbench', hint: layout === 'workbench' ? 'current' : 'Sidebar · tabs · tests', shortcut: '⌘⇧1', group: 'View', run: () => setLayout('workbench') },
-    { id: 'layout-focus', label: 'Switch UI → Playground', hint: layout === 'focus' ? 'current' : 'Input · script · output', shortcut: '⌘⇧2', group: 'View', run: () => setLayout('focus') },
-    { id: 'theme', label: isDark ? 'Switch to Paper (light)' : 'Switch to Dusk (dark)', shortcut: '⌘⇧T', group: 'View', run: () => toggle() },
+    { id: 'sidebar', label: sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar', shortcut: kbd('⌘B'), group: 'View', run: () => setSidebarCollapsed(!sidebarCollapsed) },
+    { id: 'layout-workbench', label: 'Switch UI → Workbench', hint: layout === 'workbench' ? 'current' : 'Sidebar · tabs · tests', shortcut: kbd('⌘⇧1'), group: 'View', run: () => setLayout('workbench') },
+    { id: 'layout-focus', label: 'Switch UI → Playground', hint: layout === 'focus' ? 'current' : 'Input · script · output', shortcut: kbd('⌘⇧2'), group: 'View', run: () => setLayout('focus') },
+    { id: 'theme', label: isDark ? 'Switch to Paper (light)' : 'Switch to Dusk (dark)', shortcut: kbd('⌘⇧T'), group: 'View', run: () => toggle() },
     { id: 'out-auto', label: 'Output format: Auto', hint: declaredFormat ? 'remove the output line' : 'current', group: 'Output', run: () => handlePickFormat(null) },
     ...OUTPUT_FORMATS.map((f) => ({ id: `out-${f.label.toLowerCase()}`, label: `Output format: ${f.label}`, hint: declaredFormat === f.mime ? 'current' : f.mime, group: 'Output', run: () => handlePickFormat(f.mime) })),
     ...NODE_LABELS.map((l) => ({
@@ -1576,13 +1577,13 @@ function App() {
     // they first appear here.
     { id: 'reference', label: 'Open DataWeave function reference', group: 'Writing', run: () => setReferenceOpen(true) },
     { id: 'recipes', label: 'Open DataWeave cookbook', group: 'Writing', run: () => setRecipesOpen(true) },
-    { id: 'snippets', label: 'Open snippets library', shortcut: '⌘L', group: 'Writing', run: handleOpenSnippets },
+    { id: 'snippets', label: 'Open snippets library', shortcut: kbd('⌘L'), group: 'Writing', run: handleOpenSnippets },
     { id: 'modules', label: 'Open Module library', group: 'Writing', run: () => setModulesOpen(true) },
-    { id: 'import-curl', label: 'Import cURL', shortcut: '⌘⇧I', group: 'Bring data in', run: handleOpenImport },
+    { id: 'import-curl', label: 'Import cURL', shortcut: kbd('⌘⇧I'), group: 'Bring data in', run: handleOpenImport },
     { id: 'all-tools', label: 'All tools', hint: 'Every tool, with what it’s for', group: 'Tools', run: () => setToolsMenuOpen(true) },
     { id: 'mule-log', label: 'Mule log → cURL', hint: 'Replay a request that only exists in a log', group: 'Bring data in', run: () => setMuleLogOpen(true) },
     { id: 'openapi', label: 'Open OpenAPI / Swagger reader', group: 'Bring data in', run: () => { introFeature('openapi'); setOpenApiOpen(true); } },
-    { id: 'secure', label: 'Open Secure Properties tool', shortcut: '⌘⇧E', group: 'Secrets', run: () => setSecureToolOpen(true) },
+    { id: 'secure', label: 'Open Secure Properties tool', shortcut: kbd('⌘⇧E'), group: 'Secrets', run: () => setSecureToolOpen(true) },
     { id: 'config-crypto', label: 'Encrypt or decrypt a config file', group: 'Secrets', run: () => setConfigCryptoOpen(true) },
     { id: 'flow', label: 'Open Message Flow designer', group: 'Tools', run: () => setFlowDesignerOpen(true) },
     { id: 'practice', label: 'Open Practice', hint: 'Graded DataWeave problems, offline', group: 'Tools', run: () => setPracticeOpen(true) },
@@ -1590,8 +1591,8 @@ function App() {
     { id: 'compare', label: 'Open Compare tool', group: 'Tools', run: () => setCompareToolOpen(true) },
     { id: 'java', label: 'Open Java tester', group: 'Tools', run: () => setJavaTesterOpen(true) },
     { id: 'mcp', label: 'Open Local Server', hint: 'MCP for AI agents · HTTP for scripts', group: 'Tools', run: () => setMcpOpen(true) },
-    { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: '⌘/', group: 'App', run: () => setShortcutsOpen(true) },
-    { id: 'settings', label: 'Open Settings', shortcut: '⌘,', group: 'App', run: () => setSettingsOpen(true) },
+    { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: kbd('⌘/'), group: 'App', run: () => setShortcutsOpen(true) },
+    { id: 'settings', label: 'Open Settings', shortcut: kbd('⌘,'), group: 'App', run: () => setSettingsOpen(true) },
     { id: 'about', label: 'About DataWeave Studio', group: 'App', run: () => setAboutOpen(true) },
     { id: 'whats-new', label: 'What’s new', hint: 'Release notes for this version and earlier ones', group: 'App', run: () => setShowWhatsNew(true) },
     { id: 'feedback', label: 'Send feedback / report a bug', group: 'App', run: () => setFeedbackOpen(true) },
@@ -1655,7 +1656,7 @@ function App() {
         >
           <Icons.Search size={13} />
           <span className="flex-1 truncate text-left">Search commands, files…</span>
-          <span className="font-mono text-[10.5px] px-1.5 py-0.5 rounded bg-surface-3 text-content-muted">⌘K</span>
+          <span className="font-mono text-[10.5px] px-1.5 py-0.5 rounded bg-surface-3 text-content-muted">{kbd('⌘K')}</span>
         </button>
 
         <div className="flex-1" />
@@ -1668,8 +1669,8 @@ function App() {
           <span data-tour="share" className="inline-flex">
           <IconBtn
             title={workspace.request.kind === 'test'
-              ? 'Copy a share link for this test suite (⌘K → “share” for more)'
-              : 'Copy a share link for this script (⌘K → “share” for more)'}
+              ? kbd('Copy a share link for this test suite (⌘K → “share” for more)')
+              : kbd('Copy a share link for this script (⌘K → “share” for more)')}
             onClick={handleCopyShareLink}
           >
             <Icons.Share size={15} />
@@ -1692,7 +1693,7 @@ function App() {
             <div
               className="inline-flex gap-0.5 p-0.5 rounded-md border"
               style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}
-              title="Switch layout (⌘⇧1 / ⌘⇧2)"
+              title={kbd("Switch layout (⌘⇧1 / ⌘⇧2)")}
             >
               {([['workbench', 'Workbench'], ['focus', 'Playground']] as const).map(([id, name]) => {
                 const active = layout === id;
@@ -1726,7 +1727,7 @@ function App() {
             </button>
           </div>
 
-          <IconBtn title="Settings (⌘,)" onClick={() => { setSettingsSection(undefined); setSettingsOpen(true); }}>
+          <IconBtn title={kbd("Settings (⌘,)")} onClick={() => { setSettingsSection(undefined); setSettingsOpen(true); }}>
             <Icons.Settings size={15} />
           </IconBtn>
 
@@ -1795,7 +1796,7 @@ function App() {
                   color: 'color-mix(in oklch, var(--accent-ink) 80%, transparent)',
                 }}
               >
-                ⌘↵
+                {kbd('⌘↵')}
               </span>
             </button>
             <button

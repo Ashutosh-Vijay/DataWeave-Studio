@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useModalFocus } from '../hooks/useModalFocus';
 import { open } from '@tauri-apps/plugin-dialog';
 import { logoUrl } from '../assets';
 import { Icons } from './Icons';
 import { TARGETS } from '../targetRuntime';
-import { SHORTCUT_GROUPS } from '../shortcuts';
+import { SHORTCUT_GROUPS, kbd } from '../shortcuts';
 import { ConfirmDialog } from './ConfirmDialog';
 import { MIME_OPTIONS, MimeType } from '../types';
 import { notifyEditorFontChanged } from '../hooks/useEditorFont';
@@ -47,7 +48,7 @@ interface SettingsScreenProps {
 }
 
 const SECTIONS: { id: Section; label: string; icon: keyof typeof Icons; keywords: string[] }[] = [
-  { id: 'appearance', label: 'Appearance', icon: 'Panel', keywords: ['theme', 'dark', 'light', 'dusk', 'paper', 'accent', 'color', 'layout', 'workbench', 'focus', 'playground', 'compact', 'density'] },
+  { id: 'appearance', label: 'Appearance', icon: 'Panel', keywords: ['theme', 'dark', 'light', 'dusk', 'paper', 'accent', 'color', 'layout', 'workbench', 'focus', 'playground', 'line numbers', 'wrap', 'output'] },
   { id: 'general',    label: 'General',    icon: 'Settings', keywords: ['startup', 'autosave', 'tour', 'updates', 'last workspace'] },
   { id: 'runtime',    label: 'Runtime',    icon: 'Terminal', keywords: ['engine', 'restart', 'jvm', 'java', 'timeout', 'classpath', 'jar', 'mime', 'input format', 'target', 'mule', 'version', 'compatibility'] },
   { id: 'editor',     label: 'Editor',     icon: 'Braces', keywords: ['font', 'size', 'line height', 'tab', 'word wrap', 'bracket', 'minimap'] },
@@ -89,6 +90,9 @@ export function SettingsScreen(props: SettingsScreenProps) {
     );
   }, [search]);
 
+  const panelRef = useRef<HTMLDivElement>(null);
+  useModalFocus(panelRef, isOpen);
+
   if (!isOpen) return null;
 
   return (
@@ -98,7 +102,12 @@ export function SettingsScreen(props: SettingsScreenProps) {
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-[1000px] h-[680px] flex flex-col overflow-hidden"
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Settings"
+        tabIndex={-1}
+        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-[1000px] h-[680px] flex flex-col overflow-hidden outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Title bar */}
@@ -177,7 +186,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
             )}
             {section === 'editor' && <EditorPanel />}
             {section === 'shortcuts' && (
-              <SectionWrap title="Keyboard shortcuts" desc="Press ⌘/ at any time to bring this up as a floating reference. Use Ctrl on Windows/Linux.">
+              <SectionWrap title="Keyboard shortcuts" desc={kbd("Press ⌘/ at any time to bring this up as a floating reference.")}>
                 <ShortcutsList />
               </SectionWrap>
             )}
@@ -299,12 +308,17 @@ function AppearancePanel({
   const [accent, setAccent] = useState<string>(() => {
     try { return localStorage.getItem('dw.accent') || 'emerald'; } catch { return 'emerald'; }
   });
-  const [compact, setCompact] = useState<boolean>(() => {
-    try { return localStorage.getItem('dw.compact') === '1'; } catch { return false; }
-  });
   const [showLineNums, setShowLineNums] = useState<boolean>(() => {
     try { return localStorage.getItem('dw.lineNumbers') !== '0'; } catch { return true; }
   });
+  const [wrapOutput, setWrapOutput] = useState<boolean>(() => {
+    try { return localStorage.getItem('dw.outputWrap') !== '0'; } catch { return true; }
+  });
+  // The output pane is already open behind Settings; tell it to re-read.
+  const setOutputPref = (key: string, on: boolean) => {
+    try { localStorage.setItem(key, on ? '1' : '0'); } catch { /* ignore */ }
+    window.dispatchEvent(new Event('dw:output-prefs'));
+  };
   const [seasonal, setSeasonal] = useState(seasonalEnabled);
   const [pinned, setPinned] = useState(() => pinnedSeason()?.id ?? '');
   const today = useMemo(() => currentSeason(), []);
@@ -534,12 +548,12 @@ function AppearancePanel({
         )}
       </Group>
 
-      <Group title="Density">
-        <SRow label="Compact mode" desc="Reduce padding in panels and rows.">
-          <Toggle on={compact} onChange={(v) => { setCompact(v); try { localStorage.setItem('dw.compact', v ? '1' : '0'); } catch {} }} />
-        </SRow>
+      <Group title="Output">
         <SRow label="Show line numbers in output">
-          <Toggle on={showLineNums} onChange={(v) => { setShowLineNums(v); try { localStorage.setItem('dw.lineNumbers', v ? '1' : '0'); } catch {} }} />
+          <Toggle on={showLineNums} onChange={(v) => { setShowLineNums(v); setOutputPref('dw.lineNumbers', v); }} />
+        </SRow>
+        <SRow label="Wrap long lines in output" desc="Turn off to keep long values, like Base64, on one line.">
+          <Toggle on={wrapOutput} onChange={(v) => { setWrapOutput(v); setOutputPref('dw.outputWrap', v); }} />
         </SRow>
       </Group>
     </SectionWrap>

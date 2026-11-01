@@ -1,3 +1,4 @@
+import { kbd } from '../shortcuts';
 import { Icons } from './Icons';
 import { logoUrl } from '../assets';
 import { SeasonalEffects } from './SeasonalEffects';
@@ -109,12 +110,12 @@ export function EmptyState({
           <Icons.ChevronRight size={14} style={{ color: 'var(--accent)' }} />
         </button>
         <div className="grid grid-cols-2 gap-2.5 mb-2.5">
-          <Card icon={<Icons.Plus size={14} />} label="Blank transform" desc="Empty %dw 2.0 script" shortcut="⌘N" onClick={onBlankTransform} />
-          <Card icon={<Icons.Folder size={14} />} label="Open workspace" desc="Pick from saved workspaces" shortcut="⌘O" onClick={onOpenWorkspace} />
+          <Card icon={<Icons.Plus size={14} />} label="Blank transform" desc="Empty %dw 2.0 script" shortcut={kbd("⌘N")} onClick={onBlankTransform} />
+          <Card icon={<Icons.Folder size={14} />} label="Open workspace" desc="Pick from saved workspaces" shortcut={kbd("⌘O")} onClick={onOpenWorkspace} />
         </div>
         <div className="grid grid-cols-2 gap-2.5 mb-2.5">
-          <Card icon={<Icons.Import size={14} />} label="Import cURL" desc="Paste a request, scaffold the script" shortcut="⌘⇧I" onClick={onImportCurl} />
-          <Card icon={<Icons.Library size={14} />} label="From a snippet" desc="Map, filter, group templates" shortcut="⌘L" onClick={onOpenSnippets} />
+          <Card icon={<Icons.Import size={14} />} label="Import cURL" desc="Paste a request, scaffold the script" shortcut={kbd("⌘⇧I")} onClick={onImportCurl} />
+          <Card icon={<Icons.Library size={14} />} label="From a snippet" desc="Map, filter, group templates" shortcut={kbd("⌘L")} onClick={onOpenSnippets} />
         </div>
         <div className="grid grid-cols-2 gap-2.5 mb-2.5">
           <Card icon={<Icons.Import size={14} />} label="Import from Playground" desc="Open a .zip exported from DataWeave Playground" shortcut="" onClick={onImportPlayground} />

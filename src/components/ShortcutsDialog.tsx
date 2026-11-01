@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Icons } from './Icons';
-import { SHORTCUT_GROUPS } from '../shortcuts';
+import { SHORTCUT_GROUPS, IS_MAC } from '../shortcuts';
 
 interface ShortcutsDialogProps {
   open: boolean;
@@ -73,7 +73,7 @@ export function ShortcutsDialog({ open, onClose }: ShortcutsDialogProps) {
               Keyboard shortcuts
             </div>
             <div className="text-[12px] mt-[3px]" style={{ color: 'var(--content-muted)' }}>
-              Press <Kbd>⌘</Kbd> <Kbd>/</Kbd> any time to bring this up. On Windows/Linux, <Kbd>⌘</Kbd> = <Kbd>Ctrl</Kbd>.
+              Press <Kbd>{IS_MAC ? '⌘' : 'Ctrl'}</Kbd> <Kbd>/</Kbd> any time to bring this up.
             </div>
           </div>
           <button

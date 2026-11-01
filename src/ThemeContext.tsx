@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useState, ReactNode } from 'react';
 import { isTauri } from './bridge';
+import { applySavedAccent } from './seasons';
 
 type Theme = 'dark' | 'light';
 type ThemePref = 'dark' | 'light' | 'system';
@@ -94,6 +95,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       root.classList.remove('light');
       root.style.colorScheme = 'dark';
     }
+    // The VS Code-adopted theme takes its accent from VS Code's button colour.
+    if (!readMatchVsCode()) applySavedAccent(theme === 'dark');
+    window.dispatchEvent(new CustomEvent('dw:accent-changed'));
   }, [theme]);
 
   // Toggle the token-override class that re-points --bg/--surface/--content/etc.

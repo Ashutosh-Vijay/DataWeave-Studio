@@ -15,8 +15,7 @@ import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ThemeProvider } from "./ThemeContext";
 import { isTauri } from "./bridge";
-import { ACCENTS, applyAccentVars } from "./accents";
-import { pinnedSeason } from "./seasons";
+import { applySavedAccent } from "./seasons";
 import "./index.css";
 
 // `&inline` matters, and only in VS Code. A plain `?worker` emits a separate
@@ -71,19 +70,13 @@ if (!isTauri) {
 // re-applies it — which is annoying for users who picked sky or violet.
 //
 // A pinned seasonal theme wins over the saved swatch: pinning IS the choice.
-(function applySavedAccent() {
+(function () {
   try {
     // When adopting the VS Code theme, the accent comes from VS Code's button
     // color via the .dw-vscode-theme CSS class — setting an inline --accent here
     // would override it (inline beats class), so skip.
     if (!isTauri && localStorage.getItem("dw.matchVsCode") !== "0") return;
-    const isDark = !document.documentElement.classList.contains("light");
-    const pinned = pinnedSeason();
-    if (pinned) { applyAccentVars(pinned.accent, isDark); return; }
-    const id = localStorage.getItem("dw.accent");
-    if (!id || id === "emerald") return; // emerald is the CSS default
-    const sw = ACCENTS.find((a) => a.id === id);
-    if (sw) applyAccentVars(sw, isDark);
+    applySavedAccent(!document.documentElement.classList.contains("light"));
   } catch { /* ignore */ }
 })();
 

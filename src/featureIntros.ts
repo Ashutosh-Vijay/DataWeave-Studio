@@ -9,6 +9,7 @@
  * context — a button handler just calls `introFeature('curl')` and the single
  * <FeatureIntroHost/> mounted at the app root renders the card.
  */
+import { kbd } from './shortcuts';
 
 export interface FeatureIntro {
   title: string;
@@ -21,12 +22,12 @@ export const FEATURE_INTROS: Record<string, FeatureIntro> = {
   autorun: {
     title: 'Auto-run',
     body: 'Studio now re-executes your script automatically ~1.5s after you stop typing, so the output updates live as you edit, with no need to press Run. Click this button again to turn it off.',
-    tip: '⌘⇧R toggles it from anywhere.',
+    tip: kbd('⌘⇧R toggles it from anywhere.'),
   },
   curl: {
     title: 'Import from cURL',
     body: 'Paste a cURL command, straight from your browser’s Network tab or Postman, and Studio scaffolds the transform for you: the body becomes the payload, with headers and query params wired up as inputs.',
-    tip: '⌘⇧I opens this anytime.',
+    tip: kbd('⌘⇧I opens this anytime.'),
   },
   cookbook: {
     title: 'DataWeave cookbook',
@@ -43,7 +44,7 @@ export const FEATURE_INTROS: Record<string, FeatureIntro> = {
   secure: {
     title: 'Secure properties',
     body: 'Encrypt and decrypt ${secure::key} values using the same algorithms as Mule’s secure-properties module.',
-    tip: '⌘⇧E opens this anytime.',
+    tip: kbd('⌘⇧E opens this anytime.'),
   },
   reference: {
     title: 'Function reference',

@@ -1,3 +1,4 @@
+import { kbd } from '../shortcuts';
 import React, { useEffect, useState, memo } from 'react';
 import Editor, { BeforeMount, useMonaco } from '@monaco-editor/react';
 import { configureEditor } from '../editorInit';
@@ -130,6 +131,17 @@ export const OutputPane = memo(function OutputPane({
   const [stackOpen, setStackOpen] = useState(false);
   const [formatMenuOpen, setFormatMenuOpen] = useState(false);
   const { isDark } = useTheme();
+  // Settings → Appearance → Output. Read again whenever Settings changes them.
+  const readPrefs = () => {
+    try { return { lineNumbers: localStorage.getItem('dw.lineNumbers') !== '0', wrap: localStorage.getItem('dw.outputWrap') !== '0' }; }
+    catch { return { lineNumbers: true, wrap: true }; }
+  };
+  const [prefs, setPrefs] = useState(readPrefs);
+  useEffect(() => {
+    const onChange = () => setPrefs(readPrefs());
+    window.addEventListener('dw:output-prefs', onChange);
+    return () => window.removeEventListener('dw:output-prefs', onChange);
+  }, []);
   const editorFont = useEditorFont();
   const monaco = useMonaco();
   useEffect(() => {
@@ -368,9 +380,9 @@ export const OutputPane = memo(function OutputPane({
               readOnly: true,
               minimap: { enabled: false },
               automaticLayout: true,
-              wordWrap: 'on',
+              wordWrap: prefs.wrap ? 'on' : 'off',
               scrollBeyondLastLine: false,
-              lineNumbers: 'on',
+              lineNumbers: prefs.lineNumbers ? 'on' : 'off',
               renderLineHighlight: 'none',
               folding: true,
               // Keep the fold chevrons in the gutter visible at all times —
@@ -524,10 +536,10 @@ function RunLoadingBanner({ onCancel }: { onCancel?: () => void }) {
         <button
           onClick={onCancel}
           className="text-[11px] font-medium text-content-secondary hover:text-content cursor-pointer inline-flex items-center gap-1 px-2 py-0.5 rounded border border-line hover:bg-surface-2 transition-colors"
-          title="Cancel running script (⌘.)"
+          title={kbd("Cancel running script (⌘.)")}
         >
           Cancel
-          <kbd className="text-[9.5px] font-mono text-content-faint">⌘.</kbd>
+          <kbd className="text-[9.5px] font-mono text-content-faint">{kbd('⌘.')}</kbd>
         </button>
       )}
     </div>
@@ -562,7 +574,7 @@ function OutputIdleState({ isQueryMode }: { isQueryMode?: boolean }) {
         </div>
         <div className="mt-2 inline-flex items-center gap-1.5 text-[10.5px] text-content-ghost">
           <span>Press</span>
-          <kbd className="font-mono px-1.5 h-4 inline-flex items-center rounded bg-surface-2 border border-line text-content-faint">⌘↵</kbd>
+          <kbd className="font-mono px-1.5 h-4 inline-flex items-center rounded bg-surface-2 border border-line text-content-faint">{kbd('⌘↵')}</kbd>
           <span>to run</span>
         </div>
       </div>

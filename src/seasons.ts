@@ -11,7 +11,7 @@
  * keeping its accent is a question you answer once, and the answer sticks for
  * that festival that year.
  */
-import { Accent } from './accents';
+import { Accent, ACCENTS, applyAccentVars } from './accents';
 
 export type EffectKind =
   | 'snow' | 'diyas' | 'colors' | 'bats' | 'blood' | 'sparks' | 'pumpkins' | 'gulal'
@@ -199,4 +199,19 @@ export function offerAnswered(season: Season, now: Date = new Date()): boolean {
 export function recordOfferAnswer(season: Season, answer: 'kept' | 'declined', now: Date = new Date()): void {
   try { localStorage.setItem(ANSWER_PREFIX + season.id + '.' + now.getFullYear(), answer); }
   catch { /* ignore */ }
+}
+
+/**
+ * Re-apply the user's accent for the current theme. Light and dark use
+ * different lightness for the same hue, so this has to run on every theme
+ * switch, not just at startup: a light window kept dark's 72% sky, and white
+ * Run/Save text on it measured 2.4:1. A pinned seasonal theme wins.
+ */
+export function applySavedAccent(isDark: boolean): void {
+  try {
+    const pinned = pinnedSeason();
+    if (pinned) { applyAccentVars(pinned.accent, isDark); return; }
+    const sw = ACCENTS.find((a) => a.id === (localStorage.getItem('dw.accent') || 'emerald'));
+    if (sw) applyAccentVars(sw, isDark);
+  } catch { /* ignore */ }
 }

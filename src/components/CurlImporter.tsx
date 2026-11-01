@@ -1,3 +1,4 @@
+import { kbd } from '../shortcuts';
 import { useEffect, useRef, useState } from 'react';
 import { KeyValuePair, MimeType, MultipartPart } from '../types';
 import { httpRequestXml } from '../muleXmlIO';
@@ -785,7 +786,7 @@ export function CurlImporter({ onImport, open, onClose, onImportShareLink }: Cur
               {' '}
               {/* Whoever opens this dialog to paste a link is the same person who'll
                   want to send one back, and creating one was previously undiscoverable. */}
-              <b>To send one of your own:</b> press <b>⌘K</b> (Ctrl+K) and search
+              <b>To send one of your own:</b> press <b>{kbd('⌘K')}</b> and search
               “share”, or use the workspace menu next to the workspace name.
             </div>
           </div>
@@ -802,7 +803,7 @@ export function CurlImporter({ onImport, open, onClose, onImportShareLink }: Cur
                 style={{ color: 'var(--content-faint)' }}
               >
                 <span className="flex-1">cURL command</span>
-                <span className="font-mono normal-case tracking-normal font-medium" style={{ color: 'var(--content-faint)' }}>⌘V to paste</span>
+                <span className="font-mono normal-case tracking-normal font-medium" style={{ color: 'var(--content-faint)' }}>{kbd('⌘V')} to paste</span>
               </div>
               <textarea
                 value={curlText}

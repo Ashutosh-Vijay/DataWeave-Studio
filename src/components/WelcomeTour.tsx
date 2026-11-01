@@ -8,6 +8,7 @@
  * Same contract as before — App renders <WelcomeTour onComplete={…}/> off the
  * `showTour` flag; onComplete fires on Done or Skip.
  */
+import { kbd } from '../shortcuts';
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 
 interface WelcomeTourProps {
@@ -27,8 +28,8 @@ interface Step {
 
 const STEPS: Step[] = [
   { sel: 'palette', side: 'bottom', kicker: 'Command palette', title: 'Everything, one keystroke away',
-    desc: 'Press ⌘K to run, save, open a tool, switch theme or jump anywhere without leaving the keyboard.',
-    tip: '⌘/ lists every shortcut · ⌘B toggles the sidebar.' },
+    desc: kbd('Press ⌘K to run, save, open a tool, switch theme or jump anywhere without leaving the keyboard.'),
+    tip: kbd('⌘/ lists every shortcut · ⌘B toggles the sidebar.') },
   { sel: 'payload', side: 'right', kicker: 'Input', title: 'Feed it real data',
     desc: 'Paste a payload, pick its MIME type (JSON, XML, CSV, YAML…), or attach files. Add named inputs here for multi-source transforms.',
     tip: 'Drop a file straight onto this pane to load larger samples from disk.' },
@@ -39,7 +40,7 @@ const STEPS: Step[] = [
     tip: 'Errors are underlined as you type, by the same checker the runtime uses.' },
   { sel: 'run-controls', side: 'bottom', kicker: 'Run', title: 'It runs as you type',
     desc: 'Auto-run is on, so the output re-renders about a second after you stop typing, with no button to press. Scripts run on DataWeave 2.12. Run also follows the pane you are in: the script, or the test suite.',
-    tip: '⌘↵ runs on demand. The caret beside Run holds auto-run and value trace if you want either off.' },
+    tip: kbd('⌘↵ runs on demand. The caret beside Run holds auto-run and value trace if you want either off.') },
   { sel: 'output', side: 'left', kicker: 'Output', title: 'See it instantly',
     desc: 'Results render here as formatted JSON, XML or text. Copy or export it in one click. Errors show the exact line, a source snippet and a collapsible stack trace.' },
   { sel: 'output', side: 'left', kicker: 'Trace', tag: 'NEW', title: 'Every value, without a single log()',
@@ -56,7 +57,7 @@ const STEPS: Step[] = [
     tip: 'Whatever you select is what Run, Save and Share act on.' },
   { sel: 'share', side: 'bottom', kicker: 'Share', title: 'Send the whole setup as a link',
     desc: 'One click copies a link carrying the script, the payload, the context and the target runtime. Whoever opens it gets exactly your setup.',
-    tip: '⌘K → “share” copies the whole workspace instead of one request.' },
+    tip: kbd('⌘K → “share” copies the whole workspace instead of one request.') },
   { sel: 'rail-config-crypto', side: 'right', kicker: 'Config encryption', tag: 'NEW', title: 'Secure a whole config, not one value',
     desc: 'Paste a YAML or .properties config and encrypt every value at once, or decrypt one to read it. Values already written as ![…] are left alone, comments and layout survive, and every field is listed with what will happen to it before anything runs.',
     tip: 'The single-value Secure Properties tool is still there, one icon up.' },
@@ -70,7 +71,7 @@ const STEPS: Step[] = [
     desc: 'Turn Studio’s runtime into a tool for Claude, Cursor and Copilot. An agent writes a script, runs it here to get the real error, fixes it, and hands you tested code.',
     tip: 'Safe mode is on by default, so agents can transform data but can’t touch Java or the filesystem.' },
   { sel: 'sidebar', side: 'right', kicker: 'Toolbox', title: 'It all lives in the rail',
-    desc: 'Function reference, cookbook, flows, the Java tester, your module library, secure properties, config encryption, compare and the OpenAPI reader all dock from the left rail. ⌘B toggles it; ⌘K opens any of them by name.',
+    desc: kbd('Function reference, cookbook, flows, the Java tester, your module library, secure properties, config encryption, compare and the OpenAPI reader all dock from the left rail. ⌘B toggles it; ⌘K opens any of them by name.'),
     tip: 'You’re ready. Close this and start transforming.' },
 ];
 

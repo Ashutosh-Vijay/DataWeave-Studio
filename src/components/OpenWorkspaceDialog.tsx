@@ -9,6 +9,7 @@
  * duplicates operate on the file directly (rename_workspace /
  * duplicate_workspace_file); the sidebar stays in sync via dw:workspaces-changed.
  */
+import { kbd } from '../shortcuts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icons } from './Icons';
 import { ConfirmDialog, ConfirmFile } from './ConfirmDialog';
@@ -402,7 +403,7 @@ export function OpenWorkspaceDialog({
               className="flex-1 bg-transparent outline-none text-[13px] placeholder:text-content-ghost"
               style={{ color: 'var(--content)' }}
             />
-            <span className="text-[10.5px] font-mono px-1.5 rounded" style={{ background: 'var(--surface-3)', color: 'var(--content-faint)' }}>⌘O</span>
+            <span className="text-[10.5px] font-mono px-1.5 rounded" style={{ background: 'var(--surface-3)', color: 'var(--content-faint)' }}>{kbd('⌘O')}</span>
           </div>
         </div>
 
@@ -415,7 +416,7 @@ export function OpenWorkspaceDialog({
                   {items.length === 0 ? 'Nothing saved yet.' : `No matches for “${q.trim()}”.`}
                 </div>
                 <div className="text-[11.5px]" style={{ color: 'var(--content-faint)' }}>
-                  {items.length === 0 ? '⌘S saves your first workspace.' : 'Search also looks inside request names.'}
+                  {items.length === 0 ? kbd('⌘S saves your first workspace.') : 'Search also looks inside request names.'}
                 </div>
               </div>
             ) : (
@@ -518,7 +519,7 @@ export function OpenWorkspaceDialog({
                 {onDuplicate && (
                   <button
                     onClick={() => void duplicateSel()}
-                    title="Duplicate (⌘D)"
+                    title={kbd("Duplicate (⌘D)")}
                     aria-label={`Duplicate ${selName}`}
                     className="w-7 h-7 rounded-md inline-flex items-center justify-center cursor-pointer hover:bg-surface-2"
                     style={{ border: '1px solid var(--line)', color: 'var(--content-faint)' }}
@@ -547,7 +548,7 @@ export function OpenWorkspaceDialog({
           <span className="font-mono">↑↓</span><span>navigate</span>
           <span className="font-mono">↵</span><span>open</span>
           <span className="font-mono">F2</span><span>rename</span>
-          <span className="font-mono">⌘D</span><span>duplicate</span>
+          <span className="font-mono">{kbd('⌘D')}</span><span>duplicate</span>
           <span className="flex-1" />
           {onNew && (
             <button
