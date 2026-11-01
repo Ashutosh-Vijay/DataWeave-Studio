@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { buildAttributesJson, buildVarsJson } from '../runInput';
-import type { KeyValuePair, VarEntry } from '../types';
+import { buildAttributesJson, buildVarsJson, withErrorInput } from '../runInput';
+import { MULE_ERRORS, generateMuleError } from '../muleError';
+import type { ContextState, KeyValuePair, NamedInput, VarEntry } from '../types';
 
 const kv = (key: string, value: string, enabled = true): KeyValuePair => ({ key, value, enabled });
 const v = (key: string, value: string, valueType: VarEntry['valueType'] = 'string', enabled = true): VarEntry => ({ key, value, valueType, enabled });
@@ -65,5 +66,40 @@ describe('buildVarsJson (single-script run inputs)', () => {
   it('drops disabled and unkeyed rows', () => {
     const out = JSON.parse(buildVarsJson([v('keep', '1'), v('off', '2', 'string', false), v('', 'no-key')]));
     expect(out).toEqual({ keep: '1' });
+  });
+});
+
+describe('withErrorInput (the Error tab)', () => {
+  const ctx = (errorJson?: string): ContextState => ({ method: 'GET', queryParams: [], headers: [], vars: [], errorJson });
+  const other: NamedInput = { name: 'lookup', content: '{}', mimeType: 'application/json' };
+
+  it('adds nothing when the tab is empty', () => {
+    expect(withErrorInput([other], ctx())).toEqual([other]);
+    expect(withErrorInput([other], ctx('  '))).toEqual([other]);
+  });
+
+  it('binds the object as an input named error, replacing a hand-made one', () => {
+    const own: NamedInput = { name: 'error', content: '{"old":1}', mimeType: 'application/json' };
+    const out = withErrorInput([other, own], ctx('{"description":"x"}'));
+    expect(out).toEqual([other, { name: 'error', content: '{"description":"x"}', mimeType: 'application/json' }]);
+  });
+});
+
+describe('generateMuleError', () => {
+  it('gives every type the shape Mule hands an error handler, chained up to MULE:ANY', () => {
+    for (const { type } of MULE_ERRORS) {
+      const e = JSON.parse(generateMuleError(type));
+      expect(Object.keys(e)).toEqual(expect.arrayContaining(['description', 'detailedDescription', 'errorType', 'errorMessage', 'childErrors']));
+      if (!type.startsWith('APP:')) expect(`${e.errorType.namespace}:${e.errorType.identifier}`).toBe(type);
+      let t = e.errorType;
+      while (t.parentErrorType) t = t.parentErrorType;
+      expect(`${t.namespace}:${t.identifier}`).toBe('MULE:ANY');
+    }
+  });
+
+  it('carries the HTTP response for status errors', () => {
+    const e = JSON.parse(generateMuleError('HTTP:NOT_FOUND'));
+    expect(e.errorMessage.attributes.statusCode).toBe(404);
+    expect(e.description).toMatch(/failed: not found \(404\)\.$/);
   });
 });

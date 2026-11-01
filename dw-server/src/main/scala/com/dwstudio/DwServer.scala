@@ -254,10 +254,10 @@ object DwServer {
         if (declaresOutput(script)) (if (requestedMime.nonEmpty) requestedMime else "application/json")
         else if (requestedMime.nonEmpty) requestedMime
         else {
-          // In Mule, attributes and vars are Java objects, whatever format the
-          // values inside them came from.
+          // In Mule, attributes, vars and error are Java objects, whatever
+          // format the values inside them came from.
           val formatOf = (n: String) =>
-            if (n == "attributes" || n == "vars") "application/java" else mimeByName(n).split(';')(0).trim
+            if (n == "attributes" || n == "vars" || n == "error") "application/java" else mimeByName(n).split(';')(0).trim
           val used = usedInputs(script, mimeByName.keys.toSeq)
           val formats = used.map(formatOf).distinct
           if (formats.size > 1) {
@@ -674,7 +674,9 @@ object DwServer {
   /** Which checker output is worth showing. See the long note in the typeCheck
    *  branch - both families were measured against this engine, not guessed at. */
   private def isCheckerNoise(msg: String, hasPayloadType: Boolean): Boolean = {
-    val ambient = if (hasPayloadType) Seq("vars", "attributes") else Seq("vars", "attributes", "payload")
+    // `error` too: Mule binds it inside an error handler, and the Error tab is
+    // often empty while the script is being written.
+    val ambient = if (hasPayloadType) Seq("vars", "attributes", "error") else Seq("vars", "attributes", "error", "payload")
     msg.startsWith("Auto-Coercing type from") ||
       msg.startsWith("Multiple valid coercion functions") ||
       ambient.exists(n => msg.startsWith("Unable to resolve reference of: `" + n + "`"))
@@ -1032,10 +1034,10 @@ object DwServer {
         hasPayloadType = true
       } catch { case _: Throwable => () }  // not JSON: fall back to no input type
     }
-    // vars and attributes as a run would bind them (built by the app from the
-    // Vars and Request tabs), so hovering vars.x shows its type and vars.
-    // completes, as payload. already did.
-    for (name <- Seq("vars", "attributes")) {
+    // vars, attributes and the Mule error object as a run would bind them
+    // (built by the app from the Vars, Request and Error tabs), so hovering
+    // vars.x shows its type and vars. completes, as payload. already did.
+    for (name <- Seq("vars", "attributes", "error")) {
       val raw = req.getString(name, "")
       if (raw.trim.nonEmpty) {
         try inputs.addInput(name, weaveTypeOfJson(Json.parse(raw)))

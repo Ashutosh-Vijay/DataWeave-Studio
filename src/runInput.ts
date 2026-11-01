@@ -3,7 +3,16 @@
  * script" path). Extracted from App.tsx so they can be unit-tested without
  * pulling in the whole app / the Tauri runtime.
  */
-import type { KeyValuePair, VarEntry } from './types';
+import type { ContextState, KeyValuePair, NamedInput, VarEntry } from './types';
+
+/** Named inputs plus the Error tab's object as an input called `error`, which
+ *  is how Mule hands it to a script in an error handler. Invalid JSON is passed
+ *  as-is so the engine's own parse error explains it. */
+export function withErrorInput(namedInputs: NamedInput[], context: ContextState): NamedInput[] {
+  const err = context.errorJson?.trim();
+  if (!err) return namedInputs;
+  return [...namedInputs.filter((n) => n.name !== 'error'), { name: 'error', content: err, mimeType: 'application/json' }];
+}
 
 /** Build the `attributes` JSON from the request context. Disabled or
  *  empty-value rows are dropped — an *absent* attribute is not the same as an

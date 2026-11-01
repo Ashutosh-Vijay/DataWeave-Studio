@@ -76,8 +76,8 @@ interface EngineSuggestion {
  * in flight and dropping the rest is better than a backlog of stale answers.
  */
 let inFlight = false;
-/** vars and attributes as a run would bind them; set by registerEngineLanguageFeatures. */
-let implicitInputs: () => { vars: string; attributes: string } = () => ({ vars: '', attributes: '' });
+/** vars, attributes and error as a run would bind them; set by registerEngineLanguageFeatures. */
+let implicitInputs: () => { vars: string; attributes: string; error: string } = () => ({ vars: '', attributes: '', error: '' });
 
 async function ask<T>(
   kind: string,
@@ -231,7 +231,7 @@ export function registerEngineLanguageFeatures(
 ): Monaco.IDisposable {
   implicitInputs = () => {
     const ctx = getContext();
-    return { vars: ctx?.varsJson ?? '', attributes: ctx?.attributesJson ?? '' };
+    return { vars: ctx?.varsJson ?? '', attributes: ctx?.attributesJson ?? '', error: ctx?.errorJson ?? '' };
   };
   const payloadOf = () => {
     const ctx = getContext();

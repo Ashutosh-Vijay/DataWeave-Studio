@@ -454,6 +454,7 @@ async function handleInvoke(
         args.repeat === undefined ? undefined : Number(args.repeat),
         args.vars ? String(args.vars) : undefined,
         args.attributes ? String(args.attributes) : undefined,
+        args.error ? String(args.error) : undefined,
       );
     // The debugger drives the same engine over the same stdio channel as a run;
     // there is no separate protocol. Without this the Debug button in the

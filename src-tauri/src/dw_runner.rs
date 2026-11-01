@@ -761,6 +761,7 @@ pub fn dw_tooling(
     repeat: Option<i64>,
     vars: Option<String>,
     attributes: Option<String>,
+    error: Option<String>,
 ) -> Result<serde_json::Value, String> {
     crate::dw_server::tooling(
         &app,
@@ -775,6 +776,7 @@ pub fn dw_tooling(
         repeat.unwrap_or(1),
         vars.as_deref().unwrap_or(""),
         attributes.as_deref().unwrap_or(""),
+        error.as_deref().unwrap_or(""),
     )
 }
 

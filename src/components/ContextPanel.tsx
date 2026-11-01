@@ -12,6 +12,7 @@ import { invoke } from '../bridge';
 import { Icons } from './Icons';
 import { useTheme } from '../ThemeContext';
 import { useEditorFont } from '../hooks/useEditorFont';
+import { MULE_ERRORS, generateMuleError } from '../muleError';
 
 const handleBeforeMount: BeforeMount = (monaco) => defineDataWeaveTheme(monaco);
 
@@ -302,7 +303,106 @@ function DecryptionCard({ context, onChange, encryptionKey, onEncryptionKeyChang
   );
 }
 
-type Tab = 'Request' | 'Vars' | 'Config';
+/**
+ * The Mule `error` object an on-error script reads. Empty means no `error`
+ * input at all, which is what a script outside an error handler sees.
+ */
+function ErrorTab({ value, onChange, theme }: { value: string; onChange: (v: string) => void; theme: string }) {
+  const editorFont = useEditorFont();
+  const [type, setType] = useState('');
+  let invalid = '';
+  if (value.trim()) {
+    try { JSON.parse(value); } catch (e) { invalid = e instanceof Error ? e.message : String(e); }
+  }
+  const field =
+    'h-7 bg-surface-input border border-line-secondary rounded-md px-2 text-[11px] text-content focus:border-accent focus:outline-none';
+  return (
+    <>
+      <div className="flex gap-1.5">
+        <select
+          value={type}
+          onChange={(e) => { setType(e.target.value); onChange(generateMuleError(e.target.value)); }}
+          className={`${field} flex-1 min-w-0 cursor-pointer font-mono`}
+          aria-label="Error type"
+        >
+          <option value="">Any error type</option>
+          {MULE_ERRORS.map((e) => <option key={e.type} value={e.type}>{e.label}</option>)}
+        </select>
+        <button
+          onClick={() => onChange(generateMuleError(type))}
+          title={type ? `A new ${type} error with different values` : 'A random error of a random type'}
+          className="h-7 px-2.5 inline-flex items-center gap-1.5 text-[11px] font-semibold rounded-md cursor-pointer"
+          style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+        >
+          <Icons.Sparkle size={12} />
+          Generate
+        </button>
+        {value.trim() && (
+          <button
+            onClick={() => onChange('')}
+            title="Run without an error object"
+            className="h-7 px-2 text-[10.5px] text-content-faint hover:text-content hover:bg-surface-2 rounded-md cursor-pointer transition-colors"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {value.trim() ? (
+        <div className="rounded-md border border-line overflow-hidden bg-surface">
+          <div className="h-8 flex items-center gap-2 px-2.5 border-b border-line bg-surface-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-err" />
+            <span className="text-[11.5px] font-medium text-content font-mono">error</span>
+            <span className="ml-auto text-[10px] text-content-faint">edit any value</span>
+          </div>
+          <div style={{ height: 320 }}>
+            <Editor
+              height="100%"
+              language="json"
+              theme={theme}
+              beforeMount={handleBeforeMount}
+              onMount={configureEditor}
+              value={value}
+              onChange={(val) => onChange(val || '')}
+              options={{
+                minimap: { enabled: false },
+                automaticLayout: true,
+                fontFamily: editorFont.fontFamily,
+                fontSize: 11,
+                lineNumbers: 'off',
+                wordWrap: 'on',
+                scrollBeyondLastLine: false,
+                glyphMargin: false,
+                lineDecorationsWidth: 8,
+                lineNumbersMinChars: 0,
+                renderLineHighlight: 'none',
+                overviewRulerLanes: 0,
+                padding: { top: 6 },
+                tabSize: 2,
+              }}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-md border border-dashed border-line px-3 py-4 text-[11px] text-content-faint leading-relaxed">
+          Testing an on-error script? Pick an error type or press Generate to get the{' '}
+          <code className="text-violet font-mono">error</code> object Mule hands to your error handler.
+        </div>
+      )}
+
+      {invalid && <div className="text-[10.5px] text-err leading-snug">Not valid JSON: {invalid}</div>}
+
+      <div className="text-[10px] text-content-ghost leading-relaxed">
+        Read it as in Mule:{' '}
+        <code className="text-violet font-mono">error.description</code>,{' '}
+        <code className="text-violet font-mono">error.errorType.identifier</code>,{' '}
+        <code className="text-violet font-mono">error.errorMessage.attributes.statusCode</code>
+      </div>
+    </>
+  );
+}
+
+type Tab = 'Request' | 'Vars' | 'Config' | 'Error';
 
 interface ContextPanelProps {
   context: ContextState;
@@ -345,14 +445,14 @@ export const ContextPanel = memo(function ContextPanel({ context, onChange, encr
       {/* Header */}
       <div className="h-10 shrink-0 flex items-center px-3.5 border-b border-line">
         <span className="text-[12.5px] font-semibold text-content">Context</span>
-        <span className="ml-2 text-[10.5px] text-content-faint">request · vars · config</span>
+        <span className="ml-2 text-[10.5px] text-content-faint">request · vars · config · error</span>
       </div>
 
       {/* Tabs */}
       <div className="h-9 shrink-0 flex items-end px-2 border-b border-line gap-1">
-        {(['Request', 'Vars', 'Config'] as const).map((t) => {
+        {(['Request', 'Vars', 'Config', 'Error'] as const).map((t) => {
           const active = tab === t;
-          const count = t === 'Request' ? reqCount : t === 'Vars' ? varsCount : configCount;
+          const count = t === 'Request' ? reqCount : t === 'Vars' ? varsCount : t === 'Config' ? configCount : context.errorJson?.trim() ? 1 : 0;
           return (
             <button
               key={t}
@@ -429,6 +529,14 @@ export const ContextPanel = memo(function ContextPanel({ context, onChange, encr
 
         {tab === 'Vars' && (
           <VarsPanel vars={context.vars} onChange={updateVars} />
+        )}
+
+        {tab === 'Error' && (
+          <ErrorTab
+            value={context.errorJson || ''}
+            onChange={(v) => onChange({ ...context, errorJson: v || undefined })}
+            theme={editorTheme}
+          />
         )}
 
         {tab === 'Config' && (

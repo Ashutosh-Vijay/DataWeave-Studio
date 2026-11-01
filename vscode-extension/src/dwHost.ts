@@ -227,6 +227,7 @@ interface DwRequest {
   /** op=tooling: the vars and attributes JSON a run would bind, typed the same way. */
   vars?: string;
   attributes?: string;
+  error?: string;
   /** Trace mode: capture the script's `log(...)` output into the response. */
   trace?: boolean;
   /** Record what every expression evaluated to. Forces a fresh compile server-side. */
@@ -1023,6 +1024,7 @@ export async function toolingQuery(
   repeat?: number,
   vars?: string,
   attributes?: string,
+  error?: string,
 ): Promise<unknown> {
   const resp = await server.run(
     {
@@ -1032,6 +1034,7 @@ export async function toolingQuery(
       payload,
       vars,
       attributes,
+      error,
       newName,
       languageLevel,
       mimeType,

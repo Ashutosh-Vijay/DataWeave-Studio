@@ -31,6 +31,7 @@ interface ScriptEditorProps {
     namedInputs?: { name: string; content: string; mimeType: string }[];
     configYaml?: string;
     secureConfigYaml?: string;
+    errorJson?: string;
   };
   /** Target runtime for completion + diagnostics, e.g. "2.4". Empty = latest. */
   languageLevel?: string;
@@ -233,6 +234,7 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
       languageLevel: languageLevel || '',
       varsJson: contextData?.varsJson || '',
       attributesJson: contextData?.attributesJson || '',
+      errorJson: contextData?.errorJson || '',
     };
   }, [payload, payloadMimeType, contextData, languageLevel]);
 

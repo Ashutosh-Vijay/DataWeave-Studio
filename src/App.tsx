@@ -18,7 +18,7 @@ import {
   dayKey,
   NUDGED_KEY,
 } from './practiceStats';
-import { buildAttributesJson, buildVarsJson } from './runInput';
+import { buildAttributesJson, buildVarsJson, withErrorInput } from './runInput';
 import { resolveVarsJson } from './resolveVars';
 import { substituteQueryParams } from './queryRender';
 // Lazy-loaded — pulls in dataweaveDocs (371KB) plus its own 60KB UI.
@@ -861,10 +861,12 @@ function App() {
     namedInputs: workspace.namedInputs,
     configYaml: workspace.context.configYaml,
     secureConfigYaml: workspace.context.secureConfigYaml,
+    errorJson: workspace.context.errorJson,
   }), [
     workspace.context.vars, workspace.context.headers, workspace.context.queryParams,
     workspace.context.method, workspace.context.uriParams,
     workspace.namedInputs, workspace.context.configYaml, workspace.context.secureConfigYaml,
+    workspace.context.errorJson,
   ]);
   const autoRunTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleRunRef = useRef<() => void>(() => {});
@@ -951,7 +953,7 @@ function App() {
         payloadMimeType: workspace.payloadMimeType,
         hasAttributes,
         hasVars,
-        namedInputsJson: JSON.stringify(workspace.namedInputs),
+        namedInputsJson: JSON.stringify(withErrorInput(workspace.namedInputs, workspace.context)),
       }).catch(() => {
         // Pre-warm is best-effort.
       });
@@ -1237,7 +1239,7 @@ function App() {
       workspace.context.uriParams ?? []
     );
     const namedInputsJson = JSON.stringify(
-      workspace.namedInputs.filter((ni) => ni.name)
+      withErrorInput(workspace.namedInputs.filter((ni) => ni.name), workspace.context)
     );
 
     // p() / Mule::p() can't compile in the pure-DataWeave engine, so transparently

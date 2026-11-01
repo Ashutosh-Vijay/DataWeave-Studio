@@ -61,6 +61,9 @@ pub struct ContextState {
     /// A key saved in the OS keychain, by name. The key itself never lands here.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encryption_key_name: Option<String>,
+    /// The Mule `error` object from the Error tab, as JSON.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_json: Option<String>,
 }
 
 impl Default for ContextState {
@@ -75,6 +78,7 @@ impl Default for ContextState {
             secure_config_yaml: String::new(),
             encryption_settings: None,
             encryption_key_name: None,
+            error_json: None,
         }
     }
 }

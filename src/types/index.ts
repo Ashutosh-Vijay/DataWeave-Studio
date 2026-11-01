@@ -34,6 +34,8 @@ export interface ContextState {
   encryptionSettings?: EncryptionSettings;
   /** Name of a key saved in the OS keychain to decrypt with. Only the name is stored. */
   encryptionKeyName?: string;
+  /** The Mule `error` object (JSON) from the Error tab. Unset = no `error` input. */
+  errorJson?: string;
 }
 
 export interface MultipartPart {

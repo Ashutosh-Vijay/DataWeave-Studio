@@ -19,6 +19,8 @@ export interface DWCompletionContext {
   /** The vars and attributes JSON a run would bind, for engine hover/completion. */
   varsJson?: string;
   attributesJson?: string;
+  /** The Error tab's Mule `error` object, typed for `error.` completion. */
+  errorJson?: string;
 }
 
 interface DWCompletion {
