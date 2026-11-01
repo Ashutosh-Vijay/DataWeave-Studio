@@ -26,6 +26,10 @@ interface OutputPaneProps {
   output: string;
   error: string | null;
   isRunning: boolean;
+  /** Why the shown result may not match the current setup ("Inputs changed",
+   *  "From <request>"), or null when it does. */
+  stale?: string | null;
+  onRerun?: () => void;
   executionTimeMs?: number;
   errorLine?: number | null;
   /** Captured `log(...)` output from the run — shown in a collapsible Logs panel. */
@@ -112,6 +116,8 @@ export const OutputPane = memo(function OutputPane({
   error,
   isRunning,
   executionTimeMs,
+  stale,
+  onRerun,
   errorLine,
   logs,
   trace,
@@ -193,6 +199,16 @@ export const OutputPane = memo(function OutputPane({
           >
             <Icons.Dot size={7} /> {executionTimeMs}ms
           </span>
+        )}
+        {stale && !isRunning && !isQueryMode && (
+          <button
+            onClick={onRerun}
+            title={`This result was produced before your latest changes. Run again (${kbd('⌘↵')})`}
+            className="inline-flex items-center gap-1 text-[10.5px] px-1.5 py-0.5 rounded cursor-pointer text-warn hover:opacity-80"
+            style={{ background: 'color-mix(in oklch, var(--warn) 14%, transparent)' }}
+          >
+            {stale} · run again
+          </button>
         )}
         <span className="flex-1" />
 

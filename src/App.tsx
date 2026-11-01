@@ -1295,7 +1295,24 @@ function App() {
     return { resolvedScript, resolvedPayload, attributesJson, varsJson, namedInputsJson, multipartPartsJson, modulesJson };
   }, [workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, workspace.payloadFilePath, workspace.multipartParts, workspace.classpath, modules, encryptionKey]);
 
+  // The exact inputs behind the visible output, kept by reference: state is
+  // immutable, so `!==` on each one says "changed since this run" for free,
+  // even with a 25 MB payload. The runner keeps one result for the whole app,
+  // so without this an old output looked like the answer for the current setup.
+  const [lastRun, setLastRun] = useState<{ requestId: string; requestName: string; inputs: unknown[] } | null>(null);
+  const runInputs = [
+    workspace.script, workspace.payload, workspace.payloadMimeType, workspace.payloadFilePath,
+    workspace.multipartParts, workspace.context, workspace.namedInputs, workspace.classpath, modules, targetRuntime,
+  ];
+  const outputStale: string | null =
+    !lastRun || runner.isRunning || !(runner.output || runner.error) ? null
+      : lastRun.requestId !== workspace.activeRequestId ? `From ${lastRun.requestName}`
+      : autoRun ? null // a run is already on its way
+      : runInputs.some((v, i) => v !== lastRun.inputs[i]) ? 'Inputs changed'
+      : null;
+
   const handleRunScript = useCallback(async () => {
+    const snapshot = { requestId: workspace.activeRequestId, requestName: workspace.request.name || 'another request', inputs: runInputs };
     const r = await resolveRunInputs();
     await runner.run(
       r.resolvedScript,
@@ -1312,7 +1329,9 @@ function App() {
       targetRuntime,
       valueTrace,
     );
-  }, [resolveRunInputs, workspace.payloadMimeType, workspace.payloadFilePath, workspace.classpath, workspace.timeoutMs, targetRuntime, valueTrace, runner]);
+    setLastRun(snapshot);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolveRunInputs, workspace.payloadMimeType, workspace.payloadFilePath, workspace.classpath, workspace.timeoutMs, targetRuntime, valueTrace, runner, workspace.activeRequestId, workspace.request.name, ...runInputs]);
 
   /** What Run does depends on what you are looking at: the script in the Script
    *  pane, the suite in the Tests pane. ⌘↵ and the Tests panel's own button both
@@ -2136,6 +2155,8 @@ function App() {
                   error={runner.error}
                   isRunning={runner.isRunning}
                   executionTimeMs={runner.executionTimeMs}
+                  stale={outputStale}
+                  onRerun={handleRun}
                   errorLine={runner.errorLine}
                   logs={runner.logs}
                   trace={runner.trace}
@@ -2284,6 +2305,8 @@ function App() {
                 error={runner.error}
                 isRunning={runner.isRunning}
                 executionTimeMs={runner.executionTimeMs}
+                stale={outputStale}
+                onRerun={handleRun}
                 errorLine={runner.errorLine}
                 logs={runner.logs}
                 trace={runner.trace}
