@@ -1,4 +1,5 @@
 import { kbd } from '../shortcuts';
+import type { Tool } from './ToolsLauncher';
 import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Icons } from './Icons';
 import { ConfirmDialog, ConfirmFile } from './ConfirmDialog';
@@ -58,20 +59,12 @@ interface SidebarProps {
   listWorkspaces: () => Promise<WsMeta[]>;
   onOpenCurlImport: () => void;
   onInsertSnippet?: (body: string) => void;
-  onOpenReference: () => void;
-  onOpenRecipes: () => void;
-  onOpenSecure: () => void;
-  onOpenConfigCrypto: () => void;
-  onOpenCompare: () => void;
-  onOpenPractice: () => void;
-  onOpenAcademy: () => void;
-  /** Every tool, labelled, including the ones that have no rail icon. */
+  /** The tools the user pinned to the rail, in their order. The rest live in All tools. */
+  railTools: Tool[];
+  /** New order (or a shorter list, after an unpin) of the pinned tool ids. */
+  onRailChange: (ids: string[]) => void;
+  /** Every tool, labelled, including the ones that aren't pinned. */
   onOpenAllTools: () => void;
-  onOpenFlowDesigner: () => void;
-  onOpenJavaTester: () => void;
-  onOpenOpenApi: () => void;
-  onOpenModules: () => void;
-  onOpenMcp: () => void;
   mcpRunning: boolean;
   onOpenSettings: () => void;
   collapsed: boolean;
@@ -89,11 +82,7 @@ interface SidebarProps {
   onDuplicateRequest: (id: string) => void;
 }
 
-const RAIL_ITEMS: { id: RailTab; title: string; Icon: (typeof Icons)[keyof typeof Icons] }[] = [
-  { id: 'workspaces', title: kbd('Workspaces (⌘O)'), Icon: Icons.Workspaces },
-  { id: 'import', title: kbd('Import (cURL)  ⌘⇧I'), Icon: Icons.Import },
-  { id: 'snippets', title: kbd('Snippets library (⌘L)'), Icon: Icons.Library },
-];
+const railBtn = 'relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors [&>svg]:w-[18px] [&>svg]:h-[18px]';
 
 const SNIPPETS: { name: string; desc: string; body: string }[] = [
   {
@@ -166,8 +155,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const {
     projectName, onProjectNameChange, currentFile, isDirty,
     onNew, onSave, onLoad, onDelete, listWorkspaces,
-    onOpenCurlImport, onInsertSnippet, onOpenSecure, onOpenConfigCrypto, onOpenCompare, onOpenPractice, onOpenAcademy, onOpenAllTools, onOpenFlowDesigner, onOpenJavaTester, onOpenOpenApi, onOpenModules, onOpenMcp, mcpRunning, onOpenSettings,
-    onOpenReference, onOpenRecipes,
+    onOpenCurlImport, onInsertSnippet, railTools, onRailChange, onOpenAllTools, mcpRunning, onOpenSettings,
     collapsed, onToggleCollapse,
     requests, activeRequestId, onSelectRequest, onAddRequest, onRenameRequest, onRemoveRequest, onDuplicateRequest,
   } = props;
@@ -236,6 +224,17 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     }
   };
 
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+  const [railMenu, setRailMenu] = useState<{ index: number; x: number; y: number } | null>(null);
+  const moveRail = (from: number, to: number) => {
+    if (from === to) return;
+    const ids = railTools.map((t) => t.id);
+    const [moved] = ids.splice(from, 1);
+    ids.splice(to, 0, moved);
+    onRailChange(ids);
+  };
+
   const handleRailClick = (id: RailTab) => {
     // cURL import is a full-screen dialog, not a sidebar panel — open it
     // directly instead of expanding a near-empty "Import" tab.
@@ -254,146 +253,58 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     <div data-tour="sidebar" className="flex shrink-0 overflow-hidden">
       {/* Icon Rail — 48px */}
       <div className="w-12 shrink-0 bg-rail border-r border-line flex flex-col py-2.5">
+        {/* Workspaces is the sidebar itself, so it is always first. */}
         <button
-          onClick={onOpenSecure}
-          title={kbd("Secure Properties tool (⌘⇧E)")}
-          aria-label="Secure Properties tool"
-          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
+          onClick={() => handleRailClick('workspaces')}
+          title={kbd('Workspaces (⌘O)')}
+          aria-label="Workspaces"
+          className={`${railBtn} ${!collapsed && tab === 'workspaces' ? 'bg-surface-2 text-content' : 'text-content-faint hover:text-content-secondary'}`}
         >
-          <Icons.Secure size={18} />
-        </button>
-        <button
-          data-tour="rail-config-crypto"
-          onClick={onOpenConfigCrypto}
-          title="Config encryption: encrypt or decrypt every value in a config file at once"
-          aria-label="Config encryption"
-          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
-        >
-          <Icons.Key size={18} />
-        </button>
-        <button
-          data-tour="rail-ref"
-          onClick={onOpenReference}
-          title="Function reference"
-          aria-label="Function reference"
-          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
-        >
-          <Icons.Braces size={18} />
-        </button>
-        <button
-          onClick={onOpenRecipes}
-          title="DataWeave cookbook"
-          aria-label="DataWeave cookbook"
-          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
-        >
-          <Icons.Book size={18} />
-        </button>
-        <button
-          data-tour="rail-flow"
-          onClick={onOpenFlowDesigner}
-          title="Message Flow designer"
-          aria-label="Message Flow designer"
-          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
-        >
-          <Icons.Flow size={18} />
-        </button>
-        <button
-          data-tour="rail-java"
-          onClick={onOpenJavaTester}
-          title="Java tester"
-          aria-label="Java tester"
-          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
-        >
-          <Icons.Coffee size={18} />
-        </button>
-        <button
-          data-tour="rail-modules"
-          onClick={onOpenModules}
-          title="Module library: save reusable .dwl modules and import them in any script"
-          aria-label="Module library"
-          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
-        >
-          <Icons.Package size={18} />
-        </button>
-        <button
-          data-tour="rail-mcp"
-          onClick={onOpenMcp}
-          title="Local Server: run DataWeave from AI agents or your own scripts"
-          aria-label="Local Server"
-          className={`relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors ${mcpRunning ? 'text-accent' : 'text-content-faint hover:text-content-secondary'}`}
-        >
-          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2v4" /><path d="M5.5 5.5 8 8" /><path d="M18.5 5.5 16 8" /><rect x="6" y="8" width="12" height="8" rx="3" /><path d="M9 16v3a3 3 0 0 0 6 0v-3" />
-          </svg>
-          {mcpRunning && <span className="absolute right-1.5 top-1.5 w-1.5 h-1.5 rounded-full bg-accent" style={{ boxShadow: '0 0 0 2px var(--rail)' }} />}
-        </button>
-        <button
-          onClick={onOpenCompare}
-          title="Compare two texts"
-          aria-label="Compare two texts"
-          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
-        >
-          <Icons.Compare size={18} />
-        </button>
-        <button
-          onClick={onOpenAcademy}
-          title="DataWeave Academy: learn DataWeave from zero"
-          aria-label="DataWeave Academy"
-          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
-        >
-          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 9 12 4 2 9l10 5 10-5Z" /><path d="M6 11v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5" />
-          </svg>
-        </button>
-        <button
-          onClick={onOpenPractice}
-          title="Practice: graded DataWeave problems"
-          aria-label="Practice"
-          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
-        >
-          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M7 4h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" />
-            <path d="M9.5 9.5 11 11l-1.5 1.5" /><path d="M13 13h2" />
-          </svg>
-        </button>
-        <button
-          onClick={onOpenOpenApi}
-          title="OpenAPI / Swagger reader: sample payloads and DataWeave from a spec"
-          aria-label="OpenAPI / Swagger reader"
-          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
-        >
-          <Icons.ApiSpec size={18} />
-        </button>
-        <button
-          onClick={onOpenAllTools}
-          title="All tools"
-          aria-label="All tools"
-          className="relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors text-content-faint hover:text-content-secondary"
-        >
-          <Icons.More size={18} />
+          {!collapsed && tab === 'workspaces' && <span className="absolute -left-2 top-2 bottom-2 w-0.5 bg-accent rounded-sm" />}
+          <Icons.Workspaces size={18} />
         </button>
         <div className="mx-2 my-1.5 h-px bg-line-subtle" />
-        {RAIL_ITEMS.map(({ id, title, Icon }) => {
-          const isActive = !collapsed && tab === id;
+
+        {/* Pinned tools: drag to reorder, right-click to move or unpin. */}
+        {railTools.map((t, i) => {
+          const isActive = t.id === 'snippets' && !collapsed && tab === 'snippets';
+          const lit = t.id === 'mcp' && mcpRunning;
           return (
             <button
-              key={id}
-              onClick={() => handleRailClick(id)}
-              title={title}
-              aria-label={title}
-              className={`relative h-9 mx-2 my-0.5 rounded-md flex items-center justify-center cursor-pointer transition-colors ${
-                isActive
-                  ? 'bg-surface-2 text-content'
-                  : 'text-content-faint hover:text-content-secondary'
-              }`}
+              key={t.id}
+              data-tour={`rail-${t.id}`}
+              draggable
+              onDragStart={(e) => { setDragFrom(i); e.dataTransfer.effectAllowed = 'move'; }}
+              onDragOver={(e) => { if (dragFrom !== null) { e.preventDefault(); setDragOver(i); } }}
+              onDragLeave={() => setDragOver((o) => (o === i ? null : o))}
+              onDrop={(e) => { e.preventDefault(); if (dragFrom !== null) moveRail(dragFrom, i); setDragFrom(null); setDragOver(null); }}
+              onDragEnd={() => { setDragFrom(null); setDragOver(null); }}
+              onClick={() => (t.id === 'snippets' ? handleRailClick('snippets') : t.run())}
+              onContextMenu={(e) => { e.preventDefault(); setRailMenu({ index: i, x: e.clientX, y: e.clientY }); }}
+              title={`${t.label}: ${t.desc}`}
+              aria-label={t.label}
+              className={`${railBtn} ${
+                isActive ? 'bg-surface-2 text-content' : lit ? 'text-accent' : 'text-content-faint hover:text-content-secondary'
+              } ${dragFrom === i ? 'opacity-40' : ''}`}
             >
-              {isActive && (
-                <span className="absolute -left-2 top-2 bottom-2 w-0.5 bg-accent rounded-sm" />
+              {isActive && <span className="absolute -left-2 top-2 bottom-2 w-0.5 bg-accent rounded-sm" />}
+              {dragOver === i && dragFrom !== null && dragFrom !== i && (
+                <span className={`absolute left-1 right-1 h-0.5 bg-accent rounded-sm ${dragFrom > i ? '-top-0.5' : '-bottom-0.5'}`} />
               )}
-              <Icon size={18} />
+              {t.icon}
+              {lit && <span className="absolute right-1.5 top-1.5 w-1.5 h-1.5 rounded-full bg-accent" style={{ boxShadow: '0 0 0 2px var(--rail)' }} />}
             </button>
           );
         })}
+        <button
+          data-tour="rail-all-tools"
+          onClick={onOpenAllTools}
+          title="All tools. Pin the ones you use to keep them here."
+          aria-label="All tools"
+          className={`${railBtn} text-content-faint hover:text-content-secondary`}
+        >
+          <Icons.More size={18} />
+        </button>
         <div className="flex-1" />
         {isDirty && (
           <div className="mx-auto w-1.5 h-1.5 rounded-full bg-warn mb-1" title="Unsaved changes" />
@@ -407,6 +318,32 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           <Icons.Settings size={18} />
         </button>
       </div>
+
+      {railMenu && (
+        <>
+          <div className="fixed inset-0 z-50" onClick={() => setRailMenu(null)} onContextMenu={(e) => { e.preventDefault(); setRailMenu(null); }} />
+          <div
+            role="menu"
+            className="fixed z-50 min-w-[150px] py-1 rounded-lg border border-line bg-surface shadow-xl text-[12px]"
+            style={{ left: railMenu.x + 4, top: railMenu.y }}
+          >
+            {[
+              { label: 'Move up', show: railMenu.index > 0, run: () => moveRail(railMenu.index, railMenu.index - 1) },
+              { label: 'Move down', show: railMenu.index < railTools.length - 1, run: () => moveRail(railMenu.index, railMenu.index + 1) },
+              { label: 'Unpin from rail', show: true, run: () => onRailChange(railTools.filter((_, j) => j !== railMenu.index).map((t) => t.id)) },
+            ].filter((m) => m.show).map((m) => (
+              <button
+                key={m.label}
+                role="menuitem"
+                onClick={() => { m.run(); setRailMenu(null); }}
+                className="w-full text-left px-3 py-1.5 text-content-secondary hover:bg-surface-2 hover:text-content cursor-pointer"
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Side Panel — 240px */}
       {!collapsed && (

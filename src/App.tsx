@@ -666,34 +666,49 @@ function App() {
 
   /** Everything the All tools panel lists. Rail icons are shortcuts to the same. */
   const allTools: Tool[] = [
-    { group: 'Write and learn', label: 'DataWeave Academy', desc: 'Learn DataWeave from zero: what a payload is, mapping, then the Practice units in order.', icon: (
+    { id: 'academy', group: 'Write and learn', label: 'DataWeave Academy', desc: 'Learn DataWeave from zero: what a payload is, mapping, then the Practice units in order.', icon: (
       <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
         <path d="M22 9 12 4 2 9l10 5 10-5Z" /><path d="M6 11v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5" />
       </svg>
     ), run: () => setAcademyOpen(true) },
-    { group: 'Write and learn', label: 'Function reference', desc: 'Every DataWeave function, with signatures and runnable examples.', icon: <Icons.Braces size={16} />, run: () => setReferenceOpen(true) },
-    { group: 'Write and learn', label: 'DataWeave cookbook', desc: 'Ready-made recipes that open as a workspace you can tweak.', icon: <Icons.Book size={16} />, run: () => setRecipesOpen(true) },
-    { group: 'Write and learn', label: 'Snippets', desc: 'Starter scripts for common patterns like map, filter and groupBy.', icon: <Icons.Library size={16} />, run: handleOpenSnippets },
-    { group: 'Write and learn', label: 'Practice', desc: 'DataWeave problems with hidden test cases, from basics to recursion.', icon: (
+    { id: 'reference', group: 'Write and learn', label: 'Function reference', desc: 'Every DataWeave function, with signatures and runnable examples.', icon: <Icons.Braces size={16} />, run: () => { introFeature('reference'); setReferenceOpen(true); } },
+    { id: 'cookbook', group: 'Write and learn', label: 'DataWeave cookbook', desc: 'Ready-made recipes that open as a workspace you can tweak.', icon: <Icons.Book size={16} />, run: () => { introFeature('cookbook'); setRecipesOpen(true); } },
+    { id: 'snippets', group: 'Write and learn', label: 'Snippets', desc: 'Starter scripts for common patterns like map, filter and groupBy.', icon: <Icons.Library size={16} />, run: handleOpenSnippets },
+    { id: 'practice', group: 'Write and learn', label: 'Practice', desc: 'DataWeave problems with hidden test cases, from basics to recursion.', icon: (
       <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
         <path d="M7 4h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" /><path d="M9.5 9.5 11 11l-1.5 1.5" /><path d="M13 13h2" />
       </svg>
     ), run: () => setPracticeOpen(true) },
-    { group: 'Write and learn', label: 'Compare', desc: 'Diff two payloads side by side, with an option to ignore IDs.', icon: <Icons.Compare size={16} />, run: () => setCompareToolOpen(true) },
-    { group: 'Bring data in', label: 'Import cURL', desc: 'Paste a cURL command and get the payload, headers and a starting script.', icon: <Icons.Import size={16} />, run: handleOpenImport },
-    { group: 'Bring data in', label: 'Mule log → cURL', desc: 'Turn the requests in a Mule debug log back into cURL commands.', icon: <Icons.Terminal size={16} />, run: () => setMuleLogOpen(true) },
-    { group: 'Bring data in', label: 'OpenAPI / Swagger reader', desc: 'Sample payloads and DataWeave straight from an API spec.', icon: <Icons.ApiSpec size={16} />, run: () => { introFeature('openapi'); setOpenApiOpen(true); } },
-    { group: 'Mule configuration', label: 'Secure Properties tool', desc: 'Encrypt or decrypt a value the way secure-properties-tool.jar does.', icon: <Icons.Secure size={16} />, run: () => setSecureToolOpen(true) },
-    { group: 'Mule configuration', label: 'Config encryption', desc: 'Encrypt or decrypt every value in a YAML or .properties config at once.', icon: <Icons.Key size={16} />, run: () => setConfigCryptoOpen(true) },
-    { group: 'Build and connect', label: 'Message Flow designer', desc: 'Chain transforms into a flow, with mock HTTP, Salesforce and database steps.', icon: <Icons.Flow size={16} />, run: () => setFlowDesignerOpen(true) },
-    { group: 'Build and connect', label: 'Java tester', desc: 'Compile Java classes and call them from DataWeave.', icon: <Icons.Coffee size={16} />, run: () => setJavaTesterOpen(true) },
-    { group: 'Build and connect', label: 'Module library', desc: 'Save reusable .dwl modules and import them in any script.', icon: <Icons.Package size={16} />, run: () => setModulesOpen(true) },
-    { group: 'Build and connect', label: 'Local Server', desc: 'Let AI assistants and your own scripts run DataWeave on this machine.', icon: (
+    { id: 'compare', group: 'Write and learn', label: 'Compare', desc: 'Diff two payloads side by side, with an option to ignore IDs.', icon: <Icons.Compare size={16} />, run: () => { introFeature('compare'); setCompareToolOpen(true); } },
+    { id: 'curl', group: 'Bring data in', label: 'Import cURL', desc: 'Paste a cURL command and get the payload, headers and a starting script.', icon: <Icons.Import size={16} />, run: handleOpenImport },
+    { id: 'mulelog', group: 'Bring data in', label: 'Mule log → cURL', desc: 'Turn the requests in a Mule debug log back into cURL commands.', icon: <Icons.Terminal size={16} />, run: () => setMuleLogOpen(true) },
+    { id: 'openapi', group: 'Bring data in', label: 'OpenAPI / Swagger reader', desc: 'Sample payloads and DataWeave straight from an API spec.', icon: <Icons.ApiSpec size={16} />, run: () => { introFeature('openapi'); setOpenApiOpen(true); } },
+    { id: 'secure', group: 'Mule configuration', label: 'Secure Properties tool', desc: 'Encrypt or decrypt a value the way secure-properties-tool.jar does.', icon: <Icons.Secure size={16} />, run: () => { introFeature('secure'); setSecureToolOpen(true); } },
+    { id: 'configcrypto', group: 'Mule configuration', label: 'Config encryption', desc: 'Encrypt or decrypt every value in a YAML or .properties config at once.', icon: <Icons.Key size={16} />, run: () => setConfigCryptoOpen(true) },
+    { id: 'flow', group: 'Build and connect', label: 'Message Flow designer', desc: 'Chain transforms into a flow, with mock HTTP, Salesforce and database steps.', icon: <Icons.Flow size={16} />, run: () => { introFeature('flow'); setFlowDesignerOpen(true); } },
+    { id: 'java', group: 'Build and connect', label: 'Java tester', desc: 'Compile Java classes and call them from DataWeave.', icon: <Icons.Coffee size={16} />, run: () => { introFeature('java'); setJavaTesterOpen(true); } },
+    { id: 'modules', group: 'Build and connect', label: 'Module library', desc: 'Save reusable .dwl modules and import them in any script.', icon: <Icons.Package size={16} />, run: () => { introFeature('modules'); setModulesOpen(true); } },
+    { id: 'mcp', group: 'Build and connect', label: 'Local Server', desc: 'Let AI assistants and your own scripts run DataWeave on this machine.', icon: (
       <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 2v4" /><path d="M5.5 5.5 8 8" /><path d="M18.5 5.5 16 8" /><rect x="6" y="8" width="12" height="8" rx="3" /><path d="M9 16v3a3 3 0 0 0 6 0v-3" />
       </svg>
-    ), run: () => setMcpOpen(true) },
+    ), run: () => { introFeature('mcp'); setMcpOpen(true); } },
   ];
+  // Which tools sit on the rail, in order; everything else is one click away
+  // in All tools. Saved per user. Workspaces and Settings are always there.
+  const [railPins, setRailPins] = useState<string[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('dw.railPins') || 'null');
+      if (Array.isArray(saved)) return saved.filter((x): x is string => typeof x === 'string');
+    } catch { /* fall through to the default */ }
+    return ['snippets', 'academy', 'flow'];
+  });
+  const changeRail = useCallback((next: string[]) => {
+    setRailPins(next);
+    try { localStorage.setItem('dw.railPins', JSON.stringify(next)); } catch { /* ignore */ }
+  }, []);
+  const railTools = railPins.map((id) => allTools.find((t) => t.id === id)).filter((t): t is Tool => !!t);
+
   const toolExtras = [
     { label: 'Keyboard shortcuts', run: () => setShortcutsOpen(true) },
     { label: 'What’s new', run: () => setShowWhatsNew(true) },
@@ -2010,21 +2025,11 @@ function App() {
           onDuplicateRequest={workspace.duplicateRequest}
           onOpenCurlImport={handleOpenImport}
           onInsertSnippet={(body) => scriptEditorRef.current?.insertSnippet(body)}
-          onOpenSecure={() => { introFeature('secure'); setSecureToolOpen(true); }}
-          onOpenConfigCrypto={() => setConfigCryptoOpen(true)}
-          onOpenCompare={() => { introFeature('compare'); setCompareToolOpen(true); }}
-          onOpenPractice={() => setPracticeOpen(true)}
-          onOpenAcademy={() => setAcademyOpen(true)}
+          railTools={railTools}
+          onRailChange={changeRail}
           onOpenAllTools={() => setToolsMenuOpen(true)}
-          onOpenFlowDesigner={() => { introFeature('flow'); setFlowDesignerOpen(true); }}
-          onOpenJavaTester={() => { introFeature('java'); setJavaTesterOpen(true); }}
-          onOpenOpenApi={() => { introFeature('openapi'); setOpenApiOpen(true); }}
-          onOpenModules={() => { introFeature('modules'); setModulesOpen(true); }}
-          onOpenMcp={() => { introFeature('mcp'); setMcpOpen(true); }}
           mcpRunning={mcpRunning}
           onOpenSettings={() => { setSettingsSection(undefined); setSettingsOpen(true); }}
-          onOpenReference={() => { introFeature('reference'); setReferenceOpen(true); }}
-          onOpenRecipes={() => { introFeature('cookbook'); setRecipesOpen(true); }}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />}
@@ -2507,7 +2512,13 @@ function App() {
       )}
 
       {toolsMenuOpen && (
-        <ToolsLauncher tools={allTools} extras={toolExtras} onClose={() => setToolsMenuOpen(false)} />
+        <ToolsLauncher
+          tools={allTools}
+          extras={toolExtras}
+          pinned={railPins}
+          onTogglePin={(id) => changeRail(railPins.includes(id) ? railPins.filter((x) => x !== id) : [...railPins, id])}
+          onClose={() => setToolsMenuOpen(false)}
+        />
       )}
 
       {/* What's new — once per release, for returning users after an update. */}
