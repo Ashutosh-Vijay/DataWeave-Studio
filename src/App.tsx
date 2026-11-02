@@ -80,6 +80,7 @@ import {
   effectiveTarget, labelFor, shouldPromptForTarget, markTargetPrompted,
 } from './targetRuntime';
 import { FeatureIntroHost } from './components/FeatureIntroHost';
+import { RailNotice } from './components/RailNotice';
 import { introFeature } from './featureIntros';
 import { SplashScreen } from './components/SplashScreen';
 import { SeasonalEffects } from './components/SeasonalEffects';
@@ -708,6 +709,18 @@ function App() {
     try { localStorage.setItem('dw.railPins', JSON.stringify(next)); } catch { /* ignore */ }
   }, []);
   const railTools = railPins.map((id) => allTools.find((t) => t.id === id)).filter((t): t is Tool => !!t);
+  // Shown once, until dismissed: 'upgrade' for people who used the old all-tools
+  // rail (saw the tour before pins existed), 'new' for everyone else.
+  const [railNotice, setRailNotice] = useState<null | 'upgrade' | 'new'>(() => {
+    try {
+      if (localStorage.getItem('dw.railNoticeSeen')) return null;
+      return localStorage.getItem(TOUR_SEEN_KEY) && !localStorage.getItem('dw.railPins') ? 'upgrade' : 'new';
+    } catch { return null; }
+  });
+  const closeRailNotice = useCallback(() => {
+    setRailNotice(null);
+    try { localStorage.setItem('dw.railNoticeSeen', 'true'); } catch { /* ignore */ }
+  }, []);
 
   const toolExtras = [
     { label: 'Keyboard shortcuts', run: () => setShortcutsOpen(true) },
@@ -2540,6 +2553,15 @@ function App() {
       {/* One-time feature coachmarks — fired by introFeature(key) from button
           handlers; renders at most one card at a time. */}
       <FeatureIntroHost />
+      {railNotice && !showTour && !showFirstRun && effectiveLayout === 'workbench' && hasStarted && (
+        <RailNotice
+          upgrade={railNotice === 'upgrade'}
+          // The rail as it was before pins, top to bottom.
+          onKeepOld={() => changeRail(['secure', 'configcrypto', 'reference', 'cookbook', 'flow', 'java', 'modules', 'mcp', 'compare', 'academy', 'practice', 'openapi', 'curl', 'snippets'])}
+          onOpenAllTools={() => setToolsMenuOpen(true)}
+          onDone={closeRailNotice}
+        />
+      )}
 
       {/* First-workspace prompt — one-time, lands the user inside a real
           workspace so the "what's a workspace? what's a request?" mental
