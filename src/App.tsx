@@ -355,6 +355,8 @@ function App() {
   const [recipesOpen, setRecipesOpen] = useState(false);
   const [flowDesignerOpen, setFlowDesignerOpen] = useState(false);
   const [curlImportOpen, setCurlImportOpen] = useState(false);
+  // Which side of the import dialog opens: the cURL box or the share-link box.
+  const [importMode, setImportMode] = useState<'curl' | 'link'>('curl');
   const [openApiOpen, setOpenApiOpen] = useState(false);
   const [javaTesterOpen, setJavaTesterOpen] = useState(false);
   const [mcpOpen, setMcpOpen] = useState(false);
@@ -473,6 +475,7 @@ function App() {
   const handleOpenImport = useCallback(() => {
     introFeature('curl');
     beginTransforming();
+    setImportMode('curl');
     setCurlImportOpen(true);
   }, [beginTransforming]);
   const handleOpenSnippets = useCallback(() => {
@@ -682,6 +685,8 @@ function App() {
     ), run: () => setPracticeOpen(true) },
     { id: 'compare', group: 'Write and learn', label: 'Compare', desc: 'Diff two payloads side by side, with an option to ignore IDs.', icon: <Icons.Compare size={16} />, run: () => { introFeature('compare'); setCompareToolOpen(true); } },
     { id: 'curl', group: 'Bring data in', label: 'Import cURL', desc: 'Paste a cURL command and get the payload, headers and a starting script.', icon: <Icons.Import size={16} />, run: handleOpenImport },
+    { id: 'sharelink', group: 'Bring data in', label: 'Open a share link', desc: 'Paste a link someone shared to load their script, inputs and context.', icon: <Icons.Share size={16} />, run: () => { beginTransforming(); setImportMode('link'); setCurlImportOpen(true); } },
+    { id: 'playgroundzip', group: 'Bring data in', label: 'Import Playground zip', desc: 'Open a project exported from the DataWeave Playground.', icon: <Icons.Package size={16} />, run: () => handleImportPlayground() },
     { id: 'mulelog', group: 'Bring data in', label: 'Mule log → cURL', desc: 'Turn the requests in a Mule debug log back into cURL commands.', icon: <Icons.Terminal size={16} />, run: () => setMuleLogOpen(true) },
     { id: 'openapi', group: 'Bring data in', label: 'OpenAPI / Swagger reader', desc: 'Sample payloads and DataWeave straight from an API spec.', icon: <Icons.ApiSpec size={16} />, run: () => { introFeature('openapi'); setOpenApiOpen(true); } },
     { id: 'secure', group: 'Mule configuration', label: 'Secure Properties tool', desc: 'Encrypt or decrypt a value the way secure-properties-tool.jar does.', icon: <Icons.Secure size={16} />, run: () => { introFeature('secure'); setSecureToolOpen(true); } },
@@ -1628,6 +1633,7 @@ function App() {
     { id: 'modules', label: 'Open Module library', group: 'Writing', run: () => setModulesOpen(true) },
     { id: 'import-curl', label: 'Import cURL', shortcut: kbd('⌘⇧I'), group: 'Bring data in', run: handleOpenImport },
     { id: 'all-tools', label: 'All tools', hint: 'Every tool, with what it’s for', group: 'Tools', run: () => setToolsMenuOpen(true) },
+    { id: 'open-share-link', label: 'Open a share link', hint: 'Load a setup someone shared with you', group: 'Bring data in', run: () => { beginTransforming(); setImportMode('link'); setCurlImportOpen(true); } },
     { id: 'mule-log', label: 'Mule log → cURL', hint: 'Replay a request that only exists in a log', group: 'Bring data in', run: () => setMuleLogOpen(true) },
     { id: 'openapi', label: 'Open OpenAPI / Swagger reader', group: 'Bring data in', run: () => { introFeature('openapi'); setOpenApiOpen(true); } },
     { id: 'secure', label: 'Open Secure Properties tool', shortcut: kbd('⌘⇧E'), group: 'Secrets', run: () => setSecureToolOpen(true) },
@@ -2546,6 +2552,7 @@ function App() {
         onClose={() => setCurlImportOpen(false)}
         onImport={handleCurlImport}
         onImportShareLink={applyShareLink}
+        initialMode={importMode}
       />
 
       <OpenApiReader open={openApiOpen} onClose={() => setOpenApiOpen(false)} onImport={handleOpenApiImport} />

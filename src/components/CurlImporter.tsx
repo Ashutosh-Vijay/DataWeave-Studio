@@ -566,12 +566,14 @@ interface CurlImporterProps {
    *  panel). When omitted it falls back to its own inline trigger button. */
   open?: boolean;
   onClose?: () => void;
+  /** Which source the dialog shows when it opens. */
+  initialMode?: 'curl' | 'link';
   /** Import a `dws1.…` share link (or a URL containing one). The dialog only
    *  collects the text; App decodes and applies it. */
   onImportShareLink?: (text: string) => void;
 }
 
-export function CurlImporter({ onImport, open, onClose, onImportShareLink }: CurlImporterProps) {
+export function CurlImporter({ onImport, open, onClose, onImportShareLink, initialMode }: CurlImporterProps) {
   const controlled = open !== undefined;
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = controlled ? open : internalOpen;
@@ -580,6 +582,8 @@ export function CurlImporter({ onImport, open, onClose, onImportShareLink }: Cur
   // previously buried in the workspace breadcrumb menu where nobody found it.
   const [mode, setMode] = useState<'curl' | 'link'>('curl');
   const [linkText, setLinkText] = useState('');
+  // Open on the side the caller asked for (All tools has a separate share-link entry).
+  useEffect(() => { if (isOpen && initialMode) setMode(initialMode); }, [isOpen, initialMode]);
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<CurlImportResult | null>(null);
   // The same parsed request, shown two ways: the transform to work on, or the
