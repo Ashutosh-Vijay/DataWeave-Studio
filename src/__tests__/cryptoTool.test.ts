@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_SETTINGS, PRESETS, encryptedFrom, generateJava, presetOf, effective, sameHash, toolArgs, TOOL_SOURCE, TOOL_SCRIPT, TOOL_PACKAGE } from '../cryptoTool';
+import { DEFAULT_SETTINGS, PRESETS, encryptedFrom, generateJava, presetOf, effective, sameHash, toolArgs, parseFileRows, fileTable, TOOL_SOURCE, TOOL_SCRIPT, TOOL_PACKAGE } from '../cryptoTool';
 
 describe('presets', () => {
   it('each preset is recognised by its own settings, and the default is the recommended one', () => {
@@ -33,11 +33,23 @@ describe('sameHash', () => {
   });
 });
 
-describe('toolArgs on a file', () => {
-  it('hashes the file path for Hash and HMAC, and ignores it elsewhere', () => {
-    expect(toolArgs('hash', DEFAULT_SETTINGS, '', 'text', 'C:/a.zip')).toMatchObject({ op: 'hashFile', text: 'C:/a.zip' });
-    expect(toolArgs('hmac', DEFAULT_SETTINGS, 'k', 'text', 'C:/a.zip')).toMatchObject({ op: 'hmacFile', text: 'C:/a.zip' });
-    expect(toolArgs('encrypt', DEFAULT_SETTINGS, 'k', 'text', 'C:/a.zip')).toMatchObject({ op: 'encrypt', text: 'text' });
+describe('files', () => {
+  it('sends the file list for Hash and HMAC, and ignores it elsewhere', () => {
+    expect(toolArgs('hash', DEFAULT_SETTINGS, '', 'text', ['C:/a.zip', 'C:/b.zip'])).toMatchObject({ op: 'hashFiles', text: 'C:/a.zip\nC:/b.zip' });
+    expect(toolArgs('hmac', DEFAULT_SETTINGS, 'k', 'text', ['C:/a.zip'])).toMatchObject({ op: 'hmacFiles', text: 'C:/a.zip' });
+    expect(toolArgs('encrypt', DEFAULT_SETTINGS, 'k', 'text', ['C:/a.zip'])).toMatchObject({ op: 'encrypt', text: 'text' });
+    expect(toolArgs('hash', DEFAULT_SETTINGS, '', 'text', [])).toMatchObject({ op: 'hash', text: 'text' });
+  });
+
+  it('reads the rows, failures included, and writes a table Excel and CSV readers accept', () => {
+    const rows = parseFileRows('C:\\vapt\\api-one.zip\t1024\tab12\nC:\\vapt\\gone, old.zip\t-1\t!not found\n');
+    expect(rows).toEqual([
+      { path: 'C:\\vapt\\api-one.zip', name: 'api-one.zip', size: 1024, hash: 'ab12', error: '' },
+      { path: 'C:\\vapt\\gone, old.zip', name: 'gone, old.zip', size: -1, hash: '', error: 'not found' },
+    ]);
+    expect(fileTable(rows, 'MD5', ',')).toBe(
+      'File,Size (bytes),MD5,Path\r\napi-one.zip,1024,ab12,C:\\vapt\\api-one.zip\r\n"gone, old.zip",,ERROR: not found,"C:\\vapt\\gone, old.zip"\r\n');
+    expect(fileTable(rows, 'MD5', '\t').split('\r\n')[1]).toBe('api-one.zip\t1024\tab12\tC:\\vapt\\api-one.zip');
   });
 });
 

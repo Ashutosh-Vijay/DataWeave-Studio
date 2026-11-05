@@ -302,18 +302,41 @@ const TOOL_ENTRY = String.raw`
                 case "encrypt": return "ok:" + encryptText(algorithm, mode, padding, keyMode, secret, ivMode, iv, encoding, rounds, text);
                 case "decrypt": return "ok:" + decryptText(algorithm, mode, padding, keyMode, secret, ivMode, iv, encoding, rounds, text);
                 case "hash": return "ok:" + hashText(algorithm, encoding, text);
-                case "hashFile": {
-                    MessageDigest md = MessageDigest.getInstance(algorithm);
-                    readFile(text, md::update);
-                    return "ok:" + encode(md.digest(), encoding);
-                }
-                case "hmacFile": {
-                    byte[] k = keyMode.equals("text") ? secret.getBytes(StandardCharsets.UTF_8) : decode(secret, keyMode);
-                    if (k.length == 0) throw new IllegalArgumentException("Type a secret key.");
-                    Mac mac = Mac.getInstance(algorithm);
-                    mac.init(new SecretKeySpec(k, algorithm));
-                    readFile(text, mac::update);
-                    return "ok:" + encode(mac.doFinal(), encoding);
+                case "hashFiles":
+                case "hmacFiles": {
+                    // One line per file: path, size, then the hash or "!" and why it failed.
+                    // A bad file gets its own line instead of stopping the batch.
+                    byte[] k = null;
+                    if (op.equals("hmacFiles")) {
+                        k = keyMode.equals("text") ? secret.getBytes(StandardCharsets.UTF_8) : decode(secret, keyMode);
+                        if (k.length == 0) throw new IllegalArgumentException("Type a secret key.");
+                    }
+                    StringBuilder out = new StringBuilder();
+                    for (java.nio.file.Path p : expandPaths(text)) {
+                        String r;
+                        long size = -1;
+                        try {
+                            size = java.nio.file.Files.size(p);
+                            if (k == null) {
+                                MessageDigest md = MessageDigest.getInstance(algorithm);
+                                readFile(p, md::update);
+                                r = encode(md.digest(), encoding);
+                            } else {
+                                Mac mac = Mac.getInstance(algorithm);
+                                mac.init(new SecretKeySpec(k, algorithm));
+                                readFile(p, mac::update);
+                                r = encode(mac.doFinal(), encoding);
+                            }
+                        } catch (java.nio.file.NoSuchFileException e) {
+                            r = "!not found";
+                        } catch (java.nio.file.AccessDeniedException e) {
+                            r = "!no permission to read it";
+                        } catch (java.io.IOException e) {
+                            r = "!" + (e.getMessage() != null && !e.getMessage().isEmpty() ? e.getMessage() : e.getClass().getSimpleName());
+                        }
+                        out.append(p).append('\t').append(size).append('\t').append(r).append('\n');
+                    }
+                    return "ok:" + out;
                 }
                 default: return "ok:" + hmacText(algorithm, keyMode, secret, encoding, text);
             }
@@ -336,9 +359,28 @@ const TOOL_ENTRY = String.raw`
 
     interface Chunks { void update(byte[] buf, int off, int len); }
 
+    // One path per line; a folder stands for the files directly inside it, by name.
+    static java.util.List<java.nio.file.Path> expandPaths(String lines) throws java.io.IOException {
+        java.util.List<java.nio.file.Path> out = new java.util.ArrayList<>();
+        for (String line : lines.split("\n")) {
+            if (line.trim().isEmpty()) continue;
+            java.nio.file.Path p = java.nio.file.Paths.get(line.trim());
+            if (java.nio.file.Files.isDirectory(p)) {
+                try (java.util.stream.Stream<java.nio.file.Path> s = java.nio.file.Files.list(p)) {
+                    s.filter(java.nio.file.Files::isRegularFile)
+                     .sorted(java.util.Comparator.comparing(x -> x.getFileName().toString().toLowerCase()))
+                     .forEach(out::add);
+                }
+            } else {
+                out.add(p);
+            }
+        }
+        return out;
+    }
+
     // Streams the file in 64 KB pieces, so a multi-GB zip hashes without loading into memory.
-    static void readFile(String path, Chunks sink) throws Exception {
-        try (java.io.InputStream in = java.nio.file.Files.newInputStream(java.nio.file.Paths.get(path))) {
+    static void readFile(java.nio.file.Path path, Chunks sink) throws java.io.IOException {
+        try (java.io.InputStream in = java.nio.file.Files.newInputStream(path)) {
             byte[] buf = new byte[1 << 16];
             for (int n; (n = in.read(buf)) > 0; ) sink.update(buf, 0, n);
         }
@@ -364,18 +406,36 @@ CryptoTool::run(payload.op, payload.algorithm, payload.mode, payload.padding, pa
   payload.ivMode, payload.iv, payload.encoding, payload.iterations, payload.text)`;
 
 /** Arguments for one run of the tool, in TOOL_SCRIPT's order. */
-/** `filePath`: hash or sign that file instead of the text (Hash and HMAC only). */
-export function toolArgs(op: CryptoOp, s: CryptoSettings, secret: string, text: string, filePath?: string) {
+/** `filePaths`: hash or sign these files (folders mean the files in them) instead of the text. Hash and HMAC only. */
+export function toolArgs(op: CryptoOp, s: CryptoSettings, secret: string, text: string, filePaths?: string[]) {
   const isHash = op === 'hash', isHmac = op === 'hmac';
-  const onFile = !!filePath && (isHash || isHmac);
+  const onFile = !!filePaths?.length && (isHash || isHmac);
   return {
-    op: onFile ? `${op}File` : op,
+    op: onFile ? `${op}Files` : op,
     algorithm: isHash ? s.hashAlg : isHmac ? s.hmacAlg : s.algorithm,
     mode: s.mode, padding: s.padding,
     keyMode: isHmac ? s.hmacKeyMode : s.keyMode,
     secret, ivMode: s.ivMode, iv: s.iv, encoding: s.encoding, iterations: String(s.iterations || 1),
-    text: onFile ? filePath : text,
+    text: onFile ? filePaths!.join('\n') : text,
   };
+}
+
+export interface FileRow { path: string; name: string; size: number; hash: string; error: string }
+
+/** The Java's per-file lines ("path\tsize\thash" or "...\t!why") as rows. */
+export function parseFileRows(out: string): FileRow[] {
+  return out.split('\n').filter(Boolean).map((line) => {
+    const [path, size, value] = line.split('\t');
+    const failed = value.startsWith('!');
+    return { path, name: path.split(/[\\/]/).pop() || path, size: Number(size), hash: failed ? '' : value, error: failed ? value.slice(1) : '' };
+  });
+}
+
+/** The table for pasting into Excel (tab-separated) or saving as CSV. */
+export function fileTable(rows: FileRow[], algorithm: string, sep: '\t' | ','): string {
+  const cell = (v: string) => (sep === ',' && /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const lines = [['File', 'Size (bytes)', algorithm, 'Path'], ...rows.map((r) => [r.name, r.size < 0 ? '' : String(r.size), r.hash || `ERROR: ${r.error}`, r.path])];
+  return lines.map((l) => l.map(cell).join(sep)).join('\r\n') + '\r\n';
 }
 
 /** Which input field the decrypt box reads: a bare string, or the value inside { encryptedBody } / { decryptedBody }. */

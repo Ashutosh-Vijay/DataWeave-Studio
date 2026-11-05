@@ -12,10 +12,11 @@ import { invoke } from '../bridge';
 import { Icons } from './Icons';
 import { WindowControls } from './WindowControls';
 import { MiniEditor } from './MiniEditor';
-import { open as tauriOpen } from '@tauri-apps/plugin-dialog';
+import { open as tauriOpen, save as tauriSave } from '@tauri-apps/plugin-dialog';
+import { toast } from './Toast';
 import {
   ALGORITHMS, DEFAULT_SETTINGS, HASH_ALGS, HMAC_ALGS, IV_MODES, KEY_MODES, PRESETS, TOOL_PACKAGE, TOOL_SCRIPT, TOOL_SOURCE,
-  encryptedFrom, generateDataWeave, generateJava, modesFor, presetOf, sameHash, toolArgs,
+  encryptedFrom, generateDataWeave, generateJava, modesFor, presetOf, sameHash, toolArgs, parseFileRows, fileTable, type FileRow,
   type CryptoOp, type CryptoSettings,
 } from '../cryptoTool';
 
@@ -82,7 +83,9 @@ export function CryptoTool({ open, onClose }: { open: boolean; onClose: () => vo
   const [input, setInput] = useState('');
   // Hash and HMAC can work on a file instead of the text box.
   const [source, setSource] = useState<'text' | 'file'>('text');
-  const [filePath, setFilePath] = useState('');
+  // Files and folders picked for Hash / HMAC; a folder means the files directly inside it.
+  const [picks, setPicks] = useState<{ path: string; folder: boolean }[]>([]);
+  const [rows, setRows] = useState<FileRow[]>([]);
   const [expected, setExpected] = useState('');
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -135,10 +138,18 @@ export function CryptoTool({ open, onClose }: { open: boolean; onClose: () => vo
   const needsKey = op === 'encrypt' || op === 'decrypt' || op === 'hmac';
   const text = op === 'decrypt' ? encryptedFrom(input) : input;
   const onFile = (op === 'hash' || op === 'hmac') && source === 'file';
-  const hasInput = onFile ? !!filePath : !!input.trim();
-  const pickFile = async () => {
-    const picked = await tauriOpen({ multiple: false, directory: false });
-    if (typeof picked === 'string') setFilePath(picked);
+  const hasInput = onFile ? picks.length > 0 : !!input.trim();
+  const pick = async (folder: boolean) => {
+    const picked = await tauriOpen({ multiple: !folder, directory: folder });
+    const paths = (Array.isArray(picked) ? picked : picked ? [picked] : []) as string[];
+    setPicks((prev) => [...prev, ...paths.filter((x) => !prev.some((q) => q.path === x)).map((x) => ({ path: x, folder }))]);
+  };
+  const algName = op === 'hmac' ? s.hmacAlg.replace('Hmac', 'HMAC-') : s.hashAlg;
+  const saveCsv = async () => {
+    const path = await tauriSave({ defaultPath: `${algName.toLowerCase()}-checksums.csv`, filters: [{ name: 'CSV', extensions: ['csv'] }] });
+    if (!path) return;
+    try { await invoke('save_output_file', { path, content: fileTable(rows, algName, ',') }); toast(`Saved ${path.split(/[\\/]/).pop()}`, 'success'); }
+    catch (e) { toast(String(e), 'error'); }
   };
 
   // Run as you type (debounced). Encrypting gives a different result each
@@ -150,12 +161,19 @@ export function CryptoTool({ open, onClose }: { open: boolean; onClose: () => vo
     const t = setTimeout(async () => {
       setBusy(true);
       try {
-        const r = await runTool(toolArgs(op, s, secret, text, onFile ? filePath : undefined));
+        const r = await runTool(toolArgs(op, s, secret, text, onFile ? picks.map((x) => x.path) : undefined));
         if (stale) return;
         if (r.error) { setResult({ ok: false, text: r.error }); return; }
         const out = r.output;
         if (out.startsWith('error:')) { setResult({ ok: false, text: out.slice(6) }); return; }
         let value = out.replace(/^ok:/, '');
+        if (onFile) {
+          // One file: just its hash, so Copy and Expected work as for text. More: the table.
+          const parsed = parseFileRows(value);
+          setRows(parsed);
+          if (!parsed.length) { setResult({ ok: false, text: 'No files in what you picked.' }); return; }
+          value = parsed.length === 1 && !parsed[0].error ? parsed[0].hash : fileTable(parsed, algName, '\t');
+        }
         if (op === 'encrypt' && wrap) value = JSON.stringify({ encryptedBody: value }, null, 2);
         if (op === 'decrypt') { try { value = JSON.stringify(JSON.parse(value), null, 2); } catch { /* not JSON: show as is */ } }
         setResult({ ok: true, text: value });
@@ -166,7 +184,7 @@ export function CryptoTool({ open, onClose }: { open: boolean; onClose: () => vo
       }
     }, 350);
     return () => { stale = true; clearTimeout(t); };
-  }, [open, op, s, secret, input, wrap, source, filePath]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, op, s, secret, input, wrap, source, picks]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const preset = presetOf(s, ownPresets);
   const presetHint = PRESETS.find((p) => p.name === preset)?.hint;
@@ -382,24 +400,38 @@ export function CryptoTool({ open, onClose }: { open: boolean; onClose: () => vo
             )}
             <span className="text-[11px] text-content-ghost">
               {op === 'decrypt' ? 'The bare string, or JSON like { "encryptedBody": "…" }'
-                : onFile ? 'Any file: zip, jar, PDF, image… Read from disk, any size.'
+                : onFile ? 'Files or whole folders: zip, jar, PDF… Read from disk, any size.'
                 : 'Any text: JSON, XML, a single value…'}
             </span>
           </div>
           {onFile ? (
-            <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
-              {filePath ? (
-                <>
-                  <div className="text-[13px] font-medium text-content break-all">{filePath.split(/[\\/]/).pop()}</div>
-                  <div className="text-[11px] font-mono text-content-faint break-all max-w-[640px]">{filePath}</div>
-                  <button onClick={pickFile} className="h-8 px-3 rounded-md text-[12px] text-content-secondary border border-line hover:bg-surface-2 cursor-pointer">Choose another file</button>
-                </>
-              ) : (
-                <button onClick={pickFile} className="h-9 px-4 rounded-md text-[12.5px] font-semibold cursor-pointer" style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}>
-                  Choose file…
-                </button>
-              )}
-            </div>
+            picks.length === 0 ? (
+              <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
+                <div className="flex gap-2">
+                  <button onClick={() => pick(false)} className="h-9 px-4 rounded-md text-[12.5px] font-semibold cursor-pointer" style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}>Choose files…</button>
+                  <button onClick={() => pick(true)} className="h-9 px-4 rounded-md text-[12.5px] font-medium text-content-secondary border border-line hover:bg-surface-2 cursor-pointer">Choose a folder…</button>
+                </div>
+                <p className="text-[11.5px] text-content-faint">A folder means every file directly inside it, like a folder of project zips.</p>
+              </div>
+            ) : (
+              <div className="flex-1 min-h-0 flex flex-col">
+                <div className="flex-1 min-h-0 overflow-auto py-1">
+                  {picks.map((x) => (
+                    <div key={x.path} className="group flex items-center gap-2 px-3.5 py-1.5">
+                      {x.folder ? <Icons.Folder size={12} /> : <span className="w-3" />}
+                      <span className="text-[12px] text-content truncate">{x.path.split(/[\\/]/).pop()}{x.folder && <span className="text-content-faint"> (all files in it)</span>}</span>
+                      <span className="text-[11px] font-mono text-content-ghost truncate flex-1 min-w-0">{x.path}</span>
+                      <button onClick={() => setPicks((prev) => prev.filter((q) => q.path !== x.path))} className="opacity-0 group-hover:opacity-100 text-content-faint hover:text-err cursor-pointer" aria-label={`Remove ${x.path}`}><Icons.X size={11} /></button>
+                    </div>
+                  ))}
+                </div>
+                <div className="shrink-0 flex items-center gap-2 px-3.5 py-2 border-t border-line-subtle">
+                  <button onClick={() => pick(false)} className="h-7 px-2.5 rounded-md text-[11.5px] text-content-secondary border border-line hover:bg-surface-2 cursor-pointer">Add files</button>
+                  <button onClick={() => pick(true)} className="h-7 px-2.5 rounded-md text-[11.5px] text-content-secondary border border-line hover:bg-surface-2 cursor-pointer">Add a folder</button>
+                  <button onClick={() => { setPicks([]); setRows([]); }} className="h-7 px-2.5 rounded-md text-[11.5px] text-content-faint hover:text-content cursor-pointer">Clear</button>
+                </div>
+              </div>
+            )
           ) : (
             <div className="flex-1 min-h-0">
               <MiniEditor value={input} onChange={setInput} language="plaintext" height="100%" />
@@ -425,8 +457,14 @@ export function CryptoTool({ open, onClose }: { open: boolean; onClose: () => vo
                 Decrypt this
               </button>
             )}
+            {onFile && result?.ok && rows.length > 1 && (
+              <button onClick={saveCsv} className="h-6 px-2 rounded text-[11px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer" title="Save the table as a CSV file, for Excel or a VAPT submission">
+                Save CSV
+              </button>
+            )}
             {result && (
               <button
+                title={onFile && rows.length > 1 ? 'Copy the table; it pastes into Excel as columns' : undefined}
                 onClick={() => { void navigator.clipboard.writeText(result.text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }}
                 className="inline-flex items-center gap-1 h-6 px-2 rounded text-[11px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer"
               >
@@ -435,14 +473,33 @@ export function CryptoTool({ open, onClose }: { open: boolean; onClose: () => vo
             )}
           </div>
           <div className="h-[38%] shrink-0 overflow-auto p-3.5 bg-surface">
-            {result ? (
+            {result && onFile && result.ok && (rows.length > 1 || rows.some((r) => r.error)) ? (
+              <table className="w-full text-[12px] border-collapse">
+                <thead>
+                  <tr className="text-left text-[10px] uppercase tracking-wide text-content-faint">
+                    <th className="font-medium pb-1.5 pr-4">File</th>
+                    <th className="font-medium pb-1.5 pr-4 text-right">Size</th>
+                    <th className="font-medium pb-1.5">{algName}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.path} className="border-t border-line-subtle align-top">
+                      <td className="py-1.5 pr-4 text-content" title={r.path}>{r.name}</td>
+                      <td className="py-1.5 pr-4 text-right text-content-faint whitespace-nowrap">{r.size < 0 ? '' : humanSize(r.size)}</td>
+                      <td className="py-1.5 font-mono break-all" style={{ color: r.error ? 'var(--err)' : 'var(--content)' }}>{r.hash || r.error}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : result ? (
               <pre className="text-[12px] font-mono whitespace-pre-wrap break-all leading-relaxed" style={{ color: result.ok ? 'var(--content)' : 'var(--err)' }}>{result.text}</pre>
             ) : (
               <div className="text-[12px] text-content-faint italic">
-                {!hasInput ? (onFile ? 'Choose a file above.' : 'Paste something above.') : needsKey && !secret ? 'Type the secret key on the left.' : ''}
+                {!hasInput ? (onFile ? 'Choose files or a folder above.' : 'Paste something above.') : needsKey && !secret ? 'Type the secret key on the left.' : ''}
               </div>
             )}
-            {(op === 'hash' || op === 'hmac') && (
+            {(op === 'hash' || op === 'hmac') && !(onFile && rows.length > 1) && (
               <div className="mt-4 max-w-[640px]">
                 <span className={label}>Expected (optional)</span>
                 <input
@@ -485,6 +542,13 @@ export function CryptoTool({ open, onClose }: { open: boolean; onClose: () => vo
       )}
     </div>
   );
+}
+
+function humanSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  if (bytes < 1024 ** 3) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 }
 
 function CodeBlock({ title, code, language, grow }: { title: string; code: string; language: 'java' | 'dataweave'; grow?: boolean }) {
