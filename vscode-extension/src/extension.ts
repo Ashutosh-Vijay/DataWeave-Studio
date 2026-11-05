@@ -557,6 +557,8 @@ async function handleInvoke(
       return null;
     case 'download_maven_jar':
       return jarStore.downloadMavenJar(storageDir, args.group as string, args.artifact as string, args.version as string);
+    case 'maven_fetch_text':
+      return jarStore.mavenFetchText(args.url as string);
     case 'compile_java':
       return jarStore.compileJava(storageDir, extensionRoot, args.sources as any, args.classpath as string[]);
 

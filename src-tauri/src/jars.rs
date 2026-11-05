@@ -114,10 +114,55 @@ pub fn remove_managed_jar(app: AppHandle, path: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Download a single artifact's jar from Maven Central (no transitive deps).
+/// Download a single artifact's jar from Maven Central (no transitive deps;
+/// the tester resolves those itself and calls this once per jar).
 /// `group:artifact:version` → `repo1.maven.org/maven2/<group/path>/<a>/<v>/<a>-<v>.jar`.
+/// Async + spawn_blocking so a dozen downloads don't freeze the window.
 #[tauri::command]
-pub fn download_maven_jar(
+pub async fn download_maven_jar(
+    app: AppHandle,
+    group: String,
+    artifact: String,
+    version: String,
+) -> Result<JarInfo, String> {
+    tokio::task::spawn_blocking(move || download_maven_jar_blocking(app, group, artifact, version))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+// Corporate networks are the norm for this audience, and a filtered request
+// fails in ways that look nothing like "your network blocked this" unless we
+// say so. Importing a jar from disk always works, so point at that.
+const BLOCKED_HINT: &str = "Your network may be blocking Maven Central. \
+Download the jar on a machine that can reach it and add it with \
+\"Add JAR\" instead.";
+
+/// Text from Maven Central (POMs, maven-metadata.xml, search results) for the
+/// tester's dependency resolver. Limited to those two hosts so this is not a
+/// fetch-anything command. A missing file comes back as "Not found".
+#[tauri::command]
+pub async fn maven_fetch_text(url: String) -> Result<String, String> {
+    if !(url.starts_with("https://repo1.maven.org/maven2/")
+        || url.starts_with("https://search.maven.org/solrsearch/select?"))
+    {
+        return Err("Only Maven Central URLs are allowed.".into());
+    }
+    tokio::task::spawn_blocking(move || {
+        let resp = ureq::get(&url).call().map_err(|e| match e {
+            ureq::Error::Status(404, _) => "Not found".to_string(),
+            ureq::Error::Status(code @ (403 | 407 | 451), _) => {
+                format!("Blocked with HTTP {}. {}", code, BLOCKED_HINT)
+            }
+            ureq::Error::Status(code, _) => format!("Maven Central returned HTTP {}", code),
+            other => format!("Couldn't reach Maven Central: {}. {}", other, BLOCKED_HINT),
+        })?;
+        resp.into_string().map_err(|e| format!("Read failed: {}", e))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn download_maven_jar_blocking(
     app: AppHandle,
     group: String,
     artifact: String,
@@ -137,12 +182,6 @@ pub fn download_maven_jar(
         artifact,
         version
     );
-    // Corporate networks are the norm for this audience, and a filtered request
-    // fails in ways that look nothing like "your network blocked this" unless we
-    // say so. Importing a jar from disk always works, so point at that.
-    const BLOCKED_HINT: &str = "Your network may be blocking repo1.maven.org. \
-Download the jar on a machine that can reach Maven Central and add it with \
-\"Import JAR\" instead.";
     let resp = ureq::get(&url).call().map_err(|e| match e {
         ureq::Error::Status(404, _) => {
             format!("Not found on Maven Central: {}:{}:{}", group, artifact, version)

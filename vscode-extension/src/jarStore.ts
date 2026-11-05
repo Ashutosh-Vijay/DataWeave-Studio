@@ -76,6 +76,19 @@ function httpGet(url: string, redirects = 0): Promise<{ status: number; body: Bu
   });
 }
 
+/** Text from Maven Central (POMs, maven-metadata.xml, search) for the tester's
+ *  dependency resolver. Only those two hosts; a missing file is "Not found". */
+export async function mavenFetchText(url: string): Promise<string> {
+  if (!url.startsWith('https://repo1.maven.org/maven2/') && !url.startsWith('https://search.maven.org/solrsearch/select?')) {
+    throw new Error('Only Maven Central URLs are allowed.');
+  }
+  let res: { status: number; body: Buffer };
+  try { res = await httpGet(url); } catch (e: any) { throw new Error(`Couldn't reach Maven Central: ${e?.message ?? e}`); }
+  if (res.status === 404) throw new Error('Not found');
+  if (res.status !== 200) throw new Error(`Maven Central returned HTTP ${res.status}`);
+  return res.body.toString('utf8');
+}
+
 export async function downloadMavenJar(storageDir: string, group: string, artifact: string, version: string): Promise<JarInfo> {
   group = (group || '').trim(); artifact = (artifact || '').trim(); version = (version || '').trim();
   if (!group || !artifact || !version) throw new Error('group, artifact and version are all required.');

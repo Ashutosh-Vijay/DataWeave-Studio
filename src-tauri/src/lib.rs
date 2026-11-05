@@ -116,6 +116,7 @@ pub fn run() {
             jars::import_jar_file,
             jars::remove_managed_jar,
             jars::download_maven_jar,
+            jars::maven_fetch_text,
             jars::compile_java,
             mcp_server::mcp_start,
             mcp_server::mcp_stop,

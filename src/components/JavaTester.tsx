@@ -22,13 +22,24 @@ import { Icons } from './Icons';
 import { WindowControls } from './WindowControls';
 import { MiniEditor } from './MiniEditor';
 import { toast } from './Toast';
-import { open as tauriOpen } from '@tauri-apps/plugin-dialog';
+import { open as tauriOpen, save as tauriSave } from '@tauri-apps/plugin-dialog';
+import { MavenDialog } from './MavenDialog';
 import { MIME_OPTIONS } from '../types';
 
 interface RunResult { output: string; error: string | null; execution_time_ms: number; }
 interface JarInfo { path: string; filename: string; sizeBytes: number; }
 interface CompileResult { ok: boolean; classesDir: string; diagnostics: string; }
-interface JavaSrc { id: string; name: string; content: string; }
+/** `path` is the file it was loaded from or saved to; `saved` is its content then. */
+interface JavaSrc { id: string; name: string; content: string; path?: string; saved?: string; }
+
+// Everything in the tester survives closing it and restarting the app.
+const STORE_KEY = 'dw.javaTester';
+function loadStored(): { sources: JavaSrc[]; activeId: string; script: string; payload: string; payloadMime: string } | null {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+    return s && Array.isArray(s.sources) && s.sources.length ? s : null;
+  } catch { return null; }
+}
 
 const SAMPLE_JAVA = `package demo;
 
@@ -92,20 +103,27 @@ function genSnippet(src: string, method: { name: string; params: string[] }): st
 }
 
 export function JavaTester({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [sources, setSources] = useState<JavaSrc[]>([{ id: 's0', name: 'Calc', content: SAMPLE_JAVA }]);
-  const [activeId, setActiveId] = useState('s0');
+  const [stored] = useState(loadStored);
+  const [sources, setSources] = useState<JavaSrc[]>(stored?.sources ?? [{ id: 's0', name: 'Calc', content: SAMPLE_JAVA }]);
+  const [activeId, setActiveId] = useState(stored?.activeId ?? 's0');
   const [jars, setJars] = useState<JarInfo[]>([]);
-  const [coord, setCoord] = useState('');
-  const [fetching, setFetching] = useState(false);
+  const [mavenOpen, setMavenOpen] = useState(false);
 
   const [classesDir, setClassesDir] = useState<string | null>(null);
   const [compileDiag, setCompileDiag] = useState('');
   const [compileOk, setCompileOk] = useState<boolean | null>(null);
   const [compiling, setCompiling] = useState(false);
 
-  const [script, setScript] = useState(SAMPLE_DW);
-  const [payload, setPayload] = useState('{\n  "amount": 100,\n  "name": "hi"\n}');
-  const [payloadMime, setPayloadMime] = useState('application/json');
+  const [script, setScript] = useState(stored?.script ?? SAMPLE_DW);
+  const [payload, setPayload] = useState(stored?.payload ?? '{\n  "amount": 100,\n  "name": "hi"\n}');
+  const [payloadMime, setPayloadMime] = useState(stored?.payloadMime ?? 'application/json');
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try { localStorage.setItem(STORE_KEY, JSON.stringify({ sources, activeId, script, payload, payloadMime })); } catch { /* full or blocked */ }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [sources, activeId, script, payload, payloadMime]);
 
   const [running, setRunning] = useState(false);
   const [output, setOutput] = useState('');
@@ -206,6 +224,33 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, script, payload, payloadMime, jars, classesDir, sources]);
 
+  // Ctrl+S: write the open class to its .java file, asking where the first time.
+  const saveActive = async () => {
+    const src = sources.find((s) => s.id === activeId);
+    if (!src) return;
+    let path = src.path;
+    if (!path) {
+      const picked = await tauriSave({ defaultPath: `${classOf(src.content) || src.name}.java`, filters: [{ name: 'Java', extensions: ['java'] }] });
+      if (!picked) return;
+      path = picked;
+    }
+    try {
+      await invoke('save_output_file', { path, content: src.content });
+      setSources((prev) => prev.map((s) => (s.id === src.id ? { ...s, path, saved: src.content } : s)));
+      toast(`Saved ${path.split(/[\\/]/).pop()}`, 'success');
+    } catch (e) { toast(String(e), 'error'); }
+  };
+  // Capture phase, so the app's own Ctrl+S (save workspace) doesn't fire behind the tester.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); e.stopPropagation(); void saveActive(); }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, sources, activeId]);
+
   // ── Source management ──────────────────────────────────────────────
   const updateActive = (content: string) => setSources((prev) => prev.map((s) => (s.id === activeId ? { ...s, content } : s)));
   const addPasted = () => {
@@ -222,7 +267,7 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
         const content = await invoke<string>('read_text_file', { path: p });
         const base = (p.split(/[\\/]/).pop() || 'Class.java').replace(/\.java$/i, '');
         const id = crypto.randomUUID();
-        setSources((prev) => [...prev, { id, name: classOf(content) || base, content }]);
+        setSources((prev) => [...prev, { id, name: classOf(content) || base, content, path: p, saved: content }]);
         setActiveId(id);
       } catch (e) { toast(`${p}: ${e}`, 'error'); }
     }
@@ -246,16 +291,6 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
       catch (e) { toast(`${p}: ${e}`, 'error'); }
     }
     await loadJars();
-  };
-  const fetchMaven = async () => {
-    const parts = coord.split(':').map((s) => s.trim());
-    if (parts.length !== 3 || parts.some((p) => !p)) { toast('Use group:artifact:version', 'error'); return; }
-    setFetching(true);
-    try {
-      await invoke<JarInfo>('download_maven_jar', { group: parts[0], artifact: parts[1], version: parts[2] });
-      toast(`Downloaded ${parts[1]}-${parts[2]}.jar`, 'success');
-      setCoord(''); await loadJars();
-    } catch (e) { toast(String(e), 'error'); } finally { setFetching(false); }
   };
   const removeJar = async (path: string) => {
     try { await invoke('remove_managed_jar', { path }); await loadJars(); }
@@ -323,21 +358,11 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
           </div>
           <div className="border-t border-line-subtle p-2.5 space-y-2">
             <button onClick={addJar} className="w-full inline-flex items-center justify-center gap-1.5 h-7 rounded-md text-[10.5px] font-medium text-accent border border-accent-border hover:bg-accent-dim cursor-pointer">
-              <Icons.Plus size={10} /> Add JAR
+              <Icons.Plus size={10} /> Add JAR from disk
             </button>
-            <div className="flex gap-1.5">
-              <input
-                value={coord}
-                onChange={(e) => setCoord(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') fetchMaven(); }}
-                placeholder="group:artifact:version"
-                spellCheck={false}
-                className="flex-1 min-w-0 h-7 px-2 text-[10px] font-mono bg-surface-2 border border-line rounded outline-none text-content placeholder:text-content-ghost focus:border-accent"
-              />
-              <button onClick={fetchMaven} disabled={fetching} className="shrink-0 h-7 px-2 rounded text-[10px] font-medium text-content-faint hover:text-content border border-line hover:bg-surface-2 cursor-pointer disabled:opacity-50">
-                {fetching ? '…' : 'Maven'}
-              </button>
-            </div>
+            <button onClick={() => setMavenOpen(true)} className="w-full inline-flex items-center justify-center gap-1.5 h-7 rounded-md text-[10.5px] font-medium text-content-secondary border border-line hover:bg-surface-2 cursor-pointer" title="Search Maven Central or paste a dependency; the jars it needs come along">
+              <Icons.Download size={10} /> From Maven Central
+            </button>
           </div>
         </div>
 
@@ -352,6 +377,7 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
                 className={`group inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] cursor-pointer whitespace-nowrap ${s.id === activeId ? 'bg-surface-2 text-content' : 'text-content-faint hover:text-content hover:bg-surface-2'}`}
               >
                 <span className="font-mono">{classOf(s.content) || s.name}.java</span>
+                {s.path && s.content !== s.saved && <span className="w-1.5 h-1.5 rounded-full bg-warn" title="Changed since you saved it" />}
                 {sources.length > 1 && (
                   <span onClick={(e) => { e.stopPropagation(); removeSource(s.id); }} className="text-content-ghost hover:text-err"><Icons.X size={9} /></span>
                 )}
@@ -359,6 +385,7 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
             ))}
             <button onClick={addPasted} className="h-7 px-2 rounded-md text-[11px] text-content-faint hover:text-accent hover:bg-surface-2 cursor-pointer" title="New class">+ New</button>
             <button onClick={addFiles} className="h-7 px-2 rounded-md text-[11px] text-content-faint hover:text-accent hover:bg-surface-2 cursor-pointer" title="Load .java file(s)">Load .java</button>
+            <button onClick={saveActive} className="h-7 px-2 rounded-md text-[11px] text-content-faint hover:text-accent hover:bg-surface-2 cursor-pointer" title={kbd('Save this class to a .java file (⌘S). Your code is also kept here between sessions.')}>Save</button>
             <span className="flex-1" />
             {compileOk === true && <span className="text-[10px] font-medium text-[#10b981] px-2">✓ compiled</span>}
             {compileOk === false && <span className="text-[10px] font-medium text-err px-2">✗ errors</span>}
@@ -418,6 +445,7 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
           </div>
         </div>
       </div>
+      {mavenOpen && <MavenDialog have={jars.map((j) => j.filename)} onClose={() => setMavenOpen(false)} onDownloaded={loadJars} />}
     </div>
   );
 }
