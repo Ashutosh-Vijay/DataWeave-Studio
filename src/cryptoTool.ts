@@ -52,6 +52,7 @@ export const PRESETS: { name: string; hint: string; s: Partial<CryptoSettings> }
   { name: 'AES-256-GCM (recommended)', hint: 'Key from SHA-256 of your text, random IV in front, Base64. Tamper-proof.', s: { algorithm: 'AES-256', mode: 'GCM', keyMode: 'sha256', ivMode: 'prefix', encoding: 'base64' } },
   { name: 'CryptoJS / OpenSSL passphrase', hint: 'CryptoJS.AES.encrypt(text, "pass") and openssl enc -aes-256-cbc -md md5. Output starts with U2FsdGVkX1.', s: { algorithm: 'AES-256', mode: 'CBC', padding: 'PKCS5Padding', keyMode: 'openssl', encoding: 'base64' } },
   { name: 'Java Cipher.getInstance("AES")', hint: 'What plain "AES" means in Java: AES/ECB/PKCS5Padding with a 16-character key. Common in older code.', s: { algorithm: 'AES-128', mode: 'ECB', padding: 'PKCS5Padding', keyMode: 'text', encoding: 'base64' } },
+  { name: 'Fixed key and IV, as text', hint: 'AES-256-CBC with a 32-character key and a 16-character IV written in the code, the same every time. Common in Java utility classes.', s: { algorithm: 'AES-256', mode: 'CBC', padding: 'PKCS5Padding', keyMode: 'text', ivMode: 'fixed', encoding: 'base64' } },
   { name: 'AES-256-CBC, IV in front', hint: 'A 32-character key, random IV before the data. Common in Node and .NET code.', s: { algorithm: 'AES-256', mode: 'CBC', padding: 'PKCS5Padding', keyMode: 'text', ivMode: 'prefix', encoding: 'base64' } },
   { name: 'PBKDF2 + AES-256-GCM', hint: 'Key stretched from your text with a random salt (65,536 rounds). Salt and IV in front.', s: { algorithm: 'AES-256', mode: 'GCM', keyMode: 'pbkdf2', ivMode: 'prefix', iterations: 65536, encoding: 'base64' } },
 ];
@@ -170,7 +171,12 @@ const CORE = String.raw`
     static byte[] givenIv(String ivMode, String iv, int len) {
         if (ivMode.equals("zero")) return new byte[len];
         String t = iv.trim();
-        byte[] b = t.length() == len * 2 && t.matches("[0-9a-fA-F]+") ? decode(t, "hex") : decode(t, "base64");
+        byte[] b;
+        if (t.length() == len * 2 && t.matches("[0-9a-fA-F]+")) b = decode(t, "hex");
+        // Typed as plain text, like IV_STRING = "03yoekic4820219f". Never ambiguous:
+        // the same number of bytes in hex or Base64 is longer than this.
+        else if (t.getBytes(StandardCharsets.UTF_8).length == len) b = t.getBytes(StandardCharsets.UTF_8);
+        else b = decode(t, "base64");
         if (b.length != len) throw new IllegalArgumentException("The IV is " + b.length + " bytes; this mode needs " + len + ".");
         return b;
     }

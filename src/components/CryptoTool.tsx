@@ -282,7 +282,7 @@ export function CryptoTool({ open, onClose }: { open: boolean; onClose: () => vo
                     {IV_MODES.map(([v, n]) => <option key={v} value={v}>{n}</option>)}
                   </select>
                   {s.ivMode === 'fixed' && (
-                    <input value={s.iv} onChange={(e) => set({ iv: e.target.value })} placeholder={`${s.mode === 'GCM' ? 12 : s.algorithm.startsWith('AES') ? 16 : 8} bytes, as hex or Base64`} spellCheck={false} className={`${field} mt-1.5 font-mono`} />
+                    <input value={s.iv} onChange={(e) => set({ iv: e.target.value })} placeholder={`${s.mode === 'GCM' ? 12 : s.algorithm.startsWith('AES') ? 16 : 8} characters of text, or hex, or Base64`} spellCheck={false} className={`${field} mt-1.5 font-mono`} />
                   )}
                   {s.ivMode !== 'prefix' && <p className="text-[11px] text-warn leading-snug mt-1.5">The same IV every time lets someone spot repeated messages. Use it only to match a system that does this.</p>}
                 </div>
