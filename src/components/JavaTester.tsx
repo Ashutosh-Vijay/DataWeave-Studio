@@ -177,6 +177,7 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
   const [output, setOutput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [execMs, setExecMs] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const active = sources.find((s) => s.id === activeId) ?? sources[0];
   const methods = useMemo(() => (active ? staticMethods(active.content) : []), [active]);
@@ -664,6 +665,16 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
           <div className="px-3.5 py-2 border-b border-line-subtle flex items-center gap-2">
             <span className="text-[11.5px] font-semibold text-content">Output</span>
             {execMs != null && !running && <span className="font-mono text-[10px] px-1.5 py-0.5 rounded text-accent" style={{ background: 'var(--accent-dim)' }}>{execMs} ms</span>}
+            <span className="flex-1" />
+            {(output || error) && (
+              <button
+                onClick={() => { void navigator.clipboard.writeText(error || output).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }}
+                className="inline-flex items-center gap-1 h-6 px-2 rounded text-[11px] text-content-faint hover:text-content hover:bg-surface-2 cursor-pointer"
+                title={error ? 'Copy the error' : 'Copy the output'}
+              >
+                {copied ? <><Icons.Dot size={9} /> Copied</> : <><Icons.Copy size={11} /> Copy</>}
+              </button>
+            )}
           </div>
           <div className="flex-1 overflow-auto p-3">
             {error ? (
