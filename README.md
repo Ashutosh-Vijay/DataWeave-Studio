@@ -185,6 +185,8 @@ JRE 17 and the DataWeave runtime ship inside the app. No Java install, no `JAVA_
 - HTTP method selector, exposed as `attributes.method`
 - Query parameters and headers, each with an on/off toggle per row
 - Variables with a type picker (string or JSON)
+- `vars` and `attributes` always exist, so `vars.missing` is `null` the way it is in a Mule flow
+- **Error tab** for testing on-error scripts: your script gets the `error` object Mule hands to an error handler (`error.description`, `error.errorType`, `error.errorMessage` and the rest). Pick a type such as HTTP:NOT_FOUND or DB:CONNECTIVITY, or generate a random one, then edit any value
 
 ### Configuration
 - **Config YAML**: paste `application.yaml`-style config and `${key}` placeholders resolve in the script and payload
@@ -198,6 +200,15 @@ JRE 17 and the DataWeave runtime ship inside the app. No Java install, no `JAVA_
 - **4 modes**: CBC, CFB, ECB, OFB
 - Random IV option for AES
 - Compatible with MuleSoft's `secure-properties-tool.jar`
+
+### Encrypt / Decrypt
+Payload encryption, hashing and signing without writing Java. It runs in the bundled JVM with the same crypto library a Mule app uses, so a result here matches the Java in your app byte for byte.
+- **Encrypt and decrypt** any payload with AES-256/192/128, Triple DES, DES or Blowfish in GCM, CBC, CTR, ECB, CFB or OFB
+- Key from the text itself, its SHA-256, PBKDF2, an OpenSSL/CryptoJS passphrase, or Base64/hex key bytes; IV random and in front, fixed, or zeros; Base64 or hex output
+- **Presets** for the formats you meet most, including CryptoJS/OpenSSL, Java's plain `Cipher.getInstance("AES")` and a fixed key and IV written as text, plus your own saved presets (settings only; the key is never stored)
+- Results as `{ "encryptedBody": "..." }`, and decrypt reads that or a bare string
+- **Get the code**: the Java class and DataWeave scripts that do exactly what the tool did, with your settings
+- **Hash and HMAC** (MD5, SHA-1/256/384/512) for text, files or whole folders at once. Files are streamed from disk, so size doesn't matter. Copy the table into Excel or save it as CSV, or paste a published checksum to check a file matches
 
 ### DataWeave Academy
 - Nine lessons for complete beginners: payloads, mapping, selectors, building the output, lists, formats, and where data comes from in a Mule flow
@@ -303,7 +314,10 @@ The `%dw 2.4` header doesn't do this. The runtime only checks it against its own
 
 ### Java interop and custom modules
 - **Java tester**: paste or pick `.java` sources, compile and run them on the bundled JRE, and call them from DataWeave with `import java!`
-- Add your own JARs to the engine's classpath
+- **Saved projects**, each with its own classes, test script, payload and jars, so two projects can use different versions of one library
+- **Maven Central**: search by name or paste a `<dependency>` block, a whole `pom.xml` or a Gradle line; the jars a library needs come along, and a jar is downloaded once and shared by every project
+- Paste a class and the tester spots the libraries its `import`s need and offers to add them
+- Add your own JARs from disk too
 - **Module library**: write reusable `.dwl` modules and `import x from MyModule` across workspaces
 
 ### Workspaces
@@ -331,10 +345,13 @@ Rewrites legacy scripts in place, converting `%dw 1.0` directives, `flowVars`, `
 - Cancel a running script
 - Run time shown in milliseconds
 - Custom classpath for `import java!`
+- `readUrl("classpath://...")` resolves against your classpath folders and JARs, as in Mule
 
 ### Output
 - Syntax-highlighted output
-- JSON, XML or raw text view
+- **Output format menu** that writes the `output` line for you; a script without one gets what Mule would give it
+- Says when the output is out of date: edit the inputs or switch scripts after a run and the header shows it, with a one-click run again
+- JSON, XML or raw text view, with optional line numbers and wrapping
 - Errors show the DataWeave error code, a headline, details and a collapsible stack trace
 - Error line numbers match your script
 - Copy to clipboard or save to a file
@@ -344,7 +361,7 @@ Rewrites legacy scripts in place, converting `%dw 1.0` directives, `flowVars`, `
 - **5 accent colours**: Emerald, Sky, Violet, Amber, Rose
 - **Workbench layout**: sidebar plus the Input/Context, Script and Output panes, with resizable splits and a Tests view
 - **Playground layout**: the same three panes without the sidebar, like the online playground
-- Compact mode for narrow windows
+- **Your rail**: pin the tools you use to the left rail and drag them into your order; everything else is one click away in All tools
 - Custom title bar
 
 ### Command palette and shortcuts

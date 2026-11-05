@@ -82,3 +82,21 @@ FLOW_OVERHAUL_PLAN.md
 # Development certificate
 devcert.pfx
 .dwdocs-src
+
+# Local-only: AI tooling config, internal audits, plans, briefs and notes
+CLAUDE.md
+.mcp.json
+.graphifyignore
+.codex/
+.impeccable/
+.modtest/
+.openai/
+.cursor/
+Audit/
+reports/
+research_notes/
+docs/LEARN_PLAN.md
+docs/academy-chapter0.md
+docs/mockups/
+docs/FLOW_DESIGNER_EXPANSION.md
+docs/MULE_PROJECT_SUPPORT_PLAN.md
