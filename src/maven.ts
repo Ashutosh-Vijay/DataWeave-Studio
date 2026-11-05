@@ -255,6 +255,91 @@ function msg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
+// ── Jars from Java imports ─────────────────────────────────────────────
+
+// Packages the JDK itself provides; nothing to download for these.
+const JDK_PKG = /^(java|jdk|sun|com\.sun|org\.w3c|org\.xml\.sax|org\.ietf|org\.omg|javax\.(crypto|net|security|xml|naming|management|sql|script|swing|imageio|sound|print|rmi|tools|lang|accessibility|annotation\.processing|transaction\.xa))\./;
+
+/**
+ * The library classes a set of Java sources imports, one class per package
+ * (that is enough to find the jar). Skips the JDK and the sources' own
+ * packages. Wildcard imports (`a.b.*`) name no class, so they come back
+ * separately: Central can't be searched by package.
+ */
+export function libraryImports(sources: string[]): { byPackage: Map<string, string>; wildcards: string[] } {
+  const own = new Set(sources.map((s) => s.match(/^\s*package\s+([\w.]+)\s*;/m)?.[1]).filter(Boolean) as string[]);
+  const byPackage = new Map<string, string>();
+  const wildcards = new Set<string>();
+  for (const src of sources) {
+    for (const m of src.matchAll(/^\s*import\s+(static\s+)?([\w.]+?)(\.\*)?\s*;/gm)) {
+      let name = m[2];
+      // import static a.b.C.method → the class is a.b.C (the first capitalised part).
+      if (m[1]) { const parts = name.split('.'); const i = parts.findIndex((p) => /^[A-Z]/.test(p)); if (i < 0) continue; name = parts.slice(0, i + 1).join('.'); }
+      if (JDK_PKG.test(name + '.')) continue;
+      if (m[3] && !m[1]) { if (!own.has(name)) wildcards.add(name); continue; }
+      const pkg = name.split('.').filter((p) => !/^[A-Z]/.test(p)).join('.');
+      if (!pkg || byPackage.has(pkg) || [...own].some((o) => pkg === o || pkg.startsWith(o + '.'))) continue;
+      byPackage.set(pkg, name.split('.').slice(0, pkg.split('.').length + 1).join('.'));
+    }
+  }
+  return { byPackage, wildcards: [...wildcards] };
+}
+
+/**
+ * Which artifact on Central holds a class. Central's class search matches
+ * every jar that bundles the class (shaded copies, OSGi repackages...), so it
+ * is narrowed to groups sharing the package's prefix, longest first, and the
+ * candidates are scored: the artifact's name appearing in the package is the
+ * strongest sign of the original, repackage words count against, and the most
+ * recently published wins a tie (bcprov-jdk18on over bcprov-jdk14).
+ */
+// Popular libraries whose group shares nothing with their package, so the
+// prefix search can't see them under all the jars that shade their classes.
+const KNOWN_PACKAGES: [string, string, string][] = [
+  ['com.google.common', 'com.google.guava', 'guava'],
+  ['org.apache.commons.codec', 'commons-codec', 'commons-codec'],
+  ['org.apache.commons.io', 'commons-io', 'commons-io'],
+  ['org.apache.commons.logging', 'commons-logging', 'commons-logging'],
+  ['org.apache.commons.lang', 'commons-lang', 'commons-lang'],
+  ['org.apache.commons.collections', 'commons-collections', 'commons-collections'],
+  ['org.apache.commons.beanutils', 'commons-beanutils', 'commons-beanutils'],
+  ['org.apache.commons.net', 'commons-net', 'commons-net'],
+  ['org.joda.time', 'joda-time', 'joda-time'],
+];
+
+export async function artifactForClass(fetchText: Fetch, fqcn: string): Promise<{ g: string; a: string } | null> {
+  const pkgParts = fqcn.split('.').filter((p) => !/^[A-Z]/.test(p));
+  const pkg = pkgParts.join('.');
+  const known = KNOWN_PACKAGES.find(([p]) => pkg === p || pkg.startsWith(p + '.'));
+  if (known) return { g: known[1], a: known[2] };
+  for (let n = pkgParts.length; n >= 2; n--) {
+    const q = `fc:${fqcn} AND g:${pkgParts.slice(0, n).join('.')}*`;
+    const json = JSON.parse(await fetchText(`https://search.maven.org/solrsearch/select?q=${encodeURIComponent(q)}&rows=100&wt=json`));
+    const docs: { g: string; a: string; timestamp?: number }[] = json.response?.docs ?? [];
+    if (!docs.length) continue;
+    const seen = new Map<string, { g: string; a: string; count: number; ts: number }>();
+    for (const d of docs) {
+      const k = `${d.g}:${d.a}`;
+      const s = seen.get(k) ?? { g: d.g, a: d.a, count: 0, ts: 0 };
+      s.count++; s.ts = Math.max(s.ts, d.timestamp ?? 0);
+      seen.set(k, s);
+    }
+    const newest = Math.max(...[...seen.values()].map((s) => s.ts));
+    const score = (s: { a: string; count: number; ts: number }) => {
+      const words = s.a.toLowerCase().split(/[-_.]/).filter((w) => w.length > 2);
+      // A share, not a count, so a long repackage name can't out-match the original.
+      const hits = words.length ? words.filter((w) => pkg.includes(w)).length / words.length : 0;
+      const bad = words.filter((w) => /^(osgi|android|ext|shaded|bundle|bundles|all|repackaged|servicemix|orbit)$/.test(w)).length;
+      // Nothing published for years while others were: abandoned (google-collect beside guava).
+      const stale = newest - s.ts > 6 * 365 * 864e5 ? 3 : 0;
+      return hits * 3 - bad * 2 - stale + s.ts / 1e13 + s.count / 1000;
+    };
+    const best = [...seen.values()].sort((x, y) => score(y) - score(x))[0];
+    return { g: best.g, a: best.a };
+  }
+  return null;
+}
+
 // ── Search ─────────────────────────────────────────────────────────────
 
 export interface SearchHit { g: string; a: string; latest: string; versions: number }

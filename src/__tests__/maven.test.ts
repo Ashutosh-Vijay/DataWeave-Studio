@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseDependencyInput, parsePom, resolveDependencies, pomUrl } from '../maven';
+import { parseDependencyInput, parsePom, resolveDependencies, pomUrl, libraryImports } from '../maven';
 
 const pom = (body: string) => `<?xml version="1.0"?><project>${body}</project>`;
 const dep = (g: string, a: string, v?: string, extra = '') =>
@@ -38,6 +38,19 @@ describe('parseDependencyInput', () => {
 
   it('treats a plain word as a search, not a coordinate', () => {
     expect(parseDependencyInput('jackson')).toEqual([]);
+  });
+});
+
+describe('libraryImports', () => {
+  it('keeps one class per library package and skips the JDK and your own packages', () => {
+    const a = `package com.me;\nimport java.util.List;\nimport javax.crypto.Cipher;\nimport com.fasterxml.jackson.databind.ObjectMapper;\nimport com.fasterxml.jackson.databind.JsonNode;\nimport com.me.util.Helper;\nimport com.other.Thing;\nimport static org.apache.commons.lang3.StringUtils.isBlank;\nimport org.example.*;\nclass A {}`;
+    const b = `package com.other;\npublic class Thing {}`;
+    const { byPackage, wildcards } = libraryImports([a, b]);
+    expect([...byPackage]).toEqual([
+      ['com.fasterxml.jackson.databind', 'com.fasterxml.jackson.databind.ObjectMapper'],
+      ['org.apache.commons.lang3', 'org.apache.commons.lang3.StringUtils'],
+    ]);
+    expect(wildcards).toEqual(['org.example']);
   });
 });
 
