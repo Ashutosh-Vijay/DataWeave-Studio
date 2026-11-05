@@ -16,7 +16,7 @@
  * *changed* class needs an engine restart (button in the header) to take effect.
  */
 import { kbd } from '../shortcuts';
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { invoke } from '../bridge';
 import { Icons } from './Icons';
 import { WindowControls } from './WindowControls';
@@ -88,6 +88,13 @@ function loadProjects(): { projects: JavaProject[]; currentId: string } {
   } catch { /* nothing to carry over */ }
   return { projects: [first], currentId: first.id };
 }
+
+// Signature of the classes and jars the engine currently has loaded. The
+// engine's classloader caches a class once loaded, so a *changed* class needs
+// an engine restart to take effect; this is how we restart only when needed.
+// Module-level, not a ref: the tester unmounts when closed, and a ref reset to
+// '' on reopening made the next run skip the restart and use the old class.
+const loadedRef = { current: '' };
 
 // Package → "group:artifact" found on Central ('' = not there), kept across
 // sessions so an import is looked up once.
@@ -258,10 +265,6 @@ export function JavaTester({ open, onClose }: { open: boolean; onClose: () => vo
     .filter((c) => !projectFiles.some((f) => jarOfArtifact(f, c.a)));
   const unknownPkgs = [...imports.byPackage.keys()].filter((pkg) => pkgIndex[pkg] === '');
 
-  // Signature of the classes the engine currently has loaded. The engine's
-  // classloader caches a class once loaded, so a *changed* class needs an engine
-  // restart to take effect — we track this to restart only when it's needed.
-  const loadedRef = useRef('');
   const sourceSig = () => JSON.stringify({ jars: jars.map((j) => j.filename), src: sources.map((s) => ({ n: classOf(s.content) || s.name, c: s.content })) });
 
   // Compile to a fresh dir. Returns the classes dir, or null on failure.
