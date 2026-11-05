@@ -62,7 +62,8 @@ export function removeManagedJar(storageDir: string, p: string): void {
 
 function httpGet(url: string, redirects = 0): Promise<{ status: number; body: Buffer }> {
   return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
+    // Maven Central's search answers 403 to a request with no User-Agent (Node sends none by default).
+    https.get(url, { headers: { 'User-Agent': 'DataWeave-Studio' } }, (res) => {
       const status = res.statusCode ?? 0;
       if ([301, 302, 303, 307, 308].includes(status) && res.headers.location && redirects < 5) {
         res.resume();
