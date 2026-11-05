@@ -10,6 +10,12 @@
 
 export type CryptoOp = 'encrypt' | 'decrypt' | 'hash' | 'hmac';
 
+/** Does a computed hash match the one someone published? Hex is compared without case or spaces. */
+export function sameHash(a: string, b: string): boolean {
+  const norm = (s: string) => (/^[0-9a-f\s:]+$/i.test(s.trim()) ? s.replace(/[\s:]/g, '').toLowerCase() : s.trim());
+  return norm(a) === norm(b);
+}
+
 export interface CryptoSettings {
   algorithm: string;   // AES-128 | AES-192 | AES-256 | DES | DESede | Blowfish
   mode: string;        // GCM | CBC | CTR | ECB | CFB | OFB
@@ -296,8 +302,27 @@ const TOOL_ENTRY = String.raw`
                 case "encrypt": return "ok:" + encryptText(algorithm, mode, padding, keyMode, secret, ivMode, iv, encoding, rounds, text);
                 case "decrypt": return "ok:" + decryptText(algorithm, mode, padding, keyMode, secret, ivMode, iv, encoding, rounds, text);
                 case "hash": return "ok:" + hashText(algorithm, encoding, text);
+                case "hashFile": {
+                    MessageDigest md = MessageDigest.getInstance(algorithm);
+                    readFile(text, md::update);
+                    return "ok:" + encode(md.digest(), encoding);
+                }
+                case "hmacFile": {
+                    byte[] k = keyMode.equals("text") ? secret.getBytes(StandardCharsets.UTF_8) : decode(secret, keyMode);
+                    if (k.length == 0) throw new IllegalArgumentException("Type a secret key.");
+                    Mac mac = Mac.getInstance(algorithm);
+                    mac.init(new SecretKeySpec(k, algorithm));
+                    readFile(text, mac::update);
+                    return "ok:" + encode(mac.doFinal(), encoding);
+                }
                 default: return "ok:" + hmacText(algorithm, keyMode, secret, encoding, text);
             }
+        } catch (java.nio.file.NoSuchFileException e) {
+            return "error:That file isn't there any more: " + e.getFile();
+        } catch (java.nio.file.AccessDeniedException e) {
+            return "error:Couldn't open that file (no permission, or it's a folder): " + e.getFile();
+        } catch (java.io.IOException e) {
+            return "error:Couldn't read that file: " + (e.getMessage() != null && !e.getMessage().isEmpty() ? e.getMessage() : e.getClass().getSimpleName());
         } catch (AEADBadTagException e) {
             return "error:Couldn't decrypt: the key or settings don't match, or the data was changed. GCM checks this, so nothing wrong comes out.";
         } catch (BadPaddingException e) {
@@ -306,6 +331,16 @@ const TOOL_ENTRY = String.raw`
             return "error:The data isn't a whole number of blocks. Is it complete, and is the encoding (Base64 or hex) right? With no padding, the text must be a multiple of the block size.";
         } catch (Exception e) {
             return "error:" + (e.getMessage() != null ? e.getMessage() : e.toString());
+        }
+    }
+
+    interface Chunks { void update(byte[] buf, int off, int len); }
+
+    // Streams the file in 64 KB pieces, so a multi-GB zip hashes without loading into memory.
+    static void readFile(String path, Chunks sink) throws Exception {
+        try (java.io.InputStream in = java.nio.file.Files.newInputStream(java.nio.file.Paths.get(path))) {
+            byte[] buf = new byte[1 << 16];
+            for (int n; (n = in.read(buf)) > 0; ) sink.update(buf, 0, n);
         }
     }
 `;
@@ -329,14 +364,17 @@ CryptoTool::run(payload.op, payload.algorithm, payload.mode, payload.padding, pa
   payload.ivMode, payload.iv, payload.encoding, payload.iterations, payload.text)`;
 
 /** Arguments for one run of the tool, in TOOL_SCRIPT's order. */
-export function toolArgs(op: CryptoOp, s: CryptoSettings, secret: string, text: string) {
+/** `filePath`: hash or sign that file instead of the text (Hash and HMAC only). */
+export function toolArgs(op: CryptoOp, s: CryptoSettings, secret: string, text: string, filePath?: string) {
   const isHash = op === 'hash', isHmac = op === 'hmac';
+  const onFile = !!filePath && (isHash || isHmac);
   return {
-    op,
+    op: onFile ? `${op}File` : op,
     algorithm: isHash ? s.hashAlg : isHmac ? s.hmacAlg : s.algorithm,
     mode: s.mode, padding: s.padding,
     keyMode: isHmac ? s.hmacKeyMode : s.keyMode,
-    secret, ivMode: s.ivMode, iv: s.iv, encoding: s.encoding, iterations: String(s.iterations || 1), text,
+    secret, ivMode: s.ivMode, iv: s.iv, encoding: s.encoding, iterations: String(s.iterations || 1),
+    text: onFile ? filePath : text,
   };
 }
 

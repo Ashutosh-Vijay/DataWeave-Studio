@@ -12,9 +12,10 @@ import { invoke } from '../bridge';
 import { Icons } from './Icons';
 import { WindowControls } from './WindowControls';
 import { MiniEditor } from './MiniEditor';
+import { open as tauriOpen } from '@tauri-apps/plugin-dialog';
 import {
   ALGORITHMS, DEFAULT_SETTINGS, HASH_ALGS, HMAC_ALGS, IV_MODES, KEY_MODES, PRESETS, TOOL_PACKAGE, TOOL_SCRIPT, TOOL_SOURCE,
-  encryptedFrom, generateDataWeave, generateJava, modesFor, presetOf, toolArgs,
+  encryptedFrom, generateDataWeave, generateJava, modesFor, presetOf, sameHash, toolArgs,
   type CryptoOp, type CryptoSettings,
 } from '../cryptoTool';
 
@@ -79,6 +80,10 @@ export function CryptoTool({ open, onClose }: { open: boolean; onClose: () => vo
   const [secret, setSecret] = useState('');
   const [showSecret, setShowSecret] = useState(false);
   const [input, setInput] = useState('');
+  // Hash and HMAC can work on a file instead of the text box.
+  const [source, setSource] = useState<'text' | 'file'>('text');
+  const [filePath, setFilePath] = useState('');
+  const [expected, setExpected] = useState('');
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [firstRun, setFirstRun] = useState(!compiled);
@@ -129,17 +134,23 @@ export function CryptoTool({ open, onClose }: { open: boolean; onClose: () => vo
 
   const needsKey = op === 'encrypt' || op === 'decrypt' || op === 'hmac';
   const text = op === 'decrypt' ? encryptedFrom(input) : input;
+  const onFile = (op === 'hash' || op === 'hmac') && source === 'file';
+  const hasInput = onFile ? !!filePath : !!input.trim();
+  const pickFile = async () => {
+    const picked = await tauriOpen({ multiple: false, directory: false });
+    if (typeof picked === 'string') setFilePath(picked);
+  };
 
   // Run as you type (debounced). Encrypting gives a different result each
   // time with a random IV; that's expected, and every one decrypts.
   useEffect(() => {
     if (!open) return;
-    if (!input.trim() || (needsKey && !secret)) { setResult(null); return; }
+    if (!hasInput || (needsKey && !secret)) { setResult(null); return; }
     let stale = false;
     const t = setTimeout(async () => {
       setBusy(true);
       try {
-        const r = await runTool(toolArgs(op, s, secret, text));
+        const r = await runTool(toolArgs(op, s, secret, text, onFile ? filePath : undefined));
         if (stale) return;
         if (r.error) { setResult({ ok: false, text: r.error }); return; }
         const out = r.output;
@@ -155,7 +166,7 @@ export function CryptoTool({ open, onClose }: { open: boolean; onClose: () => vo
       }
     }, 350);
     return () => { stale = true; clearTimeout(t); };
-  }, [open, op, s, secret, input, wrap]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, op, s, secret, input, wrap, source, filePath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const preset = presetOf(s, ownPresets);
   const presetHint = PRESETS.find((p) => p.name === preset)?.hint;
@@ -353,16 +364,47 @@ export function CryptoTool({ open, onClose }: { open: boolean; onClose: () => vo
         {/* Input and result */}
         <div className="flex-1 flex flex-col min-w-0">
           <div className="px-3.5 h-9 shrink-0 flex items-center gap-2 border-b border-line-subtle">
-            <span className="text-[11.5px] font-semibold text-content">
-              {op === 'decrypt' ? 'Encrypted payload' : op === 'encrypt' ? 'Payload to encrypt' : 'Text'}
-            </span>
+            {(op === 'hash' || op === 'hmac') && (
+              <div className="flex items-center gap-0.5 p-0.5 rounded-md bg-surface-2 mr-1">
+                {(['text', 'file'] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setSource(v)}
+                    className={`h-6 px-2.5 rounded text-[11.5px] font-medium cursor-pointer ${source === v ? 'bg-surface text-content shadow-sm' : 'text-content-faint hover:text-content-secondary'}`}
+                  >
+                    {v === 'text' ? 'Text' : 'File'}
+                  </button>
+                ))}
+              </div>
+            )}
+            {(op === 'encrypt' || op === 'decrypt') && (
+              <span className="text-[11.5px] font-semibold text-content">{op === 'decrypt' ? 'Encrypted payload' : 'Payload to encrypt'}</span>
+            )}
             <span className="text-[11px] text-content-ghost">
-              {op === 'decrypt' ? 'The bare string, or JSON like { "encryptedBody": "…" }' : 'Any text: JSON, XML, a single value…'}
+              {op === 'decrypt' ? 'The bare string, or JSON like { "encryptedBody": "…" }'
+                : onFile ? 'Any file: zip, jar, PDF, image… Read from disk, any size.'
+                : 'Any text: JSON, XML, a single value…'}
             </span>
           </div>
-          <div className="flex-1 min-h-0">
-            <MiniEditor value={input} onChange={setInput} language="plaintext" height="100%" />
-          </div>
+          {onFile ? (
+            <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
+              {filePath ? (
+                <>
+                  <div className="text-[13px] font-medium text-content break-all">{filePath.split(/[\\/]/).pop()}</div>
+                  <div className="text-[11px] font-mono text-content-faint break-all max-w-[640px]">{filePath}</div>
+                  <button onClick={pickFile} className="h-8 px-3 rounded-md text-[12px] text-content-secondary border border-line hover:bg-surface-2 cursor-pointer">Choose another file</button>
+                </>
+              ) : (
+                <button onClick={pickFile} className="h-9 px-4 rounded-md text-[12.5px] font-semibold cursor-pointer" style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}>
+                  Choose file…
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="flex-1 min-h-0">
+              <MiniEditor value={input} onChange={setInput} language="plaintext" height="100%" />
+            </div>
+          )}
 
           <div className="px-3.5 h-9 shrink-0 flex items-center gap-2 border-y border-line-subtle bg-surface">
             <span className="text-[11.5px] font-semibold text-content">Result</span>
@@ -397,7 +439,24 @@ export function CryptoTool({ open, onClose }: { open: boolean; onClose: () => vo
               <pre className="text-[12px] font-mono whitespace-pre-wrap break-all leading-relaxed" style={{ color: result.ok ? 'var(--content)' : 'var(--err)' }}>{result.text}</pre>
             ) : (
               <div className="text-[12px] text-content-faint italic">
-                {!input.trim() ? 'Paste something above.' : needsKey && !secret ? 'Type the secret key on the left.' : ''}
+                {!hasInput ? (onFile ? 'Choose a file above.' : 'Paste something above.') : needsKey && !secret ? 'Type the secret key on the left.' : ''}
+              </div>
+            )}
+            {(op === 'hash' || op === 'hmac') && (
+              <div className="mt-4 max-w-[640px]">
+                <span className={label}>Expected (optional)</span>
+                <input
+                  value={expected}
+                  onChange={(e) => setExpected(e.target.value)}
+                  placeholder="Paste the checksum you were given to compare"
+                  spellCheck={false}
+                  className={`${field} font-mono`}
+                />
+                {expected.trim() && result?.ok && (
+                  sameHash(result.text, expected)
+                    ? <div className="mt-1.5 text-[12px] font-medium" style={{ color: 'var(--ok, #10b981)' }}>Matches.</div>
+                    : <div className="mt-1.5 text-[12px] font-medium text-err">Doesn't match. Check the algorithm and the Hex / Base64 setting; if those are right, the file or text is different.</div>
+                )}
               </div>
             )}
           </div>

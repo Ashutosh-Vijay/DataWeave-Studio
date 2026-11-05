@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_SETTINGS, PRESETS, encryptedFrom, generateJava, presetOf, effective, TOOL_SOURCE, TOOL_SCRIPT, TOOL_PACKAGE } from '../cryptoTool';
+import { DEFAULT_SETTINGS, PRESETS, encryptedFrom, generateJava, presetOf, effective, sameHash, toolArgs, TOOL_SOURCE, TOOL_SCRIPT, TOOL_PACKAGE } from '../cryptoTool';
 
 describe('presets', () => {
   it('each preset is recognised by its own settings, and the default is the recommended one', () => {
@@ -21,6 +21,23 @@ describe('presets', () => {
     const own = [{ name: 'Partner API', s: { ...DEFAULT_SETTINGS, encoding: 'hex' } }];
     expect(presetOf({ ...DEFAULT_SETTINGS, encoding: 'hex' }, own)).toBe('Partner API');
     expect(presetOf(DEFAULT_SETTINGS, own)).toBe(PRESETS[0].name);
+  });
+});
+
+describe('sameHash', () => {
+  it('compares hex without case, spaces or colons, and Base64 exactly', () => {
+    expect(sameHash('ea9cf2b40cea1168868233d18bbe930c', 'EA9C F2B4 0CEA 1168 8682 33D1 8BBE 930C')).toBe(true);
+    expect(sameHash('ea9cf2b4', 'ea:9c:f2:b4')).toBe(true);
+    expect(sameHash('ea9cf2b4', 'ea9cf2b5')).toBe(false);
+    expect(sameHash('q6Lk0bJ0n0m6', 'q6lk0bj0n0m6')).toBe(false);
+  });
+});
+
+describe('toolArgs on a file', () => {
+  it('hashes the file path for Hash and HMAC, and ignores it elsewhere', () => {
+    expect(toolArgs('hash', DEFAULT_SETTINGS, '', 'text', 'C:/a.zip')).toMatchObject({ op: 'hashFile', text: 'C:/a.zip' });
+    expect(toolArgs('hmac', DEFAULT_SETTINGS, 'k', 'text', 'C:/a.zip')).toMatchObject({ op: 'hmacFile', text: 'C:/a.zip' });
+    expect(toolArgs('encrypt', DEFAULT_SETTINGS, 'k', 'text', 'C:/a.zip')).toMatchObject({ op: 'encrypt', text: 'text' });
   });
 });
 
