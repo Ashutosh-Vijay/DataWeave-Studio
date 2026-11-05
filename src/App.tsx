@@ -35,6 +35,9 @@ const RecipeBrowser = lazy(() =>
 const JavaTester = lazy(() =>
   import('./components/JavaTester').then((m) => ({ default: m.JavaTester }))
 );
+const CryptoTool = lazy(() =>
+  import('./components/CryptoTool').then((m) => ({ default: m.CryptoTool }))
+);
 const MCPServerPanel = lazy(() =>
   import('./components/MCPServerPanel').then((m) => ({ default: m.MCPServerPanel }))
 );
@@ -359,6 +362,7 @@ function App() {
   const [importMode, setImportMode] = useState<'curl' | 'link'>('curl');
   const [openApiOpen, setOpenApiOpen] = useState(false);
   const [javaTesterOpen, setJavaTesterOpen] = useState(false);
+  const [cryptoOpen, setCryptoOpen] = useState(false);
   const [mcpOpen, setMcpOpen] = useState(false);
   const [mcpRunning, setMcpRunning] = useState(false);
   const [modulesOpen, setModulesOpen] = useState(false);
@@ -690,6 +694,7 @@ function App() {
     { id: 'mulelog', group: 'Bring data in', label: 'Mule log → cURL', desc: 'Turn the requests in a Mule debug log back into cURL commands.', icon: <Icons.Terminal size={16} />, run: () => setMuleLogOpen(true) },
     { id: 'openapi', group: 'Bring data in', label: 'OpenAPI / Swagger reader', desc: 'Sample payloads and DataWeave straight from an API spec.', icon: <Icons.ApiSpec size={16} />, run: () => { introFeature('openapi'); setOpenApiOpen(true); } },
     { id: 'secure', group: 'Mule configuration', label: 'Secure Properties tool', desc: 'Encrypt or decrypt a value the way secure-properties-tool.jar does.', icon: <Icons.Secure size={16} />, run: () => { introFeature('secure'); setSecureToolOpen(true); } },
+    { id: 'crypto', group: 'Mule configuration', label: 'Encrypt / Decrypt', desc: 'AES, DES, Blowfish, hashes and HMAC on any payload, then get the matching Java.', icon: <Icons.Secure size={16} />, run: () => setCryptoOpen(true) },
     { id: 'configcrypto', group: 'Mule configuration', label: 'Config encryption', desc: 'Encrypt or decrypt every value in a YAML or .properties config at once.', icon: <Icons.Key size={16} />, run: () => setConfigCryptoOpen(true) },
     { id: 'flow', group: 'Build and connect', label: 'Message Flow designer', desc: 'Chain transforms into a flow, with mock HTTP, Salesforce and database steps.', icon: <Icons.Flow size={16} />, run: () => { introFeature('flow'); setFlowDesignerOpen(true); } },
     { id: 'java', group: 'Build and connect', label: 'Java tester', desc: 'Compile Java classes and call them from DataWeave.', icon: <Icons.Coffee size={16} />, run: () => { introFeature('java'); setJavaTesterOpen(true); } },
@@ -1643,6 +1648,7 @@ function App() {
     { id: 'academy', label: 'Open DataWeave Academy', hint: 'Learn DataWeave from zero', group: 'Tools', run: () => setAcademyOpen(true) },
     { id: 'compare', label: 'Open Compare tool', group: 'Tools', run: () => setCompareToolOpen(true) },
     { id: 'java', label: 'Open Java tester', group: 'Tools', run: () => setJavaTesterOpen(true) },
+    { id: 'crypto', label: 'Encrypt / Decrypt a payload', hint: 'AES, DES, hashes, HMAC', group: 'Tools', run: () => setCryptoOpen(true) },
     { id: 'mcp', label: 'Open Local Server', hint: 'MCP for AI agents · HTTP for scripts', group: 'Tools', run: () => setMcpOpen(true) },
     { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: kbd('⌘/'), group: 'App', run: () => setShortcutsOpen(true) },
     { id: 'settings', label: 'Open Settings', shortcut: kbd('⌘,'), group: 'App', run: () => setSettingsOpen(true) },
@@ -2689,6 +2695,11 @@ function App() {
       {javaTesterOpen && (
         <Suspense fallback={null}>
           <JavaTester open={javaTesterOpen} onClose={() => setJavaTesterOpen(false)} />
+        </Suspense>
+      )}
+      {cryptoOpen && (
+        <Suspense fallback={null}>
+          <CryptoTool open={cryptoOpen} onClose={() => setCryptoOpen(false)} />
         </Suspense>
       )}
 
