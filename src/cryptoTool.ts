@@ -66,9 +66,9 @@ export function effective(s: CryptoSettings) {
     encoding: s.encoding, iterations: s.keyMode === 'pbkdf2' ? s.iterations : 0,
   };
 }
-export function presetOf(s: CryptoSettings): string {
+export function presetOf(s: CryptoSettings, own: { name: string; s: Partial<CryptoSettings> }[] = []): string {
   const e = JSON.stringify(effective(s));
-  return PRESETS.find((p) => JSON.stringify(effective({ ...s, ...p.s })) === e)?.name ?? '';
+  return [...PRESETS, ...own].find((p) => JSON.stringify(effective({ ...s, ...p.s })) === e)?.name ?? '';
 }
 
 // ── The Java ───────────────────────────────────────────────────────────

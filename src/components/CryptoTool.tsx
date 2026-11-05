@@ -58,6 +58,7 @@ async function runTool(args: object): Promise<RunResult> {
 }
 
 const SETTINGS_KEY = 'dw.cryptoTool';
+const PRESETS_KEY = 'dw.cryptoTool.presets';
 function loadSettings(): { op: CryptoOp; s: CryptoSettings; wrap: boolean } {
   try {
     const v = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
@@ -87,6 +88,26 @@ export function CryptoTool({ open, onClose }: { open: boolean; onClose: () => vo
   useEffect(() => {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ op, s, wrap })); } catch { /* preference only */ }
   }, [op, s, wrap]);
+
+  // The user's own presets: settings only, never the key.
+  const [ownPresets, setOwnPresets] = useState<{ name: string; s: Partial<CryptoSettings> }[]>(() => {
+    try { const v = JSON.parse(localStorage.getItem(PRESETS_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+  });
+  const [naming, setNaming] = useState(false);
+  const [presetName, setPresetName] = useState('');
+  const saveOwnPresets = (next: typeof ownPresets) => {
+    setOwnPresets(next);
+    try { localStorage.setItem(PRESETS_KEY, JSON.stringify(next)); } catch { /* stays for this session */ }
+  };
+  const savePreset = () => {
+    const name = presetName.trim();
+    if (!name) return;
+    const { algorithm, mode, padding, keyMode, ivMode, iv, encoding, iterations } = s;
+    const p = { name, s: { algorithm, mode, padding, keyMode, ivMode, iv, encoding, iterations } };
+    // Same name replaces; built-in names stay the built-ins.
+    saveOwnPresets([...ownPresets.filter((x) => x.name !== name), p]);
+    setNaming(false); setPresetName('');
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -136,8 +157,9 @@ export function CryptoTool({ open, onClose }: { open: boolean; onClose: () => vo
     return () => { stale = true; clearTimeout(t); };
   }, [open, op, s, secret, input, wrap]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const preset = presetOf(s);
+  const preset = presetOf(s, ownPresets);
   const presetHint = PRESETS.find((p) => p.name === preset)?.hint;
+  const isOwn = ownPresets.some((p) => p.name === preset) && !PRESETS.some((p) => p.name === preset);
   const usesIv = s.mode !== 'ECB' && s.keyMode !== 'openssl';
   const javaCode = useMemo(() => (codeOpen ? generateJava(op, s, secret) : ''), [codeOpen, op, s, secret]);
 
@@ -184,11 +206,39 @@ export function CryptoTool({ open, onClose }: { open: boolean; onClose: () => vo
             <>
               <div>
                 <span className={label}>Preset</span>
-                <select value={preset} onChange={(e) => { const p = PRESETS.find((x) => x.name === e.target.value); if (p) set(p.s); }} className={`${field} cursor-pointer`}>
+                <select value={preset} onChange={(e) => { const p = [...PRESETS, ...ownPresets].find((x) => x.name === e.target.value); if (p) set(p.s); }} className={`${field} cursor-pointer`}>
                   {!preset && <option value="">Custom</option>}
-                  {PRESETS.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                  <optgroup label="Built in">
+                    {PRESETS.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                  </optgroup>
+                  {ownPresets.length > 0 && (
+                    <optgroup label="Your presets">
+                      {ownPresets.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                    </optgroup>
+                  )}
                 </select>
                 {presetHint && <p className="text-[11px] text-content-muted leading-snug mt-1.5">{presetHint}</p>}
+                {naming ? (
+                  <div className="flex gap-1.5 mt-1.5">
+                    <input
+                      autoFocus
+                      value={presetName}
+                      onChange={(e) => setPresetName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') savePreset();
+                        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setNaming(false); }
+                      }}
+                      placeholder="e.g. Partner API"
+                      className={`${field} flex-1 min-w-0`}
+                    />
+                    <button onClick={savePreset} disabled={!presetName.trim()} className="shrink-0 px-2.5 rounded-md text-[11.5px] font-semibold cursor-pointer disabled:opacity-50" style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}>Save</button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 mt-1.5 text-[11px]">
+                    {!preset && <button onClick={() => setNaming(true)} className="text-accent hover:underline cursor-pointer" title="Keep these settings under a name. The key isn't saved.">Save as preset</button>}
+                    {isOwn && <button onClick={() => saveOwnPresets(ownPresets.filter((p) => p.name !== preset))} className="text-content-faint hover:text-err cursor-pointer">Delete this preset</button>}
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <div className="flex-1">

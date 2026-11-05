@@ -16,6 +16,12 @@ describe('presets', () => {
   it('a changed setting is Custom', () => {
     expect(presetOf({ ...DEFAULT_SETTINGS, encoding: 'hex' })).toBe('');
   });
+
+  it("the user's own presets are recognised too", () => {
+    const own = [{ name: 'Partner API', s: { ...DEFAULT_SETTINGS, encoding: 'hex' } }];
+    expect(presetOf({ ...DEFAULT_SETTINGS, encoding: 'hex' }, own)).toBe('Partner API');
+    expect(presetOf(DEFAULT_SETTINGS, own)).toBe(PRESETS[0].name);
+  });
 });
 
 describe('encryptedFrom', () => {
