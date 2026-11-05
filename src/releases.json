@@ -1,5 +1,34 @@
 [
   {
+    "version": "3.5.0",
+    "date": "November 2026",
+    "headline": "Encrypt, decrypt and hash without writing Java",
+    "highlights": [
+      {
+        "title": "Encrypt / Decrypt",
+        "tag": "NEW",
+        "desc": "Encrypt or decrypt any payload with AES, Triple DES, DES or Blowfish by picking settings instead of writing Java. Presets match CryptoJS, OpenSSL and Java's plain \"AES\", you can save your own, and Get the code gives you the Java and DataWeave that do exactly the same. Hash or sign text, files or whole folders (MD5, SHA, HMAC), copy or save the table as CSV, or check a file against a published checksum."
+      },
+      {
+        "title": "Test on-error scripts",
+        "tag": "NEW",
+        "desc": "An Error tab in Context gives your script the error object Mule hands to an error handler. Pick a type such as HTTP:NOT_FOUND or DB:CONNECTIVITY, or generate one, then edit any value."
+      },
+      {
+        "title": "Java tester: projects and Maven Central",
+        "desc": "Save your Java as named projects, each with its own jars and versions. Paste a class and the tester spots the libraries its imports need; add them in one click, or search Maven Central. The jars a library needs come along, and a jar is downloaded once for every project."
+      },
+      {
+        "title": "Your rail, your tools",
+        "desc": "The left rail holds only the tools you pin. Pin any tool from All tools, drag to reorder, or right-click to unpin. Keep my old rail puts back the tools it used to have."
+      },
+      {
+        "title": "Fixes",
+        "desc": "The output says when it no longer matches your inputs, with a one-click run again. readUrl(\"classpath://...\") works with your classpath folders and JARs. Shortcuts read Ctrl rather than ⌘ outside macOS, Run stays readable on every accent, and dialogs keep keyboard focus inside."
+      }
+    ]
+  },
+  {
     "version": "3.4.0",
     "date": "October 2026",
     "headline": "Learn DataWeave from zero",
