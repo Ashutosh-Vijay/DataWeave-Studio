@@ -109,7 +109,12 @@ export function configureEditor(editor: unknown): void {
   //
   // Refocusing on mouse-up inside the editor is safe: a click meant to move
   // focus elsewhere releases outside this editor, so this never fights the user.
+  // Except a widget's own text box: the find, replace and rename boxes live
+  // inside the editor, and pulling focus out of them left Replace impossible
+  // to type into (a click there collapsed back into the code).
   ed.onMouseUp?.(() => {
+    const a = document.activeElement;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA') && !a.classList.contains('inputarea')) return;
     if (ed.hasTextFocus?.() === false) ed.focus?.();
   });
 

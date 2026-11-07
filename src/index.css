@@ -234,6 +234,25 @@ code, pre, .font-mono, [class*="font-mono"] {
   font-family: var(--font-mono);
 }
 
+/* VS Code injects default webview styles that paint every <code> and <kbd>
+   with the editor theme's chip colours, so a dark VS Code theme put
+   near-black boxes into our light Paper theme. Those styles sit in a cascade
+   layer, so any plain rule here beats them; Tailwind classes still win over
+   this one where a chip is meant to have a background. */
+@layer base {
+  code, kbd {
+    background-color: transparent;
+    color: inherit;
+    padding: 0;
+    /* Width only: the `border` shorthand would also set the style to none,
+       and a `border` class (which sets just the width) would then draw nothing. */
+    border-width: 0;
+    border-radius: 0;
+    box-shadow: none;
+    vertical-align: baseline;
+  }
+}
+
 /* Monaco overflow widgets (hover, suggest, parameter hints) rendered at body
    level need explicit background + text colors. Without this they render
    transparent on top of whatever's behind them — unreadable. */

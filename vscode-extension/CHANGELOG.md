@@ -4,6 +4,15 @@ All notable changes to DataWeave Studio for VS Code.
 
 ## [Unreleased]
 
+## 3.5.1 (2026-11-08)
+
+**Your tools, in your order.**
+
+- **Your rail, your start screen.** The start screen now shows the tools you pinned, in your rail's order, with All tools at the end. Reorder from All tools with the arrows under "On your rail", drag rail icons, or right-click one to move or unpin it.
+- **A warning for a DataWeave minus-sign bug.** With `x = 5`, DataWeave reads `-x - 5` as `-(x - 5)` and gives 0 instead of -10, and the same happens with `-(0) + (-3)`. The script editor now underlines a minus that will do this, and Ctrl+. wraps it in brackets for you.
+- **Choose your fonts.** Settings, Editor, Editor font: JetBrains Mono, Fira Code, Cascadia Code, IBM Plex Mono, Geist Mono, Consolas, or any font installed on your computer. Code names and paths across the app follow it. Settings, Appearance, Interface font sets the font for menus, buttons and labels.
+- **Fixes.** Clicking into Replace in an editor's find bar (Ctrl+F, then the arrow) no longer jumps back to the code, so you can type a replacement. With a dark VS Code theme, code names in help text no longer show as black boxes when the app is light. Typing `error` in a script now suggests Mule's error object, the way `payload` and `vars` are suggested.
+
 ## 3.5.0 (2026-11-06)
 
 **Encrypt, decrypt and hash without writing Java.**

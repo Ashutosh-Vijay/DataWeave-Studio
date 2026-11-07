@@ -64,7 +64,7 @@ export function WhatsNew({ version, onClose }: { version: string; onClose: () =>
         <div style={{ padding: '20px 22px 16px', borderBottom: '1px solid var(--line-subtle)', background: 'linear-gradient(150deg, color-mix(in oklch, var(--accent) 12%, var(--surface)), var(--surface))' }}>
           <div className="flex items-center" style={{ gap: 9 }}>
             <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--accent-ink)', background: 'var(--accent)', padding: '3px 8px', borderRadius: 6 }}>What’s new</span>
-            <span style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 11, color: 'var(--content-faint)' }}>v{version || release.version} · {release.date}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--content-faint)' }}>v{version || release.version} · {release.date}</span>
             <div className="flex-1" />
             <button onClick={onClose} className="grid place-items-center cursor-pointer hover:text-content" style={{ width: 26, height: 26, border: 'none', background: 'transparent', borderRadius: 7, color: 'var(--content-faint)' }} title="Close (Esc)">
               {svg(<><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>, 15)}
@@ -97,7 +97,7 @@ export function WhatsNew({ version, onClose }: { version: string; onClose: () =>
               {earlier.map((r) => (
                 <details key={r.version} style={{ borderBottom: '1px solid var(--line-subtle)' }}>
                   <summary className="flex items-baseline cursor-pointer hover:text-content" style={{ gap: 10, padding: '10px 0', listStyle: 'none', color: 'var(--content-secondary)' }}>
-                    <span style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 11, color: 'var(--content-faint)', minWidth: 42 }}>v{r.version}</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--content-faint)', minWidth: 42 }}>v{r.version}</span>
                     <span style={{ fontSize: 13, fontWeight: 600 }}>{r.headline}</span>
                     <span className="flex-1" />
                     <span style={{ fontSize: 11, color: 'var(--content-faint)' }}>{r.date}</span>

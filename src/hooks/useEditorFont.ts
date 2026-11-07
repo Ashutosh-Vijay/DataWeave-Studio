@@ -3,7 +3,20 @@ import { useEffect, useState } from 'react';
 const EVENT = 'dw:editor-font-changed';
 const DEFAULT_SIZE = 13;
 
-const FONT_FAMILY = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+/** Bundled with the app (see the @font-face rules in index.css). */
+export const BUNDLED_FONTS = ['JetBrains Mono', 'Fira Code', 'Cascadia Code', 'IBM Plex Mono', 'Geist Mono'];
+const DEFAULT_FONT = 'JetBrains Mono';
+const FALLBACK = ', "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+
+/** The chosen editor font's name. Any installed font works, not just the bundled ones. */
+export function readEditorFontName(): string {
+  try {
+    // Before May 2026 the picker stored labels like "Consolas (system)".
+    return (localStorage.getItem('dw.font') || '').replace(/\s*\(system\)$/, '').trim() || DEFAULT_FONT;
+  } catch {
+    return DEFAULT_FONT;
+  }
+}
 
 interface EditorPrefs {
   fontFamily: string;
@@ -39,7 +52,7 @@ function readPrefs(): EditorPrefs {
     enterAccepts = localStorage.getItem('dw.enterAcceptsSuggestion') === '1';
   } catch { /* defaults */ }
   return {
-    fontFamily: FONT_FAMILY,
+    fontFamily: `"${readEditorFontName().replace(/"/g, '')}"${FALLBACK}`,
     fontSize,
     lineHeight,
     wordWrap,
@@ -49,15 +62,59 @@ function readPrefs(): EditorPrefs {
   };
 }
 
-/** Notify all editor mounts to re-read editor preferences from localStorage. */
+const SANS_STACK = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif';
+export const SYSTEM_FONT = 'System font';
+
+/** The chosen interface font: Inter (the default), the system font, or any installed font. */
+export function readInterfaceFontName(): string {
+  try { return localStorage.getItem('dw.uiFont')?.trim() || 'Inter'; } catch { return 'Inter'; }
+}
+
+/**
+ * Point the app-wide font variables at the user's choices: --font-sans for the
+ * interface, --font-mono (code names, paths, the status bar) for the editor
+ * font, so everything that looks like code matches the editor. Tailwind's
+ * font-sans / font-mono classes read these variables too.
+ */
+export function applyAppFonts() {
+  const ui = readInterfaceFontName().replace(/"/g, '');
+  const root = document.documentElement.style;
+  root.setProperty('--font-sans', ui === SYSTEM_FONT ? SANS_STACK : `"${ui}", "Inter", ${SANS_STACK}`);
+  root.setProperty('--font-mono', `"${readEditorFontName().replace(/"/g, '')}"${FALLBACK}`);
+}
+
+/** Apply font settings everywhere and tell editor mounts to re-read their preferences. */
 export function notifyEditorFontChanged() {
+  applyAppFonts();
   window.dispatchEvent(new Event(EVENT));
+}
+
+/**
+ * The bug that got the font picker removed in May 2026: Monaco measures
+ * character widths once, and if the font file is still downloading it measures
+ * the fallback font instead. When the real font lands, the text gets narrower or
+ * wider but Monaco keeps the old widths, so the cursor drifts off the text
+ * (14.8 px over an 84-character line with a 2.5 s font download), and it stays
+ * that way. Monaco 0.55 does not fix this by itself.
+ *
+ * So whenever the browser finishes loading any font, editors measure again.
+ * That covers picking a font, starting up with one already chosen, and fonts
+ * arriving late from the network, without tracking which case it was.
+ */
+let listening = false;
+function remeasureOnFontLoads() {
+  if (listening) return;
+  listening = true;
+  document.fonts.addEventListener('loadingdone', () => {
+    // Imported here, not at the top: Monaco needs `window` the moment it loads,
+    // which breaks tests that only want this file's helpers. main.tsx loaded it already.
+    import('monaco-editor/esm/vs/editor/editor.api').then((m) => m.editor.remeasureFonts());
+  });
 }
 
 /**
  * Editor preferences (font, line height, wrap, minimap, bracket colors) as
  * Monaco options, refreshed whenever Settings > Editor changes them.
- * Font family is fixed to JetBrains Mono to avoid Monaco measurement issues.
  * Spread position decides policy: spread LAST where user prefs should win
  * (the script editor), FIRST where the pane pins its own wrap/minimap.
  */
@@ -65,6 +122,7 @@ export function useEditorFont(): EditorPrefs {
   const [prefs, setPrefs] = useState(readPrefs);
 
   useEffect(() => {
+    remeasureOnFontLoads();
     const update = () => setPrefs(readPrefs());
     window.addEventListener(EVENT, update);
     window.addEventListener('storage', update);

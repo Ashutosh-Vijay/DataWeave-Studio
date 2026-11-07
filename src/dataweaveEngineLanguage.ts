@@ -22,6 +22,7 @@
 import type * as Monaco from 'monaco-editor';
 import { invoke } from './bridge';
 import type { DWCompletionContext } from './dataweaveCompletions';
+import { findSwallowingMinus } from './minusLint';
 
 /** Monaco command id behind the "Generate unit test" code action. */
 const UNIT_TEST_COMMAND = 'dataweave.generateUnitTest';
@@ -785,6 +786,20 @@ export function attachEngineDiagnostics(
     if (!model || disposed) return;
     const mine = ++generation;
     const script = model.getValue();
+    // A parser bug the engine compiles without a word, so it is found here,
+    // before the round trip: it shows even while the engine is starting.
+    monaco.editor.setModelMarkers(model, 'dataweave-minus', findSwallowingMinus(script).map((f) => {
+      const s = model.getPositionAt(f.start);
+      const e = model.getPositionAt(f.operandEnd);
+      return {
+        severity: monaco.MarkerSeverity.Warning,
+        message: f.message,
+        code: 'MinusAppliesToChain',
+        source: 'DataWeave Studio',
+        startLineNumber: s.lineNumber, startColumn: s.column,
+        endLineNumber: e.lineNumber, endColumn: e.column,
+      };
+    }));
     const res = await askNow<{ messages?: EngineMessage[] }>('typeCheck', script, 0, getPayload(), getLevel());
     // The user kept typing while we were waiting — that answer is about a
     // script that no longer exists.
@@ -878,6 +893,7 @@ export function attachEngineDiagnostics(
       const model = editor.getModel();
       if (model && !model.isDisposed()) {
         monaco.editor.setModelMarkers(model, OWNER, []);
+        monaco.editor.setModelMarkers(model, 'dataweave-minus', []);
         lastDiagnostics.delete(model.uri.toString());
       }
     },

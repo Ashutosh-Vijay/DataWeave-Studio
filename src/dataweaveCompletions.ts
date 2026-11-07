@@ -66,6 +66,7 @@ const COMPLETIONS: DWCompletion[] = [
   { label: 'attributes.requestUri', kind: 'variable', detail: 'Request URI path' },
   { label: 'attributes.statusCode', kind: 'variable', detail: 'HTTP status code' },
   { label: 'vars', kind: 'variable', detail: 'Flow variables', documentation: 'Access flow variables as vars.name' },
+  { label: 'error', kind: 'variable', detail: 'Mule error (on-error scripts)', documentation: 'The error a Mule error handler receives: error.description, error.errorType.identifier, error.errorMessage. Set it in the Context panel\'s Error tab.' },
 
   // === Language keywords ===
   { label: 'if', kind: 'keyword', detail: 'Conditional', insertText: 'if (${1:condition}) ${2:then} else ${3:otherwise}', isSnippet: true },

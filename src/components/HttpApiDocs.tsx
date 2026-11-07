@@ -12,7 +12,7 @@
  */
 import { useEffect, useState } from 'react';
 
-const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+const MONO = 'var(--font-mono)';
 
 function Snippet({ code, label }: { code: string; label?: string }) {
   const [copied, setCopied] = useState(false);

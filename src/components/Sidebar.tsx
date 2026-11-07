@@ -281,7 +281,8 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
               onDragEnd={() => { setDragFrom(null); setDragOver(null); }}
               onClick={() => (t.id === 'snippets' ? handleRailClick('snippets') : t.run())}
               onContextMenu={(e) => { e.preventDefault(); setRailMenu({ index: i, x: e.clientX, y: e.clientY }); }}
-              title={`${t.label}: ${t.desc}`}
+              title={`${t.label}: ${t.desc}
+Drag to reorder, or right-click to move or unpin.`}
               aria-label={t.label}
               className={`${railBtn} ${
                 isActive ? 'bg-surface-2 text-content' : lit ? 'text-accent' : 'text-content-faint hover:text-content-secondary'

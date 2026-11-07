@@ -3,6 +3,7 @@ import { Icons } from './Icons';
 import { logoUrl } from '../assets';
 import { SeasonalEffects } from './SeasonalEffects';
 import { Season } from '../seasons';
+import type { Tool } from './ToolsLauncher';
 
 const LAST_WS_KEY = 'dw.lastWorkspace';
 
@@ -19,12 +20,11 @@ export function writeLastWorkspace(name: string | null): void {
 
 interface EmptyStateProps {
   onBlankTransform: () => void;
-  onImportCurl: () => void;
-  onImportPlayground: () => void;
-  onOpenSnippets: () => void;
   onOpenWorkspace: () => void;
   onStartTour: () => void;
-  onOpenFlowDesigner: () => void;
+  /** The tools pinned to the rail, in rail order; they fill the start cards. */
+  railTools: Tool[];
+  onOpenAllTools: () => void;
   /** DataWeave Academy, for people who have never written DataWeave. */
   onOpenAcademy: () => void;
   lastWorkspace: string | null;
@@ -36,8 +36,8 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({
-  onBlankTransform, onImportCurl, onImportPlayground, onOpenSnippets, onOpenWorkspace,
-  onStartTour, onOpenFlowDesigner, onOpenAcademy, lastWorkspace, hasDraftSession, onResumeLast, season,
+  onBlankTransform, onOpenWorkspace, onStartTour, railTools, onOpenAllTools,
+  onOpenAcademy, lastWorkspace, hasDraftSession, onResumeLast, season,
 }: EmptyStateProps) {
   const lastName = lastWorkspace ? lastWorkspace.replace(/\.json$/, '').replace(/\.dwstudio$/, '') : null;
   const showResume = !!lastName || !!hasDraftSession;
@@ -113,13 +113,13 @@ export function EmptyState({
           <Card icon={<Icons.Plus size={14} />} label="Blank transform" desc="Empty %dw 2.0 script" shortcut={kbd("⌘N")} onClick={onBlankTransform} />
           <Card icon={<Icons.Folder size={14} />} label="Open workspace" desc="Pick from saved workspaces" shortcut={kbd("⌘O")} onClick={onOpenWorkspace} />
         </div>
+        {/* Your rail's tools, in its order: pin and reorder in All tools and
+            this follows. The Academy already has the banner above. */}
         <div className="grid grid-cols-2 gap-2.5 mb-2.5">
-          <Card icon={<Icons.Import size={14} />} label="Import cURL" desc="Paste a request, scaffold the script" shortcut={kbd("⌘⇧I")} onClick={onImportCurl} />
-          <Card icon={<Icons.Library size={14} />} label="From a snippet" desc="Map, filter, group templates" shortcut={kbd("⌘L")} onClick={onOpenSnippets} />
-        </div>
-        <div className="grid grid-cols-2 gap-2.5 mb-2.5">
-          <Card icon={<Icons.Import size={14} />} label="Import from Playground" desc="Open a .zip exported from DataWeave Playground" shortcut="" onClick={onImportPlayground} />
-          <Card icon={<FlowIcon />} label="Message Flow" desc="Chain transforms with mock SF/DB connectors" shortcut="" onClick={onOpenFlowDesigner} />
+          {railTools.filter((t) => t.id !== 'academy').slice(0, 5).map((t) => (
+            <Card key={t.id} icon={<span className="[&>svg]:w-[14px] [&>svg]:h-[14px]">{t.icon}</span>} label={t.label} desc={t.desc} shortcut="" onClick={t.run} />
+          ))}
+          <Card icon={<Icons.More size={14} />} label="All tools" desc="Every tool, and pin the ones you want here and on the rail" shortcut="" onClick={onOpenAllTools} />
         </div>
 
         <button
@@ -131,10 +131,6 @@ export function EmptyState({
       </div>
     </div>
   );
-}
-
-function FlowIcon() {
-  return <Icons.Flow size={14} />;
 }
 
 function Card({ icon, label, desc, shortcut, onClick }: { icon: React.ReactNode; label: string; desc: string; shortcut: string; onClick: () => void }) {

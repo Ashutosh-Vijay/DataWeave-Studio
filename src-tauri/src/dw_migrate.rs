@@ -5,12 +5,9 @@
 use regex::Regex;
 use std::collections::HashMap;
 
-pub struct MigrationResult {
-    pub output: String,
-    pub warnings: Vec<String>,
-}
-
-pub fn migrate_dw1_to_2(src: &str) -> MigrationResult {
+/// The migrated script. Anything with no DW 2.0 equivalent is listed as
+/// `// ⚠ ...` lines at the top, so the warnings travel with the script.
+pub fn migrate_dw1_to_2(src: &str) -> String {
     // Compiled once per call — migration is rare, not a hot path.
     let re_header = Regex::new(r"^(\s*)%dw\s+1\.0\b").unwrap();
     let re_input = Regex::new(r"^(\s*)%input\b").unwrap();
@@ -140,7 +137,7 @@ pub fn migrate_dw1_to_2(src: &str) -> MigrationResult {
         result = format!("{}\n{}", header, result);
     }
 
-    MigrationResult { output: result, warnings }
+    result
 }
 
 #[cfg(test)]
@@ -149,7 +146,7 @@ mod tests {
 
     #[test]
     fn rewrites_header_and_directives() {
-        let o = migrate_dw1_to_2("%dw 1.0\n%output application/json\n%var x = 1\n---\nx").output;
+        let o = migrate_dw1_to_2("%dw 1.0\n%output application/json\n%var x = 1\n---\nx");
         assert!(o.contains("%dw 2.0"));
         assert!(o.contains("output application/json"));
         assert!(o.contains("var x = 1"));
@@ -159,14 +156,14 @@ mod tests {
 
     #[test]
     fn function_and_input() {
-        let o = migrate_dw1_to_2("%function double(x) = x * 2\n%input payload application/json").output;
+        let o = migrate_dw1_to_2("%function double(x) = x * 2\n%input payload application/json");
         assert!(o.contains("fun double(x) = x * 2"));
         assert!(o.contains("input payload application/json"));
     }
 
     #[test]
     fn mule3_bindings() {
-        let o = migrate_dw1_to_2("flowVars.foo ++ inboundProperties[\"http.method\"] ++ inboundProperties.bar").output;
+        let o = migrate_dw1_to_2("flowVars.foo ++ inboundProperties[\"http.method\"] ++ inboundProperties.bar");
         assert!(o.contains("vars.foo"));
         assert!(o.contains("attributes.method"));
         assert!(o.contains("attributes.headers.bar"));
@@ -176,7 +173,7 @@ mod tests {
 
     #[test]
     fn legacy_coercion() {
-        let o = migrate_dw1_to_2("payload.a as :string ++ payload.b as :number ++ payload.c as :datetime").output;
+        let o = migrate_dw1_to_2("payload.a as :string ++ payload.b as :number ++ payload.c as :datetime");
         assert!(o.contains("as String"));
         assert!(o.contains("as Number"));
         assert!(o.contains("as DateTime"));
@@ -185,30 +182,28 @@ mod tests {
 
     #[test]
     fn no_equivalent_warnings() {
-        let w = migrate_dw1_to_2("outboundProperties.x\nsessionVars.y\nlookup(\"flow\", payload)").warnings;
-        assert!(w.iter().any(|x| x.contains("outboundProperties")));
-        assert!(w.iter().any(|x| x.contains("sessionVars")));
-        assert!(w.iter().any(|x| x.contains("lookup")));
+        let out = migrate_dw1_to_2("outboundProperties.x\nsessionVars.y\nlookup(\"flow\", payload)");
+        assert!(out.contains("// ⚠ outboundProperties"));
+        assert!(out.contains("// ⚠ sessionVars"));
+        assert!(out.contains("// ⚠ lookup()"));
     }
 
     #[test]
     fn namespace_commented_and_warned() {
-        let r = migrate_dw1_to_2("%namespace ns http://example.com");
-        assert!(r.output.contains("// %namespace"));
-        assert!(r.warnings.iter().any(|w| w.contains("%namespace")));
+        let out = migrate_dw1_to_2("%namespace ns http://example.com");
+        assert!(out.contains("// %namespace ns"));
+        assert!(out.contains("// ⚠ %namespace"));
     }
 
     #[test]
     fn p_warns_unless_app_in_scope() {
-        assert!(migrate_dw1_to_2("p(\"db.host\")").warnings.iter().any(|w| w.starts_with("p(")));
-        assert!(!migrate_dw1_to_2("app.config.host").warnings.iter().any(|w| w.starts_with("p(")));
+        assert!(migrate_dw1_to_2("p(\"db.host\")").contains("// ⚠ p("));
+        assert!(!migrate_dw1_to_2("app.config.host").contains("// ⚠ p("));
     }
 
     #[test]
     fn clean_dw2_is_unchanged() {
         let src = "%dw 2.0\noutput application/json\n---\n{ id: payload.id }";
-        let r = migrate_dw1_to_2(src);
-        assert_eq!(r.output, src);
-        assert!(r.warnings.is_empty());
+        assert_eq!(migrate_dw1_to_2(src), src);
     }
 }

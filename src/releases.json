@@ -1,5 +1,28 @@
 [
   {
+    "version": "3.5.1",
+    "date": "November 2026",
+    "headline": "Your tools, in your order",
+    "highlights": [
+      {
+        "title": "Your rail, your start screen",
+        "desc": "The start screen now shows the tools you pinned, in your rail's order, with All tools at the end. Reorder from All tools with the arrows under \"On your rail\", drag rail icons, or right-click one to move or unpin it."
+      },
+      {
+        "title": "A warning for a DataWeave minus-sign bug",
+        "desc": "With x = 5, DataWeave reads -x - 5 as -(x - 5) and gives 0 instead of -10, and the same happens with -(0) + (-3). The script editor now underlines a minus that will do this, and Ctrl+. wraps it in brackets for you."
+      },
+      {
+        "title": "Choose your fonts",
+        "desc": "Settings, Editor, Editor font: JetBrains Mono, Fira Code, Cascadia Code, IBM Plex Mono, Geist Mono, Consolas, or any font installed on your computer. Code names and paths across the app follow it. Settings, Appearance, Interface font sets the font for menus, buttons and labels."
+      },
+      {
+        "title": "Fixes",
+        "desc": "Clicking into Replace in an editor's find bar (Ctrl+F, then the arrow) no longer jumps back to the code, so you can type a replacement. Dragging rail icons to reorder them works in the desktop app. In VS Code with a dark theme, code names in help text no longer show as black boxes when the app is light. Typing error in a script now suggests Mule's error object, the way payload and vars are suggested."
+      }
+    ]
+  },
+  {
     "version": "3.5.0",
     "date": "November 2026",
     "headline": "Encrypt, decrypt and hash without writing Java",

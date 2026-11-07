@@ -7,7 +7,7 @@ import { TARGETS } from '../targetRuntime';
 import { SHORTCUT_GROUPS, kbd } from '../shortcuts';
 import { ConfirmDialog } from './ConfirmDialog';
 import { MIME_OPTIONS, MimeType } from '../types';
-import { notifyEditorFontChanged } from '../hooks/useEditorFont';
+import { BUNDLED_FONTS, SYSTEM_FONT, notifyEditorFontChanged, readEditorFontName, readInterfaceFontName } from '../hooks/useEditorFont';
 import { useTheme } from '../ThemeContext';
 import { MiniPreview } from './MiniPreview';
 import { resetFeatureIntros } from '../featureIntros';
@@ -48,7 +48,7 @@ interface SettingsScreenProps {
 }
 
 const SECTIONS: { id: Section; label: string; icon: keyof typeof Icons; keywords: string[] }[] = [
-  { id: 'appearance', label: 'Appearance', icon: 'Panel', keywords: ['theme', 'dark', 'light', 'dusk', 'paper', 'accent', 'color', 'layout', 'workbench', 'focus', 'playground', 'line numbers', 'wrap', 'output'] },
+  { id: 'appearance', label: 'Appearance', icon: 'Panel', keywords: ['theme', 'font', 'interface font', 'dark', 'light', 'dusk', 'paper', 'accent', 'color', 'layout', 'workbench', 'focus', 'playground', 'line numbers', 'wrap', 'output'] },
   { id: 'general',    label: 'General',    icon: 'Settings', keywords: ['startup', 'autosave', 'tour', 'updates', 'last workspace'] },
   { id: 'runtime',    label: 'Runtime',    icon: 'Terminal', keywords: ['engine', 'restart', 'jvm', 'java', 'timeout', 'classpath', 'jar', 'mime', 'input format', 'target', 'mule', 'version', 'compatibility'] },
   { id: 'editor',     label: 'Editor',     icon: 'Braces', keywords: ['font', 'size', 'line height', 'tab', 'word wrap', 'bracket', 'minimap'] },
@@ -276,6 +276,41 @@ function SelectInput({ value, options, onChange, width }: { value: string; optio
   );
 }
 
+/** A font dropdown whose last option, "Other installed font", reveals a box for any font name. */
+function FontPicker({ storageKey, current, choices, placeholder }: { storageKey: string; current: string; choices: string[]; placeholder: string }) {
+  const OTHER = 'Other installed font';
+  const [font, setFont] = useState(current);
+  const [otherOpen, setOtherOpen] = useState(!choices.includes(current));
+  const save = (name: string) => {
+    setFont(name);
+    try { localStorage.setItem(storageKey, name); } catch {}
+    notifyEditorFontChanged();
+  };
+  return (
+    <div className="flex flex-col items-end gap-1.5">
+      <SelectInput
+        value={otherOpen ? OTHER : font}
+        options={[...choices, OTHER]}
+        onChange={(v) => {
+          if (v === OTHER) { setOtherOpen(true); return; }
+          setOtherOpen(false);
+          save(v);
+        }}
+        width={200}
+      />
+      {otherOpen && (
+        <input
+          defaultValue={choices.includes(font) ? '' : font}
+          placeholder={placeholder}
+          spellCheck={false}
+          onChange={(e) => { if (e.target.value.trim()) save(e.target.value.trim()); }}
+          className="h-7 w-[200px] bg-surface-2 border border-line rounded-md px-2 text-[12px] text-content focus:border-accent focus:outline-none"
+        />
+      )}
+    </div>
+  );
+}
+
 function OutlineBtn({ children, onClick, danger }: { children: React.ReactNode; onClick?: () => void; danger?: boolean }) {
   return (
     <button
@@ -380,6 +415,12 @@ function AppearancePanel({
             );
           })}
         </div>
+      </Group>
+
+      <Group title="Font">
+        <SRow label="Interface font" desc="Menus, buttons and labels. The code editors have their own font, under Editor.">
+          <FontPicker storageKey="dw.uiFont" current={readInterfaceFontName()} choices={['Inter', SYSTEM_FONT]} placeholder="e.g. Segoe UI" />
+        </SRow>
       </Group>
 
       <Group title="Theme">
@@ -720,6 +761,9 @@ function EditorPanel() {
   return (
     <SectionWrap title="Editor" desc="Script editor preferences">
       <Group title="Font">
+        <SRow label="Editor font" desc="Also used for code names, paths and the status bar. The first five come with the app; for any other font on this computer, pick Other and type its name.">
+          <FontPicker storageKey="dw.font" current={readEditorFontName()} choices={[...BUNDLED_FONTS, 'Consolas']} placeholder="e.g. Source Code Pro" />
+        </SRow>
         <SRow label="Font size">
           <SelectInput value={fontSize} options={['11 px', '12 px', '13 px', '14 px', '15 px', '16 px']} onChange={(v) => { setFontSize(v); notifyEditorFontChanged(); }} width={100} />
         </SRow>

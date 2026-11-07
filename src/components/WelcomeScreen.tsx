@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 import { logoUrl } from '../assets';
 import { WindowControls } from './WindowControls';
 
-const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+const MONO = 'var(--font-mono)';
 
 const EXAMPLES = [
   {

@@ -18,7 +18,7 @@
  */
 import { useState } from 'react';
 
-const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+const MONO = 'var(--font-mono)';
 
 export function EngineDownScreen({
   error,

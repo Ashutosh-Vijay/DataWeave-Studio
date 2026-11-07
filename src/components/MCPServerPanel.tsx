@@ -14,7 +14,7 @@ interface McpStatus { running: boolean; port: number | null; advanced: boolean; 
 type LogLine = { t: string; m: string; kind: 'ok' | 'warn' | 'err' | 'muted' };
 
 const PORT_KEY = 'dw.mcp.port';
-const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+const MONO = 'var(--font-mono)';
 
 const plug = (size = 18) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">

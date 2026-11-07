@@ -11,7 +11,6 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use rmcp::handler::server::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{CallToolResult, Content, ServerCapabilities, ServerInfo};
 use rmcp::schemars;
@@ -344,6 +343,9 @@ fn safe_mode_block_reason(script: &str) -> Option<&'static str> {
 }
 
 /// Replace ${key} / ${secure::key} placeholders using the given YAML configs.
+/// The original one-pass version, replaced by flatten_yaml_to_map + apply_map;
+/// kept only so the tests can check the new path gives the same answer.
+#[cfg(test)]
 fn substitute_props(mut text: String, config_yaml: Option<&str>, secure_yaml: Option<&str>) -> String {
     for (yaml_opt, secure) in [(config_yaml, false), (secure_yaml, true)] {
         let y = match yaml_opt {
@@ -467,7 +469,6 @@ pub struct DwTools {
     requests: Arc<AtomicU64>,
     /// Panel-set decryption key/cipher for `![...]` secure values (session-only).
     decrypt: Arc<Mutex<DecryptSettings>>,
-    tool_router: ToolRouter<DwTools>,
 }
 
 #[tool_router]
@@ -483,7 +484,6 @@ impl DwTools {
             advanced,
             requests,
             decrypt,
-            tool_router: Self::tool_router(),
         }
     }
 
@@ -1137,8 +1137,8 @@ impl DwTools {
         Parameters(input): Parameters<MigrateInput>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
         self.requests.fetch_add(1, Ordering::Relaxed);
-        let r = crate::dw_migrate::migrate_dw1_to_2(&input.script);
-        Ok(CallToolResult::success(vec![Content::text(r.output)]))
+        let out = crate::dw_migrate::migrate_dw1_to_2(&input.script);
+        Ok(CallToolResult::success(vec![Content::text(out)]))
     }
 
     #[tool(

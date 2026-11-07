@@ -17,11 +17,13 @@ export interface Tool {
   run: () => void;
 }
 
-export function ToolsLauncher({ tools, extras, pinned, onTogglePin, onClose }: {
+export function ToolsLauncher({ tools, extras, pinned, onTogglePin, onReorder, onClose }: {
   tools: Tool[];
   /** Ids of the tools on the rail. */
   pinned: string[];
   onTogglePin: (id: string) => void;
+  /** New order of the pinned ids. */
+  onReorder: (ids: string[]) => void;
   /** Small links under the grid: shortcuts, feedback, about. */
   extras: { label: string; run: () => void }[];
   onClose: () => void;
@@ -69,6 +71,37 @@ export function ToolsLauncher({ tools, extras, pinned, onTogglePin, onClose }: {
         </div>
 
         <div className="overflow-y-auto px-6 pb-5">
+          {/* The rail's order, changeable here without dragging. */}
+          {pinned.length > 0 && (
+            <div className="mt-5">
+              <div className="text-[10.5px] font-semibold uppercase tracking-[0.7px] text-content-faint mb-2">On your rail, in this order</div>
+              <div className="flex flex-wrap gap-2">
+                {pinned.map((id, i) => {
+                  const t = tools.find((x) => x.id === id);
+                  if (!t) return null;
+                  const move = (to: number) => {
+                    const next = [...pinned];
+                    next.splice(i, 1);
+                    next.splice(to, 0, id);
+                    onReorder(next);
+                  };
+                  const arrow = 'grid place-items-center w-6 h-6 rounded text-content-faint hover:text-content hover:bg-surface-3 cursor-pointer disabled:opacity-30 disabled:cursor-default';
+                  return (
+                    <div key={id} className="flex items-center gap-1.5 h-9 pl-2.5 pr-1 rounded-lg border border-line-subtle bg-surface-2">
+                      <span className="text-content-muted">{t.icon}</span>
+                      <span className="text-[12px] text-content mr-1">{t.label}</span>
+                      <button onClick={() => move(i - 1)} disabled={i === 0} className={arrow} aria-label={`Move ${t.label} up`} title="Move up">
+                        <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
+                      </button>
+                      <button onClick={() => move(i + 1)} disabled={i === pinned.length - 1} className={arrow} aria-label={`Move ${t.label} down`} title="Move down">
+                        <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {groups.map((g) => (
             <div key={g} className="mt-5">
               <div className="text-[10.5px] font-semibold uppercase tracking-[0.7px] text-content-faint mb-2">{g}</div>

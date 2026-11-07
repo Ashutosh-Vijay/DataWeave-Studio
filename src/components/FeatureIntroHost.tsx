@@ -63,7 +63,7 @@ export function FeatureIntroHost() {
             </div>
             <div style={{ fontSize: 12.5, color: 'var(--content-secondary)', lineHeight: 1.6, marginTop: 6 }}>{intro.body}</div>
             {intro.tip && (
-              <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 8, fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}>{intro.tip}</div>
+              <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 8, fontFamily: 'var(--font-mono)' }}>{intro.tip}</div>
             )}
             <div className="flex justify-end" style={{ marginTop: 12 }}>
               <button

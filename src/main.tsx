@@ -16,6 +16,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ThemeProvider } from "./ThemeContext";
 import { isTauri } from "./bridge";
 import { applySavedAccent } from "./seasons";
+import { applyAppFonts } from "./hooks/useEditorFont";
 import "./index.css";
 
 // `&inline` matters, and only in VS Code. A plain `?worker` emits a separate
@@ -48,10 +49,10 @@ loader.config({ monaco });
 // for the frame (copy/cut = write still fire), so Ctrl+V / right-click paste /
 // Shift+Insert all silently die while copy works. The <textarea> model isn't
 // gated this way — it's how VS Code's own editors paste in the same sandbox.
-// Patch both factories once here so every editor (and any future one) inherits
-// it. Desktop runs in WebView2 (not a sandboxed iframe) and pastes fine on
-// EditContext, so leave it alone there.
-if (!isTauri) {
+// Desktop needs it too: on EditContext in WebView2, clicking the find widget's
+// "Toggle Replace" arrow did nothing. Patch both factories once here so every
+// editor (and any future one) inherits it.
+{
   const ed = monaco.editor as unknown as {
     create: (...a: any[]) => unknown;
     createDiffEditor: (...a: any[]) => unknown;
@@ -79,6 +80,10 @@ if (!isTauri) {
     applySavedAccent(!document.documentElement.classList.contains("light"));
   } catch { /* ignore */ }
 })();
+
+// Before the first paint, like the accent: otherwise the app flashes the
+// default fonts and then swaps to the chosen ones.
+applyAppFonts();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

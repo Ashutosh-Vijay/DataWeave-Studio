@@ -13,15 +13,13 @@
 
 import type * as Monaco from 'monaco-editor';
 import { findPropertyCalls } from './dataweavePropertyConverter';
+import { findSwallowingMinus } from './minusLint';
 
 export function registerDWCodeActionProvider(monaco: typeof Monaco): Monaco.IDisposable {
   return monaco.languages.registerCodeActionProvider('dataweave', {
     provideCodeActions(model, range) {
       const text = model.getValue();
       const matches = findPropertyCalls(text);
-      if (matches.length === 0) {
-        return { actions: [], dispose: () => {} };
-      }
 
       // Selection range in absolute character offsets — used to filter
       // matches to ones that overlap the current cursor/selection.
@@ -29,6 +27,24 @@ export function registerDWCodeActionProvider(monaco: typeof Monaco): Monaco.IDis
       const selEnd = model.getOffsetAt({ lineNumber: range.endLineNumber, column: range.endColumn });
 
       const actions: Monaco.languages.CodeAction[] = [];
+
+      // `-x - 5` -> `(-x) - 5`, for the warning in minusLint.ts.
+      for (const f of findSwallowingMinus(text)) {
+        if (f.operandEnd < selStart || f.start > selEnd) continue;
+        const s = model.getPositionAt(f.start);
+        const e = model.getPositionAt(f.operandEnd);
+        actions.push({
+          title: `Wrap in brackets: (${text.slice(f.start, f.operandEnd)})`,
+          kind: 'quickfix',
+          isPreferred: true,
+          edit: {
+            edits: [
+              { resource: model.uri, versionId: model.getVersionId(), textEdit: { range: { startLineNumber: e.lineNumber, startColumn: e.column, endLineNumber: e.lineNumber, endColumn: e.column }, text: ')' } },
+              { resource: model.uri, versionId: model.getVersionId(), textEdit: { range: { startLineNumber: s.lineNumber, startColumn: s.column, endLineNumber: s.lineNumber, endColumn: s.column }, text: '(' } },
+            ] as Monaco.languages.IWorkspaceTextEdit[],
+          },
+        });
+      }
 
       // Per-occurrence quick-fix: any p() call overlapping the cursor.
       for (const m of matches) {

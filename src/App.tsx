@@ -2064,10 +2064,9 @@ function App() {
           <EmptyState
             season={season}
             onBlankTransform={handleNewScript}
-            onImportCurl={handleOpenImport}
-            onImportPlayground={handleImportPlayground}
-            onOpenSnippets={handleOpenSnippets}
             onOpenWorkspace={() => setOpenWsOpen(true)}
+            railTools={railTools}
+            onOpenAllTools={() => setToolsMenuOpen(true)}
             onStartTour={() => {
               // Tour highlights elements (editor, payload, context, output)
               // that only mount inside the workspace. Open it before starting.
@@ -2077,7 +2076,6 @@ function App() {
               // Wait for the workspace to render before the tour measures rects
               setTimeout(() => setShowTour(true), 50);
             }}
-            onOpenFlowDesigner={() => setFlowDesignerOpen(true)}
             onOpenAcademy={() => setAcademyOpen(true)}
             lastWorkspace={lastWorkspace}
             hasDraftSession={hasDraftSession && !lastWorkspace}
@@ -2542,6 +2540,7 @@ function App() {
           extras={toolExtras}
           pinned={railPins}
           onTogglePin={(id) => changeRail(railPins.includes(id) ? railPins.filter((x) => x !== id) : [...railPins, id])}
+          onReorder={changeRail}
           onClose={() => setToolsMenuOpen(false)}
         />
       )}
