@@ -6,7 +6,6 @@ import { Icons } from './Icons';
 import { TARGETS } from '../targetRuntime';
 import { SHORTCUT_GROUPS, kbd } from '../shortcuts';
 import { ConfirmDialog } from './ConfirmDialog';
-import { MIME_OPTIONS, MimeType } from '../types';
 import { BUNDLED_FONTS, SYSTEM_FONT, notifyEditorFontChanged, readEditorFontName, readInterfaceFontName } from '../hooks/useEditorFont';
 import { useTheme } from '../ThemeContext';
 import { MiniPreview } from './MiniPreview';
@@ -33,8 +32,6 @@ interface SettingsScreenProps {
   appVersion: string;
   layout: 'workbench' | 'focus';
   onLayoutChange: (l: 'workbench' | 'focus') => void;
-  payloadMimeType: MimeType;
-  onPayloadMimeTypeChange: (m: MimeType) => void;
   classpath: string[];
   onClasspathChange: (cp: string[]) => void;
   timeoutMs: number;
@@ -42,6 +39,8 @@ interface SettingsScreenProps {
   onShowTour: () => void;
   onShowAbout: () => void;
   onRestartEngine: () => void;
+  /** Whether the startup check found a newer version. */
+  updateAvailable: boolean;
   /** Section to land on. Set when something specific sent the user here — the
    *  status bar's target chip opens straight onto Runtime. */
   initialSection?: Section;
@@ -50,17 +49,16 @@ interface SettingsScreenProps {
 const SECTIONS: { id: Section; label: string; icon: keyof typeof Icons; keywords: string[] }[] = [
   { id: 'appearance', label: 'Appearance', icon: 'Panel', keywords: ['theme', 'font', 'interface font', 'dark', 'light', 'dusk', 'paper', 'accent', 'color', 'layout', 'workbench', 'focus', 'playground', 'line numbers', 'wrap', 'output'] },
   { id: 'general',    label: 'General',    icon: 'Settings', keywords: ['startup', 'autosave', 'tour', 'updates', 'last workspace'] },
-  { id: 'runtime',    label: 'Runtime',    icon: 'Terminal', keywords: ['engine', 'restart', 'jvm', 'java', 'timeout', 'classpath', 'jar', 'mime', 'input format', 'target', 'mule', 'version', 'compatibility'] },
+  { id: 'runtime',    label: 'Runtime',    icon: 'Terminal', keywords: ['engine', 'restart', 'jvm', 'java', 'timeout', 'classpath', 'jar', 'target', 'mule', 'version', 'compatibility'] },
   { id: 'editor',     label: 'Editor',     icon: 'Braces', keywords: ['font', 'size', 'line height', 'tab', 'word wrap', 'bracket', 'minimap'] },
   { id: 'shortcuts',  label: 'Shortcuts',  icon: 'Command', keywords: ['keyboard', 'hotkey', 'binding'] },
-  { id: 'advanced',   label: 'Advanced',   icon: 'Activity', keywords: ['data location', 'diagnostics', 'logging', 'reset', 'danger', 'delete'] },
+  { id: 'advanced',   label: 'Advanced',   icon: 'Activity', keywords: ['data location', 'privacy', 'updates', 'reset', 'danger', 'delete'] },
   { id: 'about',      label: 'About',      icon: 'Help', keywords: ['version', 'build', 'credits'] },
 ];
 
 
 export function SettingsScreen(props: SettingsScreenProps) {
   const { open: isOpen, onClose, appVersion, layout, onLayoutChange,
-    payloadMimeType, onPayloadMimeTypeChange,
     classpath, onClasspathChange,
     timeoutMs, onTimeoutMsChange,
     targetRuntime, onTargetRuntimeChange,
@@ -175,8 +173,6 @@ export function SettingsScreen(props: SettingsScreenProps) {
                 onTargetRuntimeChange={onTargetRuntimeChange}
                 perWorkspaceTarget={perWorkspaceTarget}
                 onPerWorkspaceTargetChange={onPerWorkspaceTargetChange}
-                payloadMimeType={payloadMimeType}
-                onPayloadMimeTypeChange={onPayloadMimeTypeChange}
                 classpath={classpath}
                 onClasspathChange={onClasspathChange}
                 timeoutMs={timeoutMs}
@@ -186,12 +182,12 @@ export function SettingsScreen(props: SettingsScreenProps) {
             )}
             {section === 'editor' && <EditorPanel />}
             {section === 'shortcuts' && (
-              <SectionWrap title="Keyboard shortcuts" desc={kbd("Press ⌘/ at any time to bring this up as a floating reference.")}>
+              <SectionWrap title="Keyboard shortcuts" desc={kbd("Press ⌘/ outside an editor to bring this up as a floating reference.")}>
                 <ShortcutsList />
               </SectionWrap>
             )}
             {section === 'advanced' && <AdvancedPanel />}
-            {section === 'about' && <AboutPanel appVersion={appVersion} onOpenAbout={onShowAbout} />}
+            {section === 'about' && <AboutPanel appVersion={appVersion} onOpenAbout={onShowAbout} updateAvailable={props.updateAvailable} />}
           </div>
         </div>
       </div>
@@ -501,6 +497,15 @@ function AppearancePanel({
       </Group>
       )}
 
+      <Group title="Output">
+        <SRow label="Show line numbers in output">
+          <Toggle on={showLineNums} onChange={(v) => { setShowLineNums(v); setOutputPref('dw.lineNumbers', v); }} />
+        </SRow>
+        <SRow label="Wrap long lines in output" desc="Turn off to keep long values, like Base64, on one line.">
+          <Toggle on={wrapOutput} onChange={(v) => { setWrapOutput(v); setOutputPref('dw.outputWrap', v); }} />
+        </SRow>
+      </Group>
+
       <Group
         title="Seasonal themes"
         desc="On a festival the splash dresses up, and the bars get a little life. Never the editor."
@@ -588,15 +593,6 @@ function AppearancePanel({
           </div>
         )}
       </Group>
-
-      <Group title="Output">
-        <SRow label="Show line numbers in output">
-          <Toggle on={showLineNums} onChange={(v) => { setShowLineNums(v); setOutputPref('dw.lineNumbers', v); }} />
-        </SRow>
-        <SRow label="Wrap long lines in output" desc="Turn off to keep long values, like Base64, on one line.">
-          <Toggle on={wrapOutput} onChange={(v) => { setWrapOutput(v); setOutputPref('dw.outputWrap', v); }} />
-        </SRow>
-      </Group>
     </SectionWrap>
   );
 }
@@ -622,7 +618,6 @@ function GeneralPanel({ onShowTour }: { onShowTour: () => void }) {
 function RuntimePanel({
   targetRuntime, onTargetRuntimeChange,
   perWorkspaceTarget, onPerWorkspaceTargetChange,
-  payloadMimeType, onPayloadMimeTypeChange,
   classpath, onClasspathChange,
   timeoutMs, onTimeoutMsChange,
   onRestartEngine,
@@ -631,8 +626,6 @@ function RuntimePanel({
   onTargetRuntimeChange: (level: string) => void;
   perWorkspaceTarget: boolean;
   onPerWorkspaceTargetChange: (on: boolean) => void;
-  payloadMimeType: MimeType;
-  onPayloadMimeTypeChange: (m: MimeType) => void;
   classpath: string[];
   onClasspathChange: (cp: string[]) => void;
   timeoutMs: number;
@@ -675,7 +668,7 @@ function RuntimePanel({
         <SRow label="Restart engine" desc="Reload the DataWeave runtime. Use this if it stops responding or after changing the classpath.">
           <OutlineBtn onClick={onRestartEngine}><Icons.Zap size={11} /> Restart</OutlineBtn>
         </SRow>
-        <SRow label="Timeout (ms)" desc="Per-execution timeout. 0 = no limit.">
+        <SRow label="Timeout (ms)" desc="How long one run may take, for every script in the open workspace. 0 = no limit.">
           <input
             type="number"
             min={0}
@@ -685,17 +678,9 @@ function RuntimePanel({
             className="h-7 w-[120px] bg-surface-2 border border-line rounded-md px-2 text-[12px] font-mono text-content focus:border-accent focus:outline-none text-right"
           />
         </SRow>
-        <SRow label="Default input format" desc="MIME type used for the payload pane.">
-          <SelectInput
-            value={payloadMimeType}
-            options={MIME_OPTIONS.map(o => o.value)}
-            onChange={(v) => onPayloadMimeTypeChange(v as MimeType)}
-            width={170}
-          />
-        </SRow>
       </Group>
 
-      <Group title="Classpath" desc="Folders and JARs your scripts can use, like a Mule app's classpath: Java classes for import java!, and files read with readUrl(&quot;classpath://…&quot;). Add your project's src/main/resources folder here.">
+      <Group title="Classpath" desc="Folders and JARs every script in the open workspace can use, like a Mule app's classpath: Java classes for import java!, and files read with readUrl(&quot;classpath://…&quot;). Add your project's src/main/resources folder here. Saved with the workspace.">
 
         <div className="bg-surface border border-line rounded-lg overflow-hidden">
           {classpath.length === 0 && (
@@ -792,9 +777,6 @@ function EditorPanel() {
 }
 
 function AdvancedPanel() {
-  const [verbose, setVerbose] = useState<boolean>(() => {
-    try { return localStorage.getItem('dw.verbose') === '1'; } catch { return false; }
-  });
   const [updateCheck, setUpdateCheck] = useState<boolean>(() => {
     try { return localStorage.getItem('dw.updateCheck') !== '0'; } catch { return true; }
   });
@@ -810,8 +792,16 @@ function AdvancedPanel() {
       : '~/.local/share/com.dwstudio.desktop';
 
   const doResetSettings = () => {
-    const keys = Object.keys(localStorage).filter(k => k.startsWith('dw.'));
-    keys.forEach(k => localStorage.removeItem(k));
+    // Settings only. The same prefix also holds things people made: the unsaved
+    // draft, Java tester projects, the OpenAPI library, crypto presets, pins.
+    const keep = ['dw.draftSession', 'dw.untrustedDraft', 'dw.lastWorkspace', 'dw.pinned', 'dw.javaProjects',
+      'dw.mavenPackageIndex', 'dw.openapiLibrary', 'dw.cryptoTool.presets', 'dw.cryptoTool.classes',
+      'dw.compare.left', 'dw.compare.right'];
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith('dw.') && !keep.includes(k))
+      .forEach((k) => localStorage.removeItem(k));
+    // The theme predates the dw. prefix, so the reset used to skip it.
+    localStorage.removeItem('dwstudio_theme');
     location.reload();
   };
 
@@ -830,14 +820,8 @@ function AdvancedPanel() {
         </SRow>
       </Group>
 
-      <Group title="Diagnostics">
-        <SRow label="Enable verbose logging" desc="Includes engine stderr and stack traces in app logs.">
-          <Toggle on={verbose} onChange={(v) => { setVerbose(v); try { localStorage.setItem('dw.verbose', v ? '1' : '0'); } catch {} }} />
-        </SRow>
-      </Group>
-
       <Group title="Danger zone">
-        <SRow label="Reset all settings" desc="Layout, theme, fonts, preferences. Workspaces are not affected.">
+        <SRow label="Reset all settings" desc="Layout, theme, fonts, preferences, and the one-time tips. Workspaces, drafts and what you saved inside tools are kept.">
           <OutlineBtn onClick={() => setResetOpen(true)} danger>Reset</OutlineBtn>
         </SRow>
       </Group>
@@ -848,7 +832,7 @@ function AdvancedPanel() {
         description={
           <>
             Layout, theme, accent, fonts, and preferences will return to defaults.
-            Your saved workspaces are <span style={{ color: 'var(--content)', fontWeight: 500 }}>not</span> affected.
+            Your workspaces, unsaved draft and anything saved inside a tool are <span style={{ color: 'var(--content)', fontWeight: 500 }}>not</span> affected.
           </>
         }
         tone="warn"
@@ -884,7 +868,7 @@ function ShortcutsList() {
   );
 }
 
-function AboutPanel({ appVersion, onOpenAbout }: { appVersion: string; onOpenAbout: () => void }) {
+function AboutPanel({ appVersion, onOpenAbout, updateAvailable }: { appVersion: string; onOpenAbout: () => void; updateAvailable: boolean }) {
   return (
     <div className="flex flex-col items-center gap-3.5 pt-10 pb-6">
       <img
@@ -898,21 +882,25 @@ function AboutPanel({ appVersion, onOpenAbout }: { appVersion: string; onOpenAbo
         <div className="text-[20px] font-semibold text-content">DataWeave Studio</div>
         <div className="text-[12.5px] text-content-muted mt-1 font-mono">Version {appVersion || '–'}</div>
       </div>
-      <span
-        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px]"
-        style={{
-          background: 'color-mix(in oklch, var(--accent) 10%, transparent)',
-          border: '1px solid var(--accent-border)',
-          color: 'var(--accent)',
-        }}
-      >
-        <Icons.Dot size={8} /> You're on the latest version
-      </span>
+      {/* Only when the startup check actually found one. This used to say
+          "You're on the latest version" no matter what, including offline. */}
+      {updateAvailable && (
+        <span
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px]"
+          style={{
+            background: 'color-mix(in oklch, var(--accent) 10%, transparent)',
+            border: '1px solid var(--accent-border)',
+            color: 'var(--accent)',
+          }}
+        >
+          <Icons.Dot size={8} /> A newer version is available
+        </span>
+      )}
       <button
         onClick={onOpenAbout}
         className="text-[12px] text-accent hover:text-accent-hover cursor-pointer mt-1"
       >
-        View full details →
+        {updateAvailable ? 'Open About to install it →' : 'View full details →'}
       </button>
       <div className="text-[11px] text-content-faint mt-2 text-center max-w-[400px] leading-relaxed">
         Built on the DataWeave runtime by MuleSoft/Salesforce (Apache 2.0).

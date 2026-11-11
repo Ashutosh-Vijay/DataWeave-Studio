@@ -355,11 +355,24 @@ fn sanitize_stem(project_name: &str) -> String {
 }
 
 #[tauri::command]
-pub fn save_workspace(app: AppHandle, workspace: WorkspaceFile) -> Result<String, String> {
+pub fn save_workspace(app: AppHandle, workspace: WorkspaceFile, current_file: Option<String>) -> Result<String, String> {
     let dir = get_workspaces_directory(&app)?;
 
     let filename = sanitize_stem(&workspace.project_name);
     let file_path = dir.join(format!("{}.dwstudio", filename));
+
+    // The filename comes from the name, so a second workspace with the same
+    // name would silently replace the first. Only the file this one was opened
+    // from (or last saved to) may be overwritten.
+    let own = current_file
+        .map(|c| c.eq_ignore_ascii_case(&format!("{}.dwstudio", filename)))
+        .unwrap_or(false);
+    if !own && file_path.exists() {
+        return Err(format!(
+            "\"{}\" is already saved as another workspace or flow. Pick a different name.",
+            workspace.project_name
+        ));
+    }
 
     // Update the timestamp + ensure version is current.
     let mut ws = workspace;

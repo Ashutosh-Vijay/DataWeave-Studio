@@ -173,6 +173,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const [saveFlash, setSaveFlash] = useState(false);
   const [pinned, setPinned] = useState<Set<string>>(() => getPinned());
   const [confirmDelete, setConfirmDelete] = useState<WsMeta | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<{ id: string; name: string; kind: 'script' | 'test' } | null>(null);
 
   const togglePin = (filename: string) => {
     setPinned((prev) => {
@@ -219,6 +220,8 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
       setSaveFlash(true);
       setTimeout(() => setSaveFlash(false), 1200);
       refreshFiles();
+    } catch (e) {
+      toast({ title: 'Could not save workspace', message: (e as Error).message || String(e), variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -455,7 +458,7 @@ Drag to reorder, or right-click to move or unpin.`}
                                 toast({ title: kind === 'test' ? 'Suite renamed' : 'Script renamed', message: next, variant: 'success' });
                               }}
                               onDuplicate={() => onDuplicateRequest(r.id)}
-                              onRemove={() => onRemoveRequest(r.id)}
+                              onRemove={() => setConfirmRemove({ id: r.id, name: r.name, kind })}
                             />
                           ))}
                         </div>
@@ -556,7 +559,7 @@ Drag to reorder, or right-click to move or unpin.`}
         description={
           <>
             <ConfirmFile name={confirmDelete?.projectName || (confirmDelete?.filename || '').replace(/\.dwstudio$/, '')} /> will be permanently removed
-            {confirmDelete && confirmDelete.requestCount > 1 ? <> (all {confirmDelete.requestCount} requests)</> : null}.
+            {confirmDelete && confirmDelete.requestCount > 1 ? <> (all {confirmDelete.requestCount} scripts and suites in it)</> : null}.
             This can&rsquo;t be undone.
           </>
         }
@@ -577,6 +580,22 @@ Drag to reorder, or right-click to move or unpin.`}
           });
         }}
         onClose={() => setConfirmDelete(null)}
+      />
+
+      {/* Deleting a script or suite had no confirmation and no undo. */}
+      <ConfirmDialog
+        open={confirmRemove !== null}
+        title={confirmRemove?.kind === 'test' ? 'Delete test suite?' : 'Delete script?'}
+        description={
+          <>
+            <ConfirmFile name={confirmRemove?.name || ''} /> will be removed from this workspace
+            {confirmRemove?.kind === 'test' ? '' : ', along with its payload and context'}. This can&rsquo;t be undone.
+          </>
+        }
+        tone="danger"
+        confirmLabel="Delete"
+        onConfirm={() => { if (confirmRemove) onRemoveRequest(confirmRemove.id); }}
+        onClose={() => setConfirmRemove(null)}
       />
     </div>
   );
@@ -648,7 +667,7 @@ function WSRow({
   onTogglePin: () => void;
 }) {
   const name = meta.projectName || meta.filename.replace(/\.dwstudio$/, '');
-  const reqs = `${meta.requestCount} request${meta.requestCount === 1 ? '' : 's'}`;
+  const reqs = `${meta.requestCount} script${meta.requestCount === 1 ? '' : 's'}`;
   const when = timeAgo(meta.updatedAt);
   const metaLine = active
     ? (isDirty ? 'editing now · unsaved changes' : 'editing now')
@@ -786,8 +805,8 @@ function RequestNode({
             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
             setMenu({ x: rect.right - 4, y: rect.bottom + 2 });
           }}
-          title="Request actions"
-          aria-label="Request actions"
+          title="Rename, duplicate or delete"
+          aria-label="Script actions"
           className="w-5 h-5 rounded inline-flex items-center justify-center opacity-0 group-hover:opacity-70 hover:!opacity-100 hover:bg-surface-2"
           style={{ color: 'var(--content-faint)' }}
         >

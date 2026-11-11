@@ -618,7 +618,10 @@ function OutputErrorCard({ error, errorLine, executionTimeMs, scriptSource, stac
   // expression rather than the exception. The pattern-matched hint stays for the
   // failures typeCheck cannot see, which is most runtime ones: a bad coercion
   // or a null argument type-checks clean and only blows up on real data.
-  const diagnosis = scriptSource ? engineDiagnosisFor(scriptSource) : [];
+  // Minus anything that only repeats the headline: a syntax error came back
+  // from both the run and the type checker, word for word, one above the other.
+  const diagnosis = (scriptSource ? engineDiagnosisFor(scriptSource) : [])
+    .filter((m) => !headline.includes(m.message.split('\n')[0].trim()));
   const hint = diagnosis.length ? null : matchErrorHint(error);
 
   const sourceContext = (() => {
@@ -737,7 +740,7 @@ function OutputErrorCard({ error, errorLine, executionTimeMs, scriptSource, stac
                   >
                     {m.severity}
                   </span>
-                  {m.code && (
+                  {m.code && m.code !== 'DefaultMessage' && (
                     <span className="font-mono text-[10px] text-content-faint">{m.code}</span>
                   )}
                 </div>

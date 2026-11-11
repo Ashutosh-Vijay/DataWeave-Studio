@@ -47,6 +47,7 @@ export const MiniEditor = memo(function MiniEditor({
     }
     m.languages.setMonarchTokensProvider('dataweave', dwTokensProvider as any);
     m.languages.setLanguageConfiguration('dataweave', {
+      comments: { lineComment: '//', blockComment: ['/*', '*/'] },
       brackets: [['{', '}'], ['[', ']'], ['(', ')']],
       autoClosingPairs: [
         { open: '{', close: '}' },

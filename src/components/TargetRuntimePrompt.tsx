@@ -72,8 +72,8 @@ export function TargetRuntimePrompt({
             ))}
           </select>
           <div className="text-[11px] mt-1.5" style={{ color: 'var(--content-faint)' }}>
-            Asked once. Change it anytime in Settings &rarr; Runtime, or from the
-            toolbar next to Run.
+            Asked once. Change it anytime in Settings &rarr; Runtime, or by clicking
+            the version in the status bar.
           </div>
         </div>
 

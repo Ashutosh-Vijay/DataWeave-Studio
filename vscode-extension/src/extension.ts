@@ -481,7 +481,7 @@ async function handleInvoke(
 
     // --- Workspaces (port of workspace.rs) ----------------------------------
     case 'save_workspace': {
-      const saved = ws.saveWorkspace(workspaceRoot, args.workspace);
+      const saved = ws.saveWorkspace(workspaceRoot, args.workspace, args.currentFile as string | null | undefined);
       // Keep the Side Bar list honest without the user hitting refresh.
       void vscode.commands.executeCommand('dataweaveStudio.refreshWorkspaces');
       return saved;

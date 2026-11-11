@@ -14,19 +14,19 @@ const MONO = 'var(--font-mono)';
 
 const EXAMPLES = [
   {
-    label: 'map & reshape', inType: 'application/json',
+    label: 'map & reshape', inType: 'application/json', outType: 'application/json',
     in: '[{ "id": 1, "name": "ada" },\n { "id": 2, "name": "linus" }]',
     script: 'payload map (u) -> {\n  userId: u.id,\n  handle: upper(u.name)\n}',
     out: '[\n  { "userId": 1, "handle": "ADA" },\n  { "userId": 2, "handle": "LINUS" }\n]',
   },
   {
-    label: 'group & count', inType: 'application/json',
+    label: 'group & count', inType: 'application/json', outType: 'application/json',
     in: '[{ "team": "a" }, { "team": "b" },\n { "team": "a" }]',
     script: 'payload\n  groupBy (r) -> r.team\n  mapObject (v, k) -> { (k): sizeOf(v) }',
     out: '{\n  "a": 2,\n  "b": 1\n}',
   },
   {
-    label: 'JSON to XML', inType: 'application/json',
+    label: 'JSON to XML', inType: 'application/json', outType: 'application/xml',
     in: '{ "order": { "id": 7, "paid": true } }',
     script: 'output application/xml\n---\n{ receipt: payload.order }',
     out: '<?xml version="1.0"?>\n<receipt>\n  <id>7</id>\n  <paid>true</paid>\n</receipt>',
@@ -182,7 +182,7 @@ export function WelcomeScreen({ appVersion, onOpenPlayground, onTakeTour }: {
                 {/* output */}
                 <div style={{ padding: '11px 14px' }}>
                   <div className="flex items-center" style={{ gap: 7, marginBottom: 6 }}>
-                    <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--content-faint)' }}>Output · application/json</div>
+                    <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--content-faint)' }}>Output · {example.outType}</div>
                     <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', padding: '1px 6px', borderRadius: 5, color: done ? 'var(--accent)' : 'var(--content-faint)', background: done ? 'color-mix(in oklch, var(--accent) 14%, transparent)' : 'var(--surface-2)', border: '1px solid ' + (done ? 'var(--accent-border)' : 'var(--line)') }}>{done ? 'ran in ' + (40 + ex * 9) + ' ms' : 'running…'}</span>
                   </div>
                   <pre style={{ margin: 0, fontFamily: MONO, fontSize: 11.5, lineHeight: 1.55, color: 'var(--accent)', whiteSpace: 'pre-wrap', minHeight: 64 }}>{shown}{!done && <span style={{ display: 'inline-block', width: 7, height: 13, marginLeft: 1, transform: 'translateY(2px)', background: 'var(--accent)', animation: anim('wBlink 1s steps(1) infinite') }} />}</pre>

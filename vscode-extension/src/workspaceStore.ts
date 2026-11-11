@@ -79,9 +79,14 @@ function sanitizeStem(projectName: string): string {
   return safe || 'untitled';
 }
 
-export function saveWorkspace(storageDir: string, workspace: any): string {
+export function saveWorkspace(storageDir: string, workspace: any, currentFile?: string | null): string {
   const dir = ensureDir(storageDir);
-  const filePath = path.join(dir, `${sanitizeStem(workspace.projectName)}.dwstudio`);
+  const filename = `${sanitizeStem(workspace.projectName)}.dwstudio`;
+  const filePath = path.join(dir, filename);
+  // Same rule as workspace.rs: only the file this workspace came from may be overwritten.
+  if ((currentFile || '').toLowerCase() !== filename.toLowerCase() && fs.existsSync(filePath)) {
+    throw new Error(`"${workspace.projectName}" is already saved as another workspace or flow. Pick a different name.`);
+  }
 
   const ws = { ...workspace };
   ws.version = '2.0';

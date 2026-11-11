@@ -72,7 +72,7 @@ const DEFAULT_SUITE = [
   ']',
 ].join('\n');
 
-function blankRequest(name = 'Request'): Request {
+function blankRequest(name = 'Script'): Request {
   return {
     id: genId('req'),
     name,
@@ -171,7 +171,7 @@ interface UseWorkspaceReturn {
   duplicateRequest: (id: string) => void;
 
   // Persistence
-  saveWorkspace: () => Promise<string>;
+  saveWorkspace: (nameOverride?: string) => Promise<string>;
   loadWorkspace: (filename: string) => Promise<void>;
   listWorkspaces: () => Promise<{ filename: string; projectName: string; requestCount: number; updatedAt: string; createdAt: string; flowCount: number; requests: { name: string; nodeLabel: string }[] }[]>;
   deleteWorkspace: (filename: string) => Promise<void>;
@@ -184,15 +184,20 @@ interface UseWorkspaceReturn {
   duplicateWorkspace: () => void;
   /** Restore a whole workspace state from a snapshot (used for draft
    *  resume). Pass the full collection; the hook replaces its state. */
-  restoreSnapshot: (snap: { projectName: string; requests: Request[]; activeRequestId?: string; languageLevel?: string; flow?: unknown }) => void;
+  restoreSnapshot: (snap: { projectName: string; requests: Request[]; activeRequestId?: string; languageLevel?: string; flow?: unknown; currentFile?: string | null }) => void;
 }
 
 export function useWorkspace(): UseWorkspaceReturn {
   const [projectName, setProjectNameState] = useState('Untitled');
   const [languageLevel, setLanguageLevelState] = useState<string | undefined>(undefined);
-  const initial = blankRequest('Request');
+  const initial = blankRequest('Script');
   const [requests, setRequests] = useState<Request[]>([initial]);
-  const [activeRequestId, setActiveRequestId] = useState<string>(initial.id);
+  const [activeRequestId, setActiveRequestIdState] = useState<string>(initial.id);
+  // The active id, readable before the next render. Setters called straight
+  // after newWorkspace() / addRequest() in the same tick used to write to the
+  // entry that had just been replaced, so the write vanished.
+  const activeIdRef = useRef(initial.id);
+  const setActiveRequestId = useCallback((id: string) => { activeIdRef.current = id; setActiveRequestIdState(id); }, []);
   const [flow, setFlowState] = useState<unknown>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [currentFile, setCurrentFile] = useState<string | null>(null);
@@ -205,9 +210,9 @@ export function useWorkspace(): UseWorkspaceReturn {
 
   // Find & update the active request — used by every per-request setter.
   const updateActive = useCallback((mutator: (r: Request) => Request) => {
-    setRequests((prev) => prev.map((r) => (r.id === activeRequestId ? mutator(r) : r)));
+    setRequests((prev) => prev.map((r) => (r.id === activeIdRef.current ? mutator(r) : r)));
     setIsDirty(true);
-  }, [activeRequestId]);
+  }, []);
 
   const active: Request = useMemo(
     () => requests.find((r) => r.id === activeRequestId) || requests[0] || blankRequest(),
@@ -221,7 +226,7 @@ export function useWorkspace(): UseWorkspaceReturn {
 
   // ── Per-request setters ──────────────────────────────────────────────
   const setScript = useCallback((val: string) => {
-    scriptsByLabel.current.set(labelKey(activeRequestId, active.nodeLabel), val);
+    scriptsByLabel.current.set(labelKey(activeIdRef.current, active.nodeLabel), val);
     updateActive((r) => ({ ...r, script: val }));
   }, [activeRequestId, active.nodeLabel, updateActive]);
 
@@ -241,8 +246,10 @@ export function useWorkspace(): UseWorkspaceReturn {
   const setContext = useCallback((ctx: ContextState) => updateActive((r) => ({ ...r, context: ctx })), [updateActive]);
   const setNamedInputs = useCallback((inputs: NamedInput[]) => updateActive((r) => ({ ...r, namedInputs: inputs })), [updateActive]);
   const setQueryTemplate = useCallback((q: string) => updateActive((r) => ({ ...r, queryTemplate: q })), [updateActive]);
-  const setClasspath = useCallback((cp: string[]) => updateActive((r) => ({ ...r, classpath: cp })), [updateActive]);
-  const setTimeoutMs = useCallback((ms: number) => updateActive((r) => ({ ...r, timeoutMs: ms })), [updateActive]);
+  // Classpath and timeout are set in Settings, where nothing says "for this
+  // script", so they apply to every entry in the workspace.
+  const setClasspath = useCallback((cp: string[]) => { setRequests((prev) => prev.map((r) => ({ ...r, classpath: cp }))); setIsDirty(true); }, []);
+  const setTimeoutMs = useCallback((ms: number) => { setRequests((prev) => prev.map((r) => ({ ...r, timeoutMs: ms }))); setIsDirty(true); }, []);
 
   const setNodeLabel = useCallback((label: string) => {
     // Switching role: stash the current script for this request+label,
@@ -267,9 +274,9 @@ export function useWorkspace(): UseWorkspaceReturn {
   const addRequest = useCallback((name?: string, kind: RequestKind = 'script', script?: string) => {
     const base = kind === 'test'
       ? blankTest(name ?? 'New tests')
-      : blankRequest(name ?? 'New request');
+      : blankRequest(name ?? 'New script');
     const req = script === undefined ? base : { ...base, script };
-    setRequests((prev) => [...prev, req]);
+    setRequests((prev) => [...prev, { ...req, classpath: prev[0]?.classpath ?? [], timeoutMs: prev[0]?.timeoutMs }]);
     setActiveRequestId(req.id);
     setIsDirty(true);
   }, []);
@@ -316,10 +323,13 @@ export function useWorkspace(): UseWorkspaceReturn {
   }, []);
 
   // ── Persistence ──────────────────────────────────────────────────────
-  const saveWorkspace = useCallback(async () => {
+  const saveWorkspace = useCallback(async (nameOverride?: string) => {
+    // A name passed in wins over state: a caller that has just called
+    // setProjectName() would otherwise save under the previous name.
+    const name = typeof nameOverride === 'string' ? nameOverride : projectName;
     const workspace: WorkspaceFile = {
       version: '2.0',
-      projectName,
+      projectName: name,
       createdAt: '',
       updatedAt: '',
       requests,
@@ -327,20 +337,34 @@ export function useWorkspace(): UseWorkspaceReturn {
       languageLevel,
       flow: flow ?? undefined,
     };
-    const path = await invoke<string>('save_workspace', { workspace });
+    // A new workspace whose name is already taken (a second "Untitled") is
+    // saved as "Untitled 2" rather than over the first one.
+    let path = '';
+    for (let n = 2; ; n++) {
+      try {
+        path = await invoke<string>('save_workspace', { workspace, currentFile });
+        break;
+      } catch (e) {
+        if (currentFile || n > 50 || !String((e as Error)?.message ?? e).includes('is already saved')) throw e;
+        workspace.projectName = `${name} ${n}`;
+      }
+    }
+    if (workspace.projectName !== projectName) setProjectNameState(workspace.projectName);
     setIsDirty(false);
     const filename = path.split(/[/\\]/).pop() || '';
     // Rename semantics: the filename derives from the project name, so a
     // renamed workspace saves to a NEW file — remove the old one instead of
     // leaving a stale ghost in every workspace list.
-    const previous = currentFile;
-    if (previous && previous !== filename) {
+    // Compared without case: on Windows "Orders" and "orders" are one file, and
+    // deleting the "old" one would delete what was just written.
+    const previous = currentFile && currentFile.toLowerCase() !== filename.toLowerCase() ? currentFile : null;
+    if (previous) {
       try { await invoke('delete_workspace', { filename: previous }); } catch { /* best-effort */ }
     }
     setCurrentFile(filename);
     // Let list surfaces (sidebar) refresh + migrate pinned entries on rename.
     window.dispatchEvent(new CustomEvent('dw:workspaces-changed', {
-      detail: previous && previous !== filename ? { renamedFrom: previous, renamedTo: filename } : undefined,
+      detail: previous ? { renamedFrom: previous, renamedTo: filename } : undefined,
     }));
     return path;
   }, [projectName, requests, activeRequestId, languageLevel, flow, currentFile]);
@@ -434,7 +458,7 @@ export function useWorkspace(): UseWorkspaceReturn {
 
   const newWorkspace = useCallback(() => {
     scriptsByLabel.current = new Map();
-    const req = blankRequest('Request');
+    const req = blankRequest('Script');
     setProjectNameState('Untitled');
     setRequests([req]);
     setActiveRequestId(req.id);
@@ -444,7 +468,7 @@ export function useWorkspace(): UseWorkspaceReturn {
     setIsDirty(false);
   }, []);
 
-  const restoreSnapshot = useCallback((snap: { projectName: string; requests: Request[]; activeRequestId?: string; languageLevel?: string; flow?: unknown }) => {
+  const restoreSnapshot = useCallback((snap: { projectName: string; requests: Request[]; activeRequestId?: string; languageLevel?: string; flow?: unknown; currentFile?: string | null }) => {
     scriptsByLabel.current = new Map();
     const reqs = snap.requests.length > 0 ? snap.requests : [blankRequest()];
     for (const r of reqs) {
@@ -455,7 +479,9 @@ export function useWorkspace(): UseWorkspaceReturn {
     setActiveRequestId(snap.activeRequestId || reqs[0].id);
     setLanguageLevelState(snap.languageLevel);
     setFlowState(snap.flow ?? null);
-    setCurrentFile(null);
+    // A draft of a saved workspace still belongs to that file, so Save goes
+    // back to it instead of being treated as a second workspace of that name.
+    setCurrentFile(snap.currentFile ?? null);
     setIsDirty(true); // a restored draft is by definition unsaved
   }, []);
 

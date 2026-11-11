@@ -417,7 +417,9 @@ function activeCount(pairs: KeyValuePair[]): number {
 }
 
 export const ContextPanel = memo(function ContextPanel({ context, onChange, encryptionKey, onEncryptionKeyChange, defaultTab }: ContextPanelProps) {
-  const [tab, setTab] = useState<Tab>(defaultTab ?? 'Request');
+  // Vars first: it is the tab a transform actually needs most. The HTTP
+  // method, params and headers only matter when a script reads `attributes`.
+  const [tab, setTab] = useState<Tab>(defaultTab ?? 'Vars');
   const { isDark } = useTheme();
   const monaco = useMonaco();
   useEffect(() => {
@@ -445,12 +447,12 @@ export const ContextPanel = memo(function ContextPanel({ context, onChange, encr
       {/* Header */}
       <div className="h-10 shrink-0 flex items-center px-3.5 border-b border-line">
         <span className="text-[12.5px] font-semibold text-content">Context</span>
-        <span className="ml-2 text-[10.5px] text-content-faint">request · vars · config · error</span>
+        <span className="ml-2 text-[10.5px] text-content-faint">vars · request · config · error</span>
       </div>
 
       {/* Tabs */}
       <div className="h-9 shrink-0 flex items-end px-2 border-b border-line gap-1">
-        {(['Request', 'Vars', 'Config', 'Error'] as const).map((t) => {
+        {(['Vars', 'Request', 'Config', 'Error'] as const).map((t) => {
           const active = tab === t;
           const count = t === 'Request' ? reqCount : t === 'Vars' ? varsCount : t === 'Config' ? configCount : context.errorJson?.trim() ? 1 : 0;
           return (

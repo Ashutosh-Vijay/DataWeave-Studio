@@ -1427,6 +1427,17 @@ async fn normalize_accept(
     mut req: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> axum::response::Response {
+    // /run refuses every Origin; /mcp is stricter than it was but lets a
+    // locally served MCP inspector through. A page on any other site is not an
+    // MCP client, and in Advanced mode this endpoint can run Java.
+    if req.uri().path().starts_with("/mcp") {
+        if let Some(origin) = req.headers().get(axum::http::header::ORIGIN).and_then(|v| v.to_str().ok()) {
+            if !is_loopback_host(origin.split("://").nth(1).unwrap_or("")) {
+                use axum::response::IntoResponse;
+                return (axum::http::StatusCode::FORBIDDEN, "Refused: requests from a web page are not accepted.").into_response();
+            }
+        }
+    }
     let ok = req
         .headers()
         .get(axum::http::header::ACCEPT)

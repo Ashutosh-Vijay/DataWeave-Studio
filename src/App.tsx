@@ -111,7 +111,7 @@ import { useWorkspace } from './hooks/useWorkspace';
 import { useDWRunner } from './hooks/useDWRunner';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { useTheme } from './ThemeContext';
-import { KeyValuePair, METHOD_COLORS, NODE_LABEL_COLORS, NODE_LABELS, isValidMimeType } from './types';
+import { KeyValuePair, NODE_LABEL_COLORS, NODE_LABELS, isValidMimeType } from './types';
 import { Icons } from './components/Icons';
 import { ToolsLauncher, type Tool } from './components/ToolsLauncher';
 import { ConfirmDialog } from './components/ConfirmDialog';
@@ -252,8 +252,6 @@ function StatusBar({
       {workspaceFile && <span className="truncate max-w-[280px]">{workspaceFile}</span>}
       <span className="flex-1" />
       <CursorIndicator />
-      <span>UTF-8</span>
-      <span>LF</span>
       {appVersion && <span className="text-content-ghost">v{appVersion}</span>}
     </div>
   );
@@ -347,6 +345,7 @@ function App() {
   }, []);
   const [showTour, setShowTour] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteFiles, setPaletteFiles] = useState<{ filename: string; projectName: string }[]>([]);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const [runMenuOpen, setRunMenuOpen] = useState(false);
@@ -370,6 +369,9 @@ function App() {
   // run so `import x from MyModule` resolves. Loaded on mount, persisted on edit.
   const [modules, setModules] = useState<DwModule[]>([]);
   const [showFirstRun, setShowFirstRun] = useState(() => shouldShowFirstRun());
+  // "Which Mule do you deploy to?" waits for the second launch. Straight after
+  // the welcome screen it was the third thing between a newcomer and an editor.
+  const firstSession = useRef(shouldShowFirstRun()).current;
   // "What's new" after an update — gated on the version having changed since the
   // last launch (see the version-loading effect below).
   const [showWhatsNew, setShowWhatsNew] = useState(false);
@@ -457,8 +459,10 @@ function App() {
   // Loading another workspace (sidebar row, ⌘O dialog) or starting a new one
   // replaces the whole in-memory state — without this, a single click threw
   // away unsaved work with no warning.
-  const [pendingSwitch, setPendingSwitch] = useState<null | { kind: 'load'; filename: string } | { kind: 'new' }>(null);
-  const performSwitch = useCallback(async (action: { kind: 'load'; filename: string } | { kind: 'new' }) => {
+  const [pendingSwitch, setPendingSwitch] = useState<null | { kind: 'load'; filename: string } | { kind: 'new' } | { kind: 'action'; run: () => void }>(null);
+  const performSwitch = useCallback(async (action: { kind: 'load'; filename: string } | { kind: 'new' } | { kind: 'action'; run: () => void }) => {
+    // An import replaces the workspace too, and marks itself untrusted.
+    if (action.kind === 'action') { action.run(); return; }
     setUntrusted(false);
     try { localStorage.removeItem('dw.untrustedDraft'); } catch { /* ignore */ }
     if (action.kind === 'load') {
@@ -476,6 +480,12 @@ function App() {
     if (workspace.isDirty) { setPendingSwitch({ kind: 'new' }); return; }
     handleNewScript();
   }, [workspace.isDirty, handleNewScript]);
+  /** Run something that replaces the whole workspace, asking first if there
+   *  are unsaved changes. Share links and Playground zips come through here. */
+  const guardedReplace = useCallback((run: () => void) => {
+    if (workspace.isDirty) { setPendingSwitch({ kind: 'action', run }); return; }
+    run();
+  }, [workspace.isDirty]);
   const handleOpenImport = useCallback(() => {
     introFeature('curl');
     beginTransforming();
@@ -560,7 +570,7 @@ function App() {
     } catch {
       toast('Couldn’t write to the clipboard', 'error');
     }
-  }, [workspace.request, workspace.requests, workspace.projectName, requestToShare]);
+  }, [workspace.request, workspace.requests, workspace.projectName, requestToShare, targetRuntime]);
 
   const handleCopyShareLink = useCallback(() => copyShare(false), [copyShare]);
   const handleCopyWorkspaceShareLink = useCallback(() => copyShare(true), [copyShare]);
@@ -570,14 +580,12 @@ function App() {
   const applyShareLink = useCallback((text: string) => {
     try {
       const snap = decodeShare(text);
-      beginTransforming();
-      setUntrusted(true);
-      if (snap.name) workspace.setProjectName(snap.name);
-
       // A shared suite is a suite. Dropping it into the active transform would
       // overwrite someone's script with test code, so it arrives as its own
       // entry — which is the whole point of them being separate.
       if (snap.kind === 'test' && !(snap.requests && snap.requests.length > 1)) {
+        beginTransforming();
+        setUntrusted(true);
         workspace.addRequest(snap.label || 'Shared tests', 'test', snap.script);
         toast({
           title: 'Opened a shared test suite',
@@ -587,13 +595,22 @@ function App() {
         return;
       }
 
+      // Everything else replaces what is open, so it asks first when there are
+      // unsaved changes, and opens as a workspace of its own rather than being
+      // written into whichever saved one happened to be on screen.
+      guardedReplace(() => {
+      beginTransforming();
+      setUntrusted(true);
+      if (!(snap.requests && snap.requests.length > 1)) {
+        workspace.newWorkspace();
+        workspace.setProjectName(snap.name || 'Shared script');
+      }
       workspace.setScript(snap.script);
       workspace.setPayload(snap.payload);
       if (isValidMimeType(snap.payloadMime)) workspace.setPayloadMimeType(snap.payloadMime);
       // A share link comes from someone else, so narrow rather than trust:
       // an unknown valueType/MIME would otherwise land straight in the workspace.
       workspace.setContext({
-        ...contextRef.current,
         method: snap.method || 'GET',
         vars: (snap.vars ?? []).map((v) => ({
           key: v.key,
@@ -667,10 +684,11 @@ function App() {
       }
       toast({ title: 'Opened shared workspace', message: snap.name || 'Script, payload and context restored.', variant: 'success' });
       setTimeout(() => scriptEditorRef.current?.focus(), 50);
+      });
     } catch (e) {
       toast((e as Error).message, 'error');
     }
-  }, [beginTransforming, workspace, perWorkspaceTarget]);
+  }, [beginTransforming, workspace, perWorkspaceTarget, guardedReplace]);
 
   /** Everything the All tools panel lists. Rail icons are shortcuts to the same. */
   const allTools: Tool[] = [
@@ -772,29 +790,34 @@ function App() {
       try {
         const { importPlaygroundZip } = await import('./playgroundImport');
         const result = await importPlaygroundZip(file);
-        beginTransforming();
-        setUntrusted(true);
-        workspace.newWorkspace();
-        workspace.setProjectName(result.projectName);
-        workspace.setScript(result.script);
-        workspace.setPayload(result.payload);
-        workspace.setPayloadMimeType(result.payloadMimeType);
-        workspace.setContext(result.context);
-        workspace.setNamedInputs(result.namedInputs);
-        toast(
-          result.warnings.length
-            ? `Imported "${result.projectName}" with ${result.warnings.length} warning(s). See the console.`
-            : `Imported "${result.projectName}" from Playground zip`,
-          'success'
-        );
-        if (result.warnings.length > 0) console.warn('Playground import warnings:', result.warnings);
-        setTimeout(() => scriptEditorRef.current?.focus(), 50);
+        guardedReplace(() => {
+          beginTransforming();
+          setUntrusted(true);
+          workspace.newWorkspace();
+          workspace.setProjectName(result.projectName);
+          workspace.setScript(result.script);
+          workspace.setPayload(result.payload);
+          workspace.setPayloadMimeType(result.payloadMimeType);
+          workspace.setContext(result.context);
+          workspace.setNamedInputs(result.namedInputs);
+          if (result.warnings.length) {
+            toast({
+              title: `Imported "${result.projectName}", with ${result.warnings.length === 1 ? 'a warning' : `${result.warnings.length} warnings`}`,
+              message: result.warnings.slice(0, 3).join(' ') + (result.warnings.length > 3 ? ` And ${result.warnings.length - 3} more.` : ''),
+              variant: 'warn',
+              persist: true,
+            });
+          } else {
+            toast(`Imported "${result.projectName}" from Playground zip`, 'success');
+          }
+          setTimeout(() => scriptEditorRef.current?.focus(), 50);
+        });
       } catch (e) {
         toast(`Import failed: ${(e as Error).message}`, 'error');
       }
     };
     input.click();
-  }, [workspace, beginTransforming]);
+  }, [workspace, beginTransforming, guardedReplace]);
   const handleExportPlayground = useCallback(async () => {
     try {
       const { save } = await import('@tauri-apps/plugin-dialog');
@@ -877,8 +900,9 @@ function App() {
           workspace.setPayload(text);
           workspace.setPayloadMimeType('text/plain');
         }
+        toast(`${file.name} loaded as the ${ext === 'dwl' ? 'script' : 'payload'}`, 'success');
       } catch (err) {
-        console.warn('Failed to read dropped file:', err);
+        toast(`Couldn't read ${file.name}: ${(err as Error).message || String(err)}`, 'error');
       }
     };
     window.addEventListener('dragover', onDragOver);
@@ -939,6 +963,7 @@ function App() {
         requests: workspace.requests,
         activeRequestId: workspace.activeRequestId,
         flow: workspace.flow,
+        currentFile: workspace.currentFile,
         savedAt: Date.now(),
       });
       setHasDraftSession(true);
@@ -946,7 +971,7 @@ function App() {
     return () => clearTimeout(handle);
   }, [
     hasStarted, workspace.isDirty,
-    workspace.projectName, workspace.requests, workspace.activeRequestId, workspace.flow,
+    workspace.projectName, workspace.requests, workspace.activeRequestId, workspace.flow, workspace.currentFile,
   ]);
 
   // (Previously had an onCloseRequested handler to flush the draft on window
@@ -983,6 +1008,7 @@ function App() {
         workspace.context.method,
         workspace.context.queryParams,
         workspace.context.headers,
+        workspace.context.uriParams ?? [],
       );
       const varsJson = buildVarsJson(workspace.context.vars);
       const hasAttributes = attrJson.trim() !== '{}' && attrJson.trim() !== '';
@@ -1017,7 +1043,7 @@ function App() {
     if (showFirstRun || showTour) return;
     if (!shouldShowFirstWorkspace()) {
       // Onboarded by an earlier version, which had no target question.
-      if (shouldPromptForTarget()) setShowTargetPrompt(true);
+      if (shouldPromptForTarget() && !firstSession) setShowTargetPrompt(true);
       return;
     }
     (async () => {
@@ -1025,7 +1051,7 @@ function App() {
         const metas = await workspace.listWorkspaces();
         if (metas.length > 0) {
           markFirstWorkspaceSeen();
-          if (shouldPromptForTarget()) setShowTargetPrompt(true);
+          if (shouldPromptForTarget() && !firstSession) setShowTargetPrompt(true);
           return;
         }
       } catch { /* if listing fails, fall through to the prompt */ }
@@ -1040,7 +1066,7 @@ function App() {
     markTargetPrompted();
     workspace.setProjectName(name);
     try {
-      await workspace.saveWorkspace();
+      await workspace.saveWorkspace(name);
       toast({ title: 'Workspace created', message: name, variant: 'success' });
     } catch (e) {
       toast({ title: 'Could not save workspace', message: (e as Error).message || String(e), variant: 'error' });
@@ -1471,6 +1497,11 @@ function App() {
   // Global Ctrl+S to save, Ctrl+K to open palette
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Capture phase, because Monaco binds some of these itself and stops the
+      // event: with the cursor in the script, ⌘K and ⌘L never arrived here.
+      // ⌘/ and ⌘D stay the editor's (comment a line, select next match) while
+      // it has focus, which is what anyone typing code expects them to do.
+      const inEditor = !!(e.target as HTMLElement | null)?.closest?.('.monaco-editor');
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         if (!savePendingRef.current) {
@@ -1479,8 +1510,9 @@ function App() {
         }
       } else if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
+        e.stopPropagation();
         setPaletteOpen((o) => !o);
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '/' && !inEditor) {
         e.preventDefault();
         setShortcutsOpen((o) => !o);
       } else if ((e.ctrlKey || e.metaKey) && e.key === ',') {
@@ -1509,7 +1541,7 @@ function App() {
       } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'o' || e.key === 'O')) {
         e.preventDefault();
         setOpenWsOpen((v) => !v); // toggle — ⌘O closes the manager too
-      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'd' || e.key === 'D') && !inEditor) {
         e.preventDefault();
         // While the manager is open, ⌘D belongs to it (duplicate selected file).
         if (!openWsOpen) workspace.duplicateWorkspace();
@@ -1527,6 +1559,7 @@ function App() {
       } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'l' || e.key === 'L')) {
         // ⌘L — Snippets (opens sidebar's Snippets tab)
         e.preventDefault();
+        e.stopPropagation();
         handleOpenSnippets();
       } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i')) {
         // ⌘⇧I — Import cURL (focuses sidebar's Import tab)
@@ -1538,9 +1571,14 @@ function App() {
         setSecureToolOpen(true);
       }
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
   }, [handleSave, workspace.duplicateWorkspace, toggle, runner.isRunning, runner.cancel, guardedNew, handleOpenImport, handleOpenSnippets, openWsOpen]);
+
+  // Saved workspaces for the palette, re-read each time it opens.
+  useEffect(() => {
+    if (paletteOpen) workspace.listWorkspaces().then(setPaletteFiles).catch(() => { /* palette still has its commands */ });
+  }, [paletteOpen, workspace.listWorkspaces]);
 
   // Poll MCP server status so the rail button shows a live running dot even
   // when the panel is closed. Cheap; the command no-ops on the extension host.
@@ -1571,7 +1609,7 @@ function App() {
     return () => {
       if (autoRunTimerRef.current) clearTimeout(autoRunTimerRef.current);
     };
-  }, [autoRun, untrusted, viewMode, workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs]);
+  }, [autoRun, untrusted, viewMode, workspace.script, workspace.payload, workspace.payloadMimeType, workspace.payloadFilePath, workspace.multipartParts, workspace.context, workspace.namedInputs, workspace.classpath, modules, targetRuntime]);
 
   const inTests = viewMode === 'tests';
   // A test entry keeps its suite in `script`, like every entry keeps its source
@@ -1594,8 +1632,6 @@ function App() {
     ? substituteQueryParams(resolvedQueryTemplate, runner.output, isDbMode)
     : null;
 
-  const methodColors = METHOD_COLORS[workspace.context.method] || METHOD_COLORS.GET;
-  const nodeLabelColors = NODE_LABEL_COLORS[workspace.nodeLabel] || NODE_LABEL_COLORS.Transform;
 
   const paletteCommands: Command[] = [
     { id: 'run', label: viewMode === 'tests' ? 'Run test suite' : 'Run script', shortcut: kbd('⌘↵'), group: 'Run', run: () => { if (canRun) handleRun(); } },
@@ -1611,7 +1647,7 @@ function App() {
     { id: 'share-request', label: viewMode === 'tests' ? 'Copy share link: this test suite' : 'Copy share link: this script', hint: viewMode === 'tests' ? 'The suite, in one URL' : 'Script, payload, vars & headers in one URL', group: 'Share', run: handleCopyShareLink },
     { id: 'share-workspace', label: 'Copy share link: whole workspace', hint: 'Every script and suite in this workspace', group: 'Share', run: handleCopyWorkspaceShareLink },
     { id: 'share-code', label: 'Copy share code (no link)', hint: 'For networks that block the site', group: 'Share', run: handleCopyShareCode },
-    { id: 'share-open', label: 'Open from share link…', shortcut: kbd('⌘⇧I'), group: 'Share', run: handleOpenShareLink },
+    { id: 'share-open', label: 'Open from share link…', hint: 'Reads the link from the clipboard', group: 'Share', run: handleOpenShareLink },
     { id: 'import-playground', label: 'Import from Playground zip…', group: 'Workspace', run: handleImportPlayground },
     { id: 'export-playground', label: 'Export as Playground zip…', group: 'Workspace', run: handleExportPlayground },
     { id: 'format', label: 'Format script', shortcut: '⌥⇧F', group: 'Editor', run: () => scriptEditorRef.current?.format() },
@@ -1650,6 +1686,21 @@ function App() {
     { id: 'java', label: 'Open Java tester', group: 'Tools', run: () => setJavaTesterOpen(true) },
     { id: 'crypto', label: 'Encrypt / Decrypt a payload', hint: 'AES, DES, hashes, HMAC', group: 'Tools', run: () => setCryptoOpen(true) },
     { id: 'mcp', label: 'Open Local Server', hint: 'MCP for AI agents · HTTP for scripts', group: 'Tools', run: () => setMcpOpen(true) },
+    { id: 'classpath', label: 'Classpath and timeout…', hint: 'Folders and JARs for Java and readUrl', group: 'Tools', run: () => { setSettingsSection('runtime'); setSettingsOpen(true); } },
+    // The search box says it finds workspaces, so it does. Also the only way to
+    // switch script in the Playground layout, which has no sidebar.
+    ...workspace.requests.filter((r) => r.id !== workspace.activeRequestId).map((r) => ({
+      id: `goto-${r.id}`,
+      label: `Go to ${r.kind === 'test' ? 'test suite' : 'script'}: ${r.name}`,
+      group: 'In this workspace',
+      run: () => { beginTransforming(); workspace.selectRequest(r.id); },
+    })),
+    ...paletteFiles.filter((f) => f.filename !== workspace.currentFile).map((f) => ({
+      id: `ws-${f.filename}`,
+      label: `Open workspace: ${f.projectName || f.filename.replace(/\.dwstudio$/, '')}`,
+      group: 'Saved workspaces',
+      run: () => { void guardedLoad(f.filename); },
+    })),
     { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: kbd('⌘/'), group: 'App', run: () => setShortcutsOpen(true) },
     { id: 'settings', label: 'Open Settings', shortcut: kbd('⌘,'), group: 'App', run: () => setSettingsOpen(true) },
     { id: 'about', label: 'About DataWeave Studio', group: 'App', run: () => setAboutOpen(true) },
@@ -1714,7 +1765,7 @@ function App() {
           title="Command palette (Ctrl+K)"
         >
           <Icons.Search size={13} />
-          <span className="flex-1 truncate text-left">Search commands, files…</span>
+          <span className="flex-1 truncate text-left">Search commands, workspaces…</span>
           <span className="font-mono text-[10.5px] px-1.5 py-0.5 rounded bg-surface-3 text-content-muted">{kbd('⌘K')}</span>
         </button>
 
@@ -1735,9 +1786,6 @@ function App() {
             <Icons.Share size={15} />
           </IconBtn>
           </span>
-          <IconBtn title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggle}>
-            {isDark ? <Icons.Sun size={15} /> : <Icons.Moon size={15} />}
-          </IconBtn>
           {/* The rating prompt asks once; after that, this is how feedback
               gets sent. Buried in Tools it would go unfound, like sharing did. */}
           <IconBtn title="Send feedback: rate it or report a bug" onClick={() => setFeedbackOpen(true)}>
@@ -1789,8 +1837,6 @@ function App() {
           <IconBtn title={kbd("Settings (⌘,)")} onClick={() => { setSettingsSection(undefined); setSettingsOpen(true); }}>
             <Icons.Settings size={15} />
           </IconBtn>
-
-          <div className="w-px h-4 bg-line mx-1" />
 
           <div className="w-px h-4 bg-line mx-1" />
 
@@ -2096,6 +2142,7 @@ function App() {
                   requests: d.requests,
                   activeRequestId: d.activeRequestId,
                   flow: d.flow,
+                  currentFile: d.currentFile,
                 });
                 beginTransforming();
                 try { if (localStorage.getItem('dw.untrustedDraft') === '1') setUntrusted(true); } catch { /* ignore */ }
@@ -2270,33 +2317,6 @@ function App() {
                 )}
                 <Panel defaultSize={isQueryMode ? 65 : 100} minSize={15}>
                   <div className="h-full flex flex-col">
-                    {!isQueryMode && (
-                      <div className="h-10 shrink-0 flex items-center gap-2 px-3.5 bg-surface border-b border-line">
-                        <span className={`font-mono text-[10.5px] font-bold tracking-wide px-1.5 h-5 inline-flex items-center rounded ${methodColors.bg} ${methodColors.text} ${methodColors.border} border`}>
-                          {workspace.context.method}
-                        </span>
-                        <span className="font-mono text-[12px] text-content-secondary truncate">
-                          {(() => {
-                            const url = `/transform/${workspace.currentFile?.replace(/\.json$/, '') || workspace.nodeLabel.toLowerCase().replace(/\s+/g, '-')}`;
-                            const parts = url.split(/(:[A-Za-z_][A-Za-z0-9_]*)/g);
-                            return parts.map((p, i) =>
-                              p.startsWith(':') ? (
-                                <span key={i} className="text-violet">{p}</span>
-                              ) : (
-                                <span key={i}>{p}</span>
-                              )
-                            );
-                          })()}
-                        </span>
-                        <span className="flex-1" />
-                        <span className={`text-[10px] px-1.5 h-5 inline-flex items-center rounded font-medium border ${nodeLabelColors.bg} ${nodeLabelColors.text} ${nodeLabelColors.border}`}>
-                          {workspace.nodeLabel}
-                        </span>
-                        <span className="font-mono text-[10.5px] text-content-faint">
-                          {workspace.payloadMimeType || 'application/json'}
-                        </span>
-                      </div>
-                    )}
                     <div className="flex-1 min-h-0">
                     <ScriptEditor
                       ref={scriptEditorRef}
@@ -2477,8 +2497,7 @@ function App() {
             appVersion={appVersion}
             layout={layout}
             onLayoutChange={setLayout}
-            payloadMimeType={workspace.payloadMimeType}
-            onPayloadMimeTypeChange={workspace.setPayloadMimeType}
+            updateAvailable={updateAvailable}
             classpath={workspace.classpath}
             onClasspathChange={workspace.setClasspath}
             timeoutMs={workspace.timeoutMs}
@@ -2521,7 +2540,9 @@ function App() {
         <Suspense fallback={null}>
           <WelcomeScreen
             appVersion={appVersion}
-            onOpenPlayground={() => { markFirstRunSeen(); setShowFirstRun(false); }}
+            // The button says it opens the playground, so it lands in an editor
+            // rather than on a second "where do you want to start" screen.
+            onOpenPlayground={() => { markFirstRunSeen(); setShowFirstRun(false); handleNewScript(); }}
             onTakeTour={() => {
               markFirstRunSeen();
               setShowFirstRun(false);
@@ -2606,7 +2627,7 @@ function App() {
         description={
           <>
             <span style={{ color: 'var(--content)', fontWeight: 500 }}>{workspace.projectName || 'Untitled'}</span> has
-            unsaved changes. Save them before {pendingSwitch?.kind === 'new' ? 'starting a new workspace' : 'switching'}?
+            unsaved changes. Save them before {pendingSwitch?.kind === 'new' ? 'starting a new workspace' : pendingSwitch?.kind === 'action' ? 'opening the import' : 'switching'}?
           </>
         }
         tone="primary"

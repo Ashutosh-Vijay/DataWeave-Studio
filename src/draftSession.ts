@@ -20,6 +20,8 @@ export interface DraftSession {
   requests: Request[];
   activeRequestId: string;
   flow?: unknown;
+  /** The saved file this draft is an edit of, if any. */
+  currentFile?: string | null;
   savedAt: number;
 }
 

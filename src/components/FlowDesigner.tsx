@@ -1839,16 +1839,16 @@ export function FlowDesigner({ open, onClose }: FlowDesignerProps) {
         activeFlowIdx,
         flowInput,
       };
-      const path = await invoke<string>('save_workspace', { workspace });
+      const path = await invoke<string>('save_workspace', { workspace, currentFile: flowCurrentFile });
       const filename = path.split(/[/\\]/).pop() || '';
       setFlowName(name);
       setFlowCurrentFile(filename);
       setFlowDirty(false);
       toast(`Saved "${name}"`, 'success');
     } catch (e) {
-      toast(`Failed to save: ${(e as Error).message}`, 'error');
+      toast(`Failed to save: ${(e as Error).message || String(e)}`, 'error');
     }
-  }, [nodes, flowInput, flows, activeFlowIdx]);
+  }, [nodes, flowInput, flows, activeFlowIdx, flowCurrentFile]);
 
   const saveFlow = useCallback(() => {
     if (flowCurrentFile) {

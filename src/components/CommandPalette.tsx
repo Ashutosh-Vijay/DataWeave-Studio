@@ -101,7 +101,7 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search commands…"
+            placeholder="Search commands, workspaces, scripts…"
             className="flex-1 bg-transparent outline-none text-[13px] text-content placeholder-content-ghost"
           />
           <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-surface-2 text-content-muted">

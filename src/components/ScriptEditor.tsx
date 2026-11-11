@@ -253,6 +253,7 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
 
     // Language config: bracket pairs, auto-close, auto-indent
     monacoInstance.languages.setLanguageConfiguration('dataweave', {
+      comments: { lineComment: '//', blockComment: ['/*', '*/'] },
       brackets: [
         ['{', '}'],
         ['[', ']'],
