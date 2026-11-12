@@ -110,6 +110,7 @@ pub fn run() {
             workspace::rename_workspace,
             workspace::duplicate_workspace_file,
             workspace::get_workspaces_dir,
+            workspace::set_workspaces_dir,
             module_lib::load_modules,
             module_lib::save_modules,
             jars::list_managed_jars,

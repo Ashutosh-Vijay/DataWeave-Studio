@@ -16,6 +16,8 @@ interface AboutDialogProps {
   dwVersion?: string;
   updateAvailable?: boolean;
   onUpdateInstalled?: () => void;
+  /** Open the in-app What's new, which has the notes for every release. */
+  onShowWhatsNew: () => void;
 }
 
 type UpdateStatus = 'idle' | 'update-available' | 'checking' | 'up-to-date' | 'downloading' | 'error';
@@ -26,7 +28,7 @@ type UpdateStatus = 'idle' | 'update-available' | 'checking' | 'up-to-date' | 'd
  * pull-quote section. The aim is: this is a free OSS thing made by one
  * person who cares, not corporate software.
  */
-export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvailable, onUpdateInstalled }: AboutDialogProps) {
+export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvailable, onUpdateInstalled, onShowWhatsNew }: AboutDialogProps) {
   // "2.12.2-20260715" -> "2.12.2" for the stat, and "2.12" for the sentence.
   const engine = (dwVersion ?? '').split('-')[0];
   const engineMinor = engine.split('.').slice(0, 2).join('.');
@@ -246,11 +248,11 @@ export function AboutDialog({ open, onClose, appVersion, dwVersion, updateAvaila
             )}
             <span className="flex-1" />
             <button
-              onClick={() => openUrl('https://github.com/Ashutosh-Vijay/dataweave-studio/releases')}
+              onClick={onShowWhatsNew}
               className="bg-transparent border-none cursor-pointer font-inherit text-[11.5px]"
               style={{ color: 'var(--content-muted)' }}
             >
-              Release notes ↗
+              What&rsquo;s new
             </button>
             <button
               onClick={() => openUrl('https://github.com/Ashutosh-Vijay/dataweave-studio')}

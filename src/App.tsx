@@ -2474,7 +2474,7 @@ function App() {
       {/* About dialog */}
       {aboutOpen && (
         <Suspense fallback={null}>
-          <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} appVersion={appVersion} dwVersion={runner.engineVersion} updateAvailable={updateAvailable} onUpdateInstalled={() => setUpdateAvailable(false)} />
+          <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} appVersion={appVersion} dwVersion={runner.engineVersion} updateAvailable={updateAvailable} onUpdateInstalled={() => setUpdateAvailable(false)} onShowWhatsNew={() => { setAboutOpen(false); setShowWhatsNew(true); }} />
         </Suspense>
       )}
 

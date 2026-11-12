@@ -341,9 +341,59 @@ fn get_workspaces_directory(app: &AppHandle) -> Result<PathBuf, String> {
         .path()
         .app_local_data_dir()
         .map_err(|e| format!("Failed to get app data dir: {}", e))?;
-    let workspaces_dir = app_data.join("workspaces");
-    fs::create_dir_all(&workspaces_dir).map_err(|e| format!("Failed to create workspaces dir: {}", e))?;
+    // A folder picked in Settings wins. The file that records the choice stays
+    // in app data, where the VS Code extension reads it too.
+    let custom = fs::read_to_string(app_data.join("workspaces-dir.txt"))
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let workspaces_dir = match custom {
+        Some(p) => PathBuf::from(p),
+        None => app_data.join("workspaces"),
+    };
+    fs::create_dir_all(&workspaces_dir)
+        .map_err(|e| format!("Cannot use the workspace folder '{}': {}", workspaces_dir.display(), e))?;
     Ok(workspaces_dir)
+}
+
+/// Keep workspaces in a folder the user picked; `None` goes back to the
+/// default. Workspaces in the folder used until now are copied across, never
+/// over a file that is already there, and the old folder is left as it is.
+#[tauri::command]
+pub fn set_workspaces_dir(app: AppHandle, path: Option<String>) -> Result<serde_json::Value, String> {
+    let app_data = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    // The folder in use may be gone (an unplugged drive), which is exactly
+    // when someone needs to change it, so a failure here is not fatal.
+    let old_dir = get_workspaces_directory(&app).ok();
+    let picked = path.map(|p| p.trim().to_string()).filter(|p| !p.is_empty());
+    let new_dir = match &picked {
+        Some(p) => PathBuf::from(p),
+        None => app_data.join("workspaces"),
+    };
+    fs::create_dir_all(&new_dir)
+        .map_err(|e| format!("Cannot use the folder '{}': {}", new_dir.display(), e))?;
+
+    let mut copied = 0;
+    if let Some(old) = old_dir.filter(|o| *o != new_dir) {
+        for entry in fs::read_dir(&old).map_err(|e| e.to_string())?.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            let target = new_dir.join(&name);
+            if name.ends_with(".dwstudio") && !target.exists() {
+                fs::copy(entry.path(), &target).map_err(|e| format!("Failed to copy '{}': {}", name, e))?;
+                copied += 1;
+            }
+        }
+    }
+
+    let marker = app_data.join("workspaces-dir.txt");
+    match &picked {
+        Some(p) => fs::write(&marker, p).map_err(|e| format!("Failed to save the setting: {}", e))?,
+        None => { let _ = fs::remove_file(&marker); }
+    }
+    Ok(serde_json::json!({ "dir": new_dir.to_string_lossy(), "copied": copied }))
 }
 
 #[tauri::command]

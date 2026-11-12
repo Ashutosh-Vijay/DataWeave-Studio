@@ -515,6 +515,11 @@ async function handleInvoke(
     }
     case 'get_workspaces_dir':
       return ws.getWorkspacesDir(workspaceRoot);
+    case 'set_workspaces_dir': {
+      const res = ws.setWorkspacesDir(workspaceRoot, args.path as string | null | undefined);
+      void vscode.commands.executeCommand('dataweaveStudio.refreshWorkspaces');
+      return res;
+    }
 
     // --- Module library (port of module_lib.rs) -----------------------------
     case 'load_modules':

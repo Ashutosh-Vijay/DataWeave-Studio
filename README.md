@@ -331,6 +331,7 @@ The `%dw 2.4` header doesn't do this. The runtime only checks it against its own
 ### Workspaces
 - **`.dwstudio` files** holding the full project state
 - **Several requests per workspace**, Postman-style
+- **Your own workspace folder**: Settings → Advanced → Workspace folder keeps saved workspaces anywhere you choose, such as another drive or a project folder
 - Each request keeps its script, payload, context, named inputs, query template, classpath, timeout and tests
 - Save, load, duplicate, delete and pin workspaces
 - Reopens your last workspace on launch

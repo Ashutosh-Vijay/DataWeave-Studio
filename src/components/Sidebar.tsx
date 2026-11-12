@@ -257,8 +257,11 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     });
   };
 
+  // Shown in the footer; it changes when Settings moves the workspace folder.
+  const [wsDir, setWsDir] = useState('');
   const refreshFiles = useCallback(() => {
     listWorkspaces().then(setFiles).catch(() => setFiles([]));
+    invoke<string>('get_workspaces_dir').then(setWsDir).catch(() => setWsDir(''));
   }, [listWorkspaces]);
 
   useEffect(() => { refreshFiles(); }, [refreshFiles]);
@@ -700,9 +703,9 @@ Drag to reorder, or right-click to move or unpin.`}
                   } catch { /* ignore */ }
                 }}
                 className="truncate block w-full text-left cursor-pointer hover:text-content-faint transition-colors"
-                title="Open the workspaces folder in Explorer"
+                title={`Open the workspace folder${wsDir ? `: ${wsDir}` : ''}`}
               >
-                Saves to AppData/Local/com.dwstudio.desktop ↗
+                Saves to {wsDir ? wsDir.split(/[\\/]/).filter(Boolean).slice(-2).join('/') : 'the workspace folder'} ↗
               </button>
             ) : (
               <div className="truncate">Saved inside the VS Code extension storage</div>

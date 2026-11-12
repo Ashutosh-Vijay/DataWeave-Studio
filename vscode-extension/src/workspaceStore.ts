@@ -9,9 +9,39 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 function ensureDir(storageDir: string): string {
-  const dir = path.join(storageDir, 'workspaces');
-  fs.mkdirSync(dir, { recursive: true });
+  // A folder picked in Settings wins; the desktop app writes and reads the same file.
+  let custom = '';
+  try { custom = fs.readFileSync(path.join(storageDir, 'workspaces-dir.txt'), 'utf8').trim(); } catch { /* not set */ }
+  const dir = custom || path.join(storageDir, 'workspaces');
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch (e) {
+    throw new Error(`Cannot use the workspace folder '${dir}': ${(e as Error).message}`);
+  }
   return dir;
+}
+
+/** Port of set_workspaces_dir in workspace.rs: copy across, never overwrite, leave the old folder. */
+export function setWorkspacesDir(storageDir: string, picked: string | null | undefined): { dir: string; copied: number } {
+  let oldDir: string | null = null;
+  try { oldDir = ensureDir(storageDir); } catch { /* the folder in use is gone */ }
+  const chosen = (picked || '').trim();
+  const newDir = chosen || path.join(storageDir, 'workspaces');
+  fs.mkdirSync(newDir, { recursive: true });
+  let copied = 0;
+  if (oldDir && path.resolve(oldDir) !== path.resolve(newDir)) {
+    for (const name of fs.readdirSync(oldDir)) {
+      const target = path.join(newDir, name);
+      if (name.endsWith('.dwstudio') && !fs.existsSync(target)) {
+        fs.copyFileSync(path.join(oldDir, name), target);
+        copied++;
+      }
+    }
+  }
+  const marker = path.join(storageDir, 'workspaces-dir.txt');
+  if (chosen) fs.writeFileSync(marker, chosen);
+  else fs.rmSync(marker, { force: true });
+  return { dir: newDir, copied };
 }
 
 function validateFilename(filename: string): void {

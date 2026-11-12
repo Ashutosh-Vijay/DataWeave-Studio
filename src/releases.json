@@ -21,6 +21,10 @@
         "desc": "Settings → Editor → Editor font: JetBrains Mono, Fira Code, Cascadia Code, IBM Plex Mono, Geist Mono, Consolas, or any font installed on your computer. Code names and paths across the app follow it. Settings → Appearance → Interface font sets the font for menus, buttons and labels."
       },
       {
+        "title": "Choose where workspaces are saved",
+        "desc": "Settings → Advanced → Workspace folder: keep saved workspaces in any folder, such as another drive or a project folder. The workspaces you already have are copied there."
+      },
+      {
         "title": "Comments in JSON payloads",
         "desc": "A JSON payload or named input can carry // and /* */ notes. They are left out when the script runs, so they no longer cause an error."
       },

@@ -17,6 +17,7 @@ import {
 } from '../seasons';
 import { SeasonalEffects } from './SeasonalEffects';
 import { toast } from './Toast';
+import { invoke } from '../bridge';
 
 type Section = 'appearance' | 'general' | 'runtime' | 'editor' | 'shortcuts' | 'advanced' | 'about';
 
@@ -782,6 +783,28 @@ function AdvancedPanel() {
   });
   const [resetOpen, setResetOpen] = useState(false);
 
+  // Where workspace files go. The default sits inside the data folder below;
+  // anywhere else was picked here.
+  const [wsDir, setWsDir] = useState('');
+  useEffect(() => { invoke<string>('get_workspaces_dir').then(setWsDir).catch((e) => setWsDir(String((e as Error)?.message ?? e))); }, []);
+  const wsDirIsDefault = /com\.dwstudio\.desktop[\\/]workspaces[\\/]?$/.test(wsDir);
+  const changeWsDir = async (path: string | null) => {
+    try {
+      const res = await invoke<{ dir: string; copied: number }>('set_workspaces_dir', { path });
+      setWsDir(res.dir);
+      window.dispatchEvent(new CustomEvent('dw:workspaces-changed'));
+      toast({
+        title: 'Workspace folder changed',
+        message: res.copied > 0
+          ? `${res.copied} ${res.copied === 1 ? 'workspace was' : 'workspaces were'} copied to ${res.dir}. The originals are still in the old folder.`
+          : `Workspaces now save to ${res.dir}.`,
+        variant: 'success',
+      });
+    } catch (e) {
+      toast({ title: 'Could not change the workspace folder', message: (e as Error).message || String(e), variant: 'error' });
+    }
+  };
+
   // The Rust backend uses app_local_data_dir — on Windows that's
   // %LOCALAPPDATA% (Local, not Roaming), matching the Sidebar footer.
   const ua = navigator.userAgent;
@@ -807,10 +830,29 @@ function AdvancedPanel() {
 
   return (
     <SectionWrap title="Advanced">
-      <Group title="Data location" desc="Where workspaces and settings are stored.">
+      <Group title="Data location" desc="Settings, the module library and downloaded jars are stored here.">
         <div className="px-3.5 py-3 bg-surface border border-line rounded-lg flex items-center gap-2.5">
           <Icons.Folder size={14} />
           <span className="flex-1 font-mono text-[11.5px] text-content-secondary truncate">{dataPath}</span>
+        </div>
+        <div className="mt-2">
+          <SRow
+            label="Workspace folder"
+            desc="Where saved workspaces go. Pick any folder, such as one on another drive or inside a project. Workspaces you already have are copied there, and the originals stay where they are."
+          >
+            <div className="flex items-center gap-2 shrink-0">
+              {!wsDirIsDefault && wsDir && <OutlineBtn onClick={() => changeWsDir(null)}>Use default</OutlineBtn>}
+              <OutlineBtn
+                onClick={async () => {
+                  const picked = await open({ directory: true, defaultPath: wsDir || undefined });
+                  if (typeof picked === 'string') changeWsDir(picked);
+                }}
+              >
+                Change
+              </OutlineBtn>
+            </div>
+          </SRow>
+          <div className="font-mono text-[11.5px] text-content-secondary break-all" title={wsDir}>{wsDir}</div>
         </div>
       </Group>
 
