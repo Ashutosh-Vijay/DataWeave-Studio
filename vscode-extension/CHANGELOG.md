@@ -4,14 +4,18 @@ All notable changes to DataWeave Studio for VS Code.
 
 ## [Unreleased]
 
-## 3.5.1 (2026-11-08)
+## 3.6.0 (2026-11-12)
 
-**Your tools, in your order.**
+**Work on your Mule project, in place.**
 
+- **Edit transforms inside your Mule XML.** Workspace menu → Open transform from Mule XML: pick a flow file and it lists every Transform in it by flow and target. Open one, edit and run it against a sample payload, and Save writes it back into the same place in the file. Nothing else in the XML changes.
+- **Open and save `.dwl` files in place.** Workspace menu → Open `.dwl` file edits a script file where it lives, and Workspace menu → Save script as `.dwl` links a script to a file. Save writes the script back to that path. Sample payloads and context stay in the workspace, so only the script changes on disk. If the file changed outside the app, Save asks before overwriting.
+- **Browse a project folder.** Pick a folder in the sidebar, such as a Mule project, to list its flow XML and `.dwl` files and open them with a click. Test files sit in a group of their own, and the list can be collapsed.
+- **Choose your fonts.** Settings → Editor → Editor font: JetBrains Mono, Fira Code, Cascadia Code, IBM Plex Mono, Geist Mono, Consolas, or any font installed on your computer. Code names and paths across the app follow it. Settings → Appearance → Interface font sets the font for menus, buttons and labels.
+- **Comments in JSON payloads.** A JSON payload or named input can carry `//` and `/* */` notes. They are left out when the script runs, so they no longer cause an error.
 - **Your rail, your start screen.** The start screen now shows the tools you pinned, in your rail's order, with All tools at the end. Reorder from All tools with the arrows under "On your rail", drag rail icons, or right-click one to move or unpin it.
 - **A warning for a DataWeave minus-sign bug.** With `x = 5`, DataWeave reads `-x - 5` as `-(x - 5)` and gives 0 instead of -10, and the same happens with `-(0) + (-3)`. The script editor now underlines a minus that will do this, and Ctrl+. wraps it in brackets for you.
-- **Choose your fonts.** Settings, Editor, Editor font: JetBrains Mono, Fira Code, Cascadia Code, IBM Plex Mono, Geist Mono, Consolas, or any font installed on your computer. Code names and paths across the app follow it. Settings, Appearance, Interface font sets the font for menus, buttons and labels.
-- **Fixes.** Clicking into Replace in an editor's find bar (Ctrl+F, then the arrow) no longer jumps back to the code, so you can type a replacement. With a dark VS Code theme, code names in help text no longer show as black boxes when the app is light. Typing `error` in a script now suggests Mule's error object, the way `payload` and `vars` are suggested.
+- **Fixes.** Saving a workspace no longer replaces another one with the same name. Opening a share link or an import asks before replacing unsaved work. Importing a Playground zip loads its script again. Ctrl+K and Ctrl+/ work with the cursor in the editor, and deleting a script asks first. The Trace panel starts closed and remembers how you left it. Clicking into Replace in an editor's find bar (Ctrl+F, then the arrow) no longer jumps back to the code. With a dark VS Code theme, code names in help text no longer show as black boxes when the app is light. Typing `error` in a script now suggests Mule's error object, the way `payload` and `vars` are suggested.
 
 ## 3.5.0 (2026-11-06)
 

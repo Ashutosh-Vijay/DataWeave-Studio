@@ -177,6 +177,7 @@ JRE 17 and the DataWeave runtime ship inside the app. No Java install, no `JAVA_
 ### Payload and inputs
 - **14+ formats**: JSON, XML, CSV, YAML, NDJSON, plain text, form-urlencoded, DataWeave, Java properties, Excel, Avro, Protocol Buffers, flat files (COBOL copybooks) and binary
 - Load a file into the payload
+- **Comments in JSON**: `//` and `/* */` notes in a JSON payload or named input are left out when the script runs
 - **Named inputs** as extra tabs (for example `lookup`, `config` or `schema`), each with its own editor and format
 - **Multipart form-data builder** with parts for name, content type, and text or file value
 - Binary payloads with no size limit
@@ -265,6 +266,13 @@ The `%dw 2.4` header doesn't do this. The runtime only checks it against its own
 - Suites are ordinary DataWeave and run through the same path as the Run button
 
 > `dw::test` tests **functions**, so a suite defines what it tests inline or imports it from the Module library. Older builds had a snapshot runner here instead; snapshot data in existing workspaces is kept but no longer used.
+
+### Mule project files
+- **Edit a transform inside a Mule flow XML.** Pick a flow file, choose a Transform by flow and target, edit and run it, and Save writes it back into the same place in the file without touching anything else
+- **Open and save `.dwl` files in place**, so script changes show up in your project's git diff
+- **Folder browser** in the sidebar for a project's flow XML and `.dwl` files, with test files in their own group
+- Sample payloads and context stay in the workspace, so nothing extra is written into your project
+- If a file changed outside the app, Save asks before overwriting it
 
 ### cURL importer
 - Paste any `curl` command from Postman, browser devtools or anywhere else
