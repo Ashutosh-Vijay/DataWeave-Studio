@@ -89,6 +89,7 @@ pub fn run() {
             dw_runner::save_output_file,
             dw_runner::save_binary_file,
             dw_runner::read_text_file,
+            dw_runner::list_dwl_files,
             dw_runner::is_warmed_up,
             dw_runner::get_warmup_status,
             dw_runner::restart_engine,

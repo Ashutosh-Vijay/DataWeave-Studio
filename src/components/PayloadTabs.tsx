@@ -682,7 +682,20 @@ export const PayloadTabs = memo(function PayloadTabs({
             language={mimeToLanguage(currentMime)}
             theme={editorTheme}
             beforeMount={handleBeforeMount}
-            onMount={configureEditor}
+            onMount={(editor, monaco) => {
+              configureEditor(editor);
+              // Comments are fine in a JSON input here (they are blanked out
+              // before a run), so drop Monaco's complaint about them and keep
+              // its other JSON errors.
+              const sub = monaco.editor.onDidChangeMarkers(() => {
+                const model = editor.getModel();
+                if (!model) return;
+                const all = monaco.editor.getModelMarkers({ resource: model.uri, owner: 'json' });
+                const kept = all.filter((m) => !/Comments are not permitted/i.test(m.message));
+                if (kept.length !== all.length) monaco.editor.setModelMarkers(model, 'json', kept);
+              });
+              editor.onDidDispose(() => sub.dispose());
+            }}
             value={currentContent}
             onChange={handleEditorChange}
             options={{

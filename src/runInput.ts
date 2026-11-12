@@ -78,3 +78,34 @@ export function buildVarsJson(vars: VarEntry[]): string {
   });
   return JSON.stringify(obj);
 }
+
+/**
+ * JSON inputs may carry `//` and `/* *\/` notes in the editor; the engine's
+ * JSON reader rejects them, so they are blanked out on the way to it. Spaces
+ * replace the comment text and newlines stay, so error positions still match
+ * what is on screen. Non-JSON formats pass through untouched.
+ */
+export function stripInputComments(text: string, mime: string): string {
+  if (!(mime.includes('json') || mime.includes('java')) || mime.includes('ndjson') || mime.includes('properties')) return text;
+  if (!/\/[/*]/.test(text)) return text;
+  let out = '';
+  let last = 0;
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '"') {
+      // A string: skip to its closing quote so "http://x" is left alone.
+      i++;
+      while (i < text.length && text[i] !== '"') i += text[i] === '\\' ? 2 : 1;
+      i++;
+    } else if (c === '/' && (text[i + 1] === '/' || text[i + 1] === '*')) {
+      let end = text[i + 1] === '/' ? text.indexOf('\n', i) : text.indexOf('*/', i + 2);
+      end = end < 0 ? text.length : text[i + 1] === '/' ? end : end + 2;
+      out += text.slice(last, i) + text.slice(i, end).replace(/[^\r\n]/g, ' ');
+      last = i = end;
+    } else {
+      i++;
+    }
+  }
+  return out + text.slice(last);
+}

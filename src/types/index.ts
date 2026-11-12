@@ -109,6 +109,14 @@ export interface Request {
   classpath: string[];
   timeoutMs?: number;
   payloadFilePath?: string;
+  /** The .dwl file on disk this entry's script is read from and saved back to.
+   *  Payload and context stay in the workspace; the file holds the script only. */
+  filePath?: string;
+  /** Set when `filePath` is a Mule XML: which of its inline transforms this
+   *  entry is (document order), and its flow/transform/target so it can be
+   *  found again after the XML is edited around it. */
+  xmlIndex?: number;
+  xmlKey?: string;
   multipartParts: MultipartPart[];
   context: ContextState;
   /**

@@ -692,6 +692,38 @@ pub fn read_text_file(path: String) -> Result<String, String> {
         .map_err(|e| format!("Failed to read file '{}': {}", path, e))
 }
 
+/// Every .dwl and Mule flow XML (anything under src/main/mule) below `dir`, as
+/// paths relative to it with forward slashes. Skips build output and hidden
+/// folders (a Mule project's `target` holds a copy of every script). Files
+/// under src/test are included; the sidebar keeps them in a group of their own.
+#[tauri::command]
+pub fn list_dwl_files(dir: String) -> Result<Vec<String>, String> {
+    let root = std::path::PathBuf::from(&dir);
+    std::fs::read_dir(&root).map_err(|e| format!("Failed to read folder '{}': {}", dir, e))?;
+    let mut out = Vec::new();
+    let mut stack = vec![root.clone()];
+    while let Some(d) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&d) else { continue };
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            let Ok(kind) = entry.file_type() else { continue };
+            let lower = name.to_lowercase();
+            let full = entry.path().to_string_lossy().replace('\\', "/");
+            if kind.is_dir() {
+                if !name.starts_with('.') && name != "target" && name != "node_modules" {
+                    stack.push(entry.path());
+                }
+            } else if (lower.ends_with(".dwl") || (lower.ends_with(".xml") && full.contains("/src/main/mule/"))) && out.len() < 5000 {
+                if let Ok(rel) = entry.path().strip_prefix(&root) {
+                    out.push(rel.to_string_lossy().replace('\\', "/"));
+                }
+            }
+        }
+    }
+    out.sort();
+    Ok(out)
+}
+
 /// Kill a process tree by PID. Best-effort, platform-specific.
 /// On Windows uses `taskkill /F /T` to also kill child processes (the JVM
 /// the DW CLI shim launches). On Unix uses `kill -TERM`.

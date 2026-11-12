@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildAttributesJson, buildVarsJson, withErrorInput } from '../runInput';
+import { buildAttributesJson, buildVarsJson, withErrorInput, stripInputComments } from '../runInput';
 import { MULE_ERRORS, generateMuleError } from '../muleError';
 import type { ContextState, KeyValuePair, NamedInput, VarEntry } from '../types';
 
@@ -101,5 +101,30 @@ describe('generateMuleError', () => {
     const e = JSON.parse(generateMuleError('HTTP:NOT_FOUND'));
     expect(e.errorMessage.attributes.statusCode).toBe(404);
     expect(e.description).toMatch(/failed: not found \(404\)\.$/);
+  });
+});
+
+describe('stripInputComments', () => {
+  const json = 'application/json';
+  it('blanks line and block comments, keeping positions', () => {
+    const src = '{\n  // note\n  "a": 1, /* why */ "b": 2 // end\n}';
+    const out = stripInputComments(src, json);
+    expect(out.length).toBe(src.length);
+    expect(out.split('\n').length).toBe(src.split('\n').length);
+    expect(JSON.parse(out)).toEqual({ a: 1, b: 2 });
+  });
+  it('leaves slashes inside strings alone', () => {
+    const src = '{"url": "http://x.test/a//b", "c": "/* not */", "q": "say \\"// hi\\""}';
+    expect(stripInputComments(src, json)).toBe(src);
+  });
+  it('keeps a multi-line block comment\'s line count', () => {
+    const out = stripInputComments('[1, /* a\n b */ 2]', json);
+    expect(JSON.parse(out)).toEqual([1, 2]);
+    expect(out.split('\n').length).toBe(2);
+  });
+  it('does not touch other formats', () => {
+    expect(stripInputComments('a,b // c', 'application/csv')).toBe('a,b // c');
+    expect(stripInputComments('{"a":1} // x', 'application/x-ndjson')).toBe('{"a":1} // x');
+    expect(stripInputComments('<a>//x</a>', 'application/xml')).toBe('<a>//x</a>');
   });
 });

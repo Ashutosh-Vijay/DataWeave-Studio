@@ -428,20 +428,21 @@ export const OutputPane = memo(function OutputPane({
  *  and a count — the alternative is one row per item, which for a 500-row
  *  payload is not a panel anyone can read. */
 function TracePanel({ trace, onRevealLine }: { trace: TraceRow[]; onRevealLine?: (line: number, column: number) => void }) {
-  // Tracing is on by default, so this panel now appears on every run. Remember
-  // whether it was collapsed — otherwise someone who doesn't want it has to
-  // close it again after every single run.
+  // Tracing is on by default, so this bar appears on every run. It starts
+  // closed and stays however the user last left it. Only a click is saved: the
+  // older key was written on every mount, so it recorded "open" for people who
+  // had never chosen that, which is why this uses a key of its own.
   const [open, setOpen] = useState(() => {
-    try { return (localStorage.getItem('dw.tracePanelOpen') ?? '1') === '1'; } catch { return true; }
+    try { return localStorage.getItem('dw.traceOpen') === '1'; } catch { return false; }
   });
-  useEffect(() => {
-    try { localStorage.setItem('dw.tracePanelOpen', open ? '1' : '0'); } catch { /* ignore */ }
-  }, [open]);
   const failed = trace.filter((r) => r.error).length;
   return (
     <div className="shrink-0 border-t border-line bg-surface" style={{ maxHeight: '38%', display: 'flex', flexDirection: 'column' }}>
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          try { localStorage.setItem('dw.traceOpen', open ? '0' : '1'); } catch { /* ignore */ }
+          setOpen(!open);
+        }}
         className="shrink-0 flex items-center gap-2 px-3.5 h-7 text-[10.5px] uppercase tracking-[0.6px] font-semibold text-content-faint hover:text-content-secondary cursor-pointer"
       >
         <svg width="9" height="9" viewBox="0 0 10 10" fill="currentColor" className={`transition-transform ${open ? 'rotate-90' : ''}`}>

@@ -144,6 +144,15 @@ pub struct Request {
     pub timeout_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payload_file_path: Option<String>,
+    /// The .dwl file this entry's script is read from and saved back to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_path: Option<String>,
+    /// When `file_path` is a Mule XML: which inline transform, and its
+    /// flow/transform/target so it can be found again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub xml_index: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub xml_key: Option<String>,
     #[serde(default)]
     pub multipart_parts: Vec<serde_json::Value>,
     #[serde(default)]
@@ -267,6 +276,9 @@ fn migrate_legacy(legacy: LegacyWorkspaceFile) -> WorkspaceFile {
         classpath: legacy.single_transform.classpath,
         timeout_ms: legacy.single_transform.timeout_ms,
         payload_file_path: legacy.single_transform.payload_file_path,
+        file_path: None,
+        xml_index: None,
+        xml_key: None,
         multipart_parts: legacy.single_transform.multipart_parts,
         context: legacy.context.unwrap_or_default(),
         test_script: None,
@@ -401,6 +413,9 @@ pub fn save_workspace(app: AppHandle, workspace: WorkspaceFile, current_file: Op
             classpath: vec![],
             timeout_ms: None,
             payload_file_path: None,
+            file_path: None,
+            xml_index: None,
+            xml_key: None,
             multipart_parts: vec![],
             context: ContextState::default(),
             test_script: None,

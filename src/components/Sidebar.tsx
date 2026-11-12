@@ -73,7 +73,11 @@ interface SidebarProps {
   // Active workspace's requests — drives the in-line request list at the
   // top of the Workspaces tab so users can browse + switch + add without
   // a separate tab strip elsewhere.
-  requests: { id: string; name: string; nodeLabel?: string; kind?: 'script' | 'test' }[];
+  requests: { id: string; name: string; nodeLabel?: string; kind?: 'script' | 'test'; filePath?: string }[];
+  /** Open a .dwl from the picked folder as a script entry (or go to it if it is open). */
+  onOpenScriptFile: (path: string) => void;
+  /** Show the inline transforms of a Mule flow XML from the picked folder. */
+  onOpenMuleXml: (path: string) => void;
   activeRequestId: string;
   onSelectRequest: (id: string) => void;
   onAddRequest: (kind: 'script' | 'test') => void;
@@ -158,7 +162,76 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     onOpenCurlImport, onInsertSnippet, railTools, onRailChange, onOpenAllTools, mcpRunning, onOpenSettings,
     collapsed, onToggleCollapse,
     requests, activeRequestId, onSelectRequest, onAddRequest, onRenameRequest, onRemoveRequest, onDuplicateRequest,
+    onOpenScriptFile, onOpenMuleXml,
   } = props;
+
+  // The folder whose .dwl files are listed for opening. Per machine, not per
+  // workspace: it is a path on this disk.
+  const [folder, setFolder] = useState(() => { try { return localStorage.getItem('dw.scriptFolder') || ''; } catch { return ''; } });
+  const [folderFiles, setFolderFiles] = useState<string[]>([]);
+  const [folderFilter, setFolderFilter] = useState('');
+  const refreshFolder = useCallback(() => {
+    if (!folder) { setFolderFiles([]); return; }
+    invoke<string[]>('list_dwl_files', { dir: folder }).then(setFolderFiles).catch(() => setFolderFiles([]));
+  }, [folder]);
+  // Re-list on save (a new .dwl may have landed in it) and when the window
+  // comes back, since a branch switch adds and removes files.
+  useEffect(() => {
+    refreshFolder();
+    window.addEventListener('focus', refreshFolder);
+    window.addEventListener('dw:workspaces-changed', refreshFolder);
+    return () => {
+      window.removeEventListener('focus', refreshFolder);
+      window.removeEventListener('dw:workspaces-changed', refreshFolder);
+    };
+  }, [refreshFolder]);
+  const pickFolder = async () => {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const picked = await open({ directory: true, defaultPath: folder || undefined });
+    if (typeof picked !== 'string') return;
+    try { localStorage.setItem('dw.scriptFolder', picked); } catch { /* ignore */ }
+    setFolderFilter('');
+    setFolder(picked);
+  };
+  const folderSep = folder.includes('\\') ? '\\' : '/';
+  const dirOf = (rel: string) => rel.slice(0, Math.max(0, rel.lastIndexOf('/')));
+  const folderShown = folderFiles
+    .filter((rel) => rel.toLowerCase().includes(folderFilter.trim().toLowerCase()))
+    .sort((a, b) => dirOf(a).localeCompare(dirOf(b)) || a.localeCompare(b));
+  // Test files get a group of their own, closed until asked for: recorded
+  // MUnit fixtures can outnumber the real scripts a hundred to one.
+  const isTestFile = (rel: string) => /(^|\/)src\/test\//.test(rel);
+  const folderMain = folderShown.filter((rel) => !isTestFile(rel));
+  const folderTests = folderShown.filter(isTestFile);
+  const [folderTestsOpen, setFolderTestsOpen] = useState(false);
+  const [folderCollapsed, setFolderCollapsed] = useState(() => { try { return localStorage.getItem('dw.scriptFolderCollapsed') === '1'; } catch { return false; } });
+  const folderRow = (rel: string, prev: string | undefined) => {
+    const full = folder.replace(/[\\/]+$/, '') + folderSep + rel.split('/').join(folderSep);
+    const open = requests.find((r) => r.filePath?.toLowerCase() === full.toLowerCase());
+    const dir = dirOf(rel);
+    return (
+      <div key={rel}>
+        {dir && (prev === undefined || dirOf(prev) !== dir) && (
+          <div className="px-1 pt-1.5 pb-0.5 text-[10.5px] font-mono truncate" style={{ color: 'var(--content-faint)' }} title={dir}>
+            {dir}
+          </div>
+        )}
+        <button
+          onClick={() => (rel.toLowerCase().endsWith('.xml') ? onOpenMuleXml(full) : onOpenScriptFile(full))}
+          title={full}
+          className={`w-full flex items-center gap-2 h-7 px-2 rounded-md text-left cursor-pointer text-[12px] ${open?.id === activeRequestId ? 'bg-surface-2' : 'hover:bg-surface-2'}`}
+          style={{ color: 'var(--content)' }}
+        >
+          <span
+            className="w-1.5 h-1.5 rounded-full shrink-0"
+            style={{ background: open ? 'var(--accent)' : 'var(--line)' }}
+            title={open ? 'Open in this workspace' : undefined}
+          />
+          <span className="truncate">{rel.slice(rel.lastIndexOf('/') + 1)}</span>
+        </button>
+      </div>
+    );
+  };
 
   const [tab, setTab] = useState<RailTab>('workspaces');
 
@@ -467,6 +540,96 @@ Drag to reorder, or right-click to move or unpin.`}
                   );
                 })}
 
+                {/* === .dwl files in a folder on disk === */}
+                <div className="px-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        if (!folder) return;
+                        try { localStorage.setItem('dw.scriptFolderCollapsed', folderCollapsed ? '0' : '1'); } catch { /* ignore */ }
+                        setFolderCollapsed(!folderCollapsed);
+                      }}
+                      title={!folder ? undefined : folderCollapsed ? 'Show the file list' : 'Hide the file list'}
+                      className={`flex items-center gap-1 flex-1 text-left text-[10px] uppercase tracking-[0.5px] font-semibold ${folder ? 'cursor-pointer' : ''}`}
+                      style={{ color: 'var(--content-faint)' }}
+                    >
+                      {folder && <Icons.ChevronDown size={11} style={{ transform: folderCollapsed ? 'rotate(-90deg)' : undefined }} />}
+                      Folder{folder ? ` · ${folderFiles.filter((rel) => !isTestFile(rel)).length}` : ''}
+                    </button>
+                    {folder && (
+                      <button
+                        onClick={() => {
+                          try { localStorage.removeItem('dw.scriptFolder'); } catch { /* ignore */ }
+                          setFolder('');
+                          // Closing only hides the list, and that is not obvious from an X.
+                          toast({
+                            title: `Closed ${folder.split(/[\\/]/).filter(Boolean).pop()}`,
+                            message: 'Only the file list is gone. Scripts you opened from it are still in this workspace, and nothing on disk changed.',
+                            variant: 'success',
+                          });
+                        }}
+                        title="Close this folder (opened scripts stay, files are not changed)"
+                        aria-label="Stop listing this folder"
+                        className="w-5 h-5 rounded inline-flex items-center justify-center cursor-pointer hover:bg-surface-2"
+                        style={{ color: 'var(--content-faint)' }}
+                      >
+                        <Icons.X size={11} />
+                      </button>
+                    )}
+                    <button
+                      onClick={pickFolder}
+                      title={folder ? 'Pick another folder' : 'Pick a folder'}
+                      aria-label={folder ? 'Pick another folder' : 'Pick a folder'}
+                      className="w-5 h-5 rounded inline-flex items-center justify-center cursor-pointer hover:bg-surface-2"
+                      style={{ color: 'var(--content-faint)' }}
+                    >
+                      <Icons.Folder size={11} />
+                    </button>
+                  </div>
+                  {!folder ? (
+                    <div className="text-[11px] py-1 px-1 leading-relaxed" style={{ color: 'var(--content-faint)' }}>
+                      Pick a folder, such as a Mule project, to open its flow XML transforms and <span className="font-mono">.dwl</span> files from here.
+                    </div>
+                  ) : folderCollapsed ? null : (
+                    <>
+                      <div className="px-1 text-[10.5px] font-mono truncate" style={{ color: 'var(--content-faint)' }} title={folder}>
+                        {folder.split(/[\\/]/).filter(Boolean).pop()}
+                      </div>
+                      {folderFiles.length > 8 && (
+                        <input
+                          value={folderFilter}
+                          onChange={(e) => setFolderFilter(e.target.value)}
+                          placeholder="Filter files"
+                          spellCheck={false}
+                          className="w-full h-6 px-2 rounded text-[11.5px] outline-none"
+                          style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--content)' }}
+                        />
+                      )}
+                      {folderShown.length === 0 ? (
+                        <div className="text-[11px] py-1 px-1 leading-relaxed" style={{ color: 'var(--content-faint)' }}>
+                          {folderFiles.length === 0 ? <>No flow XML or <span className="font-mono">.dwl</span> files in this folder.</> : 'No matches.'}
+                        </div>
+                      ) : (
+                        <div className="space-y-0.5">
+                          {folderMain.map((rel, i) => folderRow(rel, folderMain[i - 1]))}
+                          {folderTests.length > 0 && (
+                            <button
+                              onClick={() => setFolderTestsOpen((o) => !o)}
+                              title="Files under src/test"
+                              className="w-full flex items-center gap-1.5 h-6 px-1 mt-1 rounded text-left cursor-pointer hover:bg-surface-2 text-[10px] uppercase tracking-[0.5px] font-semibold"
+                              style={{ color: 'var(--content-faint)' }}
+                            >
+                              <Icons.ChevronDown size={11} style={{ transform: folderTestsOpen || folderFilter.trim() ? undefined : 'rotate(-90deg)' }} />
+                              Tests · {folderTests.length}
+                            </button>
+                          )}
+                          {(folderTestsOpen || folderFilter.trim() !== '') && folderTests.map((rel, i) => folderRow(rel, folderTests[i - 1]))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
                 {/* === Saved workspaces (the current one included, highlighted) === */}
                 <div className="px-1 pt-1 space-y-1">
                   <div className="flex items-center gap-2">
@@ -585,15 +748,18 @@ Drag to reorder, or right-click to move or unpin.`}
       {/* Deleting a script or suite had no confirmation and no undo. */}
       <ConfirmDialog
         open={confirmRemove !== null}
-        title={confirmRemove?.kind === 'test' ? 'Delete test suite?' : 'Delete script?'}
+        title={requests.find((r) => r.id === confirmRemove?.id)?.filePath ? 'Remove from workspace?' : confirmRemove?.kind === 'test' ? 'Delete test suite?' : 'Delete script?'}
         description={
           <>
             <ConfirmFile name={confirmRemove?.name || ''} /> will be removed from this workspace
-            {confirmRemove?.kind === 'test' ? '' : ', along with its payload and context'}. This can&rsquo;t be undone.
+            {confirmRemove?.kind === 'test' ? '' : ', along with its payload and context'}.{' '}
+            {requests.find((r) => r.id === confirmRemove?.id)?.filePath
+              ? <>The file on disk is not changed, so you can open it again. Edits you have not saved are lost.</>
+              : <>This can&rsquo;t be undone.</>}
           </>
         }
         tone="danger"
-        confirmLabel="Delete"
+        confirmLabel={requests.find((r) => r.id === confirmRemove?.id)?.filePath ? 'Remove' : 'Delete'}
         onConfirm={() => { if (confirmRemove) onRemoveRequest(confirmRemove.id); }}
         onClose={() => setConfirmRemove(null)}
       />

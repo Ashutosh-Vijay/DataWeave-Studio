@@ -19,7 +19,7 @@ import {
   dayKey,
   NUDGED_KEY,
 } from './practiceStats';
-import { buildAttributesJson, buildVarsJson, withErrorInput } from './runInput';
+import { buildAttributesJson, buildVarsJson, withErrorInput, stripInputComments } from './runInput';
 import { resolveVarsJson } from './resolveVars';
 import { substituteQueryParams } from './queryRender';
 // Lazy-loaded — pulls in dataweaveDocs (371KB) plus its own 60KB UI.
@@ -115,6 +115,8 @@ import { KeyValuePair, NODE_LABEL_COLORS, NODE_LABELS, isValidMimeType } from '.
 import { Icons } from './components/Icons';
 import { ToolsLauncher, type Tool } from './components/ToolsLauncher';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { MuleXmlPicker } from './components/MuleXmlPicker';
+import { findInlineScripts, InlineScript } from './muleInline';
 import { CurlImporter, CurlImportResult } from './components/CurlImporter';
 import { OpenApiReader, OpenApiImportResult } from './components/OpenApiReader';
 import { publishCursor, useCursor } from './cursorStore';
@@ -912,6 +914,16 @@ function App() {
       window.removeEventListener('drop', onDrop);
     };
   }, [workspace.setScript, workspace.setPayload, workspace.setPayloadMimeType]);
+  // What the engine gets: JSON inputs with their // and /* */ notes blanked
+  // out. The editors keep showing, saving and sharing the text as typed.
+  const enginePayload = useMemo(
+    () => stripInputComments(workspace.payload, workspace.payloadMimeType),
+    [workspace.payload, workspace.payloadMimeType],
+  );
+  const engineNamedInputs = useMemo(
+    () => workspace.namedInputs.map((ni) => ({ ...ni, content: stripInputComments(ni.content, ni.mimeType) })),
+    [workspace.namedInputs],
+  );
   const contextDataMemo = useMemo(() => ({
     // What a run binds, so the editor's hover and completion know their types.
     varsJson: buildVarsJson(workspace.context.vars),
@@ -921,14 +933,14 @@ function App() {
     vars: workspace.context.vars,
     headers: workspace.context.headers,
     queryParams: workspace.context.queryParams,
-    namedInputs: workspace.namedInputs,
+    namedInputs: engineNamedInputs,
     configYaml: workspace.context.configYaml,
     secureConfigYaml: workspace.context.secureConfigYaml,
     errorJson: workspace.context.errorJson,
   }), [
     workspace.context.vars, workspace.context.headers, workspace.context.queryParams,
     workspace.context.method, workspace.context.uriParams,
-    workspace.namedInputs, workspace.context.configYaml, workspace.context.secureConfigYaml,
+    engineNamedInputs, workspace.context.configYaml, workspace.context.secureConfigYaml,
     workspace.context.errorJson,
   ]);
   const autoRunTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1304,7 +1316,7 @@ function App() {
       workspace.context.uriParams ?? []
     );
     const namedInputsJson = JSON.stringify(
-      withErrorInput(workspace.namedInputs.filter((ni) => ni.name), workspace.context)
+      withErrorInput(engineNamedInputs.filter((ni) => ni.name), workspace.context)
     );
 
     // p() / Mule::p() can't compile in the pure-DataWeave engine, so transparently
@@ -1313,7 +1325,7 @@ function App() {
     // Substitute ${key} and ${secure::key} in script and payload (with decryption).
     const resolvedScript = await substitutePropertiesAsync(convertAllPropertyCalls(workspace.script).text, configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings, workspace.context.encryptionKeyName);
     // The payload is not DataWeave, so values are escaped for its own format.
-    const resolvedPayload = await substitutePropertiesAsync(workspace.payload, configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings, workspace.context.encryptionKeyName,
+    const resolvedPayload = await substitutePropertiesAsync(enginePayload, configYaml, secureConfigYaml, encryptionKey, workspace.context.encryptionSettings, workspace.context.encryptionKeyName,
       workspace.payloadMimeType.includes('json') ? 'json' : 'raw');
 
     const multipartPartsJson =
@@ -1357,7 +1369,7 @@ function App() {
     }
 
     return { resolvedScript, resolvedPayload, attributesJson, varsJson, namedInputsJson, multipartPartsJson, modulesJson };
-  }, [workspace.script, workspace.payload, workspace.payloadMimeType, workspace.context, workspace.namedInputs, workspace.payloadFilePath, workspace.multipartParts, workspace.classpath, modules, encryptionKey]);
+  }, [workspace.script, enginePayload, workspace.payloadMimeType, workspace.context, engineNamedInputs, workspace.payloadFilePath, workspace.multipartParts, workspace.classpath, modules, encryptionKey]);
 
   // The exact inputs behind the visible output, kept by reference: state is
   // immutable, so `!==` on each one says "changed since this run" for free,
@@ -1453,23 +1465,82 @@ function App() {
   // the workspace menu, and the command palette. The Sidebar save button
   // keeps its own button-flash UI on top of this — it's noisy but matches
   // FlowDesigner's save toast pattern.
-  const handleSave = useCallback(async () => {
+  // Returns whether it saved, so the unsaved-changes dialog only moves on after
+  // a save that worked. A linked .dwl changed outside the app stops the save
+  // and asks which version to keep (see the dialog at the bottom).
+  const [diskConflict, setDiskConflict] = useState<string | null>(null);
+  const handleSave = useCallback(async (overwriteChanged?: boolean) => {
     try {
-      const path = await workspace.saveWorkspace();
+      const path = await workspace.saveWorkspace(undefined, overwriteChanged);
       const filename = path.split(/[\\/]/).pop() || 'workspace';
+      const dwl = [...new Set(workspace.lastWrittenFiles.current.map((p) => p.split(/[\\/]/).pop()))];
       toast({
-        title: 'Workspace saved',
+        title: dwl.length ? `Saved ${dwl.join(', ')}` : 'Workspace saved',
         message: filename,
         variant: 'success',
       });
+      return true;
     } catch (e) {
+      const message = (e as Error).message || String(e);
+      if (message.includes('changed on disk')) { setDiskConflict(message); return false; }
       toast({
-        title: 'Could not save workspace',
-        message: (e as Error).message || String(e),
+        title: 'Could not save',
+        message,
         variant: 'error',
       });
+      return false;
     }
   }, [workspace.saveWorkspace]);
+
+  const handleOpenScriptFile = useCallback(async () => {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const picked = await open({ multiple: true, filters: [{ name: 'DataWeave script', extensions: ['dwl'] }] });
+      if (!picked) return;
+      beginTransforming();
+      for (const path of typeof picked === 'string' ? [picked] : picked) await workspace.openScriptFile(path);
+      setTimeout(() => scriptEditorRef.current?.focus(), 50);
+    } catch (e) {
+      toast({ title: 'Could not open the file', message: (e as Error).message || String(e), variant: 'error' });
+    }
+  }, [workspace.openScriptFile, beginTransforming]);
+
+  // A Mule XML holds many transforms, so opening one first asks which.
+  const [mulePicker, setMulePicker] = useState<null | { path: string; scripts: InlineScript[] }>(null);
+  const handleOpenMuleXml = useCallback(async (given?: string) => {
+    try {
+      let path = given;
+      if (!path) {
+        const { open } = await import('@tauri-apps/plugin-dialog');
+        const picked = await open({ filters: [{ name: 'Mule flow XML', extensions: ['xml'] }] });
+        if (typeof picked !== 'string') return;
+        path = picked;
+      }
+      const scripts = findInlineScripts(await invoke<string>('read_text_file', { path }));
+      if (scripts.length === 0) {
+        toast({ title: 'No inline transforms in this file', message: path.split(/[\\/]/).pop() || path, variant: 'error' });
+        return;
+      }
+      setMulePicker({ path, scripts });
+    } catch (e) {
+      toast({ title: 'Could not open the file', message: (e as Error).message || String(e), variant: 'error' });
+    }
+  }, []);
+
+  const handleSaveScriptAs = useCallback(async () => {
+    try {
+      const { save } = await import('@tauri-apps/plugin-dialog');
+      const path = await save({
+        defaultPath: workspace.request.filePath || `${workspace.request.name.replace(/\.dwl$/i, '').replace(/[^a-zA-Z0-9_-]+/g, '-') || 'script'}.dwl`,
+        filters: [{ name: 'DataWeave script', extensions: ['dwl'] }],
+      });
+      if (!path) return;
+      await workspace.saveScriptAs(path);
+      toast({ title: `Saved ${path.split(/[\\/]/).pop()}`, message: 'Save now writes this script back to that file.', variant: 'success' });
+    } catch (e) {
+      toast({ title: 'Could not save the file', message: (e as Error).message || String(e), variant: 'error' });
+    }
+  }, [workspace.saveScriptAs, workspace.request.filePath, workspace.request.name]);
 
   const handleCurlImport = useCallback((result: CurlImportResult) => {
     workspace.setPayload(result.payload);
@@ -1648,6 +1719,9 @@ function App() {
     { id: 'share-workspace', label: 'Copy share link: whole workspace', hint: 'Every script and suite in this workspace', group: 'Share', run: handleCopyWorkspaceShareLink },
     { id: 'share-code', label: 'Copy share code (no link)', hint: 'For networks that block the site', group: 'Share', run: handleCopyShareCode },
     { id: 'share-open', label: 'Open from share link…', hint: 'Reads the link from the clipboard', group: 'Share', run: handleOpenShareLink },
+    { id: 'open-dwl', label: 'Open .dwl file…', hint: 'Edit a script file in place', group: 'Workspace', run: handleOpenScriptFile },
+    { id: 'open-mule-xml', label: 'Open transform from Mule XML…', hint: 'Edit an inline transform in place', group: 'Workspace', run: () => handleOpenMuleXml() },
+    { id: 'save-dwl', label: 'Save script as .dwl…', hint: workspace.request.filePath ? workspace.request.filePath : 'Link this script to a file', group: 'Workspace', run: handleSaveScriptAs },
     { id: 'import-playground', label: 'Import from Playground zip…', group: 'Workspace', run: handleImportPlayground },
     { id: 'export-playground', label: 'Export as Playground zip…', group: 'Workspace', run: handleExportPlayground },
     { id: 'format', label: 'Format script', shortcut: '⌥⇧F', group: 'Editor', run: () => scriptEditorRef.current?.format() },
@@ -1744,6 +1818,10 @@ function App() {
           onNew={guardedNew}
           onOpen={() => setOpenWsOpen(true)}
           onDuplicate={() => { beginTransforming(); workspace.duplicateWorkspace(); }}
+          onOpenScriptFile={handleOpenScriptFile}
+          onOpenMuleXml={() => handleOpenMuleXml()}
+          onSaveScriptAs={handleSaveScriptAs}
+          scriptFilePath={workspace.request.filePath}
           onImportPlayground={handleImportPlayground}
           onExportPlayground={handleExportPlayground}
           onCopyShareLink={handleCopyShareLink}
@@ -2094,6 +2172,10 @@ function App() {
           onRenameRequest={workspace.renameRequest}
           onRemoveRequest={workspace.removeRequest}
           onDuplicateRequest={workspace.duplicateRequest}
+          onOpenMuleXml={handleOpenMuleXml}
+          onOpenScriptFile={(path) => {
+            workspace.openScriptFile(path).catch((e) => toast({ title: 'Could not open the file', message: (e as Error).message || String(e), variant: 'error' }));
+          }}
           onOpenCurlImport={handleOpenImport}
           onInsertSnippet={(body) => scriptEditorRef.current?.insertSnippet(body)}
           railTools={railTools}
@@ -2191,8 +2273,9 @@ function App() {
                   onChange={handleScriptChange}
                   onRun={handleRun}
                   errorLine={runner.errorLine}
-                  payload={workspace.payload}
+                  payload={enginePayload}
                   payloadMimeType={workspace.payloadMimeType}
+                  headerLabel={workspace.request.filePath?.split(/[\\/]/).pop()}
                   contextData={contextDataMemo}
                   languageLevel={targetRuntime}
                   breakpoints={breakpoints}
@@ -2325,9 +2408,9 @@ function App() {
                       onChange={handleScriptChange}
                       onRun={handleRun}
                       errorLine={runner.errorLine}
-                      payload={workspace.payload}
+                      payload={enginePayload}
                       payloadMimeType={workspace.payloadMimeType}
-                      headerLabel={isQueryMode ? 'Parameters (DataWeave 2.0)' : undefined}
+                      headerLabel={isQueryMode ? 'Parameters (DataWeave 2.0)' : workspace.request.filePath?.split(/[\\/]/).pop()}
                       contextData={contextDataMemo}
                       languageLevel={targetRuntime}
                       breakpoints={breakpoints}
@@ -2641,10 +2724,39 @@ function App() {
         onConfirm={async () => {
           const action = pendingSwitch;
           if (!action) return;
-          await workspace.saveWorkspace();
+          if (!(await handleSave())) return;
           await performSwitch(action);
         }}
         onClose={() => setPendingSwitch(null)}
+      />
+
+      {mulePicker && (
+        <MuleXmlPicker
+          path={mulePicker.path}
+          scripts={mulePicker.scripts}
+          onClose={() => setMulePicker(null)}
+          onPick={(index) => {
+            const { path } = mulePicker;
+            setMulePicker(null);
+            beginTransforming();
+            workspace.openInlineScript(path, index)
+              .then(() => setTimeout(() => scriptEditorRef.current?.focus(), 50))
+              .catch((e) => toast({ title: 'Could not open the transform', message: (e as Error).message || String(e), variant: 'error' }));
+          }}
+        />
+      )}
+
+      {/* A linked .dwl was edited outside the app since it was opened. */}
+      <ConfirmDialog
+        open={diskConflict !== null}
+        title="File changed on disk"
+        description={<>{diskConflict} Saving will replace what is in the file now.</>}
+        tone="warn"
+        confirmLabel="Overwrite the file"
+        secondaryLabel="Load the file's version"
+        onSecondary={async () => { await workspace.reloadScriptFiles(); }}
+        onConfirm={async () => { await handleSave(true); }}
+        onClose={() => setDiskConflict(null)}
       />
 
       {splashReplay > 0 && (

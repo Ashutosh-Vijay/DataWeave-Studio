@@ -590,6 +590,28 @@ async function handleInvoke(
 
     case 'read_text_file':
       return fs.readFileSync(args.path as string, 'utf8');
+    // Port of list_dwl_files in dw_runner.rs.
+    case 'list_dwl_files': {
+      const root = args.dir as string;
+      fs.readdirSync(root);
+      const out: string[] = [];
+      const stack = [root];
+      while (stack.length) {
+        const d = stack.pop()!;
+        let entries: fs.Dirent[];
+        try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch { continue; }
+        for (const e of entries) {
+          const lower = e.name.toLowerCase();
+          const full = path.join(d, e.name).replace(/\\/g, '/');
+          if (e.isDirectory()) {
+            if (!e.name.startsWith('.') && e.name !== 'target' && e.name !== 'node_modules') stack.push(path.join(d, e.name));
+          } else if ((lower.endsWith('.dwl') || (lower.endsWith('.xml') && full.includes('/src/main/mule/'))) && out.length < 5000) {
+            out.push(path.relative(root, path.join(d, e.name)).replace(/\\/g, '/'));
+          }
+        }
+      }
+      return out.sort();
+    }
     case 'save_output_file':
       fs.writeFileSync(args.path as string, args.content as string);
       return null;

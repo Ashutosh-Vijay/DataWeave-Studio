@@ -13,6 +13,11 @@ interface WorkspaceMenuProps {
   onNew: () => void;
   onOpen: () => void;
   onDuplicate: () => void;
+  onOpenScriptFile: () => void;
+  onOpenMuleXml: () => void;
+  onSaveScriptAs: () => void;
+  /** The .dwl the active script is linked to, if any. */
+  scriptFilePath?: string;
   onImportPlayground: () => void;
   onExportPlayground: () => void;
   onCopyShareLink: () => void;
@@ -23,7 +28,7 @@ interface WorkspaceMenuProps {
 
 export function WorkspaceMenu({
   projectName, activeRequestName, isDirty,
-  onSave, onNew, onOpen, onDuplicate, onImportPlayground, onExportPlayground,
+  onSave, onNew, onOpen, onDuplicate, onOpenScriptFile, onOpenMuleXml, onSaveScriptAs, scriptFilePath, onImportPlayground, onExportPlayground,
   onCopyShareLink, onCopyWorkspaceShareLink, onCopyShareCode, onOpenShareLink,
 }: WorkspaceMenuProps) {
   const [open, setOpen] = useState(false);
@@ -88,6 +93,16 @@ export function WorkspaceMenu({
           {item('New blank', kbd('⌘N'), onNew)}
           {item('Open / manage…', kbd('⌘O'), onOpen)}
           {item('Duplicate', kbd('⌘D'), onDuplicate)}
+          <div className="my-1 border-t" style={{ borderColor: 'var(--line)' }} />
+          <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-content-faint font-medium">Script file</div>
+          {item('Open .dwl file…', null, onOpenScriptFile)}
+          {item('Open transform from Mule XML…', null, onOpenMuleXml)}
+          {item('Save script as .dwl…', null, onSaveScriptAs)}
+          {scriptFilePath && (
+            <div className="px-3 pb-1 text-[10.5px] font-mono text-content-faint break-all" title={scriptFilePath}>
+              Saves to {scriptFilePath}
+            </div>
+          )}
           <div className="my-1 border-t" style={{ borderColor: 'var(--line)' }} />
           <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-content-faint font-medium">Playground</div>
           {item('Import from Playground zip…', null, onImportPlayground)}
