@@ -52,6 +52,10 @@ export function WhatsNew({ version, onClose }: { version: string; onClose: () =>
   const visible = (r: Release) => r.highlights.filter(shows);
   const highlights = visible(release);
   const earlier = RELEASES.filter((r) => r !== release);
+  // The Mac extension builds of 3.5.0 and 3.6.0 were never published (their CI
+  // runner had been retired), so a Mac user arriving here from 3.4.0 has not
+  // seen 3.5.0 either. Its notes start open for them instead of folded away.
+  const missedOnMac = !isTauri && /Mac/i.test(navigator.userAgent) ? ['3.5.0'] : [];
 
   return (
     <div className="fixed inset-0 z-[126] grid place-items-center" style={{ background: 'color-mix(in oklch, var(--bg) 70%, transparent)', backdropFilter: 'blur(3px)', fontSize: 13 }} onClick={onClose}>
@@ -94,8 +98,13 @@ export function WhatsNew({ version, onClose }: { version: string; onClose: () =>
           {earlier.length > 0 && (
             <div style={{ padding: '16px 0 10px' }}>
               <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--content-faint)', marginBottom: 4 }}>Earlier releases</div>
+              {missedOnMac.length > 0 && (
+                <div style={{ fontSize: 12, color: 'var(--content-muted)', lineHeight: 1.55, padding: '4px 0 6px' }}>
+                  The 3.5.0 update did not reach Macs, so it is new for you too. Its notes are open below.
+                </div>
+              )}
               {earlier.map((r) => (
-                <details key={r.version} style={{ borderBottom: '1px solid var(--line-subtle)' }}>
+                <details key={r.version} open={missedOnMac.includes(r.version)} style={{ borderBottom: '1px solid var(--line-subtle)' }}>
                   <summary className="flex items-baseline cursor-pointer hover:text-content" style={{ gap: 10, padding: '10px 0', listStyle: 'none', color: 'var(--content-secondary)' }}>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--content-faint)', minWidth: 42 }}>v{r.version}</span>
                     <span style={{ fontSize: 13, fontWeight: 600 }}>{r.headline}</span>

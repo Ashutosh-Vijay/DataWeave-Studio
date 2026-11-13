@@ -1,6 +1,6 @@
 [
   {
-    "version": "3.6.0",
+    "version": "3.6.1",
     "date": "November 2026",
     "headline": "Work on your Mule project, in place",
     "highlights": [
@@ -38,7 +38,7 @@
       },
       {
         "title": "Fixes",
-        "desc": "Saving a workspace no longer replaces another one with the same name. Opening a share link or an import asks before replacing unsaved work. Importing a Playground zip loads its script again. Ctrl+K and Ctrl+/ work with the cursor in the editor, and deleting a script asks first. The Trace panel starts closed and remembers how you left it. Clicking into Replace in an editor's find bar (Ctrl+F, then the arrow) no longer jumps back to the code. Dragging rail icons to reorder them works in the desktop app. In VS Code with a dark theme, code names in help text no longer show as black boxes when the app is light. Typing error in a script now suggests Mule's error object, the way payload and vars are suggested."
+        "desc": "Typing over a word you selected by dragging right to left no longer drops the first character. Saving a workspace no longer replaces another one with the same name. Opening a share link or an import asks before replacing unsaved work. Importing a Playground zip loads its script again. Ctrl+K and Ctrl+/ work with the cursor in the editor, and deleting a script asks first. The Trace panel starts closed and remembers how you left it. Clicking into Replace in an editor's find bar (Ctrl+F, then the arrow) no longer jumps back to the code. Dragging rail icons to reorder them works in the desktop app. In VS Code with a dark theme, code names in help text no longer show as black boxes when the app is light. Typing error in a script now suggests Mule's error object, the way payload and vars are suggested."
       }
     ]
   },

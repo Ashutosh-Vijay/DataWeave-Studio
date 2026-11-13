@@ -4,7 +4,7 @@ All notable changes to DataWeave Studio for VS Code.
 
 ## [Unreleased]
 
-## 3.6.0 (2026-11-12)
+## 3.6.1 (2026-11-13)
 
 **Work on your Mule project, in place.**
 
@@ -16,7 +16,8 @@ All notable changes to DataWeave Studio for VS Code.
 - **Comments in JSON payloads.** A JSON payload or named input can carry `//` and `/* */` notes. They are left out when the script runs, so they no longer cause an error.
 - **Your rail, your start screen.** The start screen now shows the tools you pinned, in your rail's order, with All tools at the end. Reorder from All tools with the arrows under "On your rail", drag rail icons, or right-click one to move or unpin it.
 - **A warning for a DataWeave minus-sign bug.** With `x = 5`, DataWeave reads `-x - 5` as `-(x - 5)` and gives 0 instead of -10, and the same happens with `-(0) + (-3)`. The script editor now underlines a minus that will do this, and Ctrl+. wraps it in brackets for you.
-- **Fixes.** Saving a workspace no longer replaces another one with the same name. Opening a share link or an import asks before replacing unsaved work. Importing a Playground zip loads its script again. Ctrl+K and Ctrl+/ work with the cursor in the editor, and deleting a script asks first. The Trace panel starts closed and remembers how you left it. Clicking into Replace in an editor's find bar (Ctrl+F, then the arrow) no longer jumps back to the code. With a dark VS Code theme, code names in help text no longer show as black boxes when the app is light. Typing `error` in a script now suggests Mule's error object, the way `payload` and `vars` are suggested.
+- **Mac.** The 3.5.0 and 3.6.0 updates did not reach Macs because of a build problem on our side. This release includes both, so the 3.5.0 notes below are new for you too.
+- **Fixes.** Typing over a word you selected by dragging right to left no longer drops the first character. Saving a workspace no longer replaces another one with the same name. Opening a share link or an import asks before replacing unsaved work. Importing a Playground zip loads its script again. Ctrl+K and Ctrl+/ work with the cursor in the editor, and deleting a script asks first. The Trace panel starts closed and remembers how you left it. Clicking into Replace in an editor's find bar (Ctrl+F, then the arrow) no longer jumps back to the code. With a dark VS Code theme, code names in help text no longer show as black boxes when the app is light. Typing `error` in a script now suggests Mule's error object, the way `payload` and `vars` are suggested.
 
 ## 3.5.0 (2026-11-06)
 

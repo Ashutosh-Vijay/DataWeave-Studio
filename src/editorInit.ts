@@ -41,8 +41,8 @@ export function getOverflowWidgetsRoot(): HTMLDivElement {
  *    lose while keeping widget focus — leaving Backspace working and typed
  *    characters going nowhere.
  *
- * 3. Replaces the selection itself when a printable key is typed over one, in
- *    the webview only — where the first such keystroke was being swallowed.
+ * 3. Types over a selection itself when a printable key is pressed, because
+ *    the first such keystroke was being swallowed (see below).
  *
  * 4. Re-triggers the suggest widget on backspace within a word. Monaco
  *    only fires completions on character INSERT — deleting a character
@@ -53,8 +53,6 @@ export function getOverflowWidgetsRoot(): HTMLDivElement {
  *
  * Call from every editor's `onMount={configureEditor}`.
  */
-import { isTauri } from './bridge';
-
 export function configureEditor(editor: unknown): void {
   const ed = editor as {
     getDomNode?: () => HTMLElement | null;
@@ -128,23 +126,24 @@ export function configureEditor(editor: unknown): void {
   //
   // Refocusing on mouse-up didn't fix it, so rather than keep guessing at the
   // cause this handles the symptom directly: when a selection exists and a bare
-  // printable character is typed, do the edit and stop the event. Deterministic,
-  // and undo still groups it as one edit.
+  // printable character is typed, type it through Monaco's own command and stop
+  // the event. That command is what a normal keystroke runs, so replacing the
+  // selection, wrapping it in quotes or brackets, and undo all behave as usual.
   //
-  // Scoped to the webview — the desktop path isn't broken and doesn't need
-  // Monaco's own input handling intercepted.
-  if (!isTauri && ta) {
+  // The desktop app has it too, though only for a selection dragged right to
+  // left (measured: selection 17->10, "p" pressed, nothing changes, then "a"
+  // replaces the word). It was scoped to the webview on the belief that
+  // desktop was fine, which held only for left-to-right drags.
+  if (ta) {
     ta.addEventListener(
       'keydown',
       (e: KeyboardEvent) => {
         if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
         if (e.key.length !== 1) return; // not a printable character
         const sel = ed.getSelection?.();
-        if (!sel || sel.startLineNumber !== sel.endLineNumber || sel.startColumn !== sel.endColumn) {
-          if (!sel) return;
-          e.preventDefault();
-          ed.executeEdits?.('type-over-selection', [{ range: sel, text: e.key, forceMoveMarkers: true }]);
-        }
+        if (!sel || (sel.startLineNumber === sel.endLineNumber && sel.startColumn === sel.endColumn)) return;
+        e.preventDefault();
+        ed.trigger?.('keyboard', 'type', { text: e.key });
       },
       true, // capture: get there before Monaco's own listener
     );
