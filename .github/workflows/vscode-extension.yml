@@ -51,14 +51,14 @@ jobs:
             jdkArch: x64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -96,10 +96,12 @@ jobs:
             npm version "${GITHUB_REF_NAME#vscode-v}" --no-git-tag-version --allow-same-version
           fi
           npm run bundle:resources
+          # vsce warns when the package has no licence file; the repo keeps one copy, at the root.
+          cp ../LICENSE LICENSE
           npx @vscode/vsce package --target ${{ matrix.target }} -o "dataweave-studio-${{ matrix.target }}.vsix"
 
       - name: Upload .vsix artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: vsix-${{ matrix.target }}
           path: vscode-extension/*.vsix
@@ -174,7 +176,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download all .vsix artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: vsix-*
           path: vsix

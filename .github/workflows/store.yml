@@ -38,12 +38,12 @@ jobs:
   store:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -52,7 +52,7 @@ jobs:
         run: npm ci
 
       - name: Set up JDK (for dwstudio-server)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -127,7 +127,7 @@ jobs:
         run: winapp package dist-msix --manifest dist-msix/Package.appxmanifest --exe app.exe --output dataweave-studio.msix
 
       - name: Upload MSIX artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: msix
           path: dataweave-studio.msix
