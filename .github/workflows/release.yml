@@ -241,16 +241,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Points the Homebrew cask (Ashutosh-Vijay/homebrew-tap) at the new .dmg files.
-  # Needs HOMEBREW_TAP_TOKEN: a fine-grained token with Contents read/write on
-  # that repo only. Skipped while the secret is missing.
+  # HOMEBREW_TAP_DEPLOY_KEY is the private half of a write deploy key on that
+  # repo only. Skipped while the secret is missing.
   homebrew:
     needs: publish
     runs-on: ubuntu-latest
     env:
-      TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      TAP_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
     steps:
       - name: Update the cask
-        if: env.TAP_TOKEN != ''
+        if: env.TAP_KEY != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -259,7 +259,9 @@ jobs:
           sha() { gh api "repos/${{ github.repository }}/releases/tags/$tag" --jq ".assets[] | select(.name == \"DataWeave.Studio_${version}_$1.dmg\") | .digest" | sed 's/^sha256://'; }
           arm=$(sha aarch64); intel=$(sha x64)
           [ -n "$arm" ] && [ -n "$intel" ] || { echo "dmg digests not found"; exit 1; }
-          git clone "https://x-access-token:${TAP_TOKEN}@github.com/Ashutosh-Vijay/homebrew-tap.git" tap
+          printf '%s\n' "$TAP_KEY" > "$RUNNER_TEMP/tap_key" && chmod 600 "$RUNNER_TEMP/tap_key"
+          export GIT_SSH_COMMAND="ssh -i $RUNNER_TEMP/tap_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          git clone git@github.com:Ashutosh-Vijay/homebrew-tap.git tap
           cd tap
           sed -i -E "s/^  version \".*\"/  version \"$version\"/; s/(arm: +)\"[0-9a-f]{64}\"/\1\"$arm\"/; s/(intel: +)\"[0-9a-f]{64}\"/\1\"$intel\"/" Casks/dataweave-studio.rb
           git diff --stat
