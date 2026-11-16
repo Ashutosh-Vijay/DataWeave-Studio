@@ -413,6 +413,17 @@ Otherwise, download the latest installer from the **[website](https://ashutosh-v
 - **macOS**: `.dmg` for Apple Silicon and Intel
 - **Linux**: `.AppImage`, `.deb` or `.rpm`
 
+**On a Mac, Homebrew is the easiest option.** The cask clears the quarantine flag for you, so there's no "damaged" warning:
+
+```bash
+brew trust ashutosh-vijay/tap
+```
+```bash
+brew install --cask ashutosh-vijay/tap/dataweave-studio
+```
+
+If your Mac is managed by work and doesn't allow that, use the [VS Code extension](https://marketplace.visualstudio.com/items?itemName=ashutosh-vijay.dataweave-studio). It needs no install approval and runs the same app. A Mac App Store version needs a paid Apple developer account, so it isn't available yet.
+
 > **The direct downloads aren't code-signed** (the Store build is). Signing costs about $99 a year for Apple and $300+ for a Windows EV certificate, which is a lot for a free side project, so your OS will warn about an unverified publisher on first launch. [SECURITY.md](SECURITY.md) describes exactly what the app does on your network.
 >
 > **Windows, "Windows protected your PC" (SmartScreen):** click **More info → Run anyway**.

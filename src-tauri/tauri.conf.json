@@ -56,6 +56,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "macOS": {
+      "signingIdentity": "-",
+      "hardenedRuntime": false
+    },
     "windows": {
       "nsis": {
         "installerIcon": "icons/icon.ico",

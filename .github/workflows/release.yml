@@ -137,7 +137,7 @@ jobs:
           releaseBody: |
             ### Downloads
             - **Windows**: `.exe` (NSIS installer), `.msi`, `_x64_portable.zip` (no install, just unzip and run), or `_x64-setup.zip` (zipped installer, if a proxy blocks the `.exe`)
-            - **macOS**: `.dmg` (Apple Silicon and Intel)
+            - **macOS**: `.dmg` (Apple Silicon and Intel), or `brew trust ashutosh-vijay/tap` then `brew install --cask ashutosh-vijay/tap/dataweave-studio`
             - **Linux**: `.AppImage`, `.deb`, or `.rpm`
 
             Everything is included: the DataWeave 2.12 runtime and a small JRE 17,
@@ -159,6 +159,17 @@ jobs:
           # --verbose on Linux so a linuxdeploy failure prints its actual stderr
           # instead of the bare "failed to run linuxdeploy".
           args: --target ${{ matrix.target }} ${{ runner.os == 'Linux' && '--verbose' || '' }}
+
+      # Ad-hoc signed ("signingIdentity": "-" in tauri.conf.json): Apple Silicon
+      # refuses code with a broken or partial signature, so fail the job (the
+      # release stays a draft) rather than ship one.
+      - name: Verify macOS bundle signature
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          app=$(find src-tauri/target/${{ matrix.target }}/release/bundle/macos -maxdepth 1 -name '*.app' | head -1)
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign -dv "$app" 2>&1 | grep -E 'Identifier|Signature|Sealed'
 
       - name: Zip Windows installer for proxy-restricted environments
         if: matrix.platform == 'windows-latest'
@@ -228,3 +239,29 @@ jobs:
         run: gh release edit "${{ github.ref_name }}" --draft=false --repo "${{ github.repository }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Points the Homebrew cask (Ashutosh-Vijay/homebrew-tap) at the new .dmg files.
+  # Needs HOMEBREW_TAP_TOKEN: a fine-grained token with Contents read/write on
+  # that repo only. Skipped while the secret is missing.
+  homebrew:
+    needs: publish
+    runs-on: ubuntu-latest
+    env:
+      TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+    steps:
+      - name: Update the cask
+        if: env.TAP_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ github.ref_name }}"
+          version="${tag#v}"
+          sha() { gh api "repos/${{ github.repository }}/releases/tags/$tag" --jq ".assets[] | select(.name == \"DataWeave.Studio_${version}_$1.dmg\") | .digest" | sed 's/^sha256://'; }
+          arm=$(sha aarch64); intel=$(sha x64)
+          [ -n "$arm" ] && [ -n "$intel" ] || { echo "dmg digests not found"; exit 1; }
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/Ashutosh-Vijay/homebrew-tap.git" tap
+          cd tap
+          sed -i -E "s/^  version \".*\"/  version \"$version\"/; s/(arm: +)\"[0-9a-f]{64}\"/\1\"$arm\"/; s/(intel: +)\"[0-9a-f]{64}\"/\1\"$intel\"/" Casks/dataweave-studio.rb
+          git diff --stat
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -am "dataweave-studio $version" || exit 0
+          git push
