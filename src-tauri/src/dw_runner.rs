@@ -776,6 +776,12 @@ pub fn dw_format(app: tauri::AppHandle, script: String) -> Result<String, String
     crate::dw_server::format(&app, &script)
 }
 
+/// Convert a DataWeave 1.0 script to 2.0 with MuleSoft's own converter.
+#[tauri::command]
+pub fn dw_migrate(app: tauri::AppHandle, script: String) -> Result<String, String> {
+    crate::dw_server::migrate(&app, &script)
+}
+
 /// Ask the engine's language service about a position in the script. The editor
 /// calls this for completion/hover/signature help; it falls back to the static
 /// catalog when the engine isn't warm yet, so typing never blocks on it.
@@ -794,6 +800,7 @@ pub fn dw_tooling(
     vars: Option<String>,
     attributes: Option<String>,
     error: Option<String>,
+    modules_json: Option<String>,
 ) -> Result<serde_json::Value, String> {
     crate::dw_server::tooling(
         &app,
@@ -809,6 +816,7 @@ pub fn dw_tooling(
         vars.as_deref().unwrap_or(""),
         attributes.as_deref().unwrap_or(""),
         error.as_deref().unwrap_or(""),
+        modules_json.as_deref().unwrap_or(""),
     )
 }
 

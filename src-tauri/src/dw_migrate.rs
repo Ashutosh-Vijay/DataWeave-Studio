@@ -7,6 +7,24 @@ use std::collections::HashMap;
 
 /// The migrated script. Anything with no DW 2.0 equivalent is listed as
 /// `// ⚠ ...` lines at the top, so the warnings travel with the script.
+/// Mule 4's HTTP listener attribute for a Mule 3 `http.*` inbound property.
+fn inbound_http_attr(key: &str) -> Option<&'static str> {
+    Some(match key {
+        "http.method" => "attributes.method",
+        "http.query.params" => "attributes.queryParams",
+        "http.uri.params" => "attributes.uriParams",
+        "http.query.string" => "attributes.queryString",
+        "http.request.path" => "attributes.requestPath",
+        "http.request.uri" => "attributes.requestUri",
+        "http.remote.address" => "attributes.remoteAddress",
+        "http.version" => "attributes.version",
+        "http.scheme" => "attributes.scheme",
+        "http.listener.path" => "attributes.listenerPath",
+        "http.relative.path" => "attributes.relativePath",
+        _ => return None,
+    })
+}
+
 pub fn migrate_dw1_to_2(src: &str) -> String {
     // Compiled once per call — migration is rare, not a hot path.
     let re_header = Regex::new(r"^(\s*)%dw\s+1\.0\b").unwrap();
@@ -16,8 +34,11 @@ pub fn migrate_dw1_to_2(src: &str) -> String {
     let re_namespace = Regex::new(r"^\s*%namespace\b").unwrap();
     let re_function = Regex::new(r"^(\s*)%function\b").unwrap();
     let re_flowvars = Regex::new(r"\bflowVars\b").unwrap();
-    let re_inbound_method_dq = Regex::new(r#"\binboundProperties\["http\.method"\]"#).unwrap();
-    let re_inbound_method_sq = Regex::new(r"\binboundProperties\.'http\.method'").unwrap();
+    // `inboundProperties` + an `http.*` key in any of its spellings:
+    // ["http.x"], ['http.x'], ."http.x", .'http.x' (MuleSoft's converter
+    // writes the third form).
+    let re_inbound_http =
+        Regex::new(r#"\binboundProperties(?:\[\s*["']|\.["'])(http\.[a-z.]+)["'](?:\s*\])?"#).unwrap();
     let re_inbound = Regex::new(r"\binboundProperties\b").unwrap();
     let re_outbound = Regex::new(r"\boutboundProperties\b").unwrap();
     let re_session = Regex::new(r"\bsessionVars\b").unwrap();
@@ -81,12 +102,17 @@ pub fn migrate_dw1_to_2(src: &str) -> String {
             *tally.entry("mule").or_insert(0) += n;
             line = re_flowvars.replace_all(&line, "vars").into_owned();
         }
-        for re in [&re_inbound_method_dq, &re_inbound_method_sq] {
-            let n = re.find_iter(&line).count();
-            if n > 0 {
-                *tally.entry("mule").or_insert(0) += n;
-                line = re.replace_all(&line, "attributes.method").into_owned();
-            }
+        // Mule 3 HTTP inbound properties -> the Mule 4 HTTP listener attributes.
+        // An unknown http.* key is left for the generic headers rule below.
+        let mut mapped = 0;
+        line = re_inbound_http
+            .replace_all(&line, |c: &regex::Captures| match inbound_http_attr(&c[1]) {
+                Some(a) => { mapped += 1; a.to_string() }
+                None => c[0].to_string(),
+            })
+            .into_owned();
+        if mapped > 0 {
+            *tally.entry("mule").or_insert(0) += mapped;
         }
         let n = re_inbound.find_iter(&line).count();
         if n > 0 {
@@ -169,6 +195,17 @@ mod tests {
         assert!(o.contains("attributes.headers.bar"));
         assert!(!o.contains("flowVars"));
         assert!(!o.contains("inboundProperties"));
+    }
+
+    #[test]
+    fn maps_http_inbound_properties_in_every_spelling() {
+        let o = migrate_dw1_to_2(
+            "inboundProperties.\"http.method\" ++ inboundProperties['http.query.params'].id ++ inboundProperties.'http.uri.params'.id ++ inboundProperties[\"http.request.path\"] ++ inboundProperties.\"user-agent\"",
+        );
+        assert_eq!(
+            o,
+            "attributes.method ++ attributes.queryParams.id ++ attributes.uriParams.id ++ attributes.requestPath ++ attributes.headers.\"user-agent\""
+        );
     }
 
     #[test]

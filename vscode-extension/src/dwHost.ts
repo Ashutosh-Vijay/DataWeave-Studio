@@ -200,10 +200,10 @@ interface DwRequest {
   compileOnly?: boolean;
   /** Custom `.dwl` modules so `import x from MyModule` resolves (server writes
    *  each to a hashed classpath dir + compiles against a fresh classloader). */
-  modules?: { name: string; content: string }[];
+  modules?: { name?: string; content?: string; kind?: string; path?: string }[];
   /** "run" (default) or "format" — format runs the engine's IDE formatter and
    *  returns the pretty-printed script in `output`. */
-  op?: 'run' | 'format' | 'tooling' | 'debug';
+  op?: 'run' | 'format' | 'migrate' | 'tooling' | 'debug';
   /** op=debug: 'start' begins a session; everything else drives the one running. */
   action?: string;
   /** op=debug, action=evaluate: the expression to evaluate in the paused frame. */
@@ -841,7 +841,8 @@ export async function runDataweave(server: DwServer, args: RunArgs): Promise<Run
     const cpEntries = (args.classpath ?? []).filter((s) => s.length > 0);
     const timeout = args.timeoutMs ?? 30000;
 
-    const modules: { name: string; content: string }[] =
+    // kind/path entries (schemas, the script's Mule project) pass through as-is.
+    const modules: { name?: string; content?: string; kind?: string; path?: string }[] =
       args.modulesJson && args.modulesJson.trim() && args.modulesJson.trim() !== '[]'
         ? JSON.parse(args.modulesJson)
         : [];
@@ -993,10 +994,10 @@ export async function securePropsQuery(
   return { results: resp.results ?? [], errors: resp.errors ?? [] };
 }
 
-export async function formatDataweave(server: DwServer, script: string): Promise<string> {
+export async function formatDataweave(server: DwServer, script: string, op: 'format' | 'migrate' = 'format'): Promise<string> {
   const resp = await server.run(
     {
-      op: 'format',
+      op,
       script,
       payloadPath: '',
       payloadMime: 'application/json',
@@ -1005,7 +1006,7 @@ export async function formatDataweave(server: DwServer, script: string): Promise
     },
     15000
   );
-  if (!resp.ok) throw new Error(resp.error ?? 'Format failed');
+  if (!resp.ok) throw new Error(resp.error ?? `${op} failed`);
   return resp.output;
 }
 
@@ -1025,11 +1026,16 @@ export async function toolingQuery(
   vars?: string,
   attributes?: string,
   error?: string,
+  modulesJson?: string,
 ): Promise<unknown> {
+  // The modules JSON a run sends, so diagnostics resolve the same imports.
+  let modules: { name?: string; content?: string; kind?: string; path?: string }[] | undefined;
+  try { modules = modulesJson ? JSON.parse(modulesJson) : undefined; } catch { modules = undefined; }
   const resp = await server.run(
     {
       op: 'tooling',
       kind,
+      modules,
       offset,
       payload,
       vars,

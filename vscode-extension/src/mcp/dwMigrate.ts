@@ -10,6 +10,21 @@
  */
 export interface MigrationChange { label: string; count: number; kind: 'ok' | 'warn' }
 
+/** Mule 4's HTTP listener attribute for each Mule 3 `http.*` inbound property. */
+const INBOUND_HTTP: Record<string, string> = {
+  'http.method': 'attributes.method',
+  'http.query.params': 'attributes.queryParams',
+  'http.uri.params': 'attributes.uriParams',
+  'http.query.string': 'attributes.queryString',
+  'http.request.path': 'attributes.requestPath',
+  'http.request.uri': 'attributes.requestUri',
+  'http.remote.address': 'attributes.remoteAddress',
+  'http.version': 'attributes.version',
+  'http.scheme': 'attributes.scheme',
+  'http.listener.path': 'attributes.listenerPath',
+  'http.relative.path': 'attributes.relativePath',
+};
+
 export function migrateDW1to2(src: string): { output: string; warnings: string[]; changes: MigrationChange[] } {
   const lines = src.split('\n');
   const out: string[] = [];
@@ -48,9 +63,15 @@ export function migrateDW1to2(src: string): { output: string; warnings: string[]
     // flowVars → vars
     line = line.replace(/\bflowVars\b/g, () => { bump('mule'); return 'vars'; });
 
-    // inboundProperties."http.method" → attributes.method (common case)
-    line = line.replace(/\binboundProperties\["http\.method"\]/g, () => { bump('mule'); return 'attributes.method'; });
-    line = line.replace(/\binboundProperties\.'http\.method'/g, () => { bump('mule'); return 'attributes.method'; });
+    // Mule 3 HTTP inbound properties -> the Mule 4 HTTP listener attributes, in
+    // every spelling: ["http.x"], ['http.x'], ."http.x", .'http.x' (MuleSoft's
+    // converter writes the third). An unknown http.* key falls to the headers rule.
+    line = line.replace(/\binboundProperties(?:\[\s*["']|\.["'])(http\.[a-z.]+)["'](?:\s*\])?/g, (whole, key: string) => {
+      const attr = INBOUND_HTTP[key];
+      if (!attr) return whole;
+      bump('mule');
+      return attr;
+    });
     // inboundProperties."header-name" → attributes.headers."header-name"
     line = line.replace(/\binboundProperties\b/g, () => { bump('mule'); return 'attributes.headers'; });
 

@@ -32,6 +32,7 @@ interface ScriptEditorProps {
     configYaml?: string;
     secureConfigYaml?: string;
     errorJson?: string;
+    modulesJson?: string;
   };
   /** Target runtime for completion + diagnostics, e.g. "2.4". Empty = latest. */
   languageLevel?: string;
@@ -80,7 +81,7 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
     | null
   >(null);
 
-  const handleMigrate = () => {
+  const handleMigrate = async () => {
     if (!code.trim()) {
       setMigrateResult({ kind: 'error', message: 'Script is empty.' });
       return;
@@ -92,14 +93,36 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
       });
       return;
     }
+    // MuleSoft's own converter rewrites the language (directives, when/otherwise,
+    // :type coercions, operator calls, namespaces, flowVars). The line rules then
+    // handle the Mule 3 runtime leftovers it keeps (inboundProperties, p(), ...)
+    // and add the warnings. If it can't parse the script, the line rules do the
+    // whole job and the dialog says so.
+    let converted: string | null = null;
+    let converterError = '';
     try {
-      const result = migrateDW1to2(code);
+      converted = (await invoke<string>('dw_migrate', { script: code }))
+        .split('\n').map((l) => l.replace(/\s+$/, '')).join('\n');
+    } catch (e) {
+      converterError = String(e).split('\n')[0];
+    }
+    try {
+      const result = migrateDW1to2(converted ?? code);
+      const changes: MigrationChange[] = [];
+      if (converted !== null) {
+        const before = new Set(code.split('\n').map((l) => l.trim()));
+        const rewritten = converted.split('\n').filter((l) => l.trim() && !before.has(l.trim())).length;
+        changes.push({ label: 'Converted by MuleSoft’s DataWeave 1 → 2 converter', count: rewritten, kind: 'ok' });
+      } else {
+        changes.push({ label: 'MuleSoft’s converter couldn’t parse this, so lines were converted one by one. Check the result', count: 1, kind: 'warn' });
+      }
+      changes.push(...result.changes);
       setMigrateResult({
         kind: 'ok',
         before: code,
         output: result.output,
-        changes: result.changes,
-        warnings: result.warnings,
+        changes,
+        warnings: converterError ? [`MuleSoft’s converter: ${converterError}`, ...result.warnings] : result.warnings,
       });
     } catch (e) {
       setMigrateResult({ kind: 'error', message: String(e) });
@@ -235,12 +258,16 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
       varsJson: contextData?.varsJson || '',
       attributesJson: contextData?.attributesJson || '',
       errorJson: contextData?.errorJson || '',
+      modulesJson: contextData?.modulesJson,
     };
   }, [payload, payloadMimeType, contextData, languageLevel]);
 
   // The target runtime changes what counts as an error, but no text changed, so
   // nothing would re-check on its own.
   useEffect(() => { diagnosticsRef.current?.refresh(); }, [languageLevel]);
+  // Same for the modules: a library edit, or a script from another project,
+  // changes which imports resolve.
+  useEffect(() => { diagnosticsRef.current?.refresh(); }, [contextData?.modulesJson]);
 
   // Define theme + register language BEFORE the editor mounts (no race condition)
   const handleBeforeMount: BeforeMount = useCallback((monacoInstance) => {
@@ -434,7 +461,7 @@ export const ScriptEditor = memo(forwardRef<ScriptEditorHandle, ScriptEditorProp
       // Non-JSON payloads can't be turned into a type, and passing one anyway
       // makes the checker report the whole script against an unknown input.
       return /json/i.test(ctx.payloadMimeType || '') ? ctx.payload || '' : '';
-    }, () => contextRef.current.languageLevel || '');
+    }, () => contextRef.current.languageLevel || '', () => contextRef.current.modulesJson);
   };
 
   const editorTheme = isDark ? DATAWEAVE_THEME_NAME : DATAWEAVE_LIGHT_THEME_NAME;

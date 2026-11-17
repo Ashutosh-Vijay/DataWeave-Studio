@@ -455,6 +455,7 @@ async function handleInvoke(
         args.vars ? String(args.vars) : undefined,
         args.attributes ? String(args.attributes) : undefined,
         args.error ? String(args.error) : undefined,
+        args.modulesJson ? String(args.modulesJson) : undefined,
       );
     // The debugger drives the same engine over the same stdio channel as a run;
     // there is no separate protocol. Without this the Debug button in the
@@ -470,6 +471,9 @@ async function handleInvoke(
       // getServer, not `server` — the latter is null until something has
       // started the engine, and formatting can be the first thing you do.
       return formatDataweave(await getServer(extensionRoot), String(args.script ?? ''));
+    case 'dw_migrate':
+      // DataWeave 1.0 -> 2.0 with MuleSoft's converter, same engine op as desktop.
+      return formatDataweave(await getServer(extensionRoot), String(args.script ?? ''), 'migrate');
     case 'restart_engine': {
       const srv = await getServer(extensionRoot);
       await srv.restart();

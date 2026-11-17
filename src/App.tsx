@@ -718,7 +718,7 @@ function App() {
     { id: 'configcrypto', group: 'Mule configuration', label: 'Config encryption', desc: 'Encrypt or decrypt every value in a YAML or .properties config at once.', icon: <Icons.Key size={16} />, run: () => setConfigCryptoOpen(true) },
     { id: 'flow', group: 'Build and connect', label: 'Message Flow designer', desc: 'Chain transforms into a flow, with mock HTTP, Salesforce and database steps.', icon: <Icons.Flow size={16} />, run: () => { introFeature('flow'); setFlowDesignerOpen(true); } },
     { id: 'java', group: 'Build and connect', label: 'Java tester', desc: 'Compile Java classes and call them from DataWeave.', icon: <Icons.Coffee size={16} />, run: () => { introFeature('java'); setJavaTesterOpen(true); } },
-    { id: 'modules', group: 'Build and connect', label: 'Module library', desc: 'Save reusable .dwl modules and import them in any script.', icon: <Icons.Package size={16} />, run: () => { introFeature('modules'); setModulesOpen(true); } },
+    { id: 'modules', group: 'Build and connect', label: 'Module library', desc: 'Save reusable modules and JSON or XML schemas, and import them in any script.', icon: <Icons.Package size={16} />, run: () => { introFeature('modules'); setModulesOpen(true); } },
     { id: 'mcp', group: 'Build and connect', label: 'Local Server', desc: 'Let AI assistants and your own scripts run DataWeave on this machine.', icon: (
       <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 2v4" /><path d="M5.5 5.5 8 8" /><path d="M18.5 5.5 16 8" /><rect x="6" y="8" width="12" height="8" rx="3" /><path d="M9 16v3a3 3 0 0 0 6 0v-3" />
@@ -924,7 +924,18 @@ function App() {
     () => workspace.namedInputs.map((ni) => ({ ...ni, content: stripInputComments(ni.content, ni.mimeType) })),
     [workspace.namedInputs],
   );
+  // The Module library, plus, for a script linked to a file in a Mule project,
+  // that project's src/main/resources (the engine finds it from the path), so
+  // its own `modules::X` imports and `jsonschema!` / `xmlschema!` types resolve
+  // as they do in Mule. Runs and the editor's diagnostics both use this.
+  const runModulesJson = useMemo(() => {
+    const all = workspace.request.filePath
+      ? [...modules, { name: '', content: '', kind: 'project' as const, path: workspace.request.filePath }]
+      : modules;
+    return all.length > 0 ? JSON.stringify(all) : undefined;
+  }, [modules, workspace.request.filePath]);
   const contextDataMemo = useMemo(() => ({
+    modulesJson: runModulesJson,
     // What a run binds, so the editor's hover and completion know their types.
     varsJson: buildVarsJson(workspace.context.vars),
     attributesJson: buildAttributesJson(
@@ -941,7 +952,7 @@ function App() {
     workspace.context.vars, workspace.context.headers, workspace.context.queryParams,
     workspace.context.method, workspace.context.uriParams,
     engineNamedInputs, workspace.context.configYaml, workspace.context.secureConfigYaml,
-    workspace.context.errorJson,
+    workspace.context.errorJson, runModulesJson,
   ]);
   const autoRunTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleRunRef = useRef<() => void>(() => {});
@@ -1333,7 +1344,7 @@ function App() {
         ? JSON.stringify(workspace.multipartParts)
         : undefined;
 
-    const modulesJson = modules.length > 0 ? JSON.stringify(modules) : undefined;
+    const modulesJson = runModulesJson;
 
     // As in a Mule set-variable, ${key} (and p('key') in an expression) resolve
     // in a variable's value too.
@@ -1369,7 +1380,7 @@ function App() {
     }
 
     return { resolvedScript, resolvedPayload, attributesJson, varsJson, namedInputsJson, multipartPartsJson, modulesJson };
-  }, [workspace.script, enginePayload, workspace.payloadMimeType, workspace.context, engineNamedInputs, workspace.payloadFilePath, workspace.multipartParts, workspace.classpath, modules, encryptionKey]);
+  }, [workspace.script, enginePayload, workspace.payloadMimeType, workspace.context, engineNamedInputs, workspace.payloadFilePath, workspace.multipartParts, workspace.classpath, runModulesJson, encryptionKey]);
 
   // The exact inputs behind the visible output, kept by reference: state is
   // immutable, so `!==` on each one says "changed since this run" for free,

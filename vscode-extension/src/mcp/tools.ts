@@ -440,14 +440,23 @@ export function registerTools(
     {
       title: 'Migrate DataWeave 1.0 → 2.0',
       description:
-        'Best-effort migrate a DataWeave 1.0 script to 2.0 syntax (header, %output/%var/%function/%input ' +
-        'directives, flowVars→vars, inboundProperties→attributes, :string→String, etc.). Returns the migrated ' +
-        'script with `// ⚠` comments flagging constructs that need manual work. HEURISTIC: ALWAYS run the result ' +
-        'through validate_and_run_dataweave before presenting it.',
+        "Migrate a DataWeave 1.0 script (Mule 3) to 2.0. The language is converted by MuleSoft's own DW 1 -> 2 " +
+        'converter (directives, when/otherwise, :type coercions, operator calls, namespaces, flowVars). Mule 3 ' +
+        'runtime leftovers (inboundProperties, outboundProperties, sessionVars, lookup, p()) are then rewritten or ' +
+        'flagged with `// ⚠` comments. If the converter cannot parse the script, a line-by-line fallback is used ' +
+        'and the result says so. ALWAYS run the result through validate_and_run_dataweave before presenting it.',
       inputSchema: { script: z.string().describe('A DataWeave 1.0 script to migrate to 2.0 syntax.') },
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
-    async (a) => ok(migrateDW1to2(a.script).output),
+    async (a) => {
+      try {
+        return ok(migrateDW1to2(await formatDataweave(dw, a.script, 'migrate')).output);
+      } catch (e) {
+        const why = (e as Error).message.split('\n')[0];
+        return ok(`// ⚠ MuleSoft's converter could not parse this script (${why}). This is a line-by-line fallback; check it carefully.\n`
+          + migrateDW1to2(a.script).output);
+      }
+    },
   );
 
   // 4) format_dataweave ------------------------------------------------------

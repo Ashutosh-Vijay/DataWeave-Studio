@@ -19,7 +19,7 @@ let globalSetupDone = false;
 interface MiniEditorProps {
   value: string;
   onChange: (value: string) => void;
-  language?: 'dataweave' | 'json' | 'sql' | 'plaintext' | 'java';
+  language?: 'dataweave' | 'json' | 'sql' | 'plaintext' | 'java' | 'xml';
   height?: number | string;
   readOnly?: boolean;
   placeholder?: string;

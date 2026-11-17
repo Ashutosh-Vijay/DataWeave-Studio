@@ -67,4 +67,11 @@ describe('migrateDW1to2 (DataWeave 1.0 -> 2.0)', () => {
     expect(changes).toHaveLength(0);
     expect(warnings).toHaveLength(0);
   });
+
+  it('maps Mule 3 http inbound properties to Mule 4 attributes in every spelling', () => {
+    const src = `inboundProperties."http.method" ++ inboundProperties['http.query.params'].id ++ inboundProperties.'http.uri.params'.id ++ inboundProperties["http.request.path"] ++ inboundProperties."user-agent"`;
+    expect(migrateDW1to2(src).output).toBe(
+      'attributes.method ++ attributes.queryParams.id ++ attributes.uriParams.id ++ attributes.requestPath ++ attributes.headers."user-agent"',
+    );
+  });
 });

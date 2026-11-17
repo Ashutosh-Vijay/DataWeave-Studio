@@ -889,6 +889,7 @@ impl DwTools {
             "",
             "",
             "",
+            "",
         )
         .map_err(|e| rmcp::ErrorData::internal_error(e, None))?;
 
@@ -1053,11 +1054,11 @@ impl DwTools {
         let payload = input.payload.unwrap_or_default();
         let mime = input.payload_mime_type.unwrap_or_else(default_mime);
         let vars = crate::dw_server::tooling(
-            &self.app, "visibleVariables", &input.script, offset, &payload, &[], "", "", &mime, 1, "", "", "",
+            &self.app, "visibleVariables", &input.script, offset, &payload, &[], "", "", &mime, 1, "", "", "", "",
         )
         .map_err(|e| rmcp::ErrorData::internal_error(e, None))?;
         let funs = crate::dw_server::tooling(
-            &self.app, "availableFunctions", &input.script, offset, &payload, &[], "", "", &mime, 1, "", "", "",
+            &self.app, "availableFunctions", &input.script, offset, &payload, &[], "", "", &mime, 1, "", "", "", "",
         )
         .map_err(|e| rmcp::ErrorData::internal_error(e, None))?;
 
@@ -1130,14 +1131,21 @@ impl DwTools {
     }
 
     #[tool(
-        description = "Best-effort migrate a DataWeave 1.0 script to 2.0 syntax (header, %output/%var/%function/%input directives, flowVars→vars, inboundProperties→attributes, :string→String, etc.). Returns the migrated script with `// ⚠` comments flagging constructs that need manual work (%namespace, outboundProperties, lookup, p()). This is HEURISTIC: ALWAYS run the result through validate_and_run_dataweave before presenting it."
+        description = "Migrate a DataWeave 1.0 script (Mule 3) to 2.0. The language is converted by MuleSoft's own DW 1 -> 2 converter (directives, when/otherwise, :type coercions, operator calls, namespaces, flowVars). Mule 3 runtime leftovers (inboundProperties, outboundProperties, sessionVars, lookup, p()) are then rewritten or flagged with `// ⚠` comments. If the converter cannot parse the script, a line-by-line fallback is used and the result says so. ALWAYS run the result through validate_and_run_dataweave before presenting it."
     )]
     async fn migrate_dw_1_to_2(
         &self,
         Parameters(input): Parameters<MigrateInput>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
         self.requests.fetch_add(1, Ordering::Relaxed);
-        let out = crate::dw_migrate::migrate_dw1_to_2(&input.script);
+        let out = match crate::dw_server::migrate(&self.app, &input.script) {
+            Ok(converted) => crate::dw_migrate::migrate_dw1_to_2(&converted),
+            Err(e) => format!(
+                "// ⚠ MuleSoft's converter could not parse this script ({}). This is a line-by-line fallback; check it carefully.\n{}",
+                e.lines().next().unwrap_or(""),
+                crate::dw_migrate::migrate_dw1_to_2(&input.script)
+            ),
+        };
         Ok(CallToolResult::success(vec![Content::text(out)]))
     }
 

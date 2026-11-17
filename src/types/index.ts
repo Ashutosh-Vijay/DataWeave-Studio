@@ -170,7 +170,9 @@ export type MimeType =
   | 'application/xlsx'
   | 'application/avro'
   | 'application/protobuf'
-  | 'application/flatfile';
+  | 'application/flatfile'
+  | 'text/event-stream'
+  | 'application/dwb';
 
 const VALID_MIMES = new Set<string>([
   'application/json', 'application/xml', 'application/csv', 'text/plain',
@@ -178,7 +180,7 @@ const VALID_MIMES = new Set<string>([
   'application/dw', 'application/octet-stream', 'application/yaml',
   'application/x-ndjson', 'text/x-java-properties',
   'application/xlsx', 'application/avro', 'application/protobuf',
-  'application/flatfile',
+  'application/flatfile', 'text/event-stream', 'application/dwb',
 ]);
 
 export function isValidMimeType(v: string): v is MimeType {
@@ -201,6 +203,8 @@ export const MIME_OPTIONS: { label: string; value: MimeType }[] = [
   { label: 'Avro', value: 'application/avro' },
   { label: 'Protobuf', value: 'application/protobuf' },
   { label: 'Flat File', value: 'application/flatfile' },
+  { label: 'Event Stream (SSE)', value: 'text/event-stream' },
+  { label: 'DataWeave Binary (dwb)', value: 'application/dwb' },
   { label: 'Binary', value: 'application/octet-stream' },
 ];
 

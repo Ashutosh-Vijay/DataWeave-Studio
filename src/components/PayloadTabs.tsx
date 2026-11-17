@@ -22,6 +22,7 @@ const BINARY_PAYLOAD_FORMATS = new Set<string>([
   'application/xlsx',
   'application/avro',
   'application/protobuf',
+  'application/dwb',
 ]);
 
 function isBinaryPayloadFormat(mime: string): boolean {
@@ -32,6 +33,7 @@ function binaryFormatHint(mime: string): string {
   switch (mime) {
     case 'application/xlsx':     return 'Excel workbook: pick an .xlsx file. DataWeave reads it via the excel-module.';
     case 'application/avro':     return 'Avro file: pick an .avro file. The schema is read from the file header.';
+    case 'application/dwb':      return 'DataWeave binary: pick a .dwb file, as written by `output application/dwb`.';
     case 'application/protobuf': return 'Protobuf binary: pick a .proto / .pb file. You\'ll typically pair this with a vars-supplied schema.';
     case 'application/octet-stream':
     default:                     return 'Binary payload: select a file to pass to the script.';
@@ -56,6 +58,8 @@ function mimeFromExtension(filename: string): MimeType | null {
     xlsx:  'application/xlsx',
     xls:   'application/xlsx',
     avro:  'application/avro',
+    dwb:   'application/dwb',
+    sse:   'text/event-stream',
     proto: 'application/protobuf',
     pb:    'application/protobuf',
     cpy:   'application/flatfile', // COBOL copybook
@@ -91,6 +95,8 @@ function contentTypeFromFilename(filename: string): string {
     xlsx: 'application/xlsx',
     xls: 'application/xlsx',
     avro: 'application/avro',
+    dwb: 'application/dwb',
+    sse: 'text/event-stream',
     proto: 'application/protobuf',
     pb: 'application/protobuf',
     cpy: 'application/flatfile',

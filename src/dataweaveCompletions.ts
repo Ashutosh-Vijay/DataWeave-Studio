@@ -21,6 +21,9 @@ export interface DWCompletionContext {
   attributesJson?: string;
   /** The Error tab's Mule `error` object, typed for `error.` completion. */
   errorJson?: string;
+  /** The modules JSON a run sends (library + the script's Mule project), so
+   *  diagnostics resolve the same imports a run does. */
+  modulesJson?: string;
 }
 
 interface DWCompletion {
@@ -55,6 +58,8 @@ const COMPLETIONS: DWCompletion[] = [
   { label: 'application/avro', kind: 'constant', detail: 'Avro MIME type' },
   { label: 'application/protobuf', kind: 'constant', detail: 'Protobuf MIME type' },
   { label: 'application/flatfile', kind: 'constant', detail: 'Flat file / COBOL copybook / fixed-width MIME type' },
+  { label: 'text/event-stream', kind: 'constant', detail: 'Server-sent events (SSE) MIME type' },
+  { label: 'application/dwb', kind: 'constant', detail: 'DataWeave binary MIME type' },
   { label: 'application/octet-stream', kind: 'constant', detail: 'Binary MIME type' },
 
   // === Context variables ===

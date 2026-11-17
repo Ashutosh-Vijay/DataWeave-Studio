@@ -143,6 +143,13 @@ object DwServer {
         return successResponse(id, formatScript(rawScript), started)
       }
 
+      // op=migrate: rewrite a DataWeave 1.0 script (Mule 3) as 2.0 with
+      // MuleSoft's own converter. A DW 1.0 syntax error comes back as the
+      // ordinary error response.
+      if (req.getString("op", "run") == "migrate") {
+        return successResponse(id, org.mule.weave.v2.V2LangMigrant.migrateToV2(rawScript), started)
+      }
+
       // op=debug: everything except `start`. These only read or poke session
       // state, so they answer immediately — which is the whole point of running
       // the script on a worker thread.
@@ -564,16 +571,63 @@ object DwServer {
   private var toolingVfsRef: SimpleVirtualFileSystem = _
   private var toolingServiceRef: WeaveToolingService = _
 
-  private def toolingService(): (SimpleVirtualFileSystem, WeaveToolingService) = synchronized {
-    if (toolingServiceRef == null) {
-      toolingVfsRef = SimpleVirtualFileSystem(scala.collection.immutable.Map("/main.dwl" -> ""))
-      toolingServiceRef = new WeaveToolingService(
-        toolingVfsRef,
+  /** The tooling service for a request. One carrying modules (the library,
+   *  the script's Mule project) gets a service over that module set's own
+   *  classloader, so diagnostics resolve the same imports a run does. It is
+   *  built once per set, like the set's run engine. */
+  private def toolingService(req: JsonObject): (SimpleVirtualFileSystem, WeaveToolingService) = synchronized {
+    moduleSetFor(req) match {
+      case Some((_, set)) =>
+        if (set.tooling == null) {
+          set.tooling = buildToolingService(ClassLoaderWeaveResourceResolver.providedClassLoader(Seq(set.loader, hotLoader)))
+        }
+        set.tooling
+      case None =>
+        if (toolingServiceRef == null) {
+          val (v, s) = buildToolingService(ClassLoaderWeaveResourceResolver.apply())
+          toolingVfsRef = v
+          toolingServiceRef = s
+        }
+        (toolingVfsRef, toolingServiceRef)
+    }
+  }
+
+  /** ModuleLoader implementations registered in META-INF/services (the schema
+   *  loaders). Classes, not instances: each tooling service gets fresh ones. */
+  private lazy val serviceModuleLoaderClasses: Seq[Class[_ <: org.mule.weave.v2.parser.phase.ModuleLoader]] = {
+    import scala.collection.JavaConverters._
+    // The binary loader is left out: it serves the stdlib's precompiled
+    // .bdwl files, and the tooling service already resolves the stdlib.
+    java.util.ServiceLoader.load(classOf[org.mule.weave.v2.parser.phase.ModuleLoader], hotLoader)
+      .iterator().asScala.map(_.getClass)
+      .filterNot(_.getName.endsWith("WeaveBinaryResourceModuleLoader")).toSeq
+  }
+
+  private def buildToolingService(resolver: org.mule.weave.v2.sdk.WeaveResourceResolver): (SimpleVirtualFileSystem, WeaveToolingService) = {
+      val vfs = SimpleVirtualFileSystem(scala.collection.immutable.Map("/main.dwl" -> ""))
+      val service = new WeaveToolingService(
+        vfs,
         DataFormatDescriptorProvider(Array.empty[DataFormatDescriptor]),
         // Same classpath resolver the runtime engine uses. Without it dw::Core
         // is out of scope: completion drops from 97 suggestions to 2, and field
         // selection returns nothing at all.
-        Array(SpecificModuleResourceResolver("dw", ClassLoaderWeaveResourceResolver.apply())),
+        // Plus every ModuleLoader registered as a service (jsonschema!,
+        // xmlschema!, ...), which the run engine picks up on its own but the
+        // tooling service only gets when handed them; each reads through the
+        // same resolver, so a project's schemas are found here too.
+        Array[org.mule.weave.v2.editor.ModuleLoaderFactory](SpecificModuleResourceResolver("dw", resolver)) ++
+          serviceModuleLoaderClasses.map { cls =>
+            new org.mule.weave.v2.editor.ModuleLoaderFactory {
+              override def createModuleLoader(): org.mule.weave.v2.parser.phase.ModuleLoader = {
+                val loader = cls.getDeclaredConstructor().newInstance()
+                loader match {
+                  case aware: org.mule.weave.v2.sdk.WeaveResourceResolverAware => aware.resolver(resolver)
+                  case _ =>
+                }
+                loader
+              }
+            }
+          },
       ) {
         /** Turn on the engine's cryptographic taint analysis.
          *
@@ -594,8 +648,7 @@ object DwServer {
           ctx
         }
       }
-    }
-    (toolingVfsRef, toolingServiceRef)
+      (vfs, service)
   }
 
   /** Sample JSON -> WeaveType, so completion/hover/typeOf know the payload's shape.
@@ -1024,7 +1077,7 @@ object DwServer {
       }
     }
 
-    val (vfs, service) = toolingService()
+    val (vfs, service) = toolingService(req)
     // Gate the editor on the same target the run path uses, so completion and
     // diagnostics agree with what a Run would actually accept. This no-ops when
     // the value is unchanged; a real change invalidates every cached editor and
@@ -1096,6 +1149,32 @@ object DwServer {
               d.parseDoc().smallDescription.foreach(sd => payload.add("summary", sd.trim))
             case None => payload.add("doc", Json.NULL)
           }
+
+        // Everything a module's reference page needs: its own doc, then each
+        // top-level declaration with the type the engine infers and its full
+        // doc comment (not the hover-trimmed one). Read from the parser, the
+        // same way moduleDoc and hover are, so AsciiDoc is converted for us.
+        case "moduleDocs" =>
+          doc.documentation() match {
+            case Some(d) => payload.add("doc", d.markdownDoc())
+            case None => payload.add("doc", Json.NULL)
+          }
+          val decls = new com.eclipsesource.json.JsonArray()
+          doc.documentSymbol().filter(_.containerName.forall(_.isEmpty)).foreach { sym =>
+            val o = new JsonObject()
+            o.add("name", sym.name)
+            o.add("kind", sym.kind)
+            val start = Option(sym.location).flatMap(l => Option(l.startPosition)).map(_.index).getOrElse(0)
+            val at = source.indexOf(sym.name, start)
+            if (at >= 0) doc.hoverResult(at + 1) match {
+              case Some(h) =>
+                o.add("type", h.resultType.toString)
+                h.markdownDocs.foreach(md => o.add("doc", md))
+              case None =>
+            }
+            decls.add(o)
+          }
+          payload.add("declarations", decls)
 
         case "hover" =>
           doc.hoverResult(offset) match {
@@ -1486,76 +1565,151 @@ object DwServer {
     f.delete()
   }
 
-  private val MAX_MODULE_ENGINES = 8
-  private val moduleEngines =
-    new java.util.LinkedHashMap[String, DataWeaveScriptingEngine](MAX_MODULE_ENGINES, 0.75f, true) {
-      override def removeEldestEntry(e: java.util.Map.Entry[String, DataWeaveScriptingEngine]): Boolean = {
-        val over = size() > MAX_MODULE_ENGINES
+  /** One distinct set of modules: its classloader, plus the run engine and the
+   *  tooling service built over it on first use. */
+  private final class ModuleSet(val loader: ClassLoader) {
+    var engine: DataWeaveScriptingEngine = _
+    var tooling: (SimpleVirtualFileSystem, WeaveToolingService) = _
+  }
+
+  private val MAX_MODULE_SETS = 8
+  private val moduleSets =
+    new java.util.LinkedHashMap[String, ModuleSet](MAX_MODULE_SETS, 0.75f, true) {
+      override def removeEldestEntry(e: java.util.Map.Entry[String, ModuleSet]): Boolean = {
+        val over = size() > MAX_MODULE_SETS
         if (over) deleteRecursively(new File(moduleBaseDir, e.getKey))
         over
       }
     }
 
-  /** The engine to compile a request with: a module-aware one if the request
-   *  carries `modules` (a JSON array of {name, content}, name may be nested with
-   *  `::`), else the shared engine. Also returns a compile-cache-key suffix. */
-  private def engineForRequest(req: JsonObject, shared: DataWeaveScriptingEngine): (DataWeaveScriptingEngine, String) = {
+  /** The engine to compile a request with, plus a compile-cache-key suffix:
+   *  the request's module set's own engine, or the shared one. */
+  private def engineForRequest(req: JsonObject, shared: DataWeaveScriptingEngine): (DataWeaveScriptingEngine, String) = synchronized {
+    moduleSetFor(req) match {
+      case None => (shared, "")
+      case Some((hash, set)) =>
+        if (set.engine == null) {
+          val resolver = ClassLoaderWeaveResourceResolver.providedClassLoader(Seq(set.loader, hotLoader))
+          set.engine = new DataWeaveScriptingEngine(ModuleComponentsFactory.apply(resolver), ParserConfiguration(), new Properties())
+        }
+        (set.engine, " // mods:" + hash)
+    }
+  }
+
+  /** The module set a request carries, if any.
+   *
+   *  `modules` is a JSON array. Each entry has a `kind`:
+   *    - "dwl" (the default): {name, content}, a DataWeave module from the
+   *      Module library. `name` is the import path, `::` separated.
+   *    - "json" / "xsd": {name, content}, a schema from the library, imported
+   *      with `jsonschema!name` / `xmlschema!name` (the top-level type is `Root`).
+   *    - "project": {path}, the file the script came from. If it sits in a Mule
+   *      project, that project's src/main/resources (and src/test/resources for
+   *      a test file) go on the classpath, so `import x from modules::Utils` and
+   *      `jsonschema!schemas::Order` resolve the way they do in Mule.
+   *  The set is keyed by the library content and, for project roots, every
+   *  module and schema file's path, size and modified time, so an edit on disk
+   *  gets a fresh classloader. (A long-lived one keeps serving the old body.) */
+  private def moduleSetFor(req: JsonObject): Option[(String, ModuleSet)] = synchronized {
     val mods = req.get("modules")
-    if (mods == null || !mods.isArray || mods.asArray().size() == 0) return (shared, "")
+    if (mods == null || !mods.isArray || mods.asArray().size() == 0) return None
     val arr = mods.asArray()
-    val sb = new StringBuilder
+
+    // name -> (extension, content) for the files to write; project resource roots.
+    val files = scala.collection.mutable.LinkedHashMap[String, (String, String)]()
+    val roots = scala.collection.mutable.ArrayBuffer[File]()
     var i = 0
     while (i < arr.size()) {
       val m = arr.get(i).asObject()
-      val name = m.getString("name", null)
-      if (name != null && name.nonEmpty) sb.append(name).append(':').append(m.getString("content", "")).append(';')
+      m.getString("kind", "dwl") match {
+        case "project" =>
+          val p = m.getString("path", "")
+          if (p != null && p.nonEmpty) for (r <- muleResourceRoots(new File(p)) if !roots.contains(r)) roots += r
+        case kind =>
+          val name = m.getString("name", null)
+          val ext = kind match { case "json" => "json"; case "xsd" => "xsd"; case _ => "dwl" }
+          if (name != null && name.nonEmpty) files(name) = (ext, m.getString("content", ""))
+      }
       i += 1
     }
-    if (sb.isEmpty) return (shared, "")
+    if (files.isEmpty && roots.isEmpty) return None
+
+    val sb = new StringBuilder
+    for ((name, (ext, content)) <- files) sb.append(name).append('.').append(ext).append(':').append(content).append(';')
+    for (r <- roots) sb.append("root:").append(resourceFingerprint(r)).append(';')
     val hash = Integer.toHexString(sb.toString.hashCode)
-    val engine = Option(moduleEngines.get(hash)).getOrElse {
-      val dir = new File(moduleBaseDir, hash)
-      // Collect explicit names so a forgiving alias never clobbers a module the
-      // user namespaced on purpose.
-      val explicit = scala.collection.mutable.HashSet[String]()
-      var k = 0
-      while (k < arr.size()) {
-        val nm = arr.get(k).asObject().getString("name", null)
-        if (nm != null && nm.nonEmpty) explicit += nm
-        k += 1
+
+    val existing = moduleSets.get(hash)
+    if (existing != null) return Some((hash, existing))
+
+    val dir = new File(moduleBaseDir, hash)
+    def write(path: String, ext: String, content: String): Unit = {
+      val f = new File(dir, path.replace("::", "/") + "." + ext)
+      Option(f.getParentFile).foreach(_.mkdirs())
+      Files.write(f.toPath, content.getBytes(StandardCharsets.UTF_8))
+    }
+    for ((name, (ext, content)) <- files) {
+      write(name, ext, content)
+      // Forgiving resolution for library modules: a bare name is ALSO
+      // importable as `modules::Name` / `module::Name` (the MuleSoft
+      // convention), unless that name is used explicitly.
+      if (ext == "dwl" && !name.contains("::")) {
+        for (pfx <- Seq("modules", "module")) {
+          val alias = pfx + "::" + name
+          if (!files.contains(alias)) write(alias, ext, content)
+        }
       }
-      def writeModule(path: String, content: String): Unit = {
-        val f = new File(dir, path.replace("::", "/") + ".dwl")
-        Option(f.getParentFile).foreach(_.mkdirs())
-        Files.write(f.toPath, content.getBytes(StandardCharsets.UTF_8))
+    }
+    // Project resources first: the project's own module wins over a library
+    // alias with the same import path, as it would in Mule.
+    val urls = roots.map(_.toURI.toURL).toArray ++ (if (files.nonEmpty) Array(dir.toURI.toURL) else Array.empty[URL])
+    val set = new ModuleSet(new URLClassLoader(urls, hotLoader))
+    moduleSets.put(hash, set)
+    Some((hash, set))
+  }
+
+  /** The resource folders Mule would put on the classpath for a file: walk up
+   *  to the project (a folder with src/main/resources and a pom.xml or
+   *  mule-artifact.json). A file under src/test also gets src/test/resources,
+   *  ahead of main, as MUnit does. */
+  private def muleResourceRoots(file: File): Seq[File] = {
+    var d = file.getAbsoluteFile.getParentFile
+    var depth = 0
+    while (d != null && depth < 15) {
+      val main = new File(d, "src/main/resources")
+      if (main.isDirectory && (new File(d, "pom.xml").isFile || new File(d, "mule-artifact.json").isFile)) {
+        val test = new File(d, "src/test/resources")
+        val inTest = file.getAbsolutePath.replace('\\', '/').contains("/src/test/")
+        return if (inTest && test.isDirectory) Seq(test, main) else Seq(main)
       }
-      var j = 0
-      while (j < arr.size()) {
-        val m = arr.get(j).asObject()
-        val name = m.getString("name", null)
-        if (name != null && name.nonEmpty) {
-          val content = m.getString("content", "")
-          writeModule(name, content)
-          // Forgiving resolution: a bare-named module (no `::`) is ALSO importable
-          // under the common MuleSoft conventions `modules::Name` / `module::Name`,
-          // so a user who follows the standard `import x from modules::MyModule`
-          // doesn't have to rename. Skipped if such a name is used explicitly.
-          if (!name.contains("::")) {
-            for (pfx <- Seq("modules", "module")) {
-              val alias = pfx + "::" + name
-              if (!explicit.contains(alias)) writeModule(alias, content)
-            }
+      d = d.getParentFile
+      depth += 1
+    }
+    Seq.empty
+  }
+
+  /** Path, size and modified time of every module and schema file under a
+   *  resource root. Capped, and only these extensions, so a large resources
+   *  folder (sample data, certificates) costs little. */
+  private def resourceFingerprint(root: File): String = {
+    val sb = new StringBuilder(root.getAbsolutePath)
+    var count = 0
+    def walk(d: File): Unit = {
+      val kids = d.listFiles()
+      if (kids == null) return
+      for (k <- kids.sortBy(_.getName) if count < 5000) {
+        if (k.isDirectory) walk(k)
+        else {
+          val n = k.getName.toLowerCase
+          if (n.endsWith(".dwl") || n.endsWith(".json") || n.endsWith(".xsd") || n.endsWith(".avsc")) {
+            sb.append('|').append(k.getPath).append(',').append(k.length()).append(',').append(k.lastModified())
+            count += 1
           }
         }
-        j += 1
       }
-      val cl = new URLClassLoader(Array(dir.toURI.toURL), hotLoader)
-      val resolver = ClassLoaderWeaveResourceResolver.providedClassLoader(Seq(cl, hotLoader))
-      val e = new DataWeaveScriptingEngine(ModuleComponentsFactory.apply(resolver), ParserConfiguration(), new Properties())
-      moduleEngines.put(hash, e)
-      e
     }
-    (engine, " // mods:" + hash)
+    walk(root)
+    sb.toString
   }
 
   private def makeServiceManager(logger: LoggingService = NullLogger, sandbox: Boolean = false): ServiceManager = {

@@ -116,8 +116,16 @@ struct DwRequest<'a> {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DwModule {
+    #[serde(default)]
     pub name: String,
+    #[serde(default)]
     pub content: String,
+    /// "dwl" (default), "json" / "xsd" for a schema, or "project" with `path`
+    /// set to the script's file, so the engine adds its Mule project's resources.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -601,9 +609,19 @@ fn run_once(app: &AppHandle, args: &DwRunArgs) -> Result<DwResponse, RunErr> {
 /// Format (pretty-print) a DataWeave script via the engine's IDE formatter
 /// (`op=format`). Shares the live server connection; returns the formatted source.
 pub fn format(app: &AppHandle, script: &str) -> Result<String, String> {
+    text_op(app, "format", script)
+}
+
+/// Convert a DataWeave 1.0 script to 2.0 with MuleSoft's converter (`op=migrate`).
+pub fn migrate(app: &AppHandle, script: &str) -> Result<String, String> {
+    text_op(app, "migrate", script)
+}
+
+/// An op that takes a script and returns text without running anything.
+fn text_op(app: &AppHandle, op: &str, script: &str) -> Result<String, String> {
     let state = app.state::<DwServerState>();
     let id = state.next_id.fetch_add(1, Ordering::Relaxed);
-    let req = serde_json::json!({ "id": id, "op": "format", "script": script }).to_string();
+    let req = serde_json::json!({ "id": id, "op": op, "script": script }).to_string();
 
     let mut guard = state.inner.lock().unwrap_or_else(|e| e.into_inner());
     let inner = guard
@@ -627,7 +645,7 @@ pub fn format(app: &AppHandle, script: &str) -> Result<String, String> {
     if v.get("ok").and_then(|b| b.as_bool()).unwrap_or(false) {
         Ok(v.get("output").and_then(|s| s.as_str()).unwrap_or("").to_string())
     } else {
-        Err(v.get("error").and_then(|s| s.as_str()).unwrap_or("format failed").to_string())
+        Err(v.get("error").and_then(|s| s.as_str()).unwrap_or("request failed").to_string())
     }
 }
 
@@ -762,11 +780,14 @@ pub fn tooling(
     vars: &str,
     attributes: &str,
     error: &str,
+    // The modules JSON a run sends, so diagnostics resolve the same imports.
+    modules_json: &str,
 ) -> Result<serde_json::Value, String> {
     let state = app.state::<DwServerState>();
     let id = state.next_id.fetch_add(1, Ordering::Relaxed);
+    let modules: serde_json::Value = serde_json::from_str(modules_json).unwrap_or(serde_json::Value::Null);
     let req = serde_json::json!({
-        "id": id, "op": "tooling", "kind": kind,
+        "id": id, "op": "tooling", "kind": kind, "modules": modules,
         "script": script, "offset": offset, "payload": payload,
         "classpath": classpath, "newName": new_name,
         "languageLevel": language_level,

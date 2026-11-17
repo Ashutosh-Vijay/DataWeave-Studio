@@ -13,6 +13,7 @@ export const OUTPUT_FORMATS: { mime: string; label: string }[] = [
   { mime: 'text/plain', label: 'Text' },
   { mime: 'application/dw', label: 'DataWeave' },
   { mime: 'application/x-ndjson', label: 'NDJSON' },
+  { mime: 'text/event-stream', label: 'Event stream' },
   { mime: 'application/xlsx', label: 'Excel' },
   { mime: 'multipart/form-data', label: 'Multipart' },
   { mime: 'application/x-www-form-urlencoded', label: 'URL-encoded' },

@@ -109,7 +109,7 @@ Write a SOQL or SQL template with `:paramName` placeholders, run a script that p
 Postman-style collections. Each request in a `.dwstudio` workspace has its own script, payload, context, named inputs, tests and query template.
 
 **9. DW 1.0 to 2.0 migration**
-Rewrites legacy scripts in place, converting directives, `flowVars`, `inboundProperties` and type syntax, with a diff to review before you accept.
+Converts Mule 3 scripts with MuleSoft's own DataWeave 1 to 2 converter, then maps `inboundProperties` to Mule 4 attributes and flags what has no Mule 4 equivalent, with a diff to review before you accept.
 
 **10. Nothing to set up**
 JRE 17 and the DataWeave runtime ship inside the app. No Java install, no `JAVA_HOME`, no Maven, no `PATH` changes.
@@ -175,7 +175,7 @@ JRE 17 and the DataWeave runtime ship inside the app. No Java install, no `JAVA_
 - Configurable font, size, line height, tab size and word wrap
 
 ### Payload and inputs
-- **14+ formats**: JSON, XML, CSV, YAML, NDJSON, plain text, form-urlencoded, DataWeave, Java properties, Excel, Avro, Protocol Buffers, flat files (COBOL copybooks) and binary
+- **16+ formats**: JSON, XML, CSV, YAML, NDJSON, server-sent events (`text/event-stream`), plain text, form-urlencoded, DataWeave, DataWeave binary (`application/dwb`), Java properties, Excel, Avro, Protocol Buffers, flat files (COBOL copybooks) and binary
 - Load a file into the payload
 - **Comments in JSON**: `//` and `/* */` notes in a JSON payload or named input are left out when the script runs
 - **Named inputs** as extra tabs (for example `lookup`, `config` or `schema`), each with its own editor and format
@@ -271,6 +271,7 @@ The `%dw 2.4` header doesn't do this. The runtime only checks it against its own
 - **Edit a transform inside a Mule flow XML.** Pick a flow file, choose a Transform by flow and target, edit and run it, and Save writes it back into the same place in the file without touching anything else
 - **Open and save `.dwl` files in place**, so script changes show up in your project's git diff
 - **Folder browser** in the sidebar for a project's flow XML and `.dwl` files, with test files in their own group
+- **The project's own modules and schemas resolve**: a script opened from a Mule project sees its `src/main/resources`, so `import x from modules::Utils` and `import * from jsonschema!schemas::Order` work in runs and in the editor's error checking, as they do in Mule. Test files also see `src/test/resources`
 - Sample payloads and context stay in the workspace, so nothing extra is written into your project
 - If a file changed outside the app, Save asks before overwriting it
 
@@ -326,7 +327,9 @@ The `%dw 2.4` header doesn't do this. The runtime only checks it against its own
 - **Maven Central**: search by name or paste a `<dependency>` block, a whole `pom.xml` or a Gradle line; the jars a library needs come along, and a jar is downloaded once and shared by every project
 - Paste a class and the tester spots the libraries its `import`s need and offers to add them
 - Add your own JARs from disk too
-- **Module library**: write reusable `.dwl` modules and `import x from MyModule` across workspaces
+- **Module library**: write reusable `.dwl` modules and `import x from MyModule` across workspaces, or import them from files
+- **Schemas in the Module library**: JSON Schema and XSD files give you types with `import * from jsonschema!schemas::Order` (or `xmlschema!`). The top-level type is `Root`, and missing required fields fail when the script compiles
+- **Export docs**: one Markdown reference for every module, with descriptions, signatures and doc comments
 
 ### Workspaces
 - **`.dwstudio` files** holding the full project state
@@ -344,7 +347,7 @@ The `%dw 2.4` header doesn't do this. The runtime only checks it against its own
 All 361 DataWeave functions with signatures, descriptions and modules. Click one to insert it at the cursor.
 
 ### DW 1.0 to 2.0 migration
-Rewrites legacy scripts in place, converting `%dw 1.0` directives, `flowVars`, `inboundProperties` and type syntax. A side-by-side diff lets you review the changes before you accept.
+Converts legacy scripts with MuleSoft's own DataWeave 1 to 2 converter: directives, `when`/`otherwise`, `:type` coercions, operator calls, namespaces and `flowVars`. Mule 3 HTTP `inboundProperties` then become their Mule 4 attributes (`attributes.method`, `attributes.queryParams`, ...), and `outboundProperties`, `sessionVars`, `lookup` and `p()` are flagged. A side-by-side diff lets you review the changes before you accept.
 
 ### Execution engine
 - **A long-running Java server** instead of a CLI process per run, so a run takes ~10-50 ms once warm

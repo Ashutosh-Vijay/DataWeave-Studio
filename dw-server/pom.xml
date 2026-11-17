@@ -30,6 +30,29 @@
         </repository>
     </repositories>
 
+    <!-- migrant and the dw::test artifacts are built against older 2.13 parser
+         builds. Pin the engine's core pieces to ${weave.version} so the nearest
+         dependency can't swap in an older parser under the runtime. -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.mule.weave</groupId>
+                <artifactId>parser</artifactId>
+                <version>${weave.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mule.weave</groupId>
+                <artifactId>core</artifactId>
+                <version>${weave.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mule.weave</groupId>
+                <artifactId>wlang</artifactId>
+                <version>${weave.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>org.scala-lang</groupId>
@@ -90,6 +113,38 @@
             <groupId>org.mule.weave</groupId>
             <artifactId>flatfile-module</artifactId>
             <version>${weave.version}</version>
+        </dependency>
+        <!-- text/event-stream (server-sent events) and application/dwb (the
+             DataWeave binary format): both documented Mule formats. -->
+        <dependency>
+            <groupId>org.mule.weave</groupId>
+            <artifactId>event-stream-module</artifactId>
+            <version>${weave.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mule.weave</groupId>
+            <artifactId>dwb-module</artifactId>
+            <version>${weave.version}</version>
+        </dependency>
+        <!-- Type reuse from schemas, as Mule does it: `import * from
+             jsonschema!schemas::Order` / `xmlschema!schemas::Order` load the
+             schema from the classpath (a Mule project's src/main/resources). -->
+        <dependency>
+            <groupId>org.mule.weave</groupId>
+            <artifactId>jsonschema-module</artifactId>
+            <version>${weave.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mule.weave</groupId>
+            <artifactId>xmlschema-module</artifactId>
+            <version>${weave.version}</version>
+        </dependency>
+        <!-- DataWeave 1.0 -> 2.0 converter (V2LangMigrant.migrateToV2), for the
+             Mule 3 -> 4 migration tool. Released on its own schedule. -->
+        <dependency>
+            <groupId>org.mule.weave</groupId>
+            <artifactId>migrant</artifactId>
+            <version>2.13.0-20260702</version>
         </dependency>
 
         <!-- dw::test support. These carry their own date stamps rather than
@@ -216,6 +271,10 @@
                                 </transformer>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
+                            <!-- Formats written in DataWeave register in META-INF/dw-extensions.dwl,
+                                 and several modules ship one. The fat jar keeps only the first
+                                 copy, so src/main/resources carries a merged list (ours comes
+                                 first). Add a module's entry there when adding such a module. -->
                             <filters>
                                 <filter>
                                     <artifact>*:*</artifact>

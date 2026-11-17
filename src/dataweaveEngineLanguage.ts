@@ -78,7 +78,7 @@ interface EngineSuggestion {
  */
 let inFlight = false;
 /** vars, attributes and error as a run would bind them; set by registerEngineLanguageFeatures. */
-let implicitInputs: () => { vars: string; attributes: string; error: string } = () => ({ vars: '', attributes: '', error: '' });
+let implicitInputs: () => { vars: string; attributes: string; error: string; modulesJson: string | null } = () => ({ vars: '', attributes: '', error: '', modulesJson: null });
 
 async function ask<T>(
   kind: string,
@@ -232,7 +232,7 @@ export function registerEngineLanguageFeatures(
 ): Monaco.IDisposable {
   implicitInputs = () => {
     const ctx = getContext();
-    return { vars: ctx?.varsJson ?? '', attributes: ctx?.attributesJson ?? '', error: ctx?.errorJson ?? '' };
+    return { vars: ctx?.varsJson ?? '', attributes: ctx?.attributesJson ?? '', error: ctx?.errorJson ?? '', modulesJson: ctx?.modulesJson ?? null };
   };
   const payloadOf = () => {
     const ctx = getContext();
@@ -775,6 +775,9 @@ export function attachEngineDiagnostics(
   editor: Monaco.editor.IStandaloneCodeEditor,
   getPayload: () => string,
   getLevel: () => string,
+  // This editor's modules (library + its Mule project), read per check rather
+  // than from the shared 'current model' context, which can lag a file switch.
+  getModules: () => string | undefined = () => undefined,
 ): { dispose(): void; refresh(): void } {
   const OWNER = 'dataweave-engine';
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -800,7 +803,7 @@ export function attachEngineDiagnostics(
         endLineNumber: e.lineNumber, endColumn: e.column,
       };
     }));
-    const res = await askNow<{ messages?: EngineMessage[] }>('typeCheck', script, 0, getPayload(), getLevel());
+    const res = await askNow<{ messages?: EngineMessage[] }>('typeCheck', script, 0, getPayload(), getLevel(), { modulesJson: getModules() ?? null });
     // The user kept typing while we were waiting — that answer is about a
     // script that no longer exists.
     if (disposed || mine !== generation || model.isDisposed()) return;

@@ -280,7 +280,7 @@ export function useWorkspace(): UseWorkspaceReturn {
     // Leaving a binary format must drop the picked file — the runner prefers
     // payloadFilePath over the editor text, so a stale file would silently
     // override what the user sees in the payload editor.
-    payloadFilePath: ['application/octet-stream', 'application/xlsx', 'application/avro', 'application/protobuf'].includes(mime)
+    payloadFilePath: ['application/octet-stream', 'application/xlsx', 'application/avro', 'application/protobuf', 'application/dwb'].includes(mime)
       ? r.payloadFilePath
       : undefined,
   })), [updateActive]);
