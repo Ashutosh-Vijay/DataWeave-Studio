@@ -86,13 +86,13 @@ function parseFile(rawText, moduleName) {
           k++;
         }
         let description = descLines.join('\n').trim();
-        // The JWT modules say "Introduced in 2.6.0", but Mule's runtime first
-        // ships them in 2.13 (release notes; the 2.12 engine can't resolve
-        // dw::util::jwt). Tell people the runtime they actually need.
+        // The JWT modules say "Introduced in 2.6.0", but they arrived in patch
+        // releases: 2.6.31, 2.9.19, 2.12.4 and 2.13.0, and never in 2.7, 2.8,
+        // 2.10 or 2.11 (checked in every wlang jar). Say what people need.
         if (moduleName === 'hmac' || moduleName === 'rsa') {
           description = description.replace(
             /_Introduced in DataWeave version 2\.6\.0\._/,
-            '_Introduced in DataWeave version 2.13.0 (Mule 4.13)._');
+            '_In DataWeave 2.13.0 (Mule 4.13), and in patch releases 2.6.31, 2.9.19 and 2.12.4 (Mule 4.6, 4.9 and 4.12). Not in 2.7, 2.8, 2.10 or 2.11._');
         }
 
         // Examples: scan from k forward until next `[[anchor]]` (next overload)

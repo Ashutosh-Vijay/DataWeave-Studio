@@ -3780,7 +3780,7 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       {
         "module": "hmac",
         "signature": "JWT(header: Object, payload: Object, signingKey: String, algorithm: String): String",
-        "description": "Generate JWT with header, payload, and signature by specific algorithm.\n\n_Introduced in DataWeave version 2.13.0 (Mule 4.13)._",
+        "description": "Generate JWT with header, payload, and signature by specific algorithm.\n\n_In DataWeave 2.13.0 (Mule 4.13), and in patch releases 2.6.31, 2.9.19 and 2.12.4 (Mule 4.6, 4.9 and 4.12). Not in 2.7, 2.8, 2.10 or 2.11._",
         "examples": [
           {
             "source": "%dw 2.0\nimport * from dw::util::jwt::HMAC\noutput application/json\n---\nJWT({\"header\": \"value\"}, {\"firstName\": \"Michael\", \"lastName\": \"Jones\"},\n  \"012345678901234567890123456789012345678901234567\", \"HmacSHA384\")",
@@ -3791,7 +3791,7 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       {
         "module": "hmac",
         "signature": "JWT(header: Object, payload: Object, signingKey: String): String",
-        "description": "Generate JWT with a header, payload, and key signed with HMAC-SHA256.\n\n_Introduced in DataWeave version 2.13.0 (Mule 4.13)._",
+        "description": "Generate JWT with a header, payload, and key signed with HMAC-SHA256.\n\n_In DataWeave 2.13.0 (Mule 4.13), and in patch releases 2.6.31, 2.9.19 and 2.12.4 (Mule 4.6, 4.9 and 4.12). Not in 2.7, 2.8, 2.10 or 2.11._",
         "examples": [
           {
             "source": "%dw 2.0\nimport * from dw::util::jwt::HMAC\noutput application/json\n---\nJWT({\"header\": \"value\"}, {\"firstName\": \"Michael\", \"lastName\": \"Jones\"},\n  \"01234567890123456789012345678901\")",
@@ -3802,7 +3802,7 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       {
         "module": "hmac",
         "signature": "JWT(payload: Object, signingKey: String): String",
-        "description": "Generate JWT with a payload, automatically generated header, and key signed with HMAC-SHA256.\n\n_Introduced in DataWeave version 2.13.0 (Mule 4.13)._",
+        "description": "Generate JWT with a payload, automatically generated header, and key signed with HMAC-SHA256.\n\n_In DataWeave 2.13.0 (Mule 4.13), and in patch releases 2.6.31, 2.9.19 and 2.12.4 (Mule 4.6, 4.9 and 4.12). Not in 2.7, 2.8, 2.10 or 2.11._",
         "examples": [
           {
             "source": "%dw 2.0\nimport * from dw::util::jwt::HMAC\noutput application/json\n---\nJWT({\"firstName\": \"Michael\", \"lastName\": \"Jones\"},\n  \"01234567890123456789012345678901\")",
@@ -3813,7 +3813,7 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       {
         "module": "rsa",
         "signature": "JWT(header: Object, payload: Object, signingKey: String, algorithm: String): String",
-        "description": "Generate JWT with header, payload, and signature by specific algorithm.\n\n_Introduced in DataWeave version 2.13.0 (Mule 4.13)._",
+        "description": "Generate JWT with header, payload, and signature by specific algorithm.\n\n_In DataWeave 2.13.0 (Mule 4.13), and in patch releases 2.6.31, 2.9.19 and 2.12.4 (Mule 4.6, 4.9 and 4.12). Not in 2.7, 2.8, 2.10 or 2.11._",
         "examples": [
           {
             "source": "%dw 2.0\nimport * from dw::util::jwt::RSA\noutput application/json\ninput key application/json\n---\nJWT({kid: \"example\"}, {sub: \"test\"}, key, \"Sha384withRSA\")",
@@ -3824,7 +3824,7 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
       {
         "module": "rsa",
         "signature": "JWT(payload: Object, signingKey: String): String",
-        "description": "Generate JWT with a payload, automatically generated header, and key signed with RS256.\n\n_Introduced in DataWeave version 2.13.0 (Mule 4.13)._",
+        "description": "Generate JWT with a payload, automatically generated header, and key signed with RS256.\n\n_In DataWeave 2.13.0 (Mule 4.13), and in patch releases 2.6.31, 2.9.19 and 2.12.4 (Mule 4.6, 4.9 and 4.12). Not in 2.7, 2.8, 2.10 or 2.11._",
         "examples": [
           {
             "source": "%dw 2.0\nimport * from dw::util::jwt::RSA\noutput application/json\ninput key application/json\n---\nJWT({sub: \"test\"}, key)",

@@ -291,18 +291,21 @@ object DwServer {
       // op=debug + action=start forks here: it needs the bindings built above,
       // but must compile fresh (the cached script is shared, and there is no
       // public way to take an execution listener back off one).
-      // Modules this engine has but the target runtime does not. The language
-      // level can't catch them: the dw::util::jwt functions (new in 2.13) carry
-      // @Since 2.6.0, so a 4.12 target would happily run them.
+      // dw::util::jwt carries @Since 2.6.0, but it was added in patch releases:
+      // 2.6.31, 2.9.19, 2.12.4 and 2.13.0. The 2.7, 2.8, 2.10 and 2.11 lines
+      // never got it, yet the language level lets them compile it. Refuse it
+      // for those targets. (4.6, 4.9 and 4.12 have it on a current patch, and
+      // below 2.6 the engine's own @Since check already refuses it.)
       // (No `for`/`foreach` here: a `return` inside a closure is a control
       // exception, and the catch-all below would swallow it.)
-      val tooOldTarget = languageLevelOf(req).filter(t => t.major == 2 && t.minor < 13)
-      val newModule = script.linesIterator.filterNot(_.trim.startsWith("//"))
+      val noJwtTarget = languageLevelOf(req).filter(t => t.major == 2 && Set(7, 8, 10, 11).contains(t.minor))
+      val jwtModule = script.linesIterator.filterNot(_.trim.startsWith("//"))
         .flatMap(l => """dw::util::jwt::\w+""".r.findFirstIn(l)).toSeq.headOption
-      if (tooOldTarget.isDefined && newModule.isDefined) {
+      if (noJwtTarget.isDefined && jwtModule.isDefined) {
         return errorResponse(id,
-          s"Unable to resolve module with identifier ${newModule.get}. It was added in DataWeave 2.13 (Mule 4.13), " +
-          s"and your target runtime is Mule 4.${tooOldTarget.get.minor}. Change the target in Settings, Runtime to use it here.",
+          s"Unable to resolve module with identifier ${jwtModule.get}. Mule 4.${noJwtTarget.get.minor} never shipped it: " +
+          "the JWT modules are in Mule 4.13, and in Mule 4.6, 4.9 and 4.12 from patch releases DataWeave 2.6.31, 2.9.19 and 2.12.4. " +
+          "Change the target in Settings, Runtime to use it here.",
           started)
       }
 

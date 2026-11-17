@@ -240,7 +240,7 @@ Payload encryption, hashing and signing without writing Java. It runs in the bun
 No input to test with? If your script declares types, the **Generate** button builds a realistic payload from any of them. The engine's generator reads field names, so `email` gets a plausible address, `phone` a formatted number, `creditCard` a valid-looking card number and a `DateTime` a real timestamp. Preview it, re-roll it, then apply it.
 
 ### Target runtime
-The bundled engine is DataWeave 2.13 (Mule 4.13). If you deploy to something older, a script can work here and fail there: the JWT modules (`dw::util::jwt::HMAC` and `RSA`) need 2.13, `logInfo` needs 2.10, the `update` operator needs 2.3, and around 30 standard-library functions didn't exist in 2.4.
+The bundled engine is DataWeave 2.13 (Mule 4.13). If you deploy to something older, a script can work here and fail there: the JWT modules (`dw::util::jwt::HMAC` and `RSA`) need 2.13 or a recent 4.6, 4.9 or 4.12 patch (DataWeave 2.6.31, 2.9.19, 2.12.4), `logInfo` needs 2.10, the `update` operator needs 2.3, and around 30 standard-library functions didn't exist in 2.4.
 
 You pick your target once, when you set the app up, and change it any time from the status bar or **Settings → Runtime**. The default is "latest", which checks nothing. It's one setting for the whole app, because which Mule you deploy to is about you rather than one script. If you work across two runtimes, **Settings → Runtime** has a per-workspace option.
 
