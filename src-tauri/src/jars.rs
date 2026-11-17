@@ -142,10 +142,12 @@ Download the jar on a machine that can reach it and add it with \
 /// fetch-anything command. A missing file comes back as "Not found".
 #[tauri::command]
 pub async fn maven_fetch_text(url: String) -> Result<String, String> {
+    // MuleSoft's repository too: the upgrade check resolves old DataWeave engines there.
     if !(url.starts_with("https://repo1.maven.org/maven2/")
-        || url.starts_with("https://search.maven.org/solrsearch/select?"))
+        || url.starts_with("https://search.maven.org/solrsearch/select?")
+        || url.starts_with("https://repository.mulesoft.org/nexus/content/repositories/releases/"))
     {
-        return Err("Only Maven Central URLs are allowed.".into());
+        return Err("Only Maven Central and MuleSoft repository URLs are allowed.".into());
     }
     tokio::task::spawn_blocking(move || {
         let resp = ureq::get(&url).call().map_err(|e| match e {

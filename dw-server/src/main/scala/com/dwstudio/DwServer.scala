@@ -150,6 +150,12 @@ object DwServer {
         return successResponse(id, org.mule.weave.v2.V2LangMigrant.migrateToV2(rawScript), started)
       }
 
+      // op=engineCheck: compile scripts on another DataWeave version (the
+      // upgrade check). Loads that engine in its own classloader.
+      if (req.getString("op", "run") == "engineCheck") {
+        return engineCheckResponse(id, req, started)
+      }
+
       // op=debug: everything except `start`. These only read or poke session
       // state, so they answer immediately — which is the whole point of running
       // the script on a worker thread.
@@ -1669,6 +1675,165 @@ object DwServer {
     val set = new ModuleSet(new URLClassLoader(urls, hotLoader))
     moduleSets.put(hash, set)
     Some((hash, set))
+  }
+
+  // --- Upgrade check: compile scripts on another DataWeave version -----------
+  //
+  // op=engineCheck compiles a batch of scripts on a DIFFERENT engine version,
+  // loaded from its own jars into an isolated classloader in this JVM, so the
+  // answer is that version's own, not 2.13 imitating it (a language level on
+  // this engine does not reproduce e.g. 2.12's stricter import check).
+  //
+  // Request: { jars: [{g, a, v}], cacheDir, items: [{key, script, path}] }
+  //   jars     the engine's full dependency set (resolved by the UI's Maven
+  //            resolver), downloaded once into cacheDir and reused.
+  //   path     the file a script came from, so its Mule project's resources
+  //            resolve (same walk-up as a run).
+  // Reply result: { results: [{key, ok, error?, line?}], problems: [...] }
+
+  private val MuleBindings = Array("payload", "attributes", "vars", "error", "correlationId",
+    "message", "authentication", "app", "mule", "server", "flow", "dataType")
+
+  // Mule's own dw::Mule functions do not exist outside Mule. Stubbed, so a
+  // script that calls p() or lookup() is checked for everything else rather
+  // than failing identically on both versions.
+  private val MuleStub =
+    """%dw 2.0
+      |fun p(name: String): String | Null = null
+      |fun lookup(flowName: String, payload: Any, timeoutMillis: Number = -1): Any = null
+      |fun causedBy(error: Any, errorType: String): Boolean = false
+      |fun causedBy(errorType: String): Boolean = false
+      |fun compatibleWith(a: Any, b: Any): Boolean = true
+      |""".stripMargin
+
+  private def engineCheckResponse(id: Int, req: JsonObject, started: Long): String = {
+    import scala.collection.JavaConverters._
+    val problems = new com.eclipsesource.json.JsonArray()
+    val cacheDir = new File(req.getString("cacheDir", System.getProperty("java.io.tmpdir")), "engine-jars")
+    cacheDir.mkdirs()
+
+    // 1. The engine's jars: MuleSoft's repository first, Maven Central for the
+    //    third-party ones.
+    val repos = Seq("https://repository.mulesoft.org/nexus/content/repositories/releases", "https://repo1.maven.org/maven2")
+    val jarFiles = req.get("jars").asArray().values().asScala.toSeq.flatMap { j =>
+      val o = j.asObject()
+      val (g, a, v) = (o.getString("g", ""), o.getString("a", ""), o.getString("v", ""))
+      val f = new File(cacheDir, s"$g/$a-$v.jar")
+      if (!f.isFile || f.length() == 0) {
+        f.getParentFile.mkdirs()
+        val rel = s"${g.replace('.', '/')}/$a/$v/$a-$v.jar"
+        val ok = repos.exists { base =>
+          try {
+            val c = new URL(s"$base/$rel").openConnection()
+            c.setConnectTimeout(15000); c.setReadTimeout(60000)
+            val in = c.getInputStream
+            try Files.copy(in, f.toPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING) finally in.close()
+            // A proxy can answer 200 with an HTML block page.
+            val head = new Array[Byte](2)
+            val fis = new java.io.FileInputStream(f)
+            try fis.read(head) finally fis.close()
+            head(0) == 'P' && head(1) == 'K'
+          } catch { case _: Throwable => false }
+        }
+        if (!ok) { f.delete(); problems.add(s"Couldn't download $g:$a:$v from MuleSoft's repository or Maven Central.") }
+      }
+      if (f.isFile && f.length() > 0) Some(f) else None
+    }
+    if (jarFiles.isEmpty) return errorResponse(id, "No engine jars could be downloaded. Check the network or proxy.", started)
+
+    // The stub module lives in its own folder on the checker's classpath.
+    val stubDir = new File(cacheDir, "mule-stub")
+    val stubFile = new File(stubDir, "dw/Mule.dwl")
+    stubFile.getParentFile.mkdirs()
+    Files.write(stubFile.toPath, MuleStub.getBytes(StandardCharsets.UTF_8))
+
+    // 2. One isolated loader per project (its resources differ), built on the
+    //    platform loader so none of this JVM's 2.13 classes leak in.
+    val platform = classOf[ClassLoader].getMethod("getPlatformClassLoader").invoke(null).asInstanceOf[ClassLoader]
+    val items = req.get("items").asArray().values().asScala.toSeq.map(_.asObject())
+    val results = new com.eclipsesource.json.JsonArray()
+    val byRoots = items.groupBy(it => muleResourceRoots(new File(it.getString("path", ""))).map(_.getAbsolutePath))
+    val saved = Thread.currentThread().getContextClassLoader
+    try {
+      for ((roots, group) <- byRoots) {
+        val urls = (roots.map(r => new File(r).toURI.toURL) ++ jarFiles.map(_.toURI.toURL) :+ stubDir.toURI.toURL).toArray
+        val cl = new URLClassLoader(urls, platform)
+        Thread.currentThread().setContextClassLoader(cl)
+        try {
+          val engineCls = cl.loadClass("org.mule.weave.v2.runtime.DataWeaveScriptingEngine")
+          val engine = engineCls.getConstructor().newInstance().asInstanceOf[AnyRef]
+          val compile = engineCls.getMethod("compile", classOf[String], classOf[Array[String]])
+          for (it <- group) {
+            val key = it.getString("key", "")
+            val (script, shift, after) = withMuleImport(checkableScript(it.getString("script", ""), it.getString("path", ""), roots))
+            val o = new JsonObject()
+            o.add("key", key)
+            try {
+              compile.invoke(engine, script, MuleBindings)
+              o.add("ok", true)
+            } catch {
+              case e: java.lang.reflect.InvocationTargetException =>
+                val t = Option(e.getCause).getOrElse(e)
+                val msg = Option(t.getMessage).getOrElse(t.getClass.getSimpleName)
+                o.add("ok", false)
+                o.add("error", msg.split("\n").head.trim)
+                // The engine prints the location as "n| source" under the message.
+                """(?m)^\s*(\d+)\|""".r.findFirstMatchIn(msg).map(_.group(1).toInt).foreach { n =>
+                  o.add("line", if (shift > 0 && n > after) n - shift else n)
+                }
+              case t: Throwable =>
+                o.add("ok", false)
+                o.add("error", Option(t.getMessage).getOrElse(t.getClass.getSimpleName))
+            }
+            results.add(o)
+          }
+        } catch {
+          case t: Throwable =>
+            val msg = Option(t.getMessage).getOrElse(t.getClass.getName)
+            for (it <- group) {
+              val o = new JsonObject(); o.add("key", it.getString("key", "")); o.add("ok", false)
+              o.add("error", s"The engine could not start: $msg"); results.add(o)
+            }
+        } finally {
+          Thread.currentThread().setContextClassLoader(saved)
+          try cl.close() catch { case _: Throwable => () }
+        }
+      }
+    } finally Thread.currentThread().setContextClassLoader(saved)
+
+    val payload = new JsonObject()
+    payload.add("results", results)
+    payload.add("problems", problems)
+    val r = new JsonObject()
+    r.add("id", id); r.add("ok", true); r.add("error", Json.NULL)
+    r.add("result", payload)
+    r.add("executionTimeMs", System.currentTimeMillis() - started)
+    r.toString
+  }
+
+  /** A `.dwl` module (no `---`) is checked by importing it, the way a script
+   *  in the project would use it. Anything else compiles as it is. */
+  private def checkableScript(script: String, path: String, roots: Seq[String]): String = {
+    if (script.linesIterator.exists(_.trim == "---") || !path.toLowerCase.endsWith(".dwl")) return script
+    val abs = new File(path).getAbsolutePath.replace('\\', '/')
+    roots.map(_.replace('\\', '/') + "/").find(abs.startsWith) match {
+      case Some(root) =>
+        val module = abs.substring(root.length).stripSuffix(".dwl").stripSuffix(".DWL").replace("/", "::")
+        s"%dw 2.0\nimport * from $module\n---\nnull"
+      case None => script
+    }
+  }
+
+  /** Mule imports dw::Mule implicitly. A script that calls p() or lookup()
+   *  without importing it gets the import, on the line after its version
+   *  header; reported lines below it shift back by one. */
+  private def withMuleImport(script: String): (String, Int, Int) = {
+    val usesMule = """(?<![\w:.])(p|lookup|causedBy)\s*\(""".r.findFirstIn(script).isDefined
+    if (!usesMule || script.contains("dw::Mule")) return (script, 0, 0)
+    val lines = script.split("\n", -1).toBuffer
+    val at = lines.indexWhere(_.trim.startsWith("%dw")) + 1   // 0 when there is no header
+    lines.insert(at, "import * from dw::Mule")
+    (lines.mkString("\n"), 1, at)
   }
 
   /** The resource folders Mule would put on the classpath for a file: walk up

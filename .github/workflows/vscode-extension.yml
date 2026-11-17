@@ -79,7 +79,10 @@ jobs:
           rm -rf src-tauri/resources/jre
           # jdk.compiler (+jdk.zipfs) give the bundled runtime a real javac so the
           # Java tester can compile the user's src/main/java offline.
-          jlink --add-modules "$MODULES,jdk.compiler,jdk.zipfs" --strip-debug --no-man-pages --no-header-files --compress=2 --output src-tauri/resources/jre
+          # jdk.crypto.ec: without it the JVM can't complete a TLS handshake with
+          # most HTTPS servers, which breaks readUrl("https://...") and the upgrade
+          # check's engine downloads.
+          jlink --add-modules "$MODULES,jdk.compiler,jdk.zipfs,jdk.crypto.ec" --strip-debug --no-man-pages --no-header-files --compress=2 --output src-tauri/resources/jre
 
       - name: Build webview UI
         run: |

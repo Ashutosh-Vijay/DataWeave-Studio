@@ -203,7 +203,7 @@ interface DwRequest {
   modules?: { name?: string; content?: string; kind?: string; path?: string }[];
   /** "run" (default) or "format" — format runs the engine's IDE formatter and
    *  returns the pretty-printed script in `output`. */
-  op?: 'run' | 'format' | 'migrate' | 'tooling' | 'debug';
+  op?: 'run' | 'format' | 'migrate' | 'tooling' | 'debug' | 'engineCheck';
   /** op=debug: 'start' begins a session; everything else drives the one running. */
   action?: string;
   /** op=debug, action=evaluate: the expression to evaluate in the paused frame. */
@@ -1054,6 +1054,27 @@ export async function toolingQuery(
     15000,
   );
   if (!resp.ok) throw new Error(resp.error ?? 'tooling failed');
+  return resp.result ?? null;
+}
+
+/** Upgrade check: compile a batch of scripts on another DataWeave version
+ *  (op=engineCheck). Mirrors dw_server::dw_engine_check on the desktop. The
+ *  first call for a version downloads its jars, hence the long timeout. */
+export async function engineCheck(server: DwServer, request: Record<string, unknown>, cacheDir: string): Promise<unknown> {
+  const resp = await server.run(
+    {
+      ...request,
+      op: 'engineCheck',
+      cacheDir,
+      script: '',
+      payloadPath: '',
+      payloadMime: 'application/json',
+      namedInputs: [],
+      outputMime: 'application/json',
+    } as never,
+    600000,
+  );
+  if (!resp.ok) throw new Error(resp.error ?? 'Check failed');
   return resp.result ?? null;
 }
 

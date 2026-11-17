@@ -41,6 +41,9 @@ const CryptoTool = lazy(() =>
 const MCPServerPanel = lazy(() =>
   import('./components/MCPServerPanel').then((m) => ({ default: m.MCPServerPanel }))
 );
+const UpgradeCheck = lazy(() =>
+  import('./components/UpgradeCheck').then((m) => ({ default: m.UpgradeCheck }))
+);
 const ModulesPanel = lazy(() =>
   import('./components/ModulesPanel').then((m) => ({ default: m.ModulesPanel }))
 );
@@ -367,6 +370,7 @@ function App() {
   const [mcpOpen, setMcpOpen] = useState(false);
   const [mcpRunning, setMcpRunning] = useState(false);
   const [modulesOpen, setModulesOpen] = useState(false);
+  const [upgradeCheckOpen, setUpgradeCheckOpen] = useState(false);
   // Global custom `.dwl` module library — saved once (app-data), sent on every
   // run so `import x from MyModule` resolves. Loaded on mount, persisted on edit.
   const [modules, setModules] = useState<DwModule[]>([]);
@@ -718,6 +722,7 @@ function App() {
     { id: 'configcrypto', group: 'Mule configuration', label: 'Config encryption', desc: 'Encrypt or decrypt every value in a YAML or .properties config at once.', icon: <Icons.Key size={16} />, run: () => setConfigCryptoOpen(true) },
     { id: 'flow', group: 'Build and connect', label: 'Message Flow designer', desc: 'Chain transforms into a flow, with mock HTTP, Salesforce and database steps.', icon: <Icons.Flow size={16} />, run: () => { introFeature('flow'); setFlowDesignerOpen(true); } },
     { id: 'java', group: 'Build and connect', label: 'Java tester', desc: 'Compile Java classes and call them from DataWeave.', icon: <Icons.Coffee size={16} />, run: () => { introFeature('java'); setJavaTesterOpen(true); } },
+    { id: 'upgrade', group: 'Mule configuration', label: 'Upgrade check', desc: 'Compile every script in your projects on two Mule versions and see what breaks.', icon: <Icons.Activity size={16} />, run: () => setUpgradeCheckOpen(true) },
     { id: 'modules', group: 'Build and connect', label: 'Module library', desc: 'Save reusable modules and JSON or XML schemas, and import them in any script.', icon: <Icons.Package size={16} />, run: () => { introFeature('modules'); setModulesOpen(true); } },
     { id: 'mcp', group: 'Build and connect', label: 'Local Server', desc: 'Let AI assistants and your own scripts run DataWeave on this machine.', icon: (
       <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
@@ -1757,6 +1762,7 @@ function App() {
     { id: 'recipes', label: 'Open DataWeave cookbook', group: 'Writing', run: () => setRecipesOpen(true) },
     { id: 'snippets', label: 'Open snippets library', shortcut: kbd('⌘L'), group: 'Writing', run: handleOpenSnippets },
     { id: 'modules', label: 'Open Module library', group: 'Writing', run: () => setModulesOpen(true) },
+    { id: 'upgrade-check', label: 'Upgrade check: what breaks on a new Mule version', group: 'Tools', run: () => setUpgradeCheckOpen(true) },
     { id: 'import-curl', label: 'Import cURL', shortcut: kbd('⌘⇧I'), group: 'Bring data in', run: handleOpenImport },
     { id: 'all-tools', label: 'All tools', hint: 'Every tool, with what it’s for', group: 'Tools', run: () => setToolsMenuOpen(true) },
     { id: 'open-share-link', label: 'Open a share link', hint: 'Load a setup someone shared with you', group: 'Bring data in', run: () => { beginTransforming(); setImportMode('link'); setCurlImportOpen(true); } },
@@ -2852,6 +2858,17 @@ function App() {
         </Suspense>
       )}
 
+      {upgradeCheckOpen && (
+        <Suspense fallback={null}>
+          <UpgradeCheck
+            open={upgradeCheckOpen}
+            onClose={() => setUpgradeCheckOpen(false)}
+            defaultFolder={(() => { try { return localStorage.getItem('dw.scriptFolder') || ''; } catch { return ''; } })()}
+            onOpenFile={(path) => { workspace.openScriptFile(path).catch((e) => toast({ title: 'Could not open the file', message: (e as Error).message || String(e), variant: 'error' })); }}
+            onOpenInline={(path, index) => { workspace.openInlineScript(path, index).catch((e) => toast({ title: 'Could not open the transform', message: (e as Error).message || String(e), variant: 'error' })); }}
+          />
+        </Suspense>
+      )}
       {modulesOpen && (
         <Suspense fallback={null}>
           <ModulesPanel open={modulesOpen} onClose={() => setModulesOpen(false)} modules={modules} onChange={handleModulesChange} />

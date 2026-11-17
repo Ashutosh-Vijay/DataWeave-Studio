@@ -80,8 +80,10 @@ function httpGet(url: string, redirects = 0): Promise<{ status: number; body: Bu
 /** Text from Maven Central (POMs, maven-metadata.xml, search) for the tester's
  *  dependency resolver. Only those two hosts; a missing file is "Not found". */
 export async function mavenFetchText(url: string): Promise<string> {
-  if (!url.startsWith('https://repo1.maven.org/maven2/') && !url.startsWith('https://search.maven.org/solrsearch/select?')) {
-    throw new Error('Only Maven Central URLs are allowed.');
+  // MuleSoft's repository too: the upgrade check resolves old DataWeave engines there.
+  if (!url.startsWith('https://repo1.maven.org/maven2/') && !url.startsWith('https://search.maven.org/solrsearch/select?')
+      && !url.startsWith('https://repository.mulesoft.org/nexus/content/repositories/releases/')) {
+    throw new Error('Only Maven Central and MuleSoft repository URLs are allowed.');
   }
   let res: { status: number; body: Buffer };
   try { res = await httpGet(url); } catch (e: any) { throw new Error(`Couldn't reach Maven Central: ${e?.message ?? e}`); }

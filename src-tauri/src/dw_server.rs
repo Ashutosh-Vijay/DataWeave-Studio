@@ -617,6 +617,51 @@ pub fn migrate(app: &AppHandle, script: &str) -> Result<String, String> {
     text_op(app, "migrate", script)
 }
 
+/// Upgrade check: compile a batch of scripts on another DataWeave version
+/// (`op=engineCheck`). `request` carries `jars` (the engine's dependency set,
+/// resolved by the UI) and `items`; the engine jars are cached under app data.
+/// Runs off the main thread: the first call for a version downloads it.
+#[tauri::command]
+pub async fn dw_engine_check(app: AppHandle, request: serde_json::Value) -> Result<serde_json::Value, String> {
+    let cache = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?
+        .join("engines");
+    tokio::task::spawn_blocking(move || {
+        let state = app.state::<DwServerState>();
+        let id = state.next_id.fetch_add(1, Ordering::Relaxed);
+        let mut req = request;
+        req["id"] = serde_json::json!(id);
+        req["op"] = serde_json::json!("engineCheck");
+        req["cacheDir"] = serde_json::json!(cache.to_string_lossy());
+        for k in ["payloadPath", "payloadMime", "outputMime"] {
+            if req.get(k).is_none() { req[k] = serde_json::json!(""); }
+        }
+        if req.get("namedInputs").is_none() { req["namedInputs"] = serde_json::json!([]); }
+        let line = req.to_string();
+
+        let mut guard = state.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let inner = guard.as_mut().ok_or_else(|| "DataWeave server not running".to_string())?;
+        inner.stdin.write_all(line.as_bytes()).map_err(|e| format!("Failed to write to server: {}", e))?;
+        inner.stdin.write_all(b"\n").map_err(|e| format!("Failed to write to server: {}", e))?;
+        inner.stdin.flush().map_err(|e| format!("Failed to flush stdin: {}", e))?;
+        let mut resp_bytes: Vec<u8> = Vec::new();
+        inner.stdout.read_until(b'\n', &mut resp_bytes).map_err(|e| format!("Failed to read from server: {}", e))?;
+        if resp_bytes.is_empty() {
+            return Err("DataWeave server closed unexpectedly.".into());
+        }
+        let v: serde_json::Value = serde_json::from_slice(&resp_bytes).map_err(|e| format!("Bad server response: {}", e))?;
+        if v.get("ok").and_then(|b| b.as_bool()).unwrap_or(false) {
+            Ok(v.get("result").cloned().unwrap_or(serde_json::Value::Null))
+        } else {
+            Err(v.get("error").and_then(|s| s.as_str()).unwrap_or("check failed").to_string())
+        }
+    })
+    .await
+    .map_err(|e| format!("Check failed: {}", e))?
+}
+
 /// An op that takes a script and returns text without running anything.
 fn text_op(app: &AppHandle, op: &str, script: &str) -> Result<String, String> {
     let state = app.state::<DwServerState>();

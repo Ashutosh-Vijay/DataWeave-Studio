@@ -95,6 +95,7 @@ pub fn run() {
             dw_runner::restart_engine,
             dw_runner::dw_tooling,
             dw_runner::dw_migrate,
+            dw_server::dw_engine_check,
             dw_runner::dw_debug,
             dw_runner::dw_format,
             dw_runner::get_log_dir,
