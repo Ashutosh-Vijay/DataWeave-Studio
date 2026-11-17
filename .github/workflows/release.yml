@@ -140,7 +140,7 @@ jobs:
             - **macOS**: `.dmg` (Apple Silicon and Intel), or `brew trust ashutosh-vijay/tap` then `brew install --cask ashutosh-vijay/tap/dataweave-studio`
             - **Linux**: `.AppImage`, `.deb`, or `.rpm`
 
-            Everything is included: the DataWeave 2.12 runtime and a small JRE 17,
+            Everything is included: the DataWeave 2.13 runtime and a small JRE 17,
             so you don't need Java installed.
 
             ### On Windows, prefer the Microsoft Store

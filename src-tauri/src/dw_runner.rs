@@ -366,7 +366,7 @@ pub async fn run_dataweave(
     let debug_breakpoints = debug_breakpoints.unwrap_or_default();
     let value_trace = value_trace.unwrap_or(false);
     let sandbox = sandbox.unwrap_or(false);
-    // Target runtime, e.g. "2.4" for Mule 4.4. Empty = the engine's own 2.12.
+    // Target runtime, e.g. "2.4" for Mule 4.4. Empty = the engine's own 2.13.
     let language_level = language_level.unwrap_or_default();
 
     // Custom `.dwl` module libraries so `import x from MyModule` resolves. The

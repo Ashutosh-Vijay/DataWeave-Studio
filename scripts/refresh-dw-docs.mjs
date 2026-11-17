@@ -16,7 +16,7 @@
 import { execSync } from 'node:child_process';
 import { existsSync, rmSync } from 'node:fs';
 
-const DOCS_BRANCH = 'v2.12'; // must match the bundled DW runtime (see dw-server/pom.xml)
+const DOCS_BRANCH = 'v2.13'; // must match the bundled DW runtime (see dw-server/pom.xml)
 const DIR = '.dwdocs-src';
 const run = (cmd, opts = {}) => execSync(cmd, { stdio: 'inherit', ...opts });
 

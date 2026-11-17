@@ -1,6 +1,6 @@
 # DataWeave Studio for VS Code
 
-DataWeave 2.12, inside VS Code. Write a script, drop in a payload, press Run, and get the result in about 20 milliseconds. No Anypoint Studio, no Maven project, no Docker, no account. Java ships inside the extension.
+DataWeave 2.13, inside VS Code. Write a script, drop in a payload, press Run, and get the result in about 20 milliseconds. No Anypoint Studio, no Maven project, no Docker, no account. Java ships inside the extension.
 
 ![Script editor with autocomplete and live output](https://raw.githubusercontent.com/Ashutosh-Vijay/DataWeave-Studio/main/docs/screenshots/auto_suggestion_on_typing_monaco_dark_mode.png)
 
@@ -87,7 +87,7 @@ Both are **off until you start them** and listen on loopback only. Safe mode ref
 
 ## Requirements
 
-None. The DataWeave 2.12 runtime and a Java 17 runtime are bundled inside the extension. It doesn't touch your system Java, `JAVA_HOME` or `PATH`, so it sits happily alongside Anypoint Studio's Java 8.
+None. The DataWeave 2.13 runtime and a Java 17 runtime are bundled inside the extension. It doesn't touch your system Java, `JAVA_HOME` or `PATH`, so it sits happily alongside Anypoint Studio's Java 8.
 
 Works on **Windows**, **macOS** (Apple Silicon and Intel) and **Linux**. The Marketplace picks the right build for your machine.
 

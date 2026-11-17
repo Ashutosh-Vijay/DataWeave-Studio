@@ -488,7 +488,7 @@ impl DwTools {
     }
 
     #[tool(
-        description = "Run and validate a DataWeave 2.0 script against a sample payload on the local, real DataWeave 2.12 engine; returns the rendered output, or the exact compile/runtime error with line & column. MANDATORY: call this on EVERY DataWeave script you write BEFORE showing it to the user. Never present unverified DataWeave. On error, fix the script using the reported line/column and re-run until it succeeds (don't web-search syntax; this tool's result is the ground truth). A bare body runs as `%dw 2.0` / `output application/json`; include your own `output <mime>` + `---` for any other output format."
+        description = "Run and validate a DataWeave 2.0 script against a sample payload on the local, real DataWeave 2.13 engine; returns the rendered output, or the exact compile/runtime error with line & column. MANDATORY: call this on EVERY DataWeave script you write BEFORE showing it to the user. Never present unverified DataWeave. On error, fix the script using the reported line/column and re-run until it succeeds (don't web-search syntax; this tool's result is the ground truth). A bare body runs as `%dw 2.0` / `output application/json`; include your own `output <mime>` + `---` for any other output format."
     )]
     async fn validate_and_run_dataweave(
         &self,
@@ -1156,7 +1156,7 @@ impl DwTools {
     }
 
     #[tool(
-        description = "OFFLINE DataWeave 2.12 standard-library reference: every function the bundled engine has, with exact signatures, descriptions, and runnable examples. Pass `name` for one function's full doc, `search` for a keyword match list, or no args to list every function name. Use THIS instead of recalling/ web-searching DW syntax; it's the authoritative signature source."
+        description = "OFFLINE DataWeave 2.13 standard-library reference: every function the bundled engine has, with exact signatures, descriptions, and runnable examples. Pass `name` for one function's full doc, `search` for a keyword match list, or no args to list every function name. Use THIS instead of recalling/ web-searching DW syntax; it's the authoritative signature source."
     )]
     async fn dw_function_reference(
         &self,
@@ -1292,7 +1292,7 @@ impl ServerHandler for DwTools {
             [
                 "# DataWeave Studio — local DataWeave 2.0 engine\n\
                  You can run REAL DataWeave 2.0 against a payload on the user's machine via the \
-                 `validate_and_run_dataweave` tool. This is the genuine DataWeave 2.12 runtime, so its \
+                 `validate_and_run_dataweave` tool. This is the genuine DataWeave 2.13 runtime, so its \
                  output and errors are authoritative.\n\n\
                  ## Rules (always follow)\n\
                  1. VALIDATE BEFORE PRESENTING — never show the user a DataWeave script you have not run \

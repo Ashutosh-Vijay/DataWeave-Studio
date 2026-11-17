@@ -13,7 +13,7 @@
  */
 
 /** Mule 4.x and DataWeave 2.x ship in lockstep, so one number names both. */
-export const TARGETS = [12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((n) => ({
+export const TARGETS = [13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((n) => ({
   level: `2.${n}`,
   label: `Mule 4.${n} · DW 2.${n}`,
 }));

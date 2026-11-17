@@ -284,6 +284,21 @@ object DwServer {
       // op=debug + action=start forks here: it needs the bindings built above,
       // but must compile fresh (the cached script is shared, and there is no
       // public way to take an execution listener back off one).
+      // Modules this engine has but the target runtime does not. The language
+      // level can't catch them: the dw::util::jwt functions (new in 2.13) carry
+      // @Since 2.6.0, so a 4.12 target would happily run them.
+      // (No `for`/`foreach` here: a `return` inside a closure is a control
+      // exception, and the catch-all below would swallow it.)
+      val tooOldTarget = languageLevelOf(req).filter(t => t.major == 2 && t.minor < 13)
+      val newModule = script.linesIterator.filterNot(_.trim.startsWith("//"))
+        .flatMap(l => """dw::util::jwt::\w+""".r.findFirstIn(l)).toSeq.headOption
+      if (tooOldTarget.isDefined && newModule.isDefined) {
+        return errorResponse(id,
+          s"Unable to resolve module with identifier ${newModule.get}. It was added in DataWeave 2.13 (Mule 4.13), " +
+          s"and your target runtime is Mule 4.${tooOldTarget.get.minor}. Change the target in Settings, Runtime to use it here.",
+          started)
+      }
+
       if (req.getString("op", "run") == "debug") {
         return startDebugRun(id, started, compileEngine, script, inputTypes, outputMime, bindings, mimeByName.keys.toSet, req)
       }

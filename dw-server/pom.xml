@@ -20,7 +20,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <scala.version>2.12.21</scala.version>
         <scala.binary.version>2.12</scala.binary.version>
-        <weave.version>2.12.2-20260715</weave.version>
+        <weave.version>2.13.1</weave.version>
     </properties>
 
     <repositories>
@@ -93,8 +93,8 @@
         </dependency>
 
         <!-- dw::test support. These carry their own date stamps rather than
-             ${weave.version}: the engine we pin (2.11.0-20251023) has no matching
-             build of these three, but the 2.11 line is source-compatible.
+             ${weave.version}: they are released on their own schedule, so there is
+             no 2.13.1 build of them. Use the newest 2.13 build of each.
 
              All three are required and each for a different reason:
                data-weave-testing-framework  dw::test::Tests   (describedBy / in)
@@ -109,17 +109,17 @@
         <dependency>
             <groupId>org.mule.weave</groupId>
             <artifactId>data-weave-testing-framework</artifactId>
-            <version>2.12.0-20260818</version>
+            <version>2.13.0-20260818</version>
         </dependency>
         <dependency>
             <groupId>org.mule.weave</groupId>
             <artifactId>assertions</artifactId>
-            <version>2.12.0-20260818</version>
+            <version>2.13.0-20260818</version>
         </dependency>
         <dependency>
             <groupId>org.mule.weave</groupId>
             <artifactId>file-module</artifactId>
-            <version>2.12.0-20260629</version>
+            <version>2.13.0-20260702</version>
         </dependency>
 
         <!-- Tiny JSON parser/encoder. jackson would be heavier; we only need

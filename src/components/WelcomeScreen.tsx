@@ -67,7 +67,7 @@ const BENTO = [
   { key: 'offline', title: 'Works offline', desc: 'No account to create and nothing to configure. Your data stays on your machine.', icon: ICONS.offline },
 ];
 
-const CHIPS = ['DataWeave 2.12 runtime', 'Bundled JVM', 'JSON · XML · CSV · YAML', 'cURL import', 'OpenAPI import', 'Share links', 'Cross-platform'];
+const CHIPS = ['DataWeave 2.13 runtime', 'Bundled JVM', 'JSON · XML · CSV · YAML', 'cURL import', 'OpenAPI import', 'Share links', 'Cross-platform'];
 
 function useReducedMotion(): boolean {
   const [reduce, setReduce] = useState(() => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);

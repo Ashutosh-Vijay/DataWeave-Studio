@@ -1,4 +1,4 @@
-// AUTO-GENERATED from mulesoft/docs-dataweave@v2.12. Do not edit by hand.
+// AUTO-GENERATED from mulesoft/docs-dataweave@v2.13. Do not edit by hand.
 // Re-run scripts/extract-dw-docs.mjs to refresh.
 // Modules the docs repo does not cover (asserts, tests, filesystem, ndjson,
 // protobuf) come from the engine jar's own doc comments, added by
@@ -1383,7 +1383,12 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
         "module": "math",
         "signature": "decimalRound(n: Number, ctx: OperationContext = DECIMAL_128_CONTEXT)",
         "description": "Returns the argument number with rounding specified by the operation context.",
-        "examples": []
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport * from dw::util::Math\noutput application/json\n---\n{\n  \"decimalRound123456\": decimalRound(123.456, {precision: 4, roundingMode: \"HALF_UP\"}),\n  \"decimalRound25HalfUp\": decimalRound(2.5, {precision: 1, roundingMode: \"HALF_UP\"}),\n  \"decimalRound25HalfEven\": decimalRound(2.5, {precision: 1, roundingMode: \"HALF_EVEN\"})\n}",
+            "output": "{\n   \"decimalRound123456\": 123.5,\n   \"decimalRound25HalfUp\": 3,\n   \"decimalRound25HalfEven\": 2\n}"
+          }
+        ]
       }
     ]
   },
@@ -1679,7 +1684,7 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
         "description": "Escapes certain characters in a URI component using UTF-8 encoding.\n\n\nThere can be only four escape sequences for characters composed of two\n\"surrogate\" * characters. `encodeURIComponent` escapes all characters\n_except the following_: alphabetic, decimal digits, `- _ . ! ~ * ' ( )`.\nNote that `encodeURIComponent` differs from `encodeURI` in that it encodes\nreserved characters and the Number sign `#` of `encodeURI`:\n\n[%header, cols=\"2,2\"]\n|===\n| Type                 | Includes\n| Reserved characters  |\n| Unescaped characters | alphabetic, decimal digits, - _ . ! ~ * ' ( )\n| Number sign          |\n|===",
         "examples": [
           {
-            "source": "%dw 2.0\nimport * from dw::core::URL\noutput application/json\n---\n{\n  \"comparing_encode_functions_output\" : {\n  \t\"encodeURIComponent\" : encodeURI(\" PATH/ TO /ENCODE \"),\n  \t\"encodeURI\" : encodeURI(\" PATH/ TO /ENCODE \"),\n  \t\"encodeURIComponent_to_hex\" : encodeURIComponent(\";,/?:@&=\"),\n  \t\"encodeURI_not_to_hex\" : encodeURI(\";,/?:@&=\"),\n  \t\"encodeURIComponent_not_encoded\" : encodeURIComponent(\"-_.!~*'()\"),\n  \t\"encodeURI_not_encoded\" : encodeURI(\"-_.!~*'()\")\n  }\n}",
+            "source": "%dw 2.0\nimport * from dw::core::URL\noutput application/json\n---\n{\n  \"comparing_encode_functions_output\" : {\n  \t\"encodeURIComponent\" : encodeURIComponent(\" PATH/ TO /ENCODE \"),\n  \t\"encodeURI\" : encodeURI(\" PATH/ TO /ENCODE \"),\n  \t\"encodeURIComponent_to_hex\" : encodeURIComponent(\";,/?:@&=\"),\n  \t\"encodeURI_not_to_hex\" : encodeURI(\";,/?:@&=\"),\n  \t\"encodeURIComponent_not_encoded\" : encodeURIComponent(\"-_.!~*'()\"),\n  \t\"encodeURI_not_encoded\" : encodeURI(\"-_.!~*'()\")\n  }\n}",
             "output": "{\n  \"comparing_encode_functions_output\": {\n    \"encodeURIComponent\": \"%20PATH/%20TO%20/ENCODE%20\",\n    \"encodeURI\": \"%20PATH/%20TO%20/ENCODE%20\",\n    \"encodeURIComponent_to_hex\": \"%3B%2C%2F%3F%3A%40%26%3D\",\n    \"encodeURI_not_to_hex\": \";,/?:@&=\",\n    \"encodeURIComponent_not_encoded\": \"-_.!~*'()\",\n    \"encodeURI_not_encoded\": \"-_.!~*'()\"\n  }\n}"
           }
         ]
@@ -3766,6 +3771,66 @@ export const DW_FUNCTIONS: Record<string, FnDoc> = {
         "signature": "joinBy(n: Null, separator: Any): Null",
         "description": "Helper function that enables `joinBy` to work with a `null` value.\n\n_Introduced in DataWeave version 2.4.0._",
         "examples": []
+      }
+    ]
+  },
+  "jwt": {
+    "name": "JWT",
+    "overloads": [
+      {
+        "module": "hmac",
+        "signature": "JWT(header: Object, payload: Object, signingKey: String, algorithm: String): String",
+        "description": "Generate JWT with header, payload, and signature by specific algorithm.\n\n_Introduced in DataWeave version 2.13.0 (Mule 4.13)._",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport * from dw::util::jwt::HMAC\noutput application/json\n---\nJWT({\"header\": \"value\"}, {\"firstName\": \"Michael\", \"lastName\": \"Jones\"},\n  \"012345678901234567890123456789012345678901234567\", \"HmacSHA384\")",
+            "output": "\"eyJoZWFkZXIiOiAidmFsdWUiLCJhbGciOiAiSFMzODQiLCJ0eXAiOiAiSldUIn0.eyJmaXJzdE5hbWUiOiAiTWljaGFlbCIsImxhc3ROYW1lIjogIkpvbmVzIn0.F1xP9JjXqmwVfPXULZ7F6EYu2Td36eW4xUWElGHN7ayjWIiBPWM3L4STPQzQ570R\""
+          }
+        ]
+      },
+      {
+        "module": "hmac",
+        "signature": "JWT(header: Object, payload: Object, signingKey: String): String",
+        "description": "Generate JWT with a header, payload, and key signed with HMAC-SHA256.\n\n_Introduced in DataWeave version 2.13.0 (Mule 4.13)._",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport * from dw::util::jwt::HMAC\noutput application/json\n---\nJWT({\"header\": \"value\"}, {\"firstName\": \"Michael\", \"lastName\": \"Jones\"},\n  \"01234567890123456789012345678901\")",
+            "output": "\"eyJoZWFkZXIiOiAidmFsdWUiLCJhbGciOiAiSFMyNTYiLCJ0eXAiOiAiSldUIn0.eyJmaXJzdE5hbWUiOiAiTWljaGFlbCIsImxhc3ROYW1lIjogIkpvbmVzIn0.wAoUwkmKhZy6Op119t0N5MwQX-03fJZClzfA5lFwEhg\""
+          }
+        ]
+      },
+      {
+        "module": "hmac",
+        "signature": "JWT(payload: Object, signingKey: String): String",
+        "description": "Generate JWT with a payload, automatically generated header, and key signed with HMAC-SHA256.\n\n_Introduced in DataWeave version 2.13.0 (Mule 4.13)._",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport * from dw::util::jwt::HMAC\noutput application/json\n---\nJWT({\"firstName\": \"Michael\", \"lastName\": \"Jones\"},\n  \"01234567890123456789012345678901\")",
+            "output": "\"eyJhbGciOiAiSFMyNTYiLCJ0eXAiOiAiSldUIn0.eyJmaXJzdE5hbWUiOiAiTWljaGFlbCIsImxhc3ROYW1lIjogIkpvbmVzIn0.JaEz34HXuF4fWg5jM2U9JRnX4vu5twoeDRRg9_anWMc\""
+          }
+        ]
+      },
+      {
+        "module": "rsa",
+        "signature": "JWT(header: Object, payload: Object, signingKey: String, algorithm: String): String",
+        "description": "Generate JWT with header, payload, and signature by specific algorithm.\n\n_Introduced in DataWeave version 2.13.0 (Mule 4.13)._",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport * from dw::util::jwt::RSA\noutput application/json\ninput key application/json\n---\nJWT({kid: \"example\"}, {sub: \"test\"}, key, \"Sha384withRSA\")",
+            "output": "\"<base64url-header>.<base64url-payload>.<base64url-signature>\""
+          }
+        ]
+      },
+      {
+        "module": "rsa",
+        "signature": "JWT(payload: Object, signingKey: String): String",
+        "description": "Generate JWT with a payload, automatically generated header, and key signed with RS256.\n\n_Introduced in DataWeave version 2.13.0 (Mule 4.13)._",
+        "examples": [
+          {
+            "source": "%dw 2.0\nimport * from dw::util::jwt::RSA\noutput application/json\ninput key application/json\n---\nJWT({sub: \"test\"}, key)",
+            "output": "\"<base64url-header>.<base64url-payload>.<base64url-signature>\""
+          }
+        ]
       }
     ]
   },

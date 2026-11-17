@@ -240,14 +240,14 @@ Payload encryption, hashing and signing without writing Java. It runs in the bun
 No input to test with? If your script declares types, the **Generate** button builds a realistic payload from any of them. The engine's generator reads field names, so `email` gets a plausible address, `phone` a formatted number, `creditCard` a valid-looking card number and a `DateTime` a real timestamp. Preview it, re-roll it, then apply it.
 
 ### Target runtime
-The bundled engine is DataWeave 2.12 (Mule 4.12). If you deploy to something older, a script can work here and fail there: `logInfo` needs 2.10, the `update` operator needs 2.3, and around 30 standard-library functions didn't exist in 2.4.
+The bundled engine is DataWeave 2.13 (Mule 4.13). If you deploy to something older, a script can work here and fail there: the JWT modules (`dw::util::jwt::HMAC` and `RSA`) need 2.13, `logInfo` needs 2.10, the `update` operator needs 2.3, and around 30 standard-library functions didn't exist in 2.4.
 
 You pick your target once, when you set the app up, and change it any time from the status bar or **Settings → Runtime**. The default is "latest", which checks nothing. It's one setting for the whole app, because which Mule you deploy to is about you rather than one script. If you work across two runtimes, **Settings → Runtime** has a per-workspace option.
 
 With a target set:
 
 - **Functions and syntax newer than the target become errors**, and the message names the version that introduced them. This uses the same `@Since` metadata as MuleSoft's runtime
-- **Behaviour that changed between versions reverts too.** For example, `[3, "a", true] orderBy $` fails with `InvalidComparisonException` on 2.12 but `InvalidBooleanException` on 2.9
+- **Behaviour that changed between versions reverts too.** For example, `[3, "a", true] orderBy $` fails with `InvalidComparisonException` on 2.12 and 2.13 but `InvalidBooleanException` on 2.9
 - It applies to Run, the Tests panel and live diagnostics, so you see problems while typing
 - It travels in share links, so "this breaks on 4.4" can be reproduced by whoever opens the link (if they've turned on per-workspace targets)
 
