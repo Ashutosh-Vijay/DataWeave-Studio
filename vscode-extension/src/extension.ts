@@ -473,7 +473,11 @@ async function handleInvoke(
       return formatDataweave(await getServer(extensionRoot), String(args.script ?? ''));
     case 'dw_engine_check':
       // Upgrade check: another engine version, cached under the extension's storage.
-      return engineCheck(await getServer(extensionRoot), (args.request ?? {}) as Record<string, unknown>, path.join(storageDir, 'engines'));
+    {
+      const request = (args.request ?? {}) as Record<string, unknown>;
+      await jarStore.downloadEngineJars(path.join(storageDir, 'engines'), (request.jars ?? []) as { g: string; a: string; v: string }[]);
+      return engineCheck(await getServer(extensionRoot), request, path.join(storageDir, 'engines'));
+    }
     case 'dw_migrate':
       // DataWeave 1.0 -> 2.0 with MuleSoft's converter, same engine op as desktop.
       return formatDataweave(await getServer(extensionRoot), String(args.script ?? ''), 'migrate');

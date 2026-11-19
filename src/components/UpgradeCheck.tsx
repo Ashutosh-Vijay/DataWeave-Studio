@@ -24,10 +24,18 @@ const PREFS_KEY = 'dw.upgradeCheck';
 
 /** The resolver asks Maven Central; DataWeave's own artifacts live in
  *  MuleSoft's repository, so try that first for every request. */
-const fetchText = async (url: string): Promise<string> => {
-  try { return await invoke<string>('maven_fetch_text', { url: url.replace(CENTRAL, MULE_REPO) }); }
-  catch { return invoke<string>('maven_fetch_text', { url }); }
+const fetchText = (url: string): Promise<string> => {
+  // A released POM never changes, so a second check doesn't ask again.
+  let p = pomCache.get(url);
+  if (!p) {
+    p = invoke<string>('maven_fetch_text', { url: url.replace(CENTRAL, MULE_REPO) })
+      .catch(() => invoke<string>('maven_fetch_text', { url }));
+    p.catch(() => pomCache.delete(url));
+    if (!url.endsWith('maven-metadata.xml')) pomCache.set(url, p);
+  }
+  return p;
 };
+const pomCache = new Map<string, Promise<string>>();
 
 type Status = 'breaks' | 'fixed' | 'both' | 'ok';
 interface Item { key: string; script: string; path: string; project: string; file: string; index?: number; flow?: string; target?: string }
@@ -128,25 +136,29 @@ export function UpgradeCheck({
     ]);
     if (!core.jars.length) throw new Error(`DataWeave ${v} could not be resolved: ${core.problems.join('; ')}`);
     const byKey = new Map(core.jars.map((j) => [`${j.g}:${j.a}`, { g: j.g, a: j.a, v: j.v }]));
-    for (const a of ['java-module', 'yaml-module', 'jsonschema-module', 'xmlschema-module']) {
-      try {
-        const extra = await resolveDependencies(fetchText, [{ g: 'org.mule.weave', a, v }]);
-        // A version that doesn't exist still comes back as itself, with a
-        // "couldn't read its POM" problem.
-        if (!extra.jars.length || extra.problems.some((p) => p.startsWith(`org.mule.weave:${a}:${v}:`))) { notes.push(`${a} isn't published for DataWeave ${v}, so scripts that need it fail on that version.`); continue; }
-        for (const j of extra.jars) if (!byKey.has(`${j.g}:${j.a}`)) byKey.set(`${j.g}:${j.a}`, { g: j.g, a: j.a, v: j.v });
-      } catch {
+    const extras = ['java-module', 'yaml-module', 'jsonschema-module', 'xmlschema-module'];
+    const resolved = await Promise.all(extras.map((a) => resolveDependencies(fetchText, [{ g: 'org.mule.weave', a, v }]).catch(() => null)));
+    extras.forEach((a, i) => {
+      const extra = resolved[i];
+      // A version that doesn't exist still comes back as itself, with a
+      // "couldn't read its POM" problem.
+      if (!extra || !extra.jars.length || extra.problems.some((p) => p.startsWith(`org.mule.weave:${a}:${v}:`))) {
         notes.push(`${a} isn't published for DataWeave ${v}, so scripts that need it fail on that version.`);
+        return;
       }
-    }
+      for (const j of extra.jars) if (!byKey.has(`${j.g}:${j.a}`)) byKey.set(`${j.g}:${j.a}`, { g: j.g, a: j.a, v: j.v });
+    });
     return [...byKey.values()];
   };
 
   const scan = async (): Promise<Item[]> => {
+    // list_dwl_files returns paths relative to the folder.
+    const base = folder.replace(/\\/g, '/').replace(/\/+$/, '');
     const files = await invoke<string[]>('list_dwl_files', { dir: folder });
     const items: Item[] = [];
-    for (const path of files) {
-      const norm = path.replace(/\\/g, '/');
+    for (const rel of files) {
+      const path = `${base}/${rel}`;
+      const norm = path;
       const at = norm.indexOf('/src/');
       const projectRoot = at >= 0 ? norm.slice(0, at) : norm.slice(0, norm.lastIndexOf('/'));
       const project = projectRoot.split('/').pop() || projectRoot;
@@ -182,7 +194,7 @@ export function UpgradeCheck({
         for (let p = 0; p < projects.length; p++) {
           if (stopRef.current) throw new Error('Stopped.');
           const group = items.filter((i) => i.project === projects[p]);
-          setProgress(`Compiling on DataWeave ${v}: ${projects[p]} (${p + 1} of ${projects.length}, ${group.length} scripts)`);
+          setProgress(`Compiling on DataWeave ${v}: ${projects[p]} (${p + 1} of ${projects.length}, ${group.length} scripts)${p === 0 ? '. The first time, this downloads the engine (about 30 MB).' : ''}`);
           const res = await invoke<{ results: (Outcome & { key: string })[]; problems: string[] }>('dw_engine_check', {
             request: { jars, items: group.map(({ key, script, path }) => ({ key, script, path })) },
           });
@@ -289,7 +301,7 @@ export function UpgradeCheck({
 
         {!rows && !running && (
           <div className="max-w-[640px] text-[12.5px] text-content-muted leading-relaxed space-y-2">
-            <p>Pick a Mule project, or a folder holding many, and the Mule version you run today and the one you&rsquo;re moving to. Every <span className="font-mono">.dwl</span> file and every Transform in your flow XML is compiled on both real DataWeave engines, each with its own project&rsquo;s modules and schemas.</p>
+            <p>Pick a Mule project, or a folder holding many, and the Mule version you run today and the one you&rsquo;re moving to. Every <span className="font-mono">.dwl</span> file and every Transform in your flow XML is compiled with both DataWeave versions, each with its own project&rsquo;s modules and schemas.</p>
             <p>A script that compiles on your current version but not the new one is listed first, with the engine&rsquo;s message and line. This checks syntax, imports, types and functions, not the output on real data. Nothing leaves this machine; each engine version is downloaded once from MuleSoft&rsquo;s repository.</p>
           </div>
         )}

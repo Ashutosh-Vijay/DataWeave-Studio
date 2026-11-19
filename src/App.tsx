@@ -2864,8 +2864,8 @@ function App() {
             open={upgradeCheckOpen}
             onClose={() => setUpgradeCheckOpen(false)}
             defaultFolder={(() => { try { return localStorage.getItem('dw.scriptFolder') || ''; } catch { return ''; } })()}
-            onOpenFile={(path) => { workspace.openScriptFile(path).catch((e) => toast({ title: 'Could not open the file', message: (e as Error).message || String(e), variant: 'error' })); }}
-            onOpenInline={(path, index) => { workspace.openInlineScript(path, index).catch((e) => toast({ title: 'Could not open the transform', message: (e as Error).message || String(e), variant: 'error' })); }}
+            onOpenFile={(path) => { beginTransforming(); workspace.openScriptFile(path).catch((e) => toast({ title: 'Could not open the file', message: (e as Error).message || String(e), variant: 'error' })); }}
+            onOpenInline={(path, index) => { beginTransforming(); workspace.openInlineScript(path, index).catch((e) => toast({ title: 'Could not open the transform', message: (e as Error).message || String(e), variant: 'error' })); }}
           />
         </Suspense>
       )}

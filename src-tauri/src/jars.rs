@@ -150,7 +150,11 @@ pub async fn maven_fetch_text(url: String) -> Result<String, String> {
         return Err("Only Maven Central and MuleSoft repository URLs are allowed.".into());
     }
     tokio::task::spawn_blocking(move || {
-        let resp = ureq::get(&url).call().map_err(|e| match e {
+        // One of MuleSoft's repository addresses doesn't answer; without a
+        // connect timeout each request sat out the OS's ~21 s before ureq
+        // tried the next address.
+        let agent = ureq::AgentBuilder::new().timeout_connect(std::time::Duration::from_secs(4)).build();
+        let resp = agent.get(&url).call().map_err(|e| match e {
             ureq::Error::Status(404, _) => "Not found".to_string(),
             ureq::Error::Status(code @ (403 | 407 | 451), _) => {
                 format!("Blocked with HTTP {}. {}", code, BLOCKED_HINT)

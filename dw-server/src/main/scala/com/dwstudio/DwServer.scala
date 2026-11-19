@@ -1713,7 +1713,8 @@ object DwServer {
     cacheDir.mkdirs()
 
     // 1. The engine's jars: MuleSoft's repository first, Maven Central for the
-    //    third-party ones.
+    //    third-party ones. The hosts download them first (URLConnection only
+    //    tries one address, and one of MuleSoft's is dead); this is the fallback.
     val repos = Seq("https://repository.mulesoft.org/nexus/content/repositories/releases", "https://repo1.maven.org/maven2")
     val jarFiles = req.get("jars").asArray().values().asScala.toSeq.flatMap { j =>
       val o = j.asObject()
@@ -1725,7 +1726,7 @@ object DwServer {
         val ok = repos.exists { base =>
           try {
             val c = new URL(s"$base/$rel").openConnection()
-            c.setConnectTimeout(15000); c.setReadTimeout(60000)
+            c.setConnectTimeout(5000); c.setReadTimeout(60000)
             val in = c.getInputStream
             try Files.copy(in, f.toPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING) finally in.close()
             // A proxy can answer 200 with an HTML block page.

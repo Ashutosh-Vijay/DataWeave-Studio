@@ -631,6 +631,30 @@ pub async fn dw_engine_check(app: AppHandle, request: serde_json::Value) -> Resu
     tokio::task::spawn_blocking(move || {
         let state = app.state::<DwServerState>();
         let id = state.next_id.fetch_add(1, Ordering::Relaxed);
+        // Download the engine jars here rather than in the JVM. One of MuleSoft's
+        // repository addresses doesn't answer, and Java's URLConnection never
+        // tries the others, so a third of the jars hung until the timeout. ureq
+        // moves on to the next address. The engine still downloads anything missed.
+        let agent = ureq::AgentBuilder::new()
+            .timeout_connect(std::time::Duration::from_secs(4))
+            .timeout_read(std::time::Duration::from_secs(20))
+            .build();
+        for j in request.get("jars").and_then(|j| j.as_array()).into_iter().flatten() {
+            let (g, a, v) = (j["g"].as_str().unwrap_or(""), j["a"].as_str().unwrap_or(""), j["v"].as_str().unwrap_or(""));
+            let f = cache.join("engine-jars").join(g).join(format!("{}-{}.jar", a, v));
+            if f.metadata().map(|m| m.len() > 0).unwrap_or(false) { continue; }
+            // MuleSoft's repository twice: a timed-out attempt usually works on retry.
+            for base in ["https://repository.mulesoft.org/nexus/content/repositories/releases", "https://repo1.maven.org/maven2", "https://repository.mulesoft.org/nexus/content/repositories/releases"] {
+                let url = format!("{}/{}/{}/{}/{}-{}.jar", base, g.replace('.', "/"), a, v, a, v);
+                let Ok(resp) = agent.get(&url).call() else { continue };
+                let mut bytes = Vec::new();
+                if std::io::Read::read_to_end(&mut resp.into_reader(), &mut bytes).is_err() || !bytes.starts_with(b"PK") { continue; }
+                if let Some(dir) = f.parent() { let _ = std::fs::create_dir_all(dir); }
+                let _ = std::fs::write(&f, &bytes);
+                break;
+            }
+        }
+
         let mut req = request;
         req["id"] = serde_json::json!(id);
         req["op"] = serde_json::json!("engineCheck");

@@ -63,7 +63,8 @@ export function removeManagedJar(storageDir: string, p: string): void {
 function httpGet(url: string, redirects = 0): Promise<{ status: number; body: Buffer }> {
   return new Promise((resolve, reject) => {
     // Maven Central's search answers 403 to a request with no User-Agent (Node sends none by default).
-    https.get(url, { headers: { 'User-Agent': 'DataWeave-Studio' } }, (res) => {
+    // A stalled TLS handshake otherwise waits forever: give up after 20 s idle.
+    const req = https.get(url, { headers: { 'User-Agent': 'DataWeave-Studio' }, timeout: 20000 }, (res) => {
       const status = res.statusCode ?? 0;
       if ([301, 302, 303, 307, 308].includes(status) && res.headers.location && redirects < 5) {
         res.resume();
@@ -73,7 +74,9 @@ function httpGet(url: string, redirects = 0): Promise<{ status: number; body: Bu
       const chunks: Buffer[] = [];
       res.on('data', (c) => chunks.push(c as Buffer));
       res.on('end', () => resolve({ status, body: Buffer.concat(chunks) }));
+      res.on('error', reject);
     }).on('error', reject);
+    req.on('timeout', () => req.destroy(new Error('Timed out')));
   });
 }
 
@@ -106,6 +109,25 @@ export async function downloadMavenJar(storageDir: string, group: string, artifa
   const dest = path.join(jarsDir(storageDir), `${artifact}-${version}.jar`);
   fs.writeFileSync(dest, res.body);
   return jarInfo(dest);
+}
+
+/** Upgrade check: put the engine jars in the engine's cache before it runs.
+ *  Java's URLConnection only tries one address, and one of MuleSoft's
+ *  repository addresses is dead; Node tries the next. The engine downloads
+ *  anything missed itself. */
+export async function downloadEngineJars(cacheDir: string, jars: { g: string; a: string; v: string }[]): Promise<void> {
+  for (const { g, a, v } of jars) {
+    const dest = path.join(cacheDir, 'engine-jars', g, `${a}-${v}.jar`);
+    if (fs.existsSync(dest) && fs.statSync(dest).size > 0) continue;
+    // MuleSoft's repository twice: a timed-out attempt usually works on retry.
+    for (const base of ['https://repository.mulesoft.org/nexus/content/repositories/releases', 'https://repo1.maven.org/maven2', 'https://repository.mulesoft.org/nexus/content/repositories/releases']) {
+      const res = await httpGet(`${base}/${g.replace(/\./g, '/')}/${a}/${v}/${a}-${v}.jar`).catch(() => null);
+      if (res?.status !== 200 || res.body[0] !== 0x50 || res.body[1] !== 0x4b) continue;
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.writeFileSync(dest, res.body);
+      break;
+    }
+  }
 }
 
 /** Resolve `javac` — bundled (sibling of the bundled java), else JAVA_HOME, else PATH. */
