@@ -36,7 +36,7 @@ What works here works in your Mule app.
 - **Instant runs.** A warm, long-lived engine runs scripts in ~10-20 ms. Auto-run is on by default, so output re-renders about a second after you stop typing.
 - **Every expression's value, without a single `log()`.** The Trace panel lists what each expression in your script evaluated to, in source order. Click a row to jump to it. A `map` body that ran 500 times is one row with a count. A script that throws still shows everything it worked out before the throw.
 - **A real step debugger.** Click the gutter to set a breakpoint. The script stops there and you get the call stack, every variable in scope, step over / into / out, and a box to evaluate any expression against the paused frame.
-- **Check against the Mule you deploy to.** Point it at Mule 4.1 through 4.12 and a 2.10 function on a 4.4 runtime fails here, in the editor, naming the version that introduced it, instead of on the server.
+- **Check against the Mule you deploy to.** Point it at Mule 4.1 through 4.13 and a 2.10 function on a 4.4 runtime fails here, in the editor, naming the version that introduced it, instead of on the server.
 
 **Feed it real inputs**
 

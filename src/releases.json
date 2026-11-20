@@ -1,5 +1,42 @@
 [
   {
+    "version": "3.7.0",
+    "date": "November 2026",
+    "headline": "Check a Mule upgrade before you make it",
+    "highlights": [
+      {
+        "title": "Upgrade check",
+        "desc": "Tools → Upgrade check: pick a Mule project, or a folder holding many, and the Mule version you run today and the one you are moving to. Every .dwl file and every Transform in your flow XML is compiled with both DataWeave versions, and anything that works today but breaks on the new version is listed first, with the error, the line and a hint where one helps. Click a row to open the script. Each DataWeave version is downloaded once from MuleSoft's repository; your scripts never leave your machine."
+      },
+      {
+        "title": "DataWeave 2.13.1",
+        "desc": "Scripts now run on DataWeave 2.13.1, the version in Mule 4.13. That brings the new JWT modules (dw::util::jwt), and the function reference and completions cover them. If Settings → Target runtime is set to a Mule version without them, a script that imports them is flagged."
+      },
+      {
+        "title": "Your project's modules and schemas",
+        "desc": "A script opened from a Mule project finds the modules in its src/main/resources, and jsonschema! and xmlschema! types read the project's schema files, both when it runs and in the editor's checks. The Module library can also hold JSON Schema and XSD files, and exports a module's docs as Markdown."
+      },
+      {
+        "title": "Two more formats",
+        "desc": "Payloads and output can now be text/event-stream (server-sent events) and application/dwb (DataWeave binary)."
+      },
+      {
+        "title": "Zoom and full screen",
+        "only": "desktop",
+        "desc": "Ctrl + and Ctrl - (Cmd on a Mac) zoom the whole window and Ctrl 0 resets it; the level is remembered. F11 goes full screen. On a Mac the window now has the usual red, yellow and green buttons, so the green button and Ctrl Cmd F work too."
+      },
+      {
+        "title": "Install on a Mac with Homebrew",
+        "only": "desktop",
+        "desc": "brew trust ashutosh-vijay/tap, then brew install --cask ashutosh-vijay/tap/dataweave-studio. brew upgrade updates it, and the app opens without the \"damaged\" warning."
+      },
+      {
+        "title": "Fixes",
+        "desc": "Migrate DW 1.0 script now uses MuleSoft's own converter, so more 1.0 scripts come out right."
+      }
+    ]
+  },
+  {
     "version": "3.6.1",
     "date": "November 2026",
     "headline": "Work on your Mule project, in place",

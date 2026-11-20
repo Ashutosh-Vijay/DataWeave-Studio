@@ -130,7 +130,7 @@ JRE 17 and the DataWeave runtime ship inside the app. No Java install, no `JAVA_
 | **Every expression's value** | Yes, in the Trace panel | No | No | No |
 | **Go to Definition / Rename** | Yes | Yes (LSP) | No | Yes |
 | **Type inference** | Yes | Yes (LSP) | No | Yes |
-| **Target an older Mule runtime** | Yes, 4.1 to 4.12 | No | No | Per project |
+| **Target an older Mule runtime** | Yes, 4.1 to 4.13 | No | No | Per project |
 | **Autocomplete** | 361 functions plus fields from your payload | LSP, type-aware | Basic | Full LSP |
 | **Context (vars, attributes, headers)** | Forms in the UI | JSON scenario files | Partial | Full runtime |
 | **Config YAML (`${key}`)** | Yes | No | No | Yes |

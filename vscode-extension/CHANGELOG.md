@@ -4,6 +4,16 @@ All notable changes to DataWeave Studio for VS Code.
 
 ## [Unreleased]
 
+## 3.7.0 (2026-11-21)
+
+**Check a Mule upgrade before you make it.**
+
+- **Upgrade check.** Tools → Upgrade check: pick a Mule project, or a folder holding many, and the Mule version you run today and the one you are moving to. Every `.dwl` file and every Transform in your flow XML is compiled with both DataWeave versions, and anything that works today but breaks on the new version is listed first, with the error, the line and a hint where one helps. Click a row to open the script. Each DataWeave version is downloaded once from MuleSoft's repository; your scripts never leave your machine.
+- **DataWeave 2.13.1.** Scripts now run on DataWeave 2.13.1, the version in Mule 4.13. That brings the new JWT modules (`dw::util::jwt`), and the function reference and completions cover them. If Settings → Target runtime is set to a Mule version without them, a script that imports them is flagged.
+- **Your project's modules and schemas.** A script opened from a Mule project finds the modules in its `src/main/resources`, and `jsonschema!` and `xmlschema!` types read the project's schema files, both when it runs and in the editor's checks. The Module library can also hold JSON Schema and XSD files, and exports a module's docs as Markdown.
+- **Two more formats.** Payloads and output can now be `text/event-stream` (server-sent events) and `application/dwb` (DataWeave binary).
+- **Fixes.** Migrate DW 1.0 script now uses MuleSoft's own converter, so more 1.0 scripts come out right.
+
 ## 3.6.1 (2026-11-13)
 
 **Work on your Mule project, in place.**
