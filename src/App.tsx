@@ -1581,6 +1581,35 @@ function App() {
     workspace.setScript(result.generatedScript);
   }, [workspace]);
 
+  // Ctrl/Cmd + = - 0 zoom the whole window, like a browser or VS Code, and the
+  // level is remembered. VS Code's webview gets VS Code's own zoom instead.
+  useEffect(() => {
+    if (!isTauri) return;
+    const STEPS = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
+    let level = Number(localStorage.getItem('dw.zoom')) || 1;
+    const apply = async () => {
+      const { getCurrentWebview } = await import('@tauri-apps/api/webview');
+      await getCurrentWebview().setZoom(level);
+      try { localStorage.setItem('dw.zoom', String(level)); } catch { /* ignore */ }
+      // Monaco keeps character widths measured at the old zoom (cursor drift).
+      setTimeout(() => import('monaco-editor/esm/vs/editor/editor.api').then((m) => m.editor.remeasureFonts()), 100);
+    };
+    if (level !== 1) apply();
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const i = STEPS.indexOf(level) >= 0 ? STEPS.indexOf(level) : STEPS.indexOf(1);
+      if (e.key === '=' || e.key === '+') level = STEPS[Math.min(STEPS.length - 1, i + 1)];
+      else if (e.key === '-' || e.key === '_') level = STEPS[Math.max(0, i - 1)];
+      else if (e.key === '0' && !e.shiftKey) level = 1;
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+      apply();
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, []);
+
   // Global Ctrl+S to save, Ctrl+K to open palette
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
