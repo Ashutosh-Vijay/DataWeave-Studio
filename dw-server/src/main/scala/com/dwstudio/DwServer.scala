@@ -1699,7 +1699,7 @@ object DwServer {
   // than failing identically on both versions.
   private val MuleStub =
     """%dw 2.0
-      |fun p(name: String): String | Null = null
+      |fun p(name: String): String = ""
       |fun lookup(flowName: String, payload: Any, timeoutMillis: Number = -1): Any = null
       |fun causedBy(error: Any, errorType: String): Boolean = false
       |fun causedBy(errorType: String): Boolean = false
@@ -1747,6 +1747,8 @@ object DwServer {
     val stubFile = new File(stubDir, "dw/Mule.dwl")
     stubFile.getParentFile.mkdirs()
     Files.write(stubFile.toPath, MuleStub.getBytes(StandardCharsets.UTF_8))
+    // Mule also answers to `import * from Mule`.
+    Files.write(new File(stubDir, "Mule.dwl").toPath, MuleStub.getBytes(StandardCharsets.UTF_8))
 
     // 2. One isolated loader per project (its resources differ), built on the
     //    platform loader so none of this JVM's 2.13 classes leak in.
@@ -1766,7 +1768,7 @@ object DwServer {
           val compile = engineCls.getMethod("compile", classOf[String], classOf[Array[String]])
           for (it <- group) {
             val key = it.getString("key", "")
-            val (script, shift, after) = withMuleImport(checkableScript(it.getString("script", ""), it.getString("path", ""), roots))
+            val (script, shift, after) = withMuleImport(withoutPlaceholders(checkableScript(it.getString("script", ""), it.getString("path", ""), roots)))
             val o = new JsonObject()
             o.add("key", key)
             try {
@@ -1816,6 +1818,9 @@ object DwServer {
    *  in the project would use it. Anything else compiles as it is. */
   private def checkableScript(script: String, path: String, roots: Seq[String]): String = {
     if (script.linesIterator.exists(_.trim == "---") || !path.toLowerCase.endsWith(".dwl")) return script
+    // No declarations: a body-only expression, like the data MUnit records
+    // into .dwl files. It compiles as it is.
+    if ("""(?m)^\s*(fun|var|type|ns|import|annotation)\b""".r.findFirstIn(script).isEmpty) return script
     val abs = new File(path).getAbsolutePath.replace('\\', '/')
     roots.map(_.replace('\\', '/') + "/").find(abs.startsWith) match {
       case Some(root) =>
@@ -1825,12 +1830,41 @@ object DwServer {
     }
   }
 
+  /** Mule replaces ${prop} placeholders with the property's text before
+   *  DataWeave compiles the script. Inside a string the name stands in for the
+   *  value; anywhere else a string literal does. Same line count either way. */
+  private def withoutPlaceholders(script: String): String = {
+    if (!script.contains("${")) return script
+    script.split("\n", -1).map { line =>
+      val sb = new StringBuilder
+      var quote: Char = 0
+      var i = 0
+      while (i < line.length) {
+        val c = line.charAt(i)
+        if (c == '$' && i + 1 < line.length && line.charAt(i + 1) == '{' && line.indexOf('}', i) > 0) {
+          val close = line.indexOf('}', i)
+          val name = line.substring(i + 2, close).replaceAll("[\"'`$\\\\]", "")
+          sb.append(if (quote != 0) name else "\"" + name + "\"")
+          i = close + 1
+        } else {
+          if (c == '\\' && quote != 0 && i + 1 < line.length) { sb.append(c).append(line.charAt(i + 1)); i += 2 }
+          else {
+            if (quote == 0 && (c == '"' || c == '\'' || c == '`')) quote = c
+            else if (quote != 0 && c == quote) quote = 0
+            sb.append(c); i += 1
+          }
+        }
+      }
+      sb.toString
+    }.mkString("\n")
+  }
+
   /** Mule imports dw::Mule implicitly. A script that calls p() or lookup()
    *  without importing it gets the import, on the line after its version
    *  header; reported lines below it shift back by one. */
   private def withMuleImport(script: String): (String, Int, Int) = {
     val usesMule = """(?<![\w:.])(p|lookup|causedBy)\s*\(""".r.findFirstIn(script).isDefined
-    if (!usesMule || script.contains("dw::Mule")) return (script, 0, 0)
+    if (!usesMule || script.contains("dw::Mule") || """\bfrom\s+Mule\b""".r.findFirstIn(script).isDefined) return (script, 0, 0)
     val lines = script.split("\n", -1).toBuffer
     val at = lines.indexWhere(_.trim.startsWith("%dw")) + 1   // 0 when there is no header
     lines.insert(at, "import * from dw::Mule")

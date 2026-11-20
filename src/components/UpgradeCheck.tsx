@@ -38,7 +38,7 @@ const fetchText = (url: string): Promise<string> => {
 const pomCache = new Map<string, Promise<string>>();
 
 type Status = 'breaks' | 'fixed' | 'both' | 'ok';
-interface Item { key: string; script: string; path: string; project: string; file: string; index?: number; flow?: string; target?: string }
+interface Item { key: string; script: string; path: string; project: string; file: string; test: boolean; index?: number; flow?: string; target?: string }
 interface Outcome { ok: boolean; error?: string; line?: number }
 interface Row extends Item { status: Status; from?: Outcome; to?: Outcome }
 
@@ -56,6 +56,9 @@ function hintFor(error: string, script: string): string | null {
   }
   if (/Unable to resolve module with identifier dw::util::jwt/.test(error)) {
     return 'The JWT modules are in DataWeave 2.13, and in patch releases 2.6.31, 2.9.19 and 2.12.4. Pick a later patch of the target line.';
+  }
+  if (/Unable to resolve module with identifier dw::test::/.test(error)) {
+    return 'dw::test modules come with MUnit, not with DataWeave, so this check cannot load them.';
   }
   const fn = error.match(/`([A-Za-z]+)` requires runtime version `([\d.]+)`/);
   if (fn) return `${fn[1]} needs DataWeave ${fn[2]} or later.`;
@@ -81,6 +84,8 @@ export function UpgradeCheck({
   const [versionError, setVersionError] = useState('');
   const [from, setFrom] = useState<string>(saved.from || '');
   const [to, setTo] = useState<string>(saved.to || '');
+  // MUnit suites and their recorded .dwl data are not what an upgrade breaks first.
+  const [includeTests, setIncludeTests] = useState<boolean>(!!saved.includeTests);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState('');
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -112,8 +117,8 @@ export function UpgradeCheck({
   }, [open, versions.length]);
 
   useEffect(() => {
-    try { localStorage.setItem(PREFS_KEY, JSON.stringify({ folder, from, to })); } catch { /* ignore */ }
-  }, [folder, from, to]);
+    try { localStorage.setItem(PREFS_KEY, JSON.stringify({ folder, from, to, includeTests })); } catch { /* ignore */ }
+  }, [folder, from, to, includeTests]);
 
   if (!open) return null;
 
@@ -163,12 +168,14 @@ export function UpgradeCheck({
       const projectRoot = at >= 0 ? norm.slice(0, at) : norm.slice(0, norm.lastIndexOf('/'));
       const project = projectRoot.split('/').pop() || projectRoot;
       const file = at >= 0 ? norm.slice(at + 1) : norm.split('/').pop()!;
+      const test = file.startsWith('src/test/');
+      if (test && !includeTests) continue;
       const text = await invoke<string>('read_text_file', { path });
       if (/\.dwl$/i.test(path)) {
-        items.push({ key: path, script: text, path, project, file });
+        items.push({ key: path, script: text, path, project, file, test });
       } else {
         for (const s of findInlineScripts(text)) {
-          items.push({ key: `${path}#${s.index}`, script: s.text, path, project, file, index: s.index, flow: s.flow, target: s.target });
+          items.push({ key: `${path}#${s.index}`, script: s.text, path, project, file, test, index: s.index, flow: s.flow, target: s.target });
         }
       }
     }
@@ -185,7 +192,7 @@ export function UpgradeCheck({
     try {
       setProgress('Finding scripts…');
       const items = await scan();
-      if (!items.length) { setProgress(''); setProblems(['No .dwl files or inline transforms found in this folder.']); return; }
+      if (!items.length) { setProgress(''); setProblems([`No .dwl files or inline transforms found in this folder${includeTests ? '' : ' outside src/test'}.`]); return; }
       const projects = [...new Set(items.map((i) => i.project))];
       const outcomes: Record<string, Map<string, Outcome>> = { from: new Map(), to: new Map() };
       for (const [side, v] of [['from', from], ['to', to]] as const) {
@@ -235,7 +242,7 @@ export function UpgradeCheck({
       md.push(`## ${STATUS_LABEL[s]} (${list.length})`, '');
       for (const r of list) {
         const err = s === 'fixed' ? r.from : r.to;
-        md.push(`- **${r.project}** \`${where(r)}\`${err?.line ? ` line ${err.line}` : ''}: ${err?.error ?? ''}`);
+        md.push(`- **${r.project}**${r.test ? ' (test)' : ''} \`${where(r)}\`${err?.line ? ` line ${err.line}` : ''}: ${err?.error ?? ''}`);
         const h = err?.error ? hintFor(err.error, r.script) : null;
         if (h) md.push(`  - ${h}`);
       }
@@ -283,6 +290,10 @@ export function UpgradeCheck({
             </div>
           </label>
         ))}
+        <label className="h-8 flex items-center gap-1.5 text-[12px] text-content-secondary cursor-pointer select-none" title="MUnit suites and the .dwl data they record, under src/test">
+          <input type="checkbox" checked={includeTests} disabled={running} onChange={(e) => setIncludeTests(e.target.checked)} className="accent-[var(--accent)]" />
+          Include tests
+        </label>
         {running ? (
           <button onClick={() => { stopRef.current = true; }} className="h-8 px-4 rounded-md text-[12px] font-medium border border-line hover:bg-surface-2 cursor-pointer">Stop</button>
         ) : (
@@ -330,6 +341,7 @@ export function UpgradeCheck({
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ color: STATUS_COLOR[r.status], background: `color-mix(in oklch, ${STATUS_COLOR[r.status]} 12%, transparent)` }}>{STATUS_LABEL[r.status]}</span>
                       <span className="text-[11.5px] text-content-faint">{r.project}</span>
+                      {r.test && <span className="text-[10px] px-1.5 py-0.5 rounded border border-line text-content-faint">Test</span>}
                       <span className="text-[12px] font-mono text-content truncate">{where(r)}</span>
                       {err?.line ? <span className="text-[11px] text-content-faint">line {err.line}</span> : null}
                     </div>

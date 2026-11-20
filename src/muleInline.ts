@@ -22,9 +22,13 @@ export interface InlineScript {
 export function findInlineScripts(xml: string): InlineScript[] {
   const out: InlineScript[] = [];
   const re = /<ee:(set-payload|set-variable|set-attributes)\b([^>]*)>\s*<!\[CDATA\[([\s\S]*?)\]\]>/g;
-  for (const m of xml.matchAll(re)) {
+  // Studio disables a component by commenting it out (with its CDATA escaped
+  // to &#93;&#93;>). Match on a copy with comments blanked, same offsets.
+  // A CDATA section is skipped whole, so a script that writes "<!--" survives.
+  const live = xml.replace(/<!\[CDATA\[[\s\S]*?\]\]>|<!--[\s\S]*?-->/g, (c) => (c.startsWith('<!--') ? ' '.repeat(c.length) : c));
+  for (const m of live.matchAll(re)) {
     const end = m.index + m[0].length - 3;
-    const before = xml.slice(0, m.index);
+    const before = live.slice(0, m.index);
     const flows = [...before.matchAll(/<(?:sub-)?flow\b[^>]*?\bname="([^"]*)"/g)];
     const transforms = [...before.matchAll(/<ee:transform\b[^>]*?\bdoc:name="([^"]*)"/g)];
     out.push({
@@ -34,7 +38,7 @@ export function findInlineScripts(xml: string): InlineScript[] {
       target: m[1] === 'set-payload' ? 'payload'
         : m[1] === 'set-attributes' ? 'attributes'
         : `vars.${m[2].match(/\bvariableName="([^"]*)"/)?.[1] ?? '?'}`,
-      text: m[3],
+      text: xml.slice(end - m[3].length, end),
       start: end - m[3].length,
       end,
     });

@@ -64,3 +64,18 @@ describe('replaceInlineScript', () => {
     expect(() => replaceInlineScript(XML, 9, 'x')).toThrow(/no longer/);
   });
 });
+
+describe('commented-out components', () => {
+  // Studio disables a component by commenting it out, escaping its CDATA end.
+  const xml = `<flow name="f">
+<!-- [STUDIO:"Transform"]<ee:transform doc:name="Old"><ee:message><ee:set-payload><![CDATA[%dw 2.0
+&#45;&#45;-
+payload&#93;&#93;></ee:set-payload></ee:message></ee:transform> [STUDIO] -->
+<ee:transform doc:name="New"><ee:message><ee:set-payload><![CDATA["<!-- kept -->"]]></ee:set-payload></ee:message></ee:transform>
+</flow>`;
+  it('skips them, and keeps a live script that writes "<!--"', () => {
+    const found = findInlineScripts(xml);
+    expect(found.map((s) => [s.transform, s.text])).toEqual([['New', '"<!-- kept -->"']]);
+    expect(xml.slice(found[0].start, found[0].end)).toBe('"<!-- kept -->"');
+  });
+});
