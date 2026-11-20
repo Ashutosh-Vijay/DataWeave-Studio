@@ -28,7 +28,7 @@
       {
         "title": "Install on a Mac with Homebrew",
         "only": "desktop",
-        "desc": "brew trust ashutosh-vijay/tap, then brew install --cask ashutosh-vijay/tap/dataweave-studio. brew upgrade updates it, and the app opens without the \"damaged\" warning."
+        "desc": "brew trust ashutosh-vijay/tap, then brew install --cask ashutosh-vijay/tap/dataweave-studio. It updates itself like any other install, and it opens without the \"damaged\" warning."
       },
       {
         "title": "Fixes",
