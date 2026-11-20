@@ -79,7 +79,7 @@ jobs:
       # rejected — the regex ate the whole multi-line <Identity> element, and
       # [xml].Save() reflowed every attribute onto one line and added a BOM.
       - name: Check the manifest version matches the tag
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.tag != ''
         shell: pwsh
         run: |
           $tag = "${{ github.event.inputs.tag || github.ref_name }}"
@@ -157,7 +157,7 @@ jobs:
         run: |
           # A manual run is for proving the package builds. Submitting one
           # would push an untagged build to real users, so require a tag.
-          if [ "${{ startsWith(github.ref, 'refs/tags/') }}" != "true" ]; then
+          if [ "${{ startsWith(github.ref, 'refs/tags/') || github.event.inputs.tag != '' }}" != "true" ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
             echo "::notice::Not a tag - MSIX built and attached as an artifact, submission skipped."
           elif [ -n "${{ secrets.AZURE_AD_TENANT_ID }}" ] && [ -n "${{ secrets.SELLER_ID }}" ] \
@@ -204,7 +204,7 @@ jobs:
         run: |
           msstore submission get $env:STORE_PRODUCT_ID | Out-File -Encoding utf8 submission.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node scripts/store-listing.mjs submission.json submission-updated.json "${{ github.ref_name }}"
+          node scripts/store-listing.mjs submission.json submission-updated.json "${{ github.event.inputs.tag || github.ref_name }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $json = Get-Content -Raw submission-updated.json
           # Windows caps a command line at 32767 characters.
