@@ -4,6 +4,8 @@ All notable changes to DataWeave Studio for VS Code.
 
 ## [Unreleased]
 
+- **Fixes.** The MCP server you added to Claude Code, Cursor or Claude Desktop kept working only until the extension updated. The extension now repoints it after each update.
+
 ## 3.7.0 (2026-11-21)
 
 **Check a Mule upgrade before you make it.**

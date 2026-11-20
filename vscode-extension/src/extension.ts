@@ -239,6 +239,27 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('dataweaveStudio.connectMcp', () => connectMcpToClient(context.extensionPath)),
   );
+
+  // The entry written above points into this version's install folder, which
+  // VS Code deletes on the next update, so the client's server silently stops
+  // connecting. Repoint any entry of ours whose mcp.js is gone. Only broken
+  // ones: a working entry may belong to another VS Code (Insiders, say).
+  const configs = [
+    ...(vscode.workspace.workspaceFolders ?? []).map((f) => clientConfigPath('claude-code', f.uri.fsPath)),
+    clientConfigPath('cursor'),
+    clientConfigPath('claude-desktop'),
+  ];
+  for (const cfgPath of configs) {
+    try {
+      if (!cfgPath || !fs.existsSync(cfgPath)) continue;
+      const obj = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      const entry = obj?.mcpServers?.['dataweave-studio'];
+      const script = entry?.args?.[0];
+      if (entry?.env?.ELECTRON_RUN_AS_NODE !== '1' || typeof script !== 'string' || !/mcp\.js$/.test(script) || fs.existsSync(script)) continue;
+      obj.mcpServers['dataweave-studio'] = mcpStdioEntry(context.extensionPath);
+      fs.writeFileSync(cfgPath, JSON.stringify(obj, null, 2) + '\n');
+    } catch { /* a file we can't read or parse is left alone */ }
+  }
 }
 
 /** The stdio server entry every external MCP client understands. Runs our bundled
