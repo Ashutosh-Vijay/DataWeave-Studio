@@ -18,6 +18,11 @@ import { isTauri } from "./bridge";
 import { applySavedAccent } from "./seasons";
 import { applyAppFonts } from "./hooks/useEditorFont";
 import "./index.css";
+import { IS_MAC } from "./shortcuts";
+
+// The Mac build keeps the native title bar, tucked under our header
+// (tauri.macos.conf.json), so the real traffic lights sit top-left.
+if (isTauri && IS_MAC) document.documentElement.classList.add("mac-titlebar");
 
 // `&inline` matters, and only in VS Code. A plain `?worker` emits a separate
 // file and constructs `new Worker(url)`; in the extension the webview is served

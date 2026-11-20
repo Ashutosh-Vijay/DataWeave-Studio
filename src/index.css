@@ -439,3 +439,6 @@ html[data-vscode-theme-kind^="vscode-high-contrast"] { color-scheme: dark; }
 .dw-paused-line {
   background: color-mix(in oklch, var(--accent) 16%, transparent);
 }
+
+/* Mac: clear the native traffic lights at the left of every top bar. */
+.mac-titlebar [data-tauri-drag-region] { padding-left: 84px !important; }

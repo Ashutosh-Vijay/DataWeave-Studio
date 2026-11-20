@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { isTauri } from '../bridge';
+import { IS_MAC } from '../shortcuts';
 
 export function WindowControls() {
   // A VS Code webview or plain browser is a tab, not an OS window — no
   // min/max/close chrome. Must bail before TauriWindowControls renders:
   // getCurrentWindow() throws outside Tauri and crashes the whole app.
-  if (!isTauri) return null;
+  // A Mac has its own traffic lights (tauri.macos.conf.json).
+  if (!isTauri || IS_MAC) return null;
   return <TauriWindowControls />;
 }
 

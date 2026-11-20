@@ -1596,6 +1596,16 @@ function App() {
     };
     if (level !== 1) apply();
     const handler = (e: KeyboardEvent) => {
+      // F11 full screen, as in a browser. A Mac gets Ctrl+Cmd+F and the green
+      // button from its native title bar.
+      if (e.key === 'F11' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        import('@tauri-apps/api/window').then(async ({ getCurrentWindow }) => {
+          const w = getCurrentWindow();
+          await w.setFullscreen(!(await w.isFullscreen()));
+        });
+        return;
+      }
       if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
       const i = STEPS.indexOf(level) >= 0 ? STEPS.indexOf(level) : STEPS.indexOf(1);
       if (e.key === '=' || e.key === '+') level = STEPS[Math.min(STEPS.length - 1, i + 1)];
