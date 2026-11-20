@@ -108,11 +108,24 @@ jobs:
           $rel   = 'src-tauri/target/release'
           $stage = 'dist-msix'
           if (-not (Test-Path "$rel/app.exe"))   { throw "Build did not produce app.exe in $rel" }
-          if (-not (Test-Path "$rel/resources")) { throw "No resources next to the binary — the engine/JRE would be missing from the package" }
           if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
           New-Item -ItemType Directory -Path $stage | Out-Null
           Copy-Item "$rel/app.exe"            $stage
-          Copy-Item "$rel/resources"          $stage -Recurse
+          # The build copies bundle.resources next to the exe, except on 3.7.0,
+          # where it didn't. The same folders straight from src-tauri/resources
+          # give the same layout.
+          if (Test-Path "$rel/resources") {
+            Copy-Item "$rel/resources" $stage -Recurse
+          } else {
+            New-Item -ItemType Directory -Path "$stage/resources" | Out-Null
+            foreach ($d in 'dw-server', 'secure-properties', 'mcp', 'jre') {
+              if (Test-Path "src-tauri/resources/$d") { Copy-Item "src-tauri/resources/$d" "$stage/resources" -Recurse }
+            }
+          }
+          foreach ($need in 'resources/dw-server/dwstudio-server.jar', 'resources/jre/bin/java.exe') {
+            if (-not (Test-Path "$stage/$need")) { throw "$need is missing; the app would have no engine" }
+          }
+          Get-ChildItem "$stage/resources" | ForEach-Object { $_.Name }
           Copy-Item 'Assets'                  $stage -Recurse
           Copy-Item 'Package.appxmanifest'    $stage
 
