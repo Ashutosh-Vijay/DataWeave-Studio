@@ -4,6 +4,8 @@ All notable changes to DataWeave Studio for VS Code.
 
 ## [Unreleased]
 
+- **Upgrade check for your AI assistant.** The MCP server has a new tool, `upgrade_check`: ask Claude, Cursor or Copilot whether a Mule project breaks on a newer Mule version, and it runs the same check as Tools → Upgrade check and reads you the results.
+
 - **Fixes.** The MCP server you added to Claude Code, Cursor or Claude Desktop kept working only until the extension updated. The extension now repoints it after each update.
 
 ## 3.7.0 (2026-11-21)

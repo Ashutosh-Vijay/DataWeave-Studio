@@ -301,6 +301,7 @@ The `%dw 2.4` header doesn't do this. The runtime only checks it against its own
 ### Local MCP server
 - Serves the **Model Context Protocol** over HTTP on `127.0.0.1`, so Claude, Cursor or any MCP client can run DataWeave
 - Tools for validating and running DataWeave, so an assistant **checks** its transform before handing it to you
+- An **upgrade check** an assistant can run on your Mule projects: which scripts break on the version you're moving to
 - Starts only when you start it, from the MCP panel in the left rail
 - Safe mode rejects `java!` imports, and custom modules sent by a client are scanned before use
 - **Plain HTTP on the same port** (`POST /run`) when you want the engine without an MCP client:

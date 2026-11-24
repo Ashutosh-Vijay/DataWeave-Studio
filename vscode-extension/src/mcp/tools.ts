@@ -5,7 +5,7 @@
  *
  *   validate_and_run_dataweave · secure_properties · migrate_dw_1_to_2 ·
  *   format_dataweave · dw_function_reference · dw_cookbook ·
- *   run_dataweave_tests · lint_dataweave · dw_scope_at
+ *   run_dataweave_tests · lint_dataweave · dw_scope_at · upgrade_check
  *
  * SECURITY — Safe mode is the default and is a real pure-transform sandbox:
  * `import java!…`, `readUrl`, and `dw::io` are rejected before running (in the
@@ -17,7 +17,12 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import yaml from 'js-yaml';
-import { DwServer, runDataweave, formatDataweave, toolingQuery } from '../dwHost';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { DwServer, runDataweave, formatDataweave, toolingQuery, engineCheck, listDwlFiles } from '../dwHost';
+import { mavenFetchText } from '../jarStore';
+import { mcpUpgradeCheck } from '../../../src/upgradeCheck';
 import { securePropertiesInvoke } from './secureProps';
 import { loadMcpJson } from './mcpResources';
 import { migrateDW1to2 } from './dwMigrate';
@@ -754,6 +759,43 @@ export function registerTools(
       }
       out.push('', 'Standard-library functions are not listed here; see dw_function_reference.');
       return ok(out.join('\n'));
+    },
+  );
+  // 10) upgrade_check ---------------------------------------------------------
+  register(
+    'upgrade_check',
+    {
+      title: 'Mule upgrade check',
+      description:
+        'Before a Mule upgrade, compile every DataWeave script in a project folder on BOTH DataWeave versions and ' +
+        'report what breaks. Covers every .dwl file and every inline Transform in the flow XML; the modules and schemas in ' +
+        'each project resolve, and ${property} placeholders are filled the way Mule fills them. Versions can ' +
+        'be Mule versions ("4.4" to "4.9") or DataWeave versions ("2.4.0"); a Mule version means its latest ' +
+        'DataWeave patch. Returns a Markdown report: scripts that compile today but break on the target first, with ' +
+        "the engine's error, the line and a fix hint where one is known; then scripts that fail on both and ones the " +
+        'upgrade fixes. Compile only, nothing is run. The first use of a version downloads that engine from ' +
+        "MuleSoft's repository (about 30 MB), so it can take a few minutes; later checks are quick. Reads the " +
+        "folder's files, so pass a path the user asked about.",
+      inputSchema: {
+        folder: z.string().describe('A Mule project folder, or a folder holding several projects.'),
+        from: z.string().describe('The version running today: a Mule version ("4.4") or a DataWeave version ("2.4.0").'),
+        to: z.string().describe('The version being moved to, in the same form ("4.9" or "2.9.19").'),
+        includeTests: z.boolean().optional().describe('Also check MUnit suites and recorded data under src/test. Default false.'),
+      },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+    },
+    async (a: { folder: string; from: string; to: string; includeTests?: boolean }) => {
+      if (!fs.existsSync(a.folder) || !fs.statSync(a.folder).isDirectory()) return err(`Not a folder: ${a.folder}`);
+      // Same engine cache as the extension's own Upgrade check screen.
+      const hb = process.env.DWSTUDIO_HEARTBEAT;
+      const cacheDir = path.join(hb ? path.dirname(hb) : path.join(os.tmpdir(), 'dwstudio'), 'engines');
+      const res = await mcpUpgradeCheck(a.folder, a.from, a.to, !!a.includeTests, {
+        fetchText: mavenFetchText,
+        listFiles: async (dir) => listDwlFiles(dir),
+        readFile: async (p) => fs.readFileSync(p, 'utf8'),
+        engineCheck: (request) => engineCheck(dw, request, cacheDir) as any,
+      });
+      return res.ok ? ok(res.text) : err(res.text);
     },
   );
 }

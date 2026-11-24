@@ -1620,6 +1620,27 @@ function App() {
     return () => window.removeEventListener('keydown', handler, true);
   }, []);
 
+  // The MCP upgrade_check tool (mcp_server.rs) asks this window to run the
+  // check, since the check's Maven resolver and XML scanner live here.
+  useEffect(() => {
+    if (!isTauri) return;
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    import('@tauri-apps/api/event').then(({ listen }) =>
+      listen<{ id: number; folder: string; from: string; to: string; includeTests: boolean }>('mcp-upgrade-check', async ({ payload: p }) => {
+        let reply = { ok: false, text: '' };
+        try {
+          const [{ appUpgradeIO }, { mcpUpgradeCheck }] = await Promise.all([import('./components/UpgradeCheck'), import('./upgradeCheck')]);
+          reply = await mcpUpgradeCheck(p.folder, p.from, p.to, p.includeTests, appUpgradeIO);
+        } catch (e) {
+          reply.text = e instanceof Error ? e.message : String(e);
+        }
+        invoke('mcp_upgrade_reply', { id: p.id, ok: reply.ok, text: reply.text }).catch(() => {});
+      }),
+    ).then((u) => { if (cancelled) u(); else unlisten = u; });
+    return () => { cancelled = true; unlisten?.(); };
+  }, []);
+
   // Global Ctrl+S to save, Ctrl+K to open palette
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

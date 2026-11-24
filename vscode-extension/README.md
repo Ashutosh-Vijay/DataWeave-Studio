@@ -73,7 +73,7 @@ New to DataWeave? Nine short lessons start from what a payload is and what mappi
 
 Ask Copilot or Claude for a DataWeave script today and you get something plausible. It has no way to check.
 
-This extension ships an **MCP server** that lets the assistant run DataWeave itself. It can run a script against your payload and read the real error, type-check without running, run a `dw::test` suite and see which assertions passed, ask what every expression evaluated to when the output looks wrong, and look up any of the 361 functions and 172 recipes offline. So the scripts you get have been run before you see them.
+This extension ships an **MCP server** that lets the assistant run DataWeave itself. It can run a script against your payload and read the real error, type-check without running, run a `dw::test` suite and see which assertions passed, ask what every expression evaluated to when the output looks wrong, look up any of the 361 functions and 172 recipes offline, and check a Mule project for scripts that break on a newer Mule version. So the scripts you get have been run before you see them.
 
 It also answers plain HTTP: `POST /run` takes `{ script, payload, vars, attributes }`, and a `rows` array runs one script over every row. That turns "test this transform against a month of production data" into a short Python loop instead of deploying an API to do it.
 

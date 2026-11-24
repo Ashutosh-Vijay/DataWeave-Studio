@@ -204,6 +204,31 @@ struct CookbookInput {
     category: Option<String>,
 }
 
+/// Input for the `upgrade_check` tool.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct UpgradeInput {
+    /// A Mule project folder, or a folder holding several projects.
+    folder: String,
+    /// The version running today: a Mule version ("4.4") or a DataWeave version ("2.4.0").
+    from: String,
+    /// The version being moved to, in the same form ("4.9" or "2.9.19").
+    to: String,
+    /// Also check MUnit suites and recorded data under src/test. Default false.
+    #[serde(default)]
+    include_tests: Option<bool>,
+}
+
+/// Upgrade checks waiting for the app window's answer (see mcp_upgrade_reply).
+static UPGRADE_REPLIES: std::sync::OnceLock<Mutex<std::collections::HashMap<u64, tokio::sync::oneshot::Sender<(bool, String)>>>> = std::sync::OnceLock::new();
+
+/// The app window's answer to an `upgrade_check` call.
+#[tauri::command]
+pub fn mcp_upgrade_reply(id: u64, ok: bool, text: String) {
+    if let Some(tx) = UPGRADE_REPLIES.get().and_then(|m| m.lock().unwrap().remove(&id)) {
+        let _ = tx.send((ok, text));
+    }
+}
+
 /// Input for the `secure_properties` tool (MuleSoft encrypt/decrypt).
 #[derive(Deserialize, schemars::JsonSchema)]
 struct SecurePropsInput {
@@ -1164,6 +1189,41 @@ impl DwTools {
     }
 
     #[tool(
+        description = "Before a Mule upgrade, compile every DataWeave script in a project folder on BOTH DataWeave versions and report what breaks. Covers every .dwl file and every inline Transform in the flow XML; each project's own modules and schemas resolve, and ${property} placeholders are filled the way Mule fills them. Versions can be Mule versions (\"4.4\" to \"4.9\") or DataWeave versions (\"2.4.0\"); a Mule version means its latest DataWeave patch. Returns a Markdown report: scripts that compile today but break on the target first, with the engine's error, the line and a fix hint where one is known; then scripts that fail on both and ones the upgrade fixes. Compile only, nothing is run. The first use of a version downloads that engine from MuleSoft's repository (about 30 MB), so it can take a few minutes; later checks are quick. Reads the folder's files, so pass a path the user asked about."
+    )]
+    async fn upgrade_check(
+        &self,
+        Parameters(input): Parameters<UpgradeInput>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        use tauri::Emitter;
+        self.requests.fetch_add(1, Ordering::Relaxed);
+        if !std::path::Path::new(&input.folder).is_dir() {
+            return Ok(CallToolResult::error(vec![Content::text(format!("Not a folder: {}", input.folder))]));
+        }
+        // The check lives in the app window (src/upgradeCheck.ts); ask it and wait.
+        static NEXT: AtomicU64 = AtomicU64::new(1);
+        let id = NEXT.fetch_add(1, Ordering::Relaxed);
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        UPGRADE_REPLIES.get_or_init(Default::default).lock().unwrap().insert(id, tx);
+        let sent = self.app.emit(
+            "mcp-upgrade-check",
+            serde_json::json!({ "id": id, "folder": input.folder, "from": input.from, "to": input.to, "includeTests": input.include_tests.unwrap_or(false) }),
+        );
+        if let Err(e) = sent {
+            UPGRADE_REPLIES.get().unwrap().lock().unwrap().remove(&id);
+            return Ok(CallToolResult::error(vec![Content::text(format!("Couldn't reach the app window: {}", e))]));
+        }
+        match tokio::time::timeout(std::time::Duration::from_secs(1800), rx).await {
+            Ok(Ok((true, text))) => Ok(CallToolResult::success(vec![Content::text(text)])),
+            Ok(Ok((false, text))) => Ok(CallToolResult::error(vec![Content::text(text)])),
+            _ => {
+                UPGRADE_REPLIES.get().unwrap().lock().unwrap().remove(&id);
+                Ok(CallToolResult::error(vec![Content::text("The upgrade check didn't finish within 30 minutes.".to_string())]))
+            }
+        }
+    }
+
+    #[tool(
         description = "OFFLINE DataWeave 2.13 standard-library reference: every function the bundled engine has, with exact signatures, descriptions, and runnable examples. Pass `name` for one function's full doc, `search` for a keyword match list, or no args to list every function name. Use THIS instead of recalling/ web-searching DW syntax; it's the authoritative signature source."
     )]
     async fn dw_function_reference(
@@ -1324,7 +1384,9 @@ impl ServerHandler for DwTools {
                  output is evidence; a passing suite is proof.\n\
                  7. NO PAYLOAD TO RUN AGAINST? — use `lint_dataweave`. It type-checks and lints without \
                  executing, so you can still catch undefined references, wrong arity, bad hashes and syntax \
-                 errors in a script you cannot run.\n\n\
+                 errors in a script you cannot run.\n\
+                 8. PLANNING A MULE UPGRADE? — `upgrade_check` takes a project folder and two versions \
+                 (\"4.4\" to \"4.9\") and lists every script that compiles today but breaks on the target.\n\n\
                  ## Writing the `script`\n\
                  - A bare body works: `payload map (x) -> x * 2` runs as `%dw 2.0` with `output application/json`.\n\
                  - For any non-JSON output you MUST write the header yourself: `%dw 2.0` / `output application/xml` / `---` / body.\n\

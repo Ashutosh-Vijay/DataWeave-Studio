@@ -15,55 +15,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icons } from './Icons';
 import { WindowControls } from './WindowControls';
 import { invoke } from '../bridge';
-import { resolveDependencies, type Coord } from '../maven';
-import { findInlineScripts } from '../muleInline';
+import { checkUpgrade, dwVersions, hintFor, upgradeReport, whereOf, STATUS_LABEL, type Row, type Status, type UpgradeIO } from '../upgradeCheck';
 
-const CENTRAL = 'https://repo1.maven.org/maven2';
-const MULE_REPO = 'https://repository.mulesoft.org/nexus/content/repositories/releases';
 const PREFS_KEY = 'dw.upgradeCheck';
-
-/** The resolver asks Maven Central; DataWeave's own artifacts live in
- *  MuleSoft's repository, so try that first for every request. */
-const fetchText = (url: string): Promise<string> => {
-  // A released POM never changes, so a second check doesn't ask again.
-  let p = pomCache.get(url);
-  if (!p) {
-    p = invoke<string>('maven_fetch_text', { url: url.replace(CENTRAL, MULE_REPO) })
-      .catch(() => invoke<string>('maven_fetch_text', { url }));
-    p.catch(() => pomCache.delete(url));
-    if (!url.endsWith('maven-metadata.xml')) pomCache.set(url, p);
-  }
-  return p;
-};
-const pomCache = new Map<string, Promise<string>>();
-
-type Status = 'breaks' | 'fixed' | 'both' | 'ok';
-interface Item { key: string; script: string; path: string; project: string; file: string; test: boolean; index?: number; flow?: string; target?: string }
-interface Outcome { ok: boolean; error?: string; line?: number }
-interface Row extends Item { status: Status; from?: Outcome; to?: Outcome }
-
-const STATUS_LABEL: Record<Status, string> = { breaks: 'Breaks', fixed: 'Fixed by upgrade', both: 'Fails on both', ok: 'OK' };
 const STATUS_COLOR: Record<Status, string> = { breaks: 'var(--err)', fixed: 'var(--accent)', both: 'var(--warn)', ok: 'var(--content-faint)' };
 
-/** Mule 4.x ships DataWeave 2.x. */
-const muleOf = (dw: string) => `Mule 4.${dw.split('.')[1]}`;
-
-/** What to do about the errors we understand. */
-function hintFor(error: string, script: string): string | null {
-  const ref = error.match(/Unable to resolve reference of: `([^`]+)`/)?.[1];
-  if (ref && new RegExp(`import[^\\n]*\\b${ref}\\b[^\\n]*from`).test(script)) {
-    return `Up to DataWeave 2.11 an import was accepted if the module merely saw the name (often through dw::Core). From 2.12 the module must declare it. Import ${ref} from the module that declares it, or drop the import if it comes from dw::Core.`;
-  }
-  if (/Unable to resolve module with identifier dw::util::jwt/.test(error)) {
-    return 'The JWT modules are in DataWeave 2.13, and in patch releases 2.6.31, 2.9.19 and 2.12.4. Pick a later patch of the target line.';
-  }
-  if (/Unable to resolve module with identifier dw::test::/.test(error)) {
-    return 'dw::test modules come with MUnit, not with DataWeave, so this check cannot load them.';
-  }
-  const fn = error.match(/`([A-Za-z]+)` requires runtime version `([\d.]+)`/);
-  if (fn) return `${fn[1]} needs DataWeave ${fn[2]} or later.`;
-  return null;
-}
+/** How the app reaches files, Maven and the engine. The MCP tool uses it too (mcpBridge.ts). */
+export const appUpgradeIO: UpgradeIO = {
+  fetchText: (url) => invoke<string>('maven_fetch_text', { url }),
+  listFiles: (dir) => invoke<string[]>('list_dwl_files', { dir }),
+  readFile: (path) => invoke<string>('read_text_file', { path }),
+  engineCheck: (request) => invoke('dw_engine_check', { request }),
+};
 
 export function UpgradeCheck({
   open,
@@ -102,13 +65,8 @@ export function UpgradeCheck({
   // Every released DataWeave version (plain x.y.z, no release candidates or dated builds).
   useEffect(() => {
     if (!open || versions.length) return;
-    fetchText(`${CENTRAL}/org/mule/weave/runtime/maven-metadata.xml`)
-      .then((xml) => {
-        const all = [...xml.matchAll(/<version>(\d+\.\d+\.\d+)<\/version>/g)].map((m) => m[1]);
-        const sorted = [...new Set(all)].filter((v) => v.startsWith('2.')).sort((a, b) => {
-          const [, am, ap] = a.split('.').map(Number); const [, bm, bp] = b.split('.').map(Number);
-          return bm - am || bp - ap;
-        });
+    dwVersions(appUpgradeIO)
+      .then((sorted) => {
         setVersions(sorted);
         setFrom((f) => f || sorted.find((v) => v.startsWith('2.4.')) || sorted[sorted.length - 1] || '');
         setTo((t) => t || sorted[0] || '');
@@ -132,125 +90,30 @@ export function UpgradeCheck({
     if (typeof picked === 'string') setFolder(picked);
   };
 
-  // The engine plus the modules Mule ships that change what compiles: Java
-  // interop, YAML and the JSON / XML schema loaders. Some are missing for old
-  // versions; that is reported, not fatal.
-  const engineJars = async (v: string, notes: string[]): Promise<Coord[]> => {
-    const core = await resolveDependencies(fetchText, [
-      { g: 'org.mule.weave', a: 'runtime', v }, { g: 'org.mule.weave', a: 'core-modules', v },
-    ]);
-    if (!core.jars.length) throw new Error(`DataWeave ${v} could not be resolved: ${core.problems.join('; ')}`);
-    const byKey = new Map(core.jars.map((j) => [`${j.g}:${j.a}`, { g: j.g, a: j.a, v: j.v }]));
-    const extras = ['java-module', 'yaml-module', 'jsonschema-module', 'xmlschema-module'];
-    const resolved = await Promise.all(extras.map((a) => resolveDependencies(fetchText, [{ g: 'org.mule.weave', a, v }]).catch(() => null)));
-    extras.forEach((a, i) => {
-      const extra = resolved[i];
-      // A version that doesn't exist still comes back as itself, with a
-      // "couldn't read its POM" problem.
-      if (!extra || !extra.jars.length || extra.problems.some((p) => p.startsWith(`org.mule.weave:${a}:${v}:`))) {
-        notes.push(`${a} isn't published for DataWeave ${v}, so scripts that need it fail on that version.`);
-        return;
-      }
-      for (const j of extra.jars) if (!byKey.has(`${j.g}:${j.a}`)) byKey.set(`${j.g}:${j.a}`, { g: j.g, a: j.a, v: j.v });
-    });
-    return [...byKey.values()];
-  };
-
-  const scan = async (): Promise<Item[]> => {
-    // list_dwl_files returns paths relative to the folder.
-    const base = folder.replace(/\\/g, '/').replace(/\/+$/, '');
-    const files = await invoke<string[]>('list_dwl_files', { dir: folder });
-    const items: Item[] = [];
-    for (const rel of files) {
-      const path = `${base}/${rel}`;
-      const norm = path;
-      const at = norm.indexOf('/src/');
-      const projectRoot = at >= 0 ? norm.slice(0, at) : norm.slice(0, norm.lastIndexOf('/'));
-      const project = projectRoot.split('/').pop() || projectRoot;
-      const file = at >= 0 ? norm.slice(at + 1) : norm.split('/').pop()!;
-      const test = file.startsWith('src/test/');
-      if (test && !includeTests) continue;
-      const text = await invoke<string>('read_text_file', { path });
-      if (/\.dwl$/i.test(path)) {
-        items.push({ key: path, script: text, path, project, file, test });
-      } else {
-        for (const s of findInlineScripts(text)) {
-          items.push({ key: `${path}#${s.index}`, script: s.text, path, project, file, test, index: s.index, flow: s.flow, target: s.target });
-        }
-      }
-    }
-    return items;
-  };
-
   const run = async () => {
     if (!folder || !from || !to || running) return;
     setRunning(true);
     setRows(null);
     setProblems([]);
     stopRef.current = false;
-    const notes: string[] = [];
-    try {
-      setProgress('Finding scripts…');
-      const items = await scan();
-      if (!items.length) { setProgress(''); setProblems([`No .dwl files or inline transforms found in this folder${includeTests ? '' : ' outside src/test'}.`]); return; }
-      const projects = [...new Set(items.map((i) => i.project))];
-      const outcomes: Record<string, Map<string, Outcome>> = { from: new Map(), to: new Map() };
-      for (const [side, v] of [['from', from], ['to', to]] as const) {
-        setProgress(`Getting DataWeave ${v} (${muleOf(v)})… the first time downloads it.`);
-        const jars = await engineJars(v, notes);
-        for (let p = 0; p < projects.length; p++) {
-          if (stopRef.current) throw new Error('Stopped.');
-          const group = items.filter((i) => i.project === projects[p]);
-          setProgress(`Compiling on DataWeave ${v}: ${projects[p]} (${p + 1} of ${projects.length}, ${group.length} scripts)${p === 0 ? '. The first time, this downloads the engine (about 30 MB).' : ''}`);
-          const res = await invoke<{ results: (Outcome & { key: string })[]; problems: string[] }>('dw_engine_check', {
-            request: { jars, items: group.map(({ key, script, path }) => ({ key, script, path })) },
-          });
-          for (const r of res.results) outcomes[side].set(r.key, r);
-          notes.push(...res.problems);
-        }
-      }
-      const out: Row[] = items.map((it) => {
-        const a = outcomes.from.get(it.key), b = outcomes.to.get(it.key);
-        const status: Status = a?.ok && b?.ok ? 'ok' : a?.ok && !b?.ok ? 'breaks' : !a?.ok && b?.ok ? 'fixed' : 'both';
-        return { ...it, status, from: a, to: b };
-      });
-      const order: Status[] = ['breaks', 'both', 'fixed', 'ok'];
-      out.sort((x, y) => order.indexOf(x.status) - order.indexOf(y.status) || x.project.localeCompare(y.project) || x.file.localeCompare(y.file));
-      setRows(out);
-      setFilter(out.some((r) => r.status === 'breaks') ? 'breaks' : 'all');
-      setProgress('');
-    } catch (e) {
-      setProgress('');
-      notes.unshift(String(e instanceof Error ? e.message : e));
-    } finally {
-      setProblems([...new Set(notes)]);
-      setRunning(false);
+    const res = await checkUpgrade(folder, from, to, includeTests, appUpgradeIO, setProgress, () => stopRef.current);
+    setProgress('');
+    if (res.rows) {
+      setRows(res.rows);
+      setFilter(res.rows.some((r) => r.status === 'breaks') ? 'breaks' : 'all');
     }
+    setProblems(res.notes);
+    setRunning(false);
   };
 
   const counts = (rows ?? []).reduce((acc, r) => { acc[r.status] = (acc[r.status] ?? 0) + 1; return acc; }, {} as Record<Status, number>);
   const shown = (rows ?? []).filter((r) => filter === 'all' || r.status === filter);
-  const where = (r: Row) => (r.index !== undefined ? `${r.file} · ${r.flow} / ${r.target}` : r.file);
 
   const saveReport = async () => {
     if (!rows) return;
-    const md: string[] = [`# Upgrade check: ${muleOf(from)} (DataWeave ${from}) to ${muleOf(to)} (DataWeave ${to})`, '', `Folder: ${folder}`, '',
-      `Breaks: ${counts.breaks ?? 0} · Fails on both: ${counts.both ?? 0} · Fixed by upgrade: ${counts.fixed ?? 0} · OK: ${counts.ok ?? 0}`, ''];
-    for (const s of ['breaks', 'both', 'fixed'] as Status[]) {
-      const list = rows.filter((r) => r.status === s);
-      if (!list.length) continue;
-      md.push(`## ${STATUS_LABEL[s]} (${list.length})`, '');
-      for (const r of list) {
-        const err = s === 'fixed' ? r.from : r.to;
-        md.push(`- **${r.project}**${r.test ? ' (test)' : ''} \`${where(r)}\`${err?.line ? ` line ${err.line}` : ''}: ${err?.error ?? ''}`);
-        const h = err?.error ? hintFor(err.error, r.script) : null;
-        if (h) md.push(`  - ${h}`);
-      }
-      md.push('');
-    }
     const { save } = await import('@tauri-apps/plugin-dialog');
     const path = await save({ defaultPath: `upgrade-check-${from}-to-${to}.md`, filters: [{ name: 'Markdown', extensions: ['md'] }] });
-    if (path) await invoke('save_output_file', { path, content: md.join('\n') });
+    if (path) await invoke('save_output_file', { path, content: upgradeReport(rows, folder, from, to) });
   };
 
   const select = 'h-8 px-2 text-[12px] bg-surface-2 border border-line rounded outline-none text-content focus:border-accent';
@@ -342,7 +205,7 @@ export function UpgradeCheck({
                       <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ color: STATUS_COLOR[r.status], background: `color-mix(in oklch, ${STATUS_COLOR[r.status]} 12%, transparent)` }}>{STATUS_LABEL[r.status]}</span>
                       <span className="text-[11.5px] text-content-faint">{r.project}</span>
                       {r.test && <span className="text-[10px] px-1.5 py-0.5 rounded border border-line text-content-faint">Test</span>}
-                      <span className="text-[12px] font-mono text-content truncate">{where(r)}</span>
+                      <span className="text-[12px] font-mono text-content truncate">{whereOf(r)}</span>
                       {err?.line ? <span className="text-[11px] text-content-faint">line {err.line}</span> : null}
                     </div>
                     {r.status !== 'ok' && err?.error && <div className="text-[11.5px] text-content-secondary mt-1 font-mono">{r.status === 'fixed' ? `On ${from}: ` : ''}{err.error}</div>}

@@ -1118,3 +1118,27 @@ export async function warmDataweave(server: DwServer, args: WarmArgs): Promise<v
     .catch(() => undefined); // best-effort
 }
 
+
+/** Port of list_dwl_files in dw_runner.rs: .dwl files, plus flow XML under
+ *  src/main/mule, as paths relative to `root`. Used by the extension host and
+ *  the MCP server's upgrade_check. */
+export function listDwlFiles(root: string): string[] {
+  fs.readdirSync(root);
+  const out: string[] = [];
+  const stack = [root];
+  while (stack.length) {
+    const d = stack.pop()!;
+    let entries: fs.Dirent[];
+    try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch { continue; }
+    for (const e of entries) {
+      const lower = e.name.toLowerCase();
+      const full = path.join(d, e.name).replace(/\\/g, '/');
+      if (e.isDirectory()) {
+        if (!e.name.startsWith('.') && e.name !== 'target' && e.name !== 'node_modules') stack.push(path.join(d, e.name));
+      } else if ((lower.endsWith('.dwl') || (lower.endsWith('.xml') && full.includes('/src/main/mule/'))) && out.length < 5000) {
+        out.push(path.relative(root, path.join(d, e.name)).replace(/\\/g, '/'));
+      }
+    }
+  }
+  return out.sort();
+}

@@ -5,7 +5,7 @@
  * engine to AI agents (VS Code Copilot agent mode, Cursor, Claude Desktop).
  * Reuses the SAME execution layer as the extension/desktop — dwHost spawns the
  * same dwstudio-server.jar and speaks the same NDJSON — so a script behaves
- * identically here. At parity with the desktop's rmcp server: six tools, the
+ * identically here. At parity with the desktop's rmcp server: the same tools, the
  * Safe-mode RCE gate, and ![…] decryption (see tools.ts).
  *
  * Runs as a separate process from the extension host, so it owns its OWN JVM and
@@ -78,7 +78,8 @@ const INSTRUCTIONS = [
   '## Other tools\n',
   '- `dw_function_reference` (361 stdlib functions) and `dw_cookbook` (172 tested recipes). Consult these instead of ',
   'recalling syntax. `format_dataweave` pretty-prints. `migrate_dw_1_to_2` ports DW 1.0 → 2.0 (then validate it). ',
-  '`secure_properties` encrypts/decrypts MuleSoft `![…]` values.\n\n',
+  '`secure_properties` encrypts/decrypts MuleSoft `![…]` values. `upgrade_check` takes a Mule project folder and two ',
+  'versions ("4.4" to "4.9") and lists every script that compiles today but breaks on the target.\n\n',
   '## Optional run inputs (pass only when used)\n',
   '- `attributes`/`vars` (JSON objects), `named_inputs` (JSON array), `config`/`secure_config` (YAML for ${key} / ',
   '${secure::key}; encrypted `![…]` decrypt if a key is available), `modules` (custom `.dwl` for `import x from M`), ',
