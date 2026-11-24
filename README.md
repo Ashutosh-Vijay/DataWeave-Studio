@@ -1,5 +1,12 @@
 # DataWeave Studio
 
+**TL;DR**
+- **What:** a free, open-source (MIT) IDE for MuleSoft DataWeave 2.0. Write a transform, give it a payload, and see the output in milliseconds, without Anypoint Studio.
+- **Where:** a desktop app for Windows, macOS and Linux, and a VS Code extension. Both run DataWeave 2.13.1 on your machine, with Java built in, offline, and with no account.
+- **Why use it:** it works like the online DataWeave Playground, plus `vars` and `attributes`, large payloads, secure properties, a step debugger and `dw::test` suites.
+- **Also:** an upgrade check that lists which scripts break on a newer Mule version, beginner lessons and 739 practice problems, and an MCP server so Claude, Cursor or Copilot can run and check DataWeave.
+- **Install:** [Microsoft Store](https://apps.microsoft.com/detail/9NWD4L4J7D92), [Homebrew](#installation) on a Mac, the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=ashutosh-vijay.dataweave-studio), or the [releases page](https://github.com/Ashutosh-Vijay/DataWeave-Studio/releases).
+
 A local IDE for DataWeave 2.0. Run, test and debug transforms without Anypoint Studio, as a **desktop app** or a **VS Code extension**.
 
 > **Most people don't open Anypoint Studio to check a four-line transform. They open the online playground, because it's one tab and it works, until they need `vars` or `attributes`, a bigger payload, or a secure property. The usual next steps are a 2 GB IDE, a commercially licensed Docker image, a CLI, or MuleSoft's VS Code extension with its Java and Maven setup. DataWeave Studio is the playground without those limits, with the engine and Java runtime built in.**

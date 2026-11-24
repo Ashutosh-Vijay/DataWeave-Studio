@@ -1,5 +1,12 @@
 # DataWeave Studio for VS Code
 
+**TL;DR**
+- **What:** a free, open-source (MIT) VS Code extension for MuleSoft DataWeave 2.0. Write a script, give it a payload, press Run, and see the output in milliseconds.
+- **No setup:** DataWeave 2.13.1 and Java are built in. No Anypoint Studio, no Maven project, no Docker, no account, and it works offline.
+- **Why use it:** it works like the online DataWeave Playground, plus `vars` and `attributes`, large payloads from a file, secure properties, a step debugger and `dw::test` suites.
+- **Also:** an upgrade check that lists which scripts break on a newer Mule version, beginner lessons and 739 practice problems, and an MCP server so Copilot, Claude or Cursor can run and check DataWeave.
+- **Prefer a desktop app?** The same tool is on the [Microsoft Store](https://apps.microsoft.com/detail/9NWD4L4J7D92), Homebrew and [GitHub](https://github.com/Ashutosh-Vijay/DataWeave-Studio).
+
 DataWeave 2.13, inside VS Code. Write a script, drop in a payload, press Run, and get the result in about 20 milliseconds. No Anypoint Studio, no Maven project, no Docker, no account. Java ships inside the extension.
 
 ![Script editor with autocomplete and live output](https://raw.githubusercontent.com/Ashutosh-Vijay/DataWeave-Studio/main/docs/screenshots/auto_suggestion_on_typing_monaco_dark_mode.png)
