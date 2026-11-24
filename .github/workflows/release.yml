@@ -238,6 +238,30 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref }}
+
+      # The body above is the same download guide every time. Put this
+      # version's notes from src/releases.json (the in-app What's new) on top.
+      # Skipped when the body already starts with them, so a rerun doesn't
+      # add them twice.
+      - name: Put what's new on top of the release notes
+        run: |
+          gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" --json body --jq .body > body.md
+          node -e '
+            const fs = require("fs");
+            const v = process.argv[1].replace(/^v/, "");
+            const r = JSON.parse(fs.readFileSync("src/releases.json", "utf8")).find((x) => x.version === v);
+            const body = fs.readFileSync("body.md", "utf8");
+            if (!r || body.startsWith("## ")) { fs.writeFileSync("notes.md", body); process.exit(0); }
+            const items = r.highlights.filter((h) => h.only !== "vscode").map((h) => `### ${h.title}\n${h.desc}`);
+            fs.writeFileSync("notes.md", [`## ${r.headline}`, ...items, "---", body].join("\n\n"));
+          ' "${{ github.ref_name }}"
+          gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --notes-file notes.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Publish release
         run: gh release edit "${{ github.ref_name }}" --draft=false --repo "${{ github.repository }}"
         env:
