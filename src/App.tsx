@@ -2728,7 +2728,7 @@ function App() {
 
       {/* What's new — once per release, for returning users after an update. */}
       {showWhatsNew && !showFirstRun && (
-        <WhatsNew version={appVersion} onClose={() => setShowWhatsNew(false)} />
+        <WhatsNew version={appVersion} onClose={() => setShowWhatsNew(false)} onFeedback={() => { setShowWhatsNew(false); setFeedbackOpen(true); }} />
       )}
 
       {/* cURL import — full-screen modal, opened directly (⌘⇧I, rail icon,

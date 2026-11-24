@@ -36,7 +36,7 @@ const svg = (paths: React.ReactNode, size = 16) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">{paths}</svg>
 );
 
-export function WhatsNew({ version, onClose }: { version: string; onClose: () => void }) {
+export function WhatsNew({ version, onClose, onFeedback }: { version: string; onClose: () => void; onFeedback: () => void }) {
   // Exact match for the running build, else the newest release (the toast opens
   // it without a version, and VS Code can't read the Tauri app version).
   const release = getRelease(version) ?? RELEASES[0] ?? null;
@@ -130,6 +130,17 @@ export function WhatsNew({ version, onClose }: { version: string; onClose: () =>
               </button>
             </div>
           )}
+        </div>
+
+        {/* Most planned features are built, so ask for the next ones. Rate is
+            the tab that needs no account (see RatingForm). */}
+        <div className="flex items-center" style={{ padding: '12px 22px', borderTop: '1px solid var(--line-subtle)', background: 'var(--surface-2)', gap: 14 }}>
+          <div style={{ fontSize: 12, color: 'var(--content-muted)', lineHeight: 1.55 }}>
+            <b style={{ color: 'var(--content)' }}>What should come next?</b> Most of what we planned is built now. Tell us what to add or fix. It takes a minute and needs no account, name or email.
+          </div>
+          <button onClick={onFeedback} className="cursor-pointer hover:bg-surface shrink-0" style={{ height: 32, padding: '0 14px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--content)', fontSize: 12.5, fontWeight: 600 }}>
+            Share an idea
+          </button>
         </div>
 
         {/* footer */}
