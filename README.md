@@ -4,7 +4,8 @@
 - **What:** a free, open-source (MIT) IDE for MuleSoft DataWeave 2.0. Write a transform, give it a payload, and see the output in milliseconds, without Anypoint Studio.
 - **Where:** a desktop app for Windows, macOS and Linux, and a VS Code extension. Both run DataWeave 2.13.1 on your machine, with Java built in, offline, and with no account.
 - **Why use it:** it works like the online DataWeave Playground, plus `vars` and `attributes`, large payloads, secure properties, a step debugger and `dw::test` suites.
-- **Also:** an upgrade check that lists which scripts break on a newer Mule version, beginner lessons and 739 practice problems, and an MCP server so Claude, Cursor or Copilot can run and check DataWeave.
+- **For AI assistants:** a built-in MCP server lets Claude, Cursor, Copilot or any MCP client write DataWeave and check it before you see it. Its 10 tools run a script against a payload, type-check it, run `dw::test` suites, show what every expression evaluated to, look up all 361 functions offline and check a Mule upgrade. It runs locally on `127.0.0.1`, starts only when you start it, and is free.
+- **Also:** an upgrade check that lists which scripts break on a newer Mule version, and beginner lessons with 739 practice problems.
 - **Install:** [Microsoft Store](https://apps.microsoft.com/detail/9NWD4L4J7D92), [Homebrew](#installation) on a Mac, the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=ashutosh-vijay.dataweave-studio), or the [releases page](https://github.com/Ashutosh-Vijay/DataWeave-Studio/releases).
 
 A local IDE for DataWeave 2.0. Run, test and debug transforms without Anypoint Studio, as a **desktop app** or a **VS Code extension**.
