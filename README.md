@@ -4,7 +4,7 @@
 - **What:** a free, open-source (MIT) IDE for MuleSoft DataWeave 2.0. Write a transform, give it a payload, and see the output in milliseconds, without Anypoint Studio.
 - **Where:** a desktop app for Windows, macOS and Linux, and a VS Code extension. Both run DataWeave 2.13.1 on your machine, with Java built in, offline, and with no account.
 - **Why use it:** it works like the online DataWeave Playground, plus `vars` and `attributes`, large payloads, secure properties, a step debugger and `dw::test` suites.
-- **For AI assistants:** a built-in MCP server lets Claude, Cursor, Copilot or any MCP client write DataWeave and check it before you see it. Its 10 tools run a script against a payload, type-check it, run `dw::test` suites, show what every expression evaluated to, look up all 361 functions offline and check a Mule upgrade. It runs locally on `127.0.0.1`, starts only when you start it, and is free.
+- **For AI assistants:** a built-in MCP server lets Claude, Cursor, Copilot, Codex or any MCP client write DataWeave and check it before you see it. Its 10 tools run a script against a payload, type-check it, run `dw::test` suites, show what every expression evaluated to, look up all 361 functions offline and check a Mule upgrade. It runs locally on `127.0.0.1`, starts only when you start it, and is free.
 - **Also:** an upgrade check that lists which scripts break on a newer Mule version, and beginner lessons with 739 practice problems.
 - **Install:** [Microsoft Store](https://apps.microsoft.com/detail/9NWD4L4J7D92), [Homebrew](#installation) on a Mac, the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=ashutosh-vijay.dataweave-studio), or the [releases page](https://github.com/Ashutosh-Vijay/DataWeave-Studio/releases).
 
@@ -311,6 +311,7 @@ The `%dw 2.4` header doesn't do this. The runtime only checks it against its own
 - Tools for validating and running DataWeave, so an assistant **checks** its transform before handing it to you
 - An **upgrade check** an assistant can run on your Mule projects: which scripts break on the version you're moving to
 - Starts only when you start it, from the MCP panel in the left rail
+- The panel has a ready-to-copy setup for Claude Desktop, Cursor, VS Code and Codex. For Codex it's one command: `codex mcp add dataweave-studio --url http://127.0.0.1:4675/mcp`
 - Safe mode rejects `java!` imports, and custom modules sent by a client are scanned before use
 - **Plain HTTP on the same port** (`POST /run`) when you want the engine without an MCP client:
   ```bash

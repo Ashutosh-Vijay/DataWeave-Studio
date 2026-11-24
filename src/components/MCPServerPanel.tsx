@@ -42,7 +42,7 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
   const [advanced, setAdvancedState] = useState(() => { try { return localStorage.getItem('dw.mcp.advanced') === 'true'; } catch { return false; } });
   const [port, setPort] = useState(() => { try { return localStorage.getItem(PORT_KEY) || '4675'; } catch { return '4675'; } });
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<'claude' | 'cursor' | 'vscode'>('claude');
+  const [tab, setTab] = useState<'claude' | 'cursor' | 'vscode' | 'codex'>('claude');
   // Two different ways to reach the same engine, and nothing in the UI said
   // the HTTP one existed. MCP is for AI clients; /run is for scripts.
   const [mode, setMode] = useState<'mcp' | 'http'>('mcp');
@@ -182,11 +182,15 @@ export function MCPServerPanel({ open, onClose, onRunningChange }: {
     setTimeout(() => setCopied(''), 1300);
   };
 
-  const configFile = { claude: 'claude_desktop_config.json', cursor: '~/.cursor/mcp.json', vscode: '.vscode/mcp.json' }[tab];
-  const snippet = tab === 'vscode'
+  const configFile = { claude: 'claude_desktop_config.json', cursor: '~/.cursor/mcp.json', vscode: '.vscode/mcp.json', codex: 'Terminal' }[tab];
+  const snippet = tab === 'codex'
+    ? `codex mcp add dataweave-studio --url ${endpoint}`
+    : tab === 'vscode'
     ? `{\n  "servers": {\n    "dataweave-studio": {\n      "type": "http",\n      "url": "${endpoint}"\n    }\n  }\n}`
     : `{\n  "mcpServers": {\n    "dataweave-studio": {\n      "url": "${endpoint}"\n    }\n  }\n}`;
-  const configHint = tab === 'vscode'
+  const configHint = tab === 'codex'
+    ? 'Run this once in a terminal. The Codex CLI, its IDE extension and the Codex app share the same config, so all three get the tools.'
+    : tab === 'vscode'
     ? 'Drop this in .vscode/mcp.json, then enable the server in Copilot Agent Mode’s tool picker.'
     : tab === 'cursor'
       ? 'Add to ~/.cursor/mcp.json, then toggle it on in Cursor › Settings › MCP.'
@@ -576,8 +580,8 @@ output application/json
               {cardHead('Connect your AI client', 'Add this once. Your client then lists the tools to the model.')}
               <div style={{ padding: '12px 14px' }}>
                 <div className="flex" style={{ gap: 3, padding: 3, borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
-                  {(['claude', 'cursor', 'vscode'] as const).map((id) => (
-                    <button key={id} onClick={() => setTab(id)} className="flex-1 cursor-pointer" style={{ height: 30, borderRadius: 7, border: 'none', fontSize: 11.5, fontWeight: 600, background: tab === id ? 'var(--surface-3)' : 'transparent', color: tab === id ? 'var(--content)' : 'var(--content-muted)' }}>{id === 'claude' ? 'Claude Desktop' : id === 'cursor' ? 'Cursor' : 'VS Code'}</button>
+                  {(['claude', 'cursor', 'vscode', 'codex'] as const).map((id) => (
+                    <button key={id} onClick={() => setTab(id)} className="flex-1 cursor-pointer" style={{ height: 30, borderRadius: 7, border: 'none', fontSize: 11.5, fontWeight: 600, background: tab === id ? 'var(--surface-3)' : 'transparent', color: tab === id ? 'var(--content)' : 'var(--content-muted)' }}>{id === 'claude' ? 'Claude Desktop' : id === 'cursor' ? 'Cursor' : id === 'codex' ? 'Codex' : 'VS Code'}</button>
                   ))}
                 </div>
                 <div style={{ marginTop: 11, background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 9, overflow: 'hidden' }}>
