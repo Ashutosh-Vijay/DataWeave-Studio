@@ -1,5 +1,21 @@
 [
   {
+    "version": "3.7.1",
+    "date": "November 2026",
+    "headline": "Your AI assistant can check a Mule upgrade",
+    "highlights": [
+      {
+        "title": "Upgrade check for AI assistants",
+        "desc": "The MCP server has a new tool, upgrade_check. Ask Claude, Cursor or Copilot whether a Mule project breaks on a newer Mule version (\"from 4.4 to 4.9\"), and it runs the same check as Tools → Upgrade check and reads you the results: what breaks, the line, and a hint where one helps."
+      },
+      {
+        "title": "Fixes",
+        "only": "vscode",
+        "desc": "The MCP server you added to Claude Code, Cursor or Claude Desktop kept working only until the extension updated. The extension now repoints it after each update."
+      }
+    ]
+  },
+  {
     "version": "3.7.0",
     "date": "November 2026",
     "headline": "Check a Mule upgrade before you make it",
