@@ -23,6 +23,7 @@ import * as path from 'path';
 import { DwServer, runDataweave, formatDataweave, toolingQuery, engineCheck, listDwlFiles } from '../dwHost';
 import { mavenFetchText } from '../jarStore';
 import { mcpUpgradeCheck } from '../../../src/upgradeCheck';
+import { convertAllPropertyCalls } from '../../../src/dataweavePropertyConverter';
 import { securePropertiesInvoke } from './secureProps';
 import { loadMcpJson } from './mcpResources';
 import { migrateDW1to2 } from './dwMigrate';
@@ -246,7 +247,9 @@ export function registerTools(
         }
       }
 
-      const script = substituteProps(a.script, cfgMap, secMap);
+      // p("key") / Mule::p("key") become ${key}, as the app does before a run, so a
+      // script copied from a Mule project runs unchanged.
+      const script = substituteProps(convertAllPropertyCalls(a.script).text, cfgMap, secMap);
       const payload = substituteProps(a.payload ?? '{}', cfgMap, secMap);
 
       // Safe-mode gate (checked on the SUBSTITUTED script so an injected config

@@ -4,6 +4,8 @@ All notable changes to DataWeave Studio for VS Code.
 
 ## [Unreleased]
 
+- **Fixes.** A script your AI assistant runs through the MCP server can now use Mule's `p("key")` and `Mule::p("key")`, read from the `config` it passes, as the editor already did. Before, such a script failed with an unknown-function error.
+
 ## 3.7.1 (2026-11-24)
 
 **Your AI assistant can check a Mule upgrade.**

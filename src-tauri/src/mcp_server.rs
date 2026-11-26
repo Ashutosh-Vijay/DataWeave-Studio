@@ -370,6 +370,36 @@ fn safe_mode_block_reason(script: &str) -> Option<&'static str> {
 /// Replace ${key} / ${secure::key} placeholders using the given YAML configs.
 /// The original one-pass version, replaced by flatten_yaml_to_map + apply_map;
 /// kept only so the tests can check the new path gives the same answer.
+/// Mule's `p("key")` / `Mule::p("key")` become `"${key}"` placeholders, which the
+/// config substitution then fills, so a script copied from a Mule project runs
+/// unchanged. The same rewrite the app does before a run
+/// (src/dataweavePropertyConverter.ts): quoted because `p()` returns a String,
+/// unless the call already sits inside quotes, and `import p from Mule` dropped.
+fn convert_p_calls(script: &str) -> String {
+    static CALL: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    static IMPORT: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let call = CALL.get_or_init(|| regex::Regex::new(r#"(?:[Mm]ule::)?p\(\s*["']([^"']+)["']\s*\)"#).unwrap());
+    let mut out = String::with_capacity(script.len());
+    let mut last = 0;
+    for m in call.captures_iter(script) {
+        let whole = m.get(0).unwrap();
+        let before = script[..whole.start()].chars().last();
+        // Not part of a longer name such as `xp("a")`.
+        if before.map_or(false, |c| c.is_alphanumeric() || c == '_') {
+            continue;
+        }
+        let after = script[whole.end()..].chars().next();
+        let quoted = matches!((before, after), (Some('"'), Some('"')) | (Some('\''), Some('\'')));
+        let placeholder = format!("${{{}}}", &m[1]);
+        out.push_str(&script[last..whole.start()]);
+        out.push_str(&if quoted { placeholder } else { format!("\"{}\"", placeholder) });
+        last = whole.end();
+    }
+    out.push_str(&script[last..]);
+    let import = IMPORT.get_or_init(|| regex::Regex::new(r"(?mi)^[ \t]*import[ \t]+p[ \t]+from[ \t]+(?:dw::)?Mule[ \t]*\r?\n?").unwrap());
+    import.replace_all(&out, "").into_owned()
+}
+
 #[cfg(test)]
 fn substitute_props(mut text: String, config_yaml: Option<&str>, secure_yaml: Option<&str>) -> String {
     for (yaml_opt, secure) in [(config_yaml, false), (secure_yaml, true)] {
@@ -576,7 +606,7 @@ impl DwTools {
             }
         }
 
-        let script = apply_map(apply_map(input.script, &cfg_map, false), &sec_map, true);
+        let script = apply_map(apply_map(convert_p_calls(&input.script), &cfg_map, false), &sec_map, true);
         let payload = apply_map(apply_map(input.payload, &cfg_map, false), &sec_map, true);
 
         // Safe-mode gate (Phase 0): refuse Java interop AND file/network I/O unless
@@ -1664,7 +1694,18 @@ pub fn mcp_status(state: tauri::State<'_, McpState>) -> McpStatus {
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_map, flatten_yaml_to_map, is_encrypted_value, safe_mode_block_reason, substitute_props};
+    use super::{apply_map, convert_p_calls, flatten_yaml_to_map, is_encrypted_value, safe_mode_block_reason, substitute_props};
+
+    #[test]
+    fn p_calls_become_placeholders() {
+        let src = "%dw 2.0\nimport p from Mule\n---\n{ host: p('http.host'), key: Mule::p(\"secure::api.key\"), own: xp('a') }";
+        assert_eq!(
+            convert_p_calls(src),
+            "%dw 2.0\n---\n{ host: \"${http.host}\", key: \"${secure::api.key}\", own: xp('a') }"
+        );
+        // Already inside quotes: the quotes are reused, not doubled.
+        assert_eq!(convert_p_calls("\"p('k')\""), "\"${k}\"");
+    }
 
     #[test]
     fn safe_mode_blocks_io_and_java_but_allows_pure_transforms() {
