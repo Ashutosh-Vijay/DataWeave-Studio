@@ -308,9 +308,21 @@ The `%dw 2.4` header doesn't do this. The runtime only checks it against its own
 
 ### Local MCP server
 - Serves the **Model Context Protocol** over HTTP on `127.0.0.1`, so Claude, Cursor or any MCP client can run DataWeave
-- Tools for validating and running DataWeave, so an assistant **checks** its transform before handing it to you
-- An **upgrade check** an assistant can run on your Mule projects: which scripts break on the version you're moving to
-- Starts only when you start it, from the MCP panel in the left rail
+- Ten tools, so an assistant **checks** its transform before handing it to you:
+
+  | Tool | Give it | Gets back |
+  |---|---|---|
+  | `validate_and_run_dataweave` | A script and a payload, plus optional `vars`, `attributes`, named inputs, config and secure config (`![…]` values are decrypted with your key), custom modules and multipart parts | The output, or the engine's error with its line. Optionally what every expression evaluated to |
+  | `run_dataweave_tests` | A `dw::test` suite | Which assertions passed and failed, with the engine's messages |
+  | `lint_dataweave` | A script, no payload needed | Type errors, undefined names, wrong argument counts, insecure hashes and leftover `log()` calls, with line and column |
+  | `dw_scope_at` | A script and a line | Every variable in scope there, with its inferred type |
+  | `format_dataweave` | A script | The script, formatted |
+  | `migrate_dw_1_to_2` | A DataWeave 1.0 script | The 2.0 version, with the spots to check by hand |
+  | `secure_properties` | One value or a whole config file's values, a key and a cipher | The `![…]` encrypted values, or the plain text |
+  | `dw_function_reference` | A function name or a search word | Signatures, docs and examples for all 361 functions, offline |
+  | `dw_cookbook` | A search or a recipe id | Tested recipes for common transforms |
+  | `upgrade_check` | A Mule project folder and two versions ("4.4" to "4.9") | Which scripts break on the target version, with the line and a hint |
+- Runs on your machine only (`127.0.0.1`) and starts only when you start it, from the Local Server panel. If your assistant can't connect, start the server first
 - The panel has a ready-to-copy setup for Claude Desktop, Cursor, VS Code and Codex. For Codex it's one command: `codex mcp add dataweave-studio --url http://127.0.0.1:4675/mcp`
 - Safe mode rejects `java!` imports, and custom modules sent by a client are scanned before use
 - **Plain HTTP on the same port** (`POST /run`) when you want the engine without an MCP client:
@@ -541,6 +553,7 @@ licenses/                   # Third-party licences
 
 **Things that work that you might not expect:**
 
+- `p("key")` and `Mule::p("key")` with a literal key read from the Config panel, the same as `${key}`, so scripts from a Mule project run unchanged.
 - `import java!java::lang::Math`, `import java!java::util::UUID` and any other standard JDK class, because the runtime is a real JVM.
 - Secure config (`![encrypted]`) without the Mule runtime.
 - Adding JARs to the classpath takes effect immediately, without a restart.
@@ -549,7 +562,6 @@ licenses/                   # Third-party licences
 
 | Feature | What to do instead |
 |---|---|
-| `p("key")` / `Mule::p("key")` | Use the **Config YAML** panel; `${key}` is substituted before each run |
 | `Mule::lookup("flowName", payload)` | No equivalent; move the logic into a named input or a separate script |
 | Connector types (Salesforce `SObject`, DB `ResultSet`) | Use a JSON mock of the data as the payload |
 
@@ -559,7 +571,7 @@ licenses/                   # Third-party licences
 
 ## Third-party licences
 
-This application embeds the DataWeave engine published by MuleSoft/Salesforce to `repository.mulesoft.org` (`parser`, `runtime`, `core-modules`, `java-module`, `yaml-module`, `tooling-api` and related modules, pinned at `2.12.2-20260715`). Those artifacts declare the **Apache License 2.0**. The licence text is in [licenses/DATAWEAVE-ENGINE-LICENSE.txt](licenses/DATAWEAVE-ENGINE-LICENSE.txt) and the attribution notices in [licenses/DATAWEAVE-ENGINE-NOTICE.txt](licenses/DATAWEAVE-ENGINE-NOTICE.txt).
+This application embeds the DataWeave engine published by MuleSoft/Salesforce to `repository.mulesoft.org` (`parser`, `runtime`, `core-modules`, `java-module`, `yaml-module`, `tooling-api` and related modules, pinned at `2.13.1`). Those artifacts declare the **Apache License 2.0**. The licence text is in [licenses/DATAWEAVE-ENGINE-LICENSE.txt](licenses/DATAWEAVE-ENGINE-LICENSE.txt) and the attribution notices in [licenses/DATAWEAVE-ENGINE-NOTICE.txt](licenses/DATAWEAVE-ENGINE-NOTICE.txt).
 
 `excel-module`, which handles `application/xlsx` payloads, declares MuleSoft's Main Services Agreement rather than an open-source licence.
 
